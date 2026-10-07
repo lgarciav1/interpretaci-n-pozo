@@ -1,0 +1,38 @@
+# Dependencias
+node_modules/
+.pnpm-store/
+
+# Builds y caché
+dist/
+build/
+.next/
+.vite/
+.cache/
+coverage/
+*.tsbuildinfo
+
+# Python (por si hay scripts auxiliares)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Variables de entorno y secretos
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# Sistema operativo y editores
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Archivos temporales de Office/OneDrive
+~$*
