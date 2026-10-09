@@ -13,7 +13,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { CurveLegend, formatNumber, getResolvedTheme, IconButton, useResolvedTheme } from '../ui';
 import { THEMES } from '../ui/tokens';
 import { layoutTracks, trackAt } from './layout';
-import type { OverlayHit, ViewerData, ViewerOverlay } from './overlay';
+import { PointerGestures, type HitResult } from './interaction';
+import { guard, type OverlayHit, type OverlayPointer, type ViewerData, type ViewerOverlay } from './overlay';
 import { formatDepth, formatReadout, nearestIndex, valueAt } from './readout';
 import { overlayTracks, overlayViewport, ViewerRenderer, type FrameInput } from './render';
 import type { ResolvedTrack } from './resolve';
@@ -53,7 +54,6 @@ export interface WellViewerProps {
 const ZOOM_STEP = 1.25;
 const WHEEL_ZOOM = 0.0018;
 const LINE_PX = 16;
-const DRAG_SLOP = 4;
 
 interface Pointer {
   x: number;
@@ -88,9 +88,9 @@ export function WellViewer(props: WellViewerProps) {
   const limRef = useRef<ViewportLimits | null>(null);
   const cursor = useRef<{ depth: number | null; source: 'pointer' | 'keyboard' | null }>({ depth: null, source: null });
   const pointer = useRef<Pointer | null>(null);
-  const drag = useRef<{ id: number; lastY: number; moved: number } | null>(null);
-  /** El último arrastre se movió: el click que sigue no es un clic. */
-  const dragMovedRef = useRef(false);
+  /** Puntero apretado (capturado) por un gesto: paneo o arrastre de una superposición. */
+  const pressed = useRef<number | null>(null);
+  const tickFrame = useRef(0);
   const touches = useRef(new Map<number, Pointer>());
   const pinch = useRef<{ dist: number } | null>(null);
   const dirty = useRef({ base: false, cursor: false, frame: 0 });
@@ -112,8 +112,10 @@ export function WellViewer(props: WellViewerProps) {
       width: layoutRef.current.total,
       overlays: p.overlays,
       data: p.data,
+      invalidate: () => invalidateRef.current('base'),
     };
   }, []);
+  const invalidateRef = useRef<(what: 'base' | 'cursor') => void>(() => {});
 
   const prepare = (canvas: HTMLCanvasElement | null, width: number, height: number) => {
     if (!canvas) return null;
@@ -187,12 +189,15 @@ export function WellViewer(props: WellViewerProps) {
     },
     [paint],
   );
+  invalidateRef.current = invalidate;
 
   useEffect(
     () => () => {
       // Con StrictMode el efecto se desmonta y se vuelve a montar: hay que olvidar el cuadro cancelado.
       cancelAnimationFrame(dirty.current.frame);
+      cancelAnimationFrame(tickFrame.current);
       dirty.current.frame = 0;
+      tickFrame.current = 0;
     },
     [],
   );
@@ -272,8 +277,8 @@ export function WellViewer(props: WellViewerProps) {
 
   // Superposiciones con estado propio.
   useEffect(() => {
-    const offs = props.overlays.map((o) => o.subscribe?.(() => invalidate('base')));
-    return () => offs.forEach((off) => off?.());
+    const offs = props.overlays.map((o) => (o.subscribe ? guard(o.id, 'subscribe', () => o.subscribe!(() => invalidate('base'))) : undefined));
+    return () => offs.forEach((off, i) => off && guard(props.overlays[i]!.id, 'desuscribir', off));
   }, [props.overlays, invalidate]);
 
   // ── acciones ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -310,35 +315,69 @@ export function WellViewer(props: WellViewerProps) {
     return vp && p ? depthOf(vp, p.y) : null;
   };
 
-  const hitAt = useCallback(
-    (p: Pointer): OverlayHit | null => {
+  const overlayPointer = useCallback(
+    (p: Pointer): OverlayPointer | null => {
       const f = frameInput();
       if (!f) return null;
       const tracksO = overlayTracks(f.tracks, f.boxes);
       const ti = trackAt(f.boxes, p.x);
-      const frame = { theme: f.theme, viewport: overlayViewport(f.viewport), tracks: tracksO, data: f.data };
+      return { x: p.x, y: p.y, depth: depthOf(f.viewport, p.y), track: ti >= 0 ? tracksO[ti]! : null };
+    },
+    [frameInput],
+  );
+
+  const hitAt = useCallback(
+    (p: Pointer): HitResult | null => {
+      const f = frameInput();
+      if (!f) return null;
+      const tracksO = overlayTracks(f.tracks, f.boxes);
+      const ti = trackAt(f.boxes, p.x);
+      const frame = { theme: f.theme, viewport: overlayViewport(f.viewport), tracks: tracksO, data: f.data, invalidate: () => invalidate('base') };
       const ptr = { x: p.x, y: p.y, depth: depthOf(f.viewport, p.y), track: ti >= 0 ? tracksO[ti]! : null };
       // Las de arriba primero (las 'over' y de mayor orden tapan a las otras).
       const ordered = [...f.overlays].sort((a, b) => (a.layer === b.layer ? (b.order ?? 0) - (a.order ?? 0) : a.layer === 'over' ? -1 : 1));
       for (const o of ordered) {
         if (!o.hit) continue;
-        try {
-          const h = o.hit(frame, ptr);
-          if (h) return h;
-        } catch (err) {
-          console.error(`Superposición '${o.id}':`, err);
-        }
+        const h = guard(o.id, 'hit', () => o.hit!(frame, ptr));
+        if (h) return { overlayId: o.id, hit: h };
       }
       return null;
     },
-    [frameInput],
+    [frameInput, invalidate],
   );
+
+  const gestures = useRef<PointerGestures>(null as unknown as PointerGestures);
+  gestures.current ??= new PointerGestures({
+    viewport: () => vpRef.current,
+    limits: () => limRef.current,
+    setViewport: (v) => setViewportRef.current(v),
+    pointerAt: (p) => overlayPointerRef.current(p) ?? { x: p.x, y: p.y, depth: NaN, track: null },
+    hitAt: (p) => hitAtRef.current(p),
+    requestTick: () => {
+      if (tickFrame.current) return;
+      tickFrame.current = requestAnimationFrame(() => {
+        tickFrame.current = 0;
+        if (gestures.current.tick() && pointer.current) setCursorRef.current(pointerDepth(), 'pointer');
+      });
+    },
+    setCursor: (css) => {
+      if (bodyRef.current) bodyRef.current.style.cursor = css;
+    },
+  });
+  const setViewportRef = useRef(setViewport);
+  setViewportRef.current = setViewport;
+  const overlayPointerRef = useRef(overlayPointer);
+  overlayPointerRef.current = overlayPointer;
+  const hitAtRef = useRef(hitAt);
+  hitAtRef.current = hitAt;
+  const setCursorRef = useRef(setCursor);
+  setCursorRef.current = setCursor;
 
   const showTip = (p: Pointer | null, hit: OverlayHit | null) => {
     const tip = tipRef.current;
     const body = bodyRef.current;
     if (!tip || !body) return;
-    body.style.cursor = hit?.cursor === 'pointer' ? 'pointer' : drag.current ? 'grabbing' : '';
+    body.style.cursor = hit?.cursor ?? (hit?.drag ? 'grab' : '');
     if (!p || !hit) {
       tip.hidden = true;
       return;
@@ -382,18 +421,19 @@ export function WellViewer(props: WellViewerProps) {
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const p = localPoint(e);
     pointer.current = p;
-    dragMovedRef.current = false;
     if (e.pointerType === 'touch') {
       touches.current.set(e.pointerId, p);
       if (touches.current.size === 2) {
         const [a, b] = [...touches.current.values()];
         pinch.current = { dist: Math.hypot(a!.x - b!.x, a!.y - b!.y) };
-        drag.current = null;
+        if (pressed.current !== null) gestures.current.cancel();
+        pressed.current = null;
       }
     }
     if (e.button !== 0 || pinch.current) return;
     e.currentTarget.setPointerCapture(e.pointerId);
-    drag.current = { id: e.pointerId, lastY: p.y, moved: 0 };
+    pressed.current = e.pointerId;
+    gestures.current.down(e.pointerId, p);
   };
 
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -412,18 +452,11 @@ export function WellViewer(props: WellViewerProps) {
         return;
       }
     }
-    const d = drag.current;
-    if (d && d.id === e.pointerId) {
-      const dy = p.y - d.lastY;
-      d.lastY = p.y;
-      d.moved += Math.abs(dy);
-      if (d.moved > DRAG_SLOP) {
-        bodyRef.current!.style.cursor = 'grabbing';
-        setViewport(scrollBy(vp, -dy, lim));
-        showTip(null, null);
-      }
+    if (pressed.current === e.pointerId) {
+      gestures.current.move(e.pointerId, p);
+      if (gestures.current.dragging) showTip(null, null);
     } else {
-      showTip(p, hitAt(p));
+      showTip(p, hitAt(p)?.hit ?? null);
     }
     setCursor(depthOf(vpRef.current!, p.y), 'pointer');
   };
@@ -431,35 +464,33 @@ export function WellViewer(props: WellViewerProps) {
   const endPointer = (e: React.PointerEvent<HTMLDivElement>) => {
     touches.current.delete(e.pointerId);
     if (touches.current.size < 2) pinch.current = null;
-    if (drag.current?.id === e.pointerId) {
-      // `moved` se consulta en el click que sigue; se limpia después.
-      const moved = drag.current.moved;
-      drag.current = null;
-      if (bodyRef.current) bodyRef.current.style.cursor = '';
-      dragMovedRef.current = moved > DRAG_SLOP;
+    if (pressed.current === e.pointerId) {
+      pressed.current = null;
+      gestures.current.up(e.pointerId, localPoint(e));
     }
   };
   const onPointerLeave = () => {
+    if (pressed.current !== null) return;
     pointer.current = null;
     showTip(null, null);
     if (cursor.current.source === 'pointer') setCursor(null, null);
   };
 
   const onClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (dragMovedRef.current) {
-      dragMovedRef.current = false;
-      return;
-    }
+    if (!gestures.current.takeClick()) return;
     const p = localPoint(e);
-    const hit = hitAt(p);
+    const h = hitAt(p);
+    const hit = h?.hit;
     if (e.detail >= 2) {
       // Doble clic: muestra el elemento (zona, tramo) o acerca ×2 sobre el puntero.
       if (hit?.range) show(hit.range.top, hit.range.base);
       else zoom(2, p.y);
-      hit?.doubleClick?.();
+      if (hit?.doubleClick) guard(h!.overlayId, 'doubleClick', () => hit.doubleClick!());
       return;
     }
-    hit?.activate?.();
+    if (hit?.activate) guard(h!.overlayId, 'activate', () => hit.activate!());
+    gestures.current.clicked(h);
+    if (h && hit?.nudge) announceText(`${hit.label}. Flechas arriba y abajo lo mueven; Escape lo suelta.`);
   };
 
   // ── teclado ─────────────────────────────────────────────────────────────────────────────────────────────────
@@ -477,6 +508,12 @@ export function WellViewer(props: WellViewerProps) {
     }, 450);
   }, []);
   useEffect(() => () => clearTimeout(liveTimer.current), []);
+  const announceText = (text: string) => {
+    clearTimeout(liveTimer.current);
+    liveTimer.current = setTimeout(() => {
+      if (liveRef.current) liveRef.current.textContent = text;
+    }, 200);
+  };
 
   const moveKeyboardCursor = (depth: number) => {
     const vp = vpRef.current;
@@ -494,16 +531,20 @@ export function WellViewer(props: WellViewerProps) {
     if (!vp || !lim) return;
     const p = propsRef.current;
     const step = p.depthStep ?? (lim.max - lim.min) / Math.max(1, p.depth.length - 1);
-    const rowStep = Math.max(step, 2 / vp.pxPerM) * (e.shiftKey ? 10 : 1);
+    // ↑/↓: una muestra; si a este zoom una muestra mide menos de 2 px, las necesarias para moverse 2 px (que el
+    // cursor se vea avanzar). Mayús ×10. El cursor queda SOBRE una muestra: la lectura es exacta.
+    const samples = Math.max(1, Math.ceil(2 / (vp.pxPerM * step) - 1e-9)) * (e.shiftKey ? 10 : 1);
     const current = cursor.current.depth ?? depthOf(vp, vp.height / 2);
+    const idx = nearestIndex(p.depth, current);
+    const stepTo = (dir: 1 | -1) => (idx >= 0 ? p.depth[Math.min(p.depth.length - 1, Math.max(0, idx + dir * samples))]! : current + dir * samples * step);
     const page = (vp.height / vp.pxPerM) * 0.9;
     let handled = true;
     switch (e.key) {
       case 'ArrowDown':
-        moveKeyboardCursor(current + rowStep);
+        if (!gestures.current.nudge(samples * step)) moveKeyboardCursor(stepTo(1));
         break;
       case 'ArrowUp':
-        moveKeyboardCursor(current - rowStep);
+        if (!gestures.current.nudge(-samples * step)) moveKeyboardCursor(stepTo(-1));
         break;
       case 'PageDown':
         setViewport(scrollBy(vp, page * vp.pxPerM, lim));
@@ -533,7 +574,7 @@ export function WellViewer(props: WellViewerProps) {
         fit();
         break;
       case 'Escape':
-        setCursor(null, null);
+        if (!gestures.current.cancel()) setCursor(null, null);
         break;
       default:
         handled = false;
@@ -541,9 +582,16 @@ export function WellViewer(props: WellViewerProps) {
     if (handled) e.preventDefault();
   };
 
-  const onFocus = () => {
+  const onFocus = (e: React.FocusEvent<HTMLDivElement>) => {
+    // Solo si el foco llegó con el teclado (Tab): un clic enfoca el visor pero el cursor lo maneja el puntero.
+    let byKeyboard = true;
+    try {
+      byKeyboard = e.currentTarget.matches(':focus-visible');
+    } catch {
+      // navegador sin :focus-visible
+    }
     const vp = vpRef.current;
-    if (vp && cursor.current.depth === null) {
+    if (byKeyboard && vp && cursor.current.depth === null) {
       setCursor(depthOf(vp, vp.height / 2), 'keyboard');
       announce();
     }
@@ -581,6 +629,12 @@ export function WellViewer(props: WellViewerProps) {
                 </div>
                 {t.kind === 'depth' ? (
                   <div className="wv-head__depth num">m</div>
+                ) : t.kind === 'overlay' ? (
+                  <div className="wv-head__scale num">
+                    <span>{t.grid ? formatNumber(t.grid.reversed ? t.grid.max : t.grid.min, { significant: 3, grouping: false }) : ''}</span>
+                    {t.unit && <span className="wv-head__unit">{t.unit}</span>}
+                    <span>{t.grid ? formatNumber(t.grid.reversed ? t.grid.min : t.grid.max, { significant: 3, grouping: false }) : ''}</span>
+                  </div>
                 ) : t.curves.length === 0 ? (
                   <div className="wv-head__empty">
                     <span>Sin curvas</span>
@@ -592,7 +646,8 @@ export function WellViewer(props: WellViewerProps) {
                       <CurveLegend
                         key={c.key}
                         role={c.role}
-                        name={c.name}
+                        name={c.kind === 'band' ? c.short : c.name}
+                        layout="inline"
                         {...(c.kind === 'line' && c.unitLabel !== '—' ? { unit: c.unitLabel } : {})}
                         curveStyle={c.styles[theme]}
                         scale={c.kind === 'line'}

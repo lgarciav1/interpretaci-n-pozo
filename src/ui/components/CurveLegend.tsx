@@ -42,14 +42,48 @@ export interface CurveLegendProps {
   title?: string;
   /** Mostrar la etiqueta «log» (por defecto sí; el visor la omite porque la grilla ya lo dice). */
   scaleTag?: boolean;
+  /**
+   * 'stacked' (por defecto): nombre arriba, escala abajo. 'inline': una sola fila baja al estilo de un encabezado de
+   * perfil — extremo izquierdo, nombre y valor sobre el trazo de la curva, extremo derecho; la unidad va al tooltip.
+   */
+  layout?: 'stacked' | 'inline';
 }
 
-export function CurveLegend({ role, name, unit, catalog, scale = true, theme: fixed, curveStyle: resolved, value, title, scaleTag = true }: CurveLegendProps) {
+export function CurveLegend({ role, name, unit, catalog, scale = true, theme: fixed, curveStyle: resolved, value, title, scaleTag = true, layout = 'stacked' }: CurveLegendProps) {
   const current = useResolvedTheme();
   const theme = fixed ?? current;
   const s = resolved ?? curveStyle(role, theme, catalog, name);
   const lo = s.reversed ? s.max : s.min;
   const hi = s.reversed ? s.min : s.max;
+  if (layout === 'inline') {
+    const label = (
+      <span className="ui-curve-legend__label">
+        <span className="ui-curve-legend__name" style={{ color: s.color }}>
+          {name}
+        </span>
+        {scaleTag && s.scale === 'log' && <span className="ui-curve-legend__tag">log</span>}
+        {value !== undefined && <span className="ui-curve-legend__value num">{value}</span>}
+      </span>
+    );
+    // En una fila no hay lugar para la unidad: va en el tooltip (y en la lectura accesible del visor).
+    const tip = `${title ?? s.label}${unit ? ` (${unit})` : ''}`;
+    return (
+      <div className={`ui-curve-legend ui-curve-legend--inline${scale ? '' : ' ui-curve-legend--noscale'}`} title={tip}>
+        {scale && <span className="ui-curve-legend__lo num">{lo !== undefined ? range(lo) : ''}</span>}
+        <span className="ui-curve-legend__mid">
+          {s.kind === 'band' ? (
+            <CurveSwatch style={s} width={12} />
+          ) : (
+            <svg className="ui-curve-legend__line" height={8} aria-hidden="true">
+              <line x1="0" y1="4" x2="100%" y2="4" stroke={s.color} strokeWidth={s.width + 0.25} strokeDasharray={s.dash.join(' ') || undefined} />
+            </svg>
+          )}
+          {label}
+        </span>
+        {scale && <span className="ui-curve-legend__hi num">{hi !== undefined ? range(hi) : ''}</span>}
+      </div>
+    );
+  }
   return (
     <div className="ui-curve-legend" title={title ?? s.label}>
       <div className="ui-curve-legend__top">

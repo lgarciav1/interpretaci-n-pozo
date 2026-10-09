@@ -49,14 +49,19 @@ export type FillSpec =
   /** Entre el borde de la pista (`side`) y la curva. */
   | { kind: 'edge'; curve: RoleId; side: 'left' | 'right'; fill: FillRef; opacity?: number }
   /**
-   * Entre dos curvas, comparando su posición EN PANTALLA: `aLeft` donde la curva `a` queda a la izquierda de `b`,
-   * `bLeft` donde queda `b` a la izquierda. Densidad–neutrón: a = RHOB, b = NPHI → aLeft = gas, bLeft = arcilla.
+   * Entre dos curvas. `compare` decide qué lado es cuál:
+   * - 'screen' (por defecto): posición EN PANTALLA. `aLeft` donde `a` queda a la izquierda de `b`, `bLeft` donde
+   *   queda `b`. Es la convención del cruce densidad–neutrón (a = RHOB, b = NPHI → aLeft = gas, bLeft = arcilla), que
+   *   solo tiene sentido en escalas compatibles.
+   * - 'value': valores. `aLeft` donde a < b, `bLeft` donde b < a. Sigue siendo correcto si el usuario cambia la
+   *   escala de una de las dos (caliper vs. trépano: a = BS, b = CALI, aLeft = derrumbe).
    */
-  | { kind: 'between'; a: RoleId; b: RoleId; aLeft?: FillRef; bLeft?: FillRef; opacity?: number }
+  | { kind: 'between'; a: RoleId; b: RoleId; aLeft?: FillRef; bLeft?: FillRef; compare?: 'screen' | 'value'; opacity?: number }
   /** Entre la curva y un valor fijo (línea base): `left` donde la curva queda a la izquierda del valor. */
   | { kind: 'baseline'; curve: RoleId; value: number; left?: FillRef; right?: FillRef; opacity?: number };
 
-export type TrackKind = 'depth' | 'curves' | 'flags';
+/** 'overlay': pista propia de una superposición (presiones MDT…), sin curvas; la dibuja `overlayId`. */
+export type TrackKind = 'depth' | 'curves' | 'flags' | 'overlay';
 
 export interface TrackSpec {
   id: string;
@@ -66,8 +71,12 @@ export interface TrackSpec {
   width?: number;
   curves?: TrackCurveSpec[];
   fills?: FillSpec[];
-  /** Escala de la grilla y de las curvas sin escala propia (curvas sin rol). */
-  scale?: { kind: ScaleKind; min: number; max: number };
+  /** Escala de la grilla y de las curvas sin escala propia (curvas sin rol); en 'overlay', la escala de la pista. */
+  scale?: { kind: ScaleKind; min: number; max: number; reversed?: boolean };
+  /** Pistas 'overlay': id de la superposición que la dibuja. */
+  overlayId?: string;
+  /** Pistas 'overlay': unidad de la escala (texto para el encabezado). */
+  unit?: string;
   /** Toma las curvas calculadas (o banderas) que ninguna otra pista ubicó. */
   collect?: 'computed' | 'flags';
   /** No se muestra si no tiene curvas. */
@@ -92,4 +101,147 @@ export function emptyDisplay(): DisplaySettings {
 /** true si el override no cambia nada (para borrarlo en vez de guardarlo vacío). */
 export function isEmptyOverride(o: CurveDisplayOverride | null | undefined): boolean {
   return !o || Object.values(o).every((v) => v === undefined);
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Validación al abrir un proyecto: lo inválido se descarta con un aviso (un archivo editado a mano o de una versión
+// con errores no debe tirar abajo el visor).
+
+const TRACK_KINDS = new Set<TrackKind>(['depth', 'curves', 'flags', 'overlay']);
+const FILL_KINDS = new Set(['edge', 'between', 'baseline']);
+const LINES = new Set<LineStyleId>(['solid', 'dashed', 'dotted', 'dashdot']);
+const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+const isStr = (v: unknown): v is string => typeof v === 'string' && v.length > 0;
+const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+
+/** Override con solo los campos del tipo correcto (los demás se descartan). */
+export function sanitizeOverride(raw: unknown): CurveDisplayOverride | null {
+  if (!isObj(raw)) return null;
+  const o: CurveDisplayOverride = {};
+  if (raw['scale'] === 'linear' || raw['scale'] === 'log') o.scale = raw['scale'];
+  if (isNum(raw['min'])) o.min = raw['min'];
+  if (isNum(raw['max'])) o.max = raw['max'];
+  if (typeof raw['reversed'] === 'boolean') o.reversed = raw['reversed'];
+  if (typeof raw['color'] === 'string' && /^#[0-9a-f]{6}$/i.test(raw['color'])) o.color = raw['color'];
+  if (LINES.has(raw['line'] as LineStyleId)) o.line = raw['line'] as LineStyleId;
+  if (isNum(raw['width']) && raw['width'] > 0 && raw['width'] <= 8) o.width = raw['width'];
+  if (typeof raw['wrap'] === 'boolean') o.wrap = raw['wrap'];
+  if (typeof raw['hidden'] === 'boolean') o.hidden = raw['hidden'];
+  return o;
+}
+
+function sanitizeSelector(raw: unknown): CurveSelector | null {
+  if (!isObj(raw)) return null;
+  if (isStr(raw['role'])) return { role: raw['role'] };
+  if (isStr(raw['curveId'])) return { curveId: raw['curveId'] };
+  if (isStr(raw['unassigned'])) return { unassigned: raw['unassigned'] as DimensionId };
+  return null;
+}
+
+function sanitizeFill(raw: unknown): FillSpec | null {
+  if (!isObj(raw) || !FILL_KINDS.has(raw['kind'] as string)) return null;
+  const opacity = isNum(raw['opacity']) ? { opacity: raw['opacity'] } : {};
+  const ref = (k: string) => (isStr(raw[k]) ? { [k]: raw[k] as string } : {});
+  if (raw['kind'] === 'edge') {
+    if (!isStr(raw['curve']) || (raw['side'] !== 'left' && raw['side'] !== 'right') || !isStr(raw['fill'])) return null;
+    return { kind: 'edge', curve: raw['curve'], side: raw['side'], fill: raw['fill'], ...opacity };
+  }
+  if (raw['kind'] === 'between') {
+    if (!isStr(raw['a']) || !isStr(raw['b'])) return null;
+    const c = raw['compare'];
+    const compare: { compare?: 'value' | 'screen' } = c === 'value' || c === 'screen' ? { compare: c } : {};
+    return { kind: 'between', a: raw['a'], b: raw['b'], ...ref('aLeft'), ...ref('bLeft'), ...compare, ...opacity };
+  }
+  if (!isStr(raw['curve']) || !isNum(raw['value'])) return null;
+  return { kind: 'baseline', curve: raw['curve'], value: raw['value'], ...ref('left'), ...ref('right'), ...opacity };
+}
+
+function sanitizeTrack(raw: unknown, where: string, warn: (m: string) => void): TrackSpec | null {
+  if (!isObj(raw) || !isStr(raw['id']) || typeof raw['title'] !== 'string' || !TRACK_KINDS.has(raw['kind'] as TrackKind)) {
+    warn(`${where}: pista inválida (falta id, título o tipo); se descarta.`);
+    return null;
+  }
+  const kind = raw['kind'] as TrackKind;
+  if (kind === 'overlay' && !isStr(raw['overlayId'])) {
+    warn(`${where}: la pista '${raw['id']}' es de superposición pero no dice cuál; se descarta.`);
+    return null;
+  }
+  const t: TrackSpec = { id: raw['id'], title: raw['title'], kind };
+  if (isNum(raw['width']) && raw['width'] > 0) t.width = raw['width'];
+  if (Array.isArray(raw['curves'])) {
+    t.curves = [];
+    raw['curves'].forEach((c, i) => {
+      const select = isObj(c) ? sanitizeSelector(c['select']) : null;
+      if (!select) {
+        warn(`${where}, pista '${t.id}': la curva ${i + 1} no dice qué curva tomar; se descarta.`);
+        return;
+      }
+      const style = isObj(c) ? sanitizeOverride(c['style']) : null;
+      t.curves!.push({ select, ...(style && !isEmptyOverride(style) ? { style } : {}) });
+    });
+  }
+  if (Array.isArray(raw['fills'])) {
+    t.fills = [];
+    raw['fills'].forEach((f, i) => {
+      const fill = sanitizeFill(f);
+      if (fill) t.fills!.push(fill);
+      else warn(`${where}, pista '${t.id}': el relleno ${i + 1} es inválido; se descarta.`);
+    });
+  }
+  const sc = raw['scale'];
+  if (isObj(sc) && (sc['kind'] === 'linear' || sc['kind'] === 'log') && isNum(sc['min']) && isNum(sc['max'])) {
+    t.scale = { kind: sc['kind'], min: sc['min'], max: sc['max'], ...(typeof sc['reversed'] === 'boolean' ? { reversed: sc['reversed'] } : {}) };
+  }
+  if (isStr(raw['overlayId'])) t.overlayId = raw['overlayId'];
+  if (typeof raw['unit'] === 'string') t.unit = raw['unit'];
+  if (raw['collect'] === 'computed' || raw['collect'] === 'flags') t.collect = raw['collect'];
+  if (typeof raw['hideWhenEmpty'] === 'boolean') t.hideWhenEmpty = raw['hideWhenEmpty'];
+  if (typeof raw['emptyHint'] === 'string') t.emptyHint = raw['emptyHint'];
+  return t;
+}
+
+/** Valida `display` leído de un archivo: devuelve solo lo válido y avisa lo que descartó. */
+export function sanitizeDisplay(raw: unknown, warn: (message: string) => void = () => {}): DisplaySettings {
+  const out = emptyDisplay();
+  if (raw === undefined || raw === null) return out;
+  if (!isObj(raw)) {
+    warn('La configuración del visor del proyecto es inválida; se usan las pistas de fábrica.');
+    return out;
+  }
+  if (isObj(raw['layouts'])) {
+    for (const [ws, tracks] of Object.entries(raw['layouts'])) {
+      if (!Array.isArray(tracks)) {
+        warn(`Pistas de '${ws}': no es una lista; se usan las de fábrica.`);
+        continue;
+      }
+      const list = tracks.map((t, i) => sanitizeTrack(t, `Pistas de '${ws}', pista ${i + 1}`, warn)).filter((t): t is TrackSpec => !!t);
+      const ids = new Set<string>();
+      out.layouts[ws] = list.filter((t) => {
+        if (ids.has(t.id)) {
+          warn(`Pistas de '${ws}': la pista '${t.id}' está repetida; se descarta la segunda.`);
+          return false;
+        }
+        ids.add(t.id);
+        return true;
+      });
+    }
+  }
+  const overrides = (v: unknown, where: string): Record<string, CurveDisplayOverride> => {
+    const r: Record<string, CurveDisplayOverride> = {};
+    if (!isObj(v)) return r;
+    for (const [k, o] of Object.entries(v)) {
+      const clean = sanitizeOverride(o);
+      if (clean && !isEmptyOverride(clean)) r[k] = clean;
+      else warn(`${where} '${k}': override inválido; se descarta.`);
+    }
+    return r;
+  };
+  out.roles = overrides(raw['roles'], 'Estilo del rol');
+  if (isObj(raw['curves'])) {
+    for (const [wellId, v] of Object.entries(raw['curves'])) {
+      const r = overrides(v, `Estilo de la curva del pozo '${wellId}'`);
+      if (Object.keys(r).length) out.curves[wellId] = r;
+    }
+  }
+  return out;
 }

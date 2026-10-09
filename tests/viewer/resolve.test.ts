@@ -129,10 +129,10 @@ describe('pistas del pozo del TP (datos/pozo_tp_perfiles.csv)', () => {
     const t = track(tracks, 'correlation');
     expect(t.curves.map((c) => c.name)).toEqual(['BS', 'CAL', 'SP', 'GR']);
     expect(t.curves.find((c) => c.name === 'GR')!.wrap).toBe(true);
-    expect(t.fills.map((f) => [f.kind, f.aLeft ?? f.bLeft])).toEqual([
-      ['edge', 'sand'],
-      ['edge', 'shale'],
-      ['between', 'washout'],
+    expect(t.fills.map((f) => [f.kind, f.aLeft ?? f.bLeft, f.compare])).toEqual([
+      ['edge', 'shale', 'screen'],
+      ['edge', 'sand', 'screen'],
+      ['between', 'washout', 'value'],
     ]);
   });
 

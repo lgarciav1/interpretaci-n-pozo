@@ -5,7 +5,7 @@
  * deselecciona); doble clic → muestra la zona entera. Usa el contrato de `../overlay.ts` como cualquier módulo.
  */
 import { contrastRatio, withAlpha } from '../../ui/color';
-import { BASE_TOKENS } from '../../ui/tokens';
+import { BASE_TOKENS, THEMES } from '../../ui/tokens';
 import type { OverlayFrame, OverlayHitFrame, OverlayPointer, OverlayTrack, ViewerOverlay, ViewerZone } from '../overlay';
 import { formatNumber } from '../../ui/format';
 
@@ -25,8 +25,11 @@ function labelBox(z: ViewerZone, frame: OverlayHitFrame, track: OverlayTrack): {
 
 const firstCurveTrack = (tracks: readonly OverlayTrack[]) => tracks.find((t) => t.kind !== 'depth') ?? null;
 
+/** Tinta legible sobre el color de la zona: el texto del tema oscuro (claro) o el del claro (oscuro), el de más contraste. */
+const INK_DARK = THEMES.light.color.text;
+const INK_LIGHT = THEMES.dark.color.text;
 function readableOn(bg: string): string {
-  return contrastRatio('#ffffff', bg) >= contrastRatio('#15181d', bg) ? '#ffffff' : '#15181d';
+  return contrastRatio(INK_LIGHT, bg) >= contrastRatio(INK_DARK, bg) ? INK_LIGHT : INK_DARK;
 }
 
 function zoneRange(z: ViewerZone): string {

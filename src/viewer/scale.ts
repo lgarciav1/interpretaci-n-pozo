@@ -48,7 +48,14 @@ export function validScale(s: AxisScale): AxisScale | null {
   return s;
 }
 
+/** Escalas recordadas por array (LRU): alcanza para ida y vuelta entre dos o tres escalas en el editor de 4b. */
+export const FRACTION_CACHE_PER_ARRAY = 4;
 const fractionCache = new WeakMap<Float64Array, Map<string, Float32Array>>();
+
+/** Cantidad de escalas en caché para un array (para tests). */
+export function fractionCacheSize(data: Float64Array): number {
+  return fractionCache.get(data)?.size ?? 0;
+}
 const wrapCache = new WeakMap<Float32Array, Float32Array>();
 
 /** Fracciones de toda la curva (Float32Array nuevo, en caché). No modificar. */
@@ -57,7 +64,11 @@ export function fractionArray(data: Float64Array, s: AxisScale): Float32Array {
   if (!byScale) fractionCache.set(data, (byScale = new Map()));
   const key = scaleKey(s);
   let out = byScale.get(key);
-  if (!out) {
+  if (out) {
+    // Más reciente al final (orden de inserción del Map = orden LRU).
+    byScale.delete(key);
+    byScale.set(key, out);
+  } else {
     out = new Float32Array(data.length);
     const log = s.kind === 'log';
     const a = log ? Math.log10(s.min) : s.min;
@@ -69,6 +80,7 @@ export function fractionArray(data: Float64Array, s: AxisScale): Float32Array {
       out[i] = f;
     }
     byScale.set(key, out);
+    while (byScale.size > FRACTION_CACHE_PER_ARRAY) byScale.delete(byScale.keys().next().value!);
   }
   return out;
 }

@@ -16,16 +16,18 @@ import type { ViewerData } from '../../viewer/overlay';
 import { createQcOverlay } from '../../viewer/overlays/qc';
 import { createZonesOverlay } from '../../viewer/overlays/zones';
 import { resolveTracks, type ComputedCurve } from '../../viewer/resolve';
-import { layoutFor } from '../../viewer/templates';
+import { layoutFor, withOverlayTracks } from '../../viewer/templates';
 import { WellViewer } from '../../viewer/WellViewer';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useWellQc } from '../store/qc';
 import { useResults } from '../store/results';
 import { useUi } from '../store/ui';
 import { useViewer } from '../store/viewer';
-import { MODULE_OVERLAYS } from '../viewerOverlays';
+import { moduleOverlays } from '../viewerOverlays';
 
-const OVERLAYS = [...createZonesOverlay({ onSelect: (id) => useUi.getState().set({ editingZoneId: id }) }), createQcOverlay(), ...MODULE_OVERLAYS];
+const BUILTIN_OVERLAYS = [...createZonesOverlay({ onSelect: (id) => useUi.getState().set({ editingZoneId: id }) }), createQcOverlay()];
+/** Incorporadas + las de los módulos (con ids que no choquen con las incorporadas). */
+const OVERLAYS = [...BUILTIN_OVERLAYS, ...moduleOverlays(BUILTIN_OVERLAYS.map((o) => o.id))];
 
 const onCursorChange = (cursorDepth: number | null) => useViewer.setState({ cursorDepth });
 const onViewportChange = (visible: { top: number; base: number }) => useViewer.setState({ visible });
@@ -58,27 +60,31 @@ export function ViewerSlot() {
   const result = useResults((s) => s.result);
   const well = entry?.well ?? null;
   const qc = useWellQc(well);
-  const zones = entry?.interpretation.zones;
+  const interpretation = entry?.interpretation;
 
+  const computed = useMemo(() => (well ? computedCurves(result, well) : []), [result, well]);
   const tracks = useMemo(() => {
     if (!well) return [];
     return resolveTracks(
-      layoutFor(workspace, display.layouts),
-      { depth: well.depth.values, curves: well.curves, computed: computedCurves(result, well), catalog: registry.roles },
+      withOverlayTracks(layoutFor(workspace, display.layouts), OVERLAYS, workspace),
+      { depth: well.depth.values, curves: well.curves, computed, catalog: registry.roles },
       { roles: display.roles, ...(display.curves[well.id] ? { curves: display.curves[well.id] } : {}) },
     );
-  }, [well, result, workspace, display]);
+  }, [well, computed, workspace, display]);
 
   const data = useMemo<ViewerData | null>(() => {
-    if (!well) return null;
+    if (!well || !interpretation) return null;
     return {
       wellId: well.id,
       depth: well.depth.values,
-      zones: (zones ?? []).map((z) => ({ id: z.id, name: z.name, top: z.top, base: z.base, color: z.color })),
+      zones: interpretation.zones.map((z) => ({ id: z.id, name: z.name, top: z.top, base: z.base, color: z.color })),
       selectedZoneId: editingZoneId,
       qc,
+      well,
+      interpretation,
+      computed,
     };
-  }, [well, zones, editingZoneId, qc]);
+  }, [well, interpretation, editingZoneId, qc, computed]);
 
   if (!entry || !well || !data) {
     return (

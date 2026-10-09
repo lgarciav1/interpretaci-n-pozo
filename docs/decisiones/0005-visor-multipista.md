@@ -1,6 +1,7 @@
 # 0005 — Visor multipista
 
-- Estado: aceptada (fase 4a)
+- Estado: aceptada (fase 4a; revisada tras la revisión de arquitectura: arrastre, pistas propias de superposiciones,
+  rellenos por valor, escalas log, cachés acotadas, validación al abrir)
 - Alcance: `src/viewer/` (modelo, cálculos, dibujo y componente), `src/core/display.ts` (configuración guardada),
   `src/app/shell/ViewerSlot.tsx` (conexión con los stores) y `src/app/store/viewer.ts` (cursor publicado).
 - Lo heredan: la fase 4b (pista volumétrica, encabezado de pozo, minimapa, editor de escalas, edición de zonas),
@@ -56,8 +57,12 @@ Descartado:
   comparten todas las curvas; cada array tiene además un resumen por bloques de 32 muestras (mín, máx, suma,
   cantidad, primera, última) en caché, así una fila de cientos de muestras se recorre por bloques.
 
+- **Cachés acotadas:** `fractionArray` recuerda a lo sumo 4 escalas por array (LRU; alcanza para ir y volver entre
+  escalas en el editor de 4b); los resúmenes por bloques y las conversiones de unidad están en `WeakMap` por array
+  (se liberan con el array); el dibujante descarta al final de cada cuadro los buffers de fila que ese cuadro no usó.
+
 Costo por cuadro: O(filas · (log n + muestras por fila / 32)) por curva, sin asignar memoria (buffers reusados).
-Medido: 3,6 ms de media por cuadro con el pozo del TP y 5,4 ms con 50 000 muestras (detalle en `src/viewer/README.md`).
+Medido: ≈ 4 ms de media por cuadro con el pozo del TP y ≈ 6 ms con 50 000 muestras (detalle en `src/viewer/README.md`).
 
 Descartado:
 - **Saltear muestras (stride).** Pierde picos: un AT10 de 110 ohm·m desaparecería a ciertos zoom.
@@ -111,6 +116,14 @@ Descartado:
   `RoleDef.display` valen para cualquier archivo (NPHI en %, densidad en kg/m³…).
 - Pistas con `hideWhenEmpty` (permeabilidad, banderas) no ocupan lugar hasta que exista algo que mostrar; el resto
   muestra un estado vacío que dice qué falta.
+- **Medida y calculada del mismo rol en una pista:** rellenos y `xOf(rol)` de las superposiciones usan la
+  **calculada activa** (`findCurve`): si el usuario calculó VSH, el sombreado es el de su VSH, no el del archivo. Por
+  clave (`m:<id>`, `c:<módulo>:<puerto>`) se pide una curva puntual.
+- **Escala pedida inválida:** un override log con mínimo ≤ 0 (GR 0–150 pasada a log, RT con `min: 0`) conserva la
+  escala log y reemplaza el mínimo por el primero válido (rol → pista → década por debajo del P1 positivo de los
+  datos). Nunca cae a lineal en silencio.
+- **Pistas propias de superposiciones** (`kind: 'overlay'`, `overlayId`): se conservan sin curvas, con su escala
+  (D7).
 
 ## D5. Coordenadas
 
@@ -118,7 +131,9 @@ Descartado:
 - Límites: alejar hasta ver el pozo entero en el alto disponible; acercar hasta 32 px por muestra. `top` se acota
   a `[profMín, profMáx − alto/pxPerM]`. La escala de impresión se informa como `1:N` a 96 ppp.
 - En x, cada curva tiene una fracción `f` (D2); `x = xPista + f·anchoPista`. Grilla lineal de 10 divisiones; grilla
-  log por décadas (líneas en m·10ᵏ, mayores en 10ᵏ).
+  log por décadas (líneas en m·10ᵏ, mayores en 10ᵏ). La grilla de una pista es la escala **efectiva** de su curva de
+  arriba (la última de la lista); sin curvas, la de la pista. Si el usuario pasa las resistividades a lineal, la
+  grilla deja de ser log.
 - Ticks de profundidad "lindos": paso 1-2-5 × 10ᵏ con al menos 56 px entre rótulos y subdivisiones si quedan a más
   de 7 px.
 
@@ -130,13 +145,45 @@ Descartado:
   translúcida. Está activa por defecto solo en GR (el TP llega a 180 gAPI). En log no se usa: 0,2–2000 cubre las
   resistividades reales; lo que sale se recorta.
 
+## D6 bis. Rellenos: convenciones y comparación por valor
+
+- **GR:** del borde izquierdo a la curva, **arcilla** (el ancho crece con GR, igual que IGR y VSH); de la curva al
+  borde derecho, **arena**. Lo mismo en el GR espectral de geología.
+- **Densidad–neutrón:** comparación **en pantalla** (`compare: 'screen'`, por defecto): el cruce es una convención
+  visual que solo vale en escalas compatibles, y es lo que el intérprete ve.
+- **Caliper vs. trépano:** comparación **por valor** (`compare: 'value'`): derrumbe donde CALI > BS aunque el
+  editor de 4b cambie la escala de una de las dos (con CALI en 10–30 y BS en 6–16, CALI = 12 in queda a la
+  izquierda de BS en pantalla y sigue siendo derrumbe). La geometría se dibuja entre las dos curvas en pantalla; el
+  lado y el punto de cruce salen de la diferencia de valores.
+
 ## D7. Superposiciones: contrato abierto para otros módulos
 
-`ViewerOverlay` (`src/viewer/overlay.ts`): `{ id, label, layer: 'under' | 'over', draw(frame), hit?(frame, p),
-subscribe?(invalidar) }`. `draw` recibe el contexto 2D, el tema, el viewport (`yOf`, `depthOf`), las pistas con
-`xOf(rol, valor)` y los datos comunes (profundidad, zonas, zona seleccionada, QC). `hit` permite tooltips y clics
-(`activate()`); `subscribe` permite que una superposición que lee su propio store (selección del crossplot) pida
-redibujo.
+`ViewerOverlay` (`src/viewer/overlay.ts`): `{ id, label, layer: 'under' | 'over', track?, draw(frame), hit?(frame,
+p), subscribe?(invalidar) }`.
+
+- `draw` recibe el contexto 2D, el tema, el viewport (`yOf`, `depthOf`), las pistas (`xOf(rol | clave | null,
+  valor)` y su inversa `valueOf`) y los datos comunes: profundidad, zonas, zona seleccionada, QC y, **en solo
+  lectura**, el pozo, la interpretación y las curvas calculadas activos (una superposición de módulo no importa
+  `src/app/store`). `frame.invalidate()` pide otro cuadro (vista previa en vivo).
+- `hit` devuelve lo que hay bajo el puntero: tooltip, `activate` (clic), `range` + `doubleClick` (doble clic),
+  **`drag`** y **`nudge`**:
+  - `drag: { cursor?, move(p, start), end(p, start), cancel?() }`. Si al apretar hay un `drag`, el visor no panea:
+    captura el puntero y, pasado el umbral de 4 px, llama a `move`; cerca de los bordes (28 px) la vista se desplaza
+    sola y vuelve a llamar a `move` con la profundidad nueva; soltar llama a `end`; Escape, a `cancel`. Así se hacen
+    sin tocar el núcleo los plugs de corona arrastrables, los topes de 4b y los puntos de una tendencia. **Elegir un
+    tramo** es lo mismo: una superposición en modo selección devuelve un `drag` en cualquier punto (`start.depth` y
+    `p.depth` son los extremos).
+  - `nudge(deltaM)`: un clic o arrastre sobre el elemento lo deja **activo**; mientras lo esté, ↑/↓ lo mueven (paso
+    de D8) en vez del cursor; Escape o apretar en otro lado lo sueltan.
+- **Pista propia** (`track: { title, scale, unit?, width?, after?, workspaces? }`): el visor agrega una pista
+  `kind: 'overlay'` (id `ov:<id>`, `overlayId`) donde pide `after`, con grilla y encabezado (título, extremos y
+  unidad) de su escala; la superposición dibuja en esa caja. Presiones MDT, perfiles de temperatura, etc. Las pistas
+  propias del usuario (fase 7) pueden incluirlas explícitamente; las de superposiciones que no existen se quitan.
+- La lógica del puntero vive en `src/viewer/interaction.ts` (`PointerGestures`, sin DOM, con tests); el componente
+  solo traduce eventos.
+- Toda llamada a una superposición (`draw`, `hit`, `drag.*`, `activate`, `doubleClick`, `nudge`, `subscribe`) va
+  aislada con `guard`: su error se registra y el visor sigue. Los ids son únicos: una de módulo que repite el id de
+  otra (o de una incorporada) se ignora con aviso.
 
 - Incorporadas y usadas por la app: **zonas** (bandas, topes con nombre, franja de zonas clicable) y **calidad**
   (tramos con derrumbe o caliper inválido rayados en las pistas con curvas de patín).
@@ -153,9 +200,17 @@ Descartado:
 - El cursor vive en el canvas de cursor; los valores se escriben directo en los encabezados (sin re-render de
   React) con `formatNumber` (4 cifras significativas) y la unidad canónica. La profundidad del cursor se publica en
   `useViewer` (`cursorDepth`) para el perfil radial y el crossplot conectado.
-- Teclado (visor enfocado): ↑/↓ mueven el cursor una muestra (Mayús ×10) y desplazan si sale de la vista;
+- Teclado (visor enfocado): ↑/↓ mueven el cursor **una muestra**, o las necesarias para avanzar al menos 2 px si a
+  ese zoom una muestra mide menos (con el pozo entero a la vista, una muestra es 0,1 px y "una muestra" no se
+  vería moverse); el cursor queda siempre sobre una muestra, así la lectura es exacta. Mayús ×10. Desplazan si sale
+  de la vista. Con un elemento de superposición activo, ↑/↓ lo mueven a él (D7);
   Re Pág/Av Pág desplazan una pantalla; Inicio/Fin van al tope/base; +/− acercan/alejan sobre el cursor; 0 = ver
-  todo. Una región `aria-live` anuncia (con demora) profundidad y valores.
+  todo; Escape cancela un arrastre, suelta el elemento activo o esconde el cursor. Una región `aria-live` anuncia
+  (con demora) profundidad y valores. Al enfocar el visor con Tab el cursor aparece en el medio; un clic lo enfoca
+  sin mover el cursor (lo maneja el puntero).
+- Encabezados en una fila por curva (`CurveLegend layout="inline"`): extremo izquierdo, nombre y lectura sobre el
+  trazo, extremo derecho; la unidad va al tooltip y a la lectura accesible. Las banderas usan el nombre corto del rol
+  («Arcilla»).
 - Mouse: rueda = desplazar; Ctrl+rueda o pinza = zoom centrado en el puntero; arrastre = paneo; clic en la franja
   de zonas (o en el nombre de un tope) = seleccionar la zona (`useUi.editingZoneId`), otro clic la deselecciona.
 
@@ -163,5 +218,9 @@ Descartado:
 
 - 4b agrega pistas nuevas como `kind` de pista con su dibujante (volumétrica), el minimapa como otro consumidor
   del viewport publicado, el editor de escalas escribiendo en `Project.display` y la edición de topes como una
-  superposición con `hit` + arrastre.
+  superposición con `hit` + `drag` + `nudge`.
+- Fase 6: presiones MDT como superposición con pista propia; plugs de corona como superposición arrastrable sobre la
+  pista de porosidad (`xOf('PHIE', φ)` / `valueOf`).
+- Al abrir un proyecto, `display` se valida (`sanitizeDisplay`): lo inválido se descarta con aviso (toast) y el
+  resto se conserva.
 - `src/app/shell/trackTemplates.ts` desaparece: las plantillas viven en `src/viewer/templates.ts`.

@@ -3,7 +3,9 @@
  * Las del usuario (fase 7) se guardan en `Project.display.layouts[espacio]` y reemplazan a estas.
  *
  * Convenciones de lectura (docs/decisiones/0004 D4 y 0005):
- * - Correlación: GR con relleno arena/arcilla y curva de respaldo; caliper vs. trépano con relleno de derrumbe.
+ * - Correlación: GR con relleno arcilla (del borde izquierdo a la curva: crece con GR, como IGR y VSH) y arena (de la
+ *   curva al borde derecho), y curva de respaldo; caliper vs. trépano con relleno de derrumbe comparando VALORES
+ *   (CALI > BS), que sigue bien aunque el usuario cambie la escala de una de las dos.
  * - Resistividad en log 0,2–2000 por décadas; profunda roja y más gruesa (encima de las demás).
  * - Densidad–neutrón en escalas compatibles (RHOB 1,95–2,95; NPHI 0,45 → −0,15): cruce de gas en amarillo donde la
  *   densidad queda a la izquierda del neutrón; separación de arcilla donde el neutrón queda a la izquierda.
@@ -11,6 +13,7 @@
  */
 import type { TrackSpec } from '../core/display';
 import type { WorkspaceId } from '../core/workspaces';
+import type { ViewerOverlay } from './overlay';
 
 const RESISTIVITY_SCALE = { kind: 'log', min: 0.2, max: 2000 } as const;
 
@@ -22,9 +25,9 @@ export const BUILTIN_LAYOUTS: Readonly<Record<WorkspaceId, readonly TrackSpec[]>
       kind: 'curves',
       curves: [{ select: { role: 'BS' } }, { select: { role: 'CALI' } }, { select: { role: 'SP' } }, { select: { role: 'GR' }, style: { wrap: true } }],
       fills: [
-        { kind: 'edge', curve: 'GR', side: 'left', fill: 'sand', opacity: 0.45 },
-        { kind: 'edge', curve: 'GR', side: 'right', fill: 'shale', opacity: 0.32 },
-        { kind: 'between', a: 'BS', b: 'CALI', aLeft: 'washout', opacity: 1 },
+        { kind: 'edge', curve: 'GR', side: 'left', fill: 'shale', opacity: 0.32 },
+        { kind: 'edge', curve: 'GR', side: 'right', fill: 'sand', opacity: 0.45 },
+        { kind: 'between', a: 'BS', b: 'CALI', aLeft: 'washout', compare: 'value', opacity: 1 },
       ],
       emptyHint: 'Asigná GR, SP o caliper a alguna curva del pozo.',
     },
@@ -78,7 +81,7 @@ export const BUILTIN_LAYOUTS: Readonly<Record<WorkspaceId, readonly TrackSpec[]>
       title: 'GR espectral',
       kind: 'curves',
       curves: [{ select: { role: 'POTA' } }, { select: { role: 'THOR' } }, { select: { role: 'URAN' } }, { select: { role: 'CGR' } }, { select: { role: 'GR' }, style: { wrap: true } }],
-      fills: [{ kind: 'edge', curve: 'GR', side: 'left', fill: 'sand', opacity: 0.45 }],
+      fills: [{ kind: 'edge', curve: 'GR', side: 'left', fill: 'shale', opacity: 0.3 }],
       emptyHint: 'Sin rayos gamma en este pozo.',
     },
     { id: 'depth', title: 'Prof.', kind: 'depth' },
@@ -111,4 +114,35 @@ export const BUILTIN_LAYOUTS: Readonly<Record<WorkspaceId, readonly TrackSpec[]>
 /** Pistas de un espacio de trabajo: las propias del proyecto o las de fábrica. */
 export function layoutFor(workspace: WorkspaceId, custom: Readonly<Record<string, readonly TrackSpec[]>> | undefined): readonly TrackSpec[] {
   return custom?.[workspace] ?? BUILTIN_LAYOUTS[workspace];
+}
+
+/** Id de la pista propia de una superposición. */
+export const overlayTrackId = (overlayId: string): string => `ov:${overlayId}`;
+
+/**
+ * Suma a un juego de pistas las pistas propias de las superposiciones (`overlay.track`) que no estén ya, en el lugar
+ * que piden (`after`), y quita las pistas 'overlay' cuya superposición no existe (un proyecto guardado con un módulo
+ * que esta versión no tiene). Puro.
+ */
+export function withOverlayTracks(layout: readonly TrackSpec[], overlays: readonly ViewerOverlay[], workspace: string): TrackSpec[] {
+  const ids = new Set(overlays.map((o) => o.id));
+  const out = layout.filter((t) => t.kind !== 'overlay' || (t.overlayId !== undefined && ids.has(t.overlayId)));
+  for (const o of overlays) {
+    const d = o.track;
+    if (!d || (d.workspaces && !d.workspaces.includes(workspace))) continue;
+    if (out.some((t) => t.kind === 'overlay' && t.overlayId === o.id)) continue;
+    const spec: TrackSpec = {
+      id: overlayTrackId(o.id),
+      title: d.title,
+      kind: 'overlay',
+      overlayId: o.id,
+      width: d.width ?? 1,
+      scale: { kind: d.scale.kind, min: d.scale.min, max: d.scale.max, ...(d.scale.reversed !== undefined ? { reversed: d.scale.reversed } : {}) },
+      ...(d.unit !== undefined ? { unit: d.unit } : {}),
+    };
+    const at = d.after ? out.findIndex((t) => t.id === d.after) : -1;
+    if (at >= 0) out.splice(at + 1, 0, spec);
+    else out.push(spec);
+  }
+  return out;
 }

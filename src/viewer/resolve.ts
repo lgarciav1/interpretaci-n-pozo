@@ -64,6 +64,8 @@ export interface ResolvedCurve {
   styles: Readonly<Record<ThemeName, CurveStyle>>;
   /** Descripción para tooltips y lectura accesible. */
   title: string;
+  /** Nombre corto para encabezados angostos (banderas: «Arcilla» en vez de «SHALE_FLAG»). */
+  short: string;
 }
 
 export interface ResolvedFill {
@@ -77,6 +79,8 @@ export interface ResolvedFill {
   aLeft?: FillId;
   /** Relleno donde `a` queda a la derecha. */
   bLeft?: FillId;
+  /** 'between': por posición en pantalla o por valor (aLeft = a < b). */
+  compare: 'screen' | 'value';
   opacity: number;
 }
 
@@ -89,9 +93,49 @@ export interface ResolvedTrack {
   fixed?: number;
   curves: ResolvedCurve[];
   fills: ResolvedFill[];
-  /** Escala de la grilla vertical (null = sin grilla, p. ej. banderas). */
+  /**
+   * Escala de la grilla vertical (null = sin grilla, p. ej. banderas): la de la curva de arriba de la pista (la
+   * última), así la grilla coincide siempre con una escala que se ve; sin curvas, la de la pista.
+   */
   grid: AxisScale | null;
   emptyHint?: string;
+  /** Pistas 'overlay': superposición que la dibuja y unidad de su escala. */
+  overlayId?: string;
+  unit?: string;
+}
+
+/**
+ * Curva de una pista por clave o por rol. Por rol, la calculada (salida activa del motor) gana a la medida: si el
+ * usuario calculó VSH, los rellenos y las superposiciones usan esa y no la del archivo.
+ */
+export function findCurve(curves: readonly ResolvedCurve[], roleOrKey: string, lineOnly = false): ResolvedCurve | undefined {
+  const ok = (c: ResolvedCurve) => !lineOnly || c.kind === 'line';
+  return (
+    curves.find((c) => c.key === roleOrKey && ok(c)) ??
+    curves.find((c) => c.role === roleOrKey && c.origin === 'computed' && ok(c)) ??
+    curves.find((c) => c.role === roleOrKey && ok(c))
+  );
+}
+
+/** Nombre corto: banderas por su rol sin «Bandera de» («Arcilla», «Reservorio neto»); el resto, el mnemónico. */
+function shortName(name: string, kind: 'line' | 'band', roleLabel: string | undefined): string {
+  if (kind !== 'band' || !roleLabel) return name;
+  const s = roleLabel.replace(/^bandera\s+de\s+(la\s+|l\s+)?/i, '').trim();
+  return s ? s[0]!.toUpperCase() + s.slice(1) : name;
+}
+
+/** Mínimo válido para una escala log cuando el pedido no sirve (≤ 0): la década por debajo del P1 positivo. */
+function logFloor(data: ArrayLike<number>, max: number): number {
+  const pos: number[] = [];
+  for (let i = 0; i < data.length; i += Math.max(1, Math.floor(data.length / 4000))) {
+    const v = data[i]!;
+    if (v > 0 && Number.isFinite(v)) pos.push(v);
+  }
+  pos.sort((a, b) => a - b);
+  const p1 = pos.length ? pos[Math.floor(pos.length * 0.01)]! : NaN;
+  let min = p1 > 0 ? 10 ** Math.floor(Math.log10(p1)) : max > 0 ? max / 1e4 : 0.1;
+  if (!(min < max)) min = max / 1e4;
+  return +min.toPrecision(6);
 }
 
 export const DEPTH_TRACK_WIDTH = 76;
@@ -143,11 +187,23 @@ function makeCurve(
     min ??= r?.min ?? 0;
     max ??= r?.max ?? 1;
   }
-  const reversed = layers.reversed ?? fromRole.reversed ?? false;
-  let axis = validScale({ kind, min, max, reversed });
+  const reversed = layers.reversed ?? fromRole.reversed ?? track.scale?.reversed ?? false;
+  if (kind === 'log') {
+    // Se conserva la escala log pedida: un mínimo ≤ 0 (GR 0–150 pasada a log, RT con min 0) se reemplaza por el
+    // primero válido (rol → pista → década de los datos), nunca se cae a lineal sin avisar.
+    const positive = (v: number | undefined) => (v !== undefined && v > 0 ? v : undefined);
+    if (!(max! > 0)) max = positive(fromRole.max) ?? positive(fromTrack.max) ?? dataRange(base.data)?.max ?? 1;
+    if (!(min! > 0) || !(min! < max!)) {
+      const cand = [positive(fromRole.min), positive(fromTrack.min)].find((v) => v !== undefined && v < max!);
+      min = cand ?? logFloor(base.data, max!);
+    }
+  }
+  let axis = validScale({ kind, min: min!, max: max!, reversed });
   if (!axis) {
+    // Lineal con min ≥ max: se ensancha al rango de los datos.
+    const r = dataRange(base.data);
     kind = 'linear';
-    axis = validScale({ kind, min, max, reversed }) ?? { kind: 'linear', min: 0, max: 1, reversed };
+    axis = validScale({ kind, min: Math.min(min!, r?.min ?? min!), max: Math.max(max!, r?.max ?? max! + 1), reversed }) ?? { kind: 'linear', min: 0, max: 1, reversed };
   }
   const kindLine: 'line' | 'band' = light.kind;
   const styles = {} as Record<ThemeName, CurveStyle>;
@@ -161,6 +217,7 @@ function makeCurve(
   return {
     ...base,
     unitLabel: unitLabel(base.unit),
+    short: shortName(base.name, kindLine, base.role ? catalog.get(base.role)?.label : undefined),
     axis,
     wrap: (layers.wrap ?? false) && axis.kind === 'linear',
     kind: kindLine,
@@ -205,7 +262,7 @@ export function resolveTracks(layout: readonly TrackSpec[], src: ViewerSources, 
   // 1) selectores explícitos; 2) recolectores (después, para que tomen solo lo no ubicado).
   const perTrack = new Map<TrackSpec, ResolvedCurve[]>();
   for (const t of layout) {
-    if (t.kind === 'depth') continue;
+    if (t.kind === 'depth' || t.kind === 'overlay') continue;
     const list: ResolvedCurve[] = [];
     const add = (rc: ResolvedCurve | null) => {
       if (!rc || list.some((x) => x.key === rc.key)) return;
@@ -227,7 +284,7 @@ export function resolveTracks(layout: readonly TrackSpec[], src: ViewerSources, 
     perTrack.set(t, list);
   }
   for (const t of layout) {
-    if (!t.collect) continue;
+    if (!t.collect || !perTrack.has(t)) continue;
     const list = perTrack.get(t)!;
     for (const c of computed) {
       const key = `c:${c.moduleId}:${c.port}`;
@@ -256,27 +313,44 @@ export function resolveTracks(layout: readonly TrackSpec[], src: ViewerSources, 
       out.push({ id: t.id, title: t.title, kind: 'depth', width: 0, fixed: DEPTH_TRACK_WIDTH, curves: [], fills: [], grid: null });
       continue;
     }
+    if (t.kind === 'overlay') {
+      // Pista propia de una superposición: se conserva sin curvas; la escala es la de la pista.
+      const sc = t.scale ? validScale({ kind: t.scale.kind, min: t.scale.min, max: t.scale.max, reversed: t.scale.reversed ?? false }) : null;
+      out.push({
+        id: t.id,
+        title: t.title,
+        kind: 'overlay',
+        width: t.width ?? 1,
+        curves: [],
+        fills: [],
+        grid: sc ?? { kind: 'linear', min: 0, max: 1, reversed: false },
+        ...(t.overlayId ? { overlayId: t.overlayId } : {}),
+        ...(t.unit !== undefined ? { unit: t.unit } : {}),
+      });
+      continue;
+    }
     const curves = perTrack.get(t)!;
     if (curves.length === 0 && t.hideWhenEmpty) continue;
-    const byRole = (role: RoleId) => curves.find((c) => c.role === role && c.kind === 'line');
+    const byRole = (role: RoleId) => findCurve(curves, role, true);
     const fills: ResolvedFill[] = [];
     for (const f of t.fills ?? []) {
       const opacity = f.opacity ?? 1;
       if (f.kind === 'between') {
         const a = byRole(f.a);
         const b = byRole(f.b);
-        if (a && b) fills.push({ kind: 'between', a, b, ...(isFillId(f.aLeft) ? { aLeft: f.aLeft } : {}), ...(isFillId(f.bLeft) ? { bLeft: f.bLeft } : {}), opacity });
+        if (a && b) fills.push({ kind: 'between', a, b, ...(isFillId(f.aLeft) ? { aLeft: f.aLeft } : {}), ...(isFillId(f.bLeft) ? { bLeft: f.bLeft } : {}), compare: f.compare ?? 'screen', opacity });
       } else if (f.kind === 'edge') {
         const a = byRole(f.curve);
         // Borde izquierdo: el relleno está a la derecha del borde → la curva queda a la derecha (bLeft).
-        if (a && isFillId(f.fill)) fills.push({ kind: 'edge', a, side: f.side, ...(f.side === 'left' ? { bLeft: f.fill } : { aLeft: f.fill }), opacity });
+        if (a && isFillId(f.fill)) fills.push({ kind: 'edge', a, side: f.side, ...(f.side === 'left' ? { bLeft: f.fill } : { aLeft: f.fill }), compare: 'screen', opacity });
       } else {
         const a = byRole(f.curve);
-        if (a) fills.push({ kind: 'baseline', a, baseline: f.value, ...(isFillId(f.left) ? { aLeft: f.left } : {}), ...(isFillId(f.right) ? { bLeft: f.right } : {}), opacity });
+        if (a) fills.push({ kind: 'baseline', a, baseline: f.value, ...(isFillId(f.left) ? { aLeft: f.left } : {}), ...(isFillId(f.right) ? { bLeft: f.right } : {}), compare: 'screen', opacity });
       }
     }
-    const grid: AxisScale | null =
-      t.kind === 'flags' ? null : t.scale ? (validScale({ kind: t.scale.kind, min: t.scale.min, max: t.scale.max, reversed: false }) ?? null) : (curves.find((c) => c.kind === 'line')?.axis ?? { kind: 'linear', min: 0, max: 1, reversed: false });
+    const top = [...curves].reverse().find((c) => c.kind === 'line');
+    const trackScale = t.scale ? validScale({ kind: t.scale.kind, min: t.scale.min, max: t.scale.max, reversed: t.scale.reversed ?? false }) : null;
+    const grid: AxisScale | null = t.kind === 'flags' ? null : (top?.axis ?? trackScale ?? { kind: 'linear', min: 0, max: 1, reversed: false });
     out.push({
       id: t.id,
       title: t.title,

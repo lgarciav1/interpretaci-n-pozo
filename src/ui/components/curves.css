@@ -20,3 +20,15 @@
 .ui-curve-legend__unit { margin-left: auto; color: var(--color-text-subtle); font-size: var(--text-xs); white-space: nowrap; }
 .ui-curve-legend__scale { display: flex; align-items: center; justify-content: space-between; gap: var(--space-1); font-size: var(--text-xs); color: var(--color-text-muted); }
 .ui-curve-legend__value:not(:empty) + .ui-curve-legend__unit { margin-left: 0; }
+
+/* Variante en una fila (encabezados del visor): extremo · nombre y valor sobre el trazo · extremo */
+.ui-curve-legend--inline { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: end; gap: var(--space-1); padding: 0; }
+.ui-curve-legend--inline + .ui-curve-legend--inline { border-top: 0; }
+.ui-curve-legend--noscale { grid-template-columns: minmax(0, 1fr); }
+.ui-curve-legend__lo, .ui-curve-legend__hi { color: var(--color-text-subtle); font-size: 10px; line-height: 14px; white-space: nowrap; }
+.ui-curve-legend__mid { position: relative; display: flex; align-items: flex-start; justify-content: center; gap: var(--space-1); min-width: 0; height: 21px; }
+.ui-curve-legend__line { position: absolute; left: 0; bottom: 0; width: 100%; pointer-events: none; }
+.ui-curve-legend--noscale .ui-curve-legend__mid { align-items: center; justify-content: flex-start; height: 18px; }
+.ui-curve-legend__label { display: inline-flex; align-items: baseline; gap: 4px; min-width: 0; max-width: 100%; line-height: 14px; }
+.ui-curve-legend--inline .ui-curve-legend__name { flex: none; font-size: var(--text-xs); }
+.ui-curve-legend--inline .ui-curve-legend__value { margin-left: 0; overflow: hidden; font-size: var(--text-xs); text-overflow: ellipsis; }

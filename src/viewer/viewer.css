@@ -42,8 +42,8 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  min-height: 64px;
-  padding: var(--space-1-5) var(--space-2-5) var(--space-1);
+  min-height: 52px;
+  padding: var(--space-1-5) var(--space-2) var(--space-1);
   border-right: 1px solid var(--viewer-track-border);
 }
 .wv-head:last-child { border-right: 0; }
@@ -66,11 +66,9 @@
 .wv-head__empty { display: flex; flex-direction: column; gap: 2px; margin-top: auto; color: var(--color-text-muted); font-size: var(--text-sm); }
 .wv-head__hint { color: var(--color-text-subtle); font-size: var(--text-xs); line-height: var(--leading-tight); }
 .wv-head--flags { padding-inline: var(--space-1-5); }
-/* Leyendas compactas: el mnemónico nunca se corta; cede la lectura del cursor. */
-.wv-head .ui-curve-legend { padding: 2px 0 1px; gap: 0; }
-.wv-head .ui-curve-legend__name { flex: none; max-width: 70%; }
-.wv-head .ui-curve-legend__value { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.wv-head .ui-curve-legend__unit { font-size: 10px; }
+/* Pista propia de una superposición: extremos de su escala y unidad. */
+.wv-head__scale { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-1); margin-top: auto; color: var(--color-text-subtle); font-size: 10px; }
+.wv-head__unit { color: var(--color-text-muted); font-size: var(--text-xs); }
 .wv-head--flags .ui-curve-legend__scale { display: none; }
 
 .wv-body {

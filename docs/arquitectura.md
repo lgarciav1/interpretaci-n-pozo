@@ -45,18 +45,18 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 
 | Carpeta | Qué hay | Puede importar React |
 |---|---|---|
-| `src/core/` | modelo (`well.ts`), unidades, roles, parámetros, contrato de módulo, registro, motor (`engine/`), estado (`state/`), configuración del visor que se guarda (`display.ts`) | no |
+| `src/core/` | modelo (`well.ts`), unidades, roles, parámetros, contrato de módulo, registro, motor (`engine/`), estado (`state/`), configuración del visor que se guarda y su validación al abrir (`display.ts`) | no |
 | `src/petro/` | funciones de cálculo puras, testeadas | no |
 | `src/modules/<id>/index.ts` | definición pura del módulo | no |
 | `src/modules/<id>/panel.tsx` | panel a medida (opcional) | sí |
-| `src/modules/<id>/overlay.ts` | superposiciones del visor (opcional, `overlays: ViewerOverlay[]`; el worker no lo importa) | no (canvas) |
+| `src/modules/<id>/overlay.ts` | superposiciones del visor (opcional, `overlays: ViewerOverlay[]`): dibujo, arrastre, pista propia; el worker no lo importa | no (canvas) |
 | `src/modules/index.ts` | **el registro** (una línea por módulo) | no |
 | `src/modules/sharedParams.ts` | catálogo canónico de parámetros compartidos | no |
 | `src/app/` | arranque, worker (`engine.worker.ts`), puente con el motor, stores (`store/viewer.ts`: cursor y tramo visible), descubrimiento de superposiciones (`viewerOverlays.ts`), pantallas | sí |
 | `src/app/shell/` | armazón: barra superior, flujo guiado, inspector, dock (`dockPanels.tsx`: una entrada por panel), `ViewerSlot` (conecta stores con el visor), diálogos | sí |
 | `src/app/flow/` | flujo guiado: definición de pasos y evaluación de estados (`flow.ts`, puro y testeado) | `flow.ts` no |
 | `src/ui/` | sistema de diseño: tokens, tema, paleta de curvas, componentes, `useCanvas`; contrato de panel. Guía en `src/ui/README.md`; muestra en `#ui` | sí |
-| `src/viewer/` | visor multipista: plantillas, resolución de pistas, viewport, ticks, reducción M4, rellenos, lectura, contrato de superposiciones, dibujo en canvas (`*.ts`, puros o canvas) y el componente `WellViewer.tsx`. Guía en `src/viewer/README.md` | solo `WellViewer.tsx` |
+| `src/viewer/` | visor multipista: plantillas, resolución de pistas, viewport, ticks, reducción M4, rellenos, lectura, contrato de superposiciones, gestos (`interaction.ts`), dibujo en canvas (`*.ts`, puros o canvas) y el componente `WellViewer.tsx`. Guía en `src/viewer/README.md` | solo `WellViewer.tsx` |
 | `src/io/` | lectores Excel/LAS/CSV, mnemónicos, control de calidad (ver su README) | no |
 | `src/plots`, `ml` | fases siguientes (ver su README) | — |
 
@@ -253,10 +253,13 @@ mitad del binario sin comprimir.
   canónica + salidas activas del motor), curvas sin rol por magnitud, y pistas recolectoras para que las salidas de
   módulos nuevos (y sus banderas) aparezcan solas.
 - Dibujo en dos canvas (base y cursor) bajo encabezados HTML; un único viewport para todas las pistas; cuadros en
-  `requestAnimationFrame` con reducción M4 por fila de píxel (3,6 ms por cuadro con el TP, 5,4 ms con 50 000
+  `requestAnimationFrame` con reducción M4 por fila de píxel (≈ 4 ms por cuadro con el TP, ≈ 6 ms con 50 000
   muestras).
-- Superposiciones: contrato `ViewerOverlay` (`src/viewer/overlay.ts`); zonas y calidad son incorporadas, los
-  módulos agregan las suyas en `src/modules/<id>/overlay.ts`.
+- Superposiciones: contrato `ViewerOverlay` (`src/viewer/overlay.ts`) con dibujo, tooltip, clic, **arrastre**
+  (plugs, topes, puntos de tendencias, elegir un tramo), teclado y **pista propia** (presiones MDT); zonas y calidad
+  son incorporadas, los módulos agregan las suyas en `src/modules/<id>/overlay.ts`. Leen el pozo y la interpretación
+  activos de `frame.data` (solo lectura), sin importar los stores.
+- Al abrir un proyecto, `display` se valida: lo inválido se descarta con un aviso.
 - El cursor publica su profundidad en `useViewer.cursorDepth`; clic en la franja de zonas fija
   `useUi.editingZoneId`.
 

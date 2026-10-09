@@ -16,10 +16,10 @@ import { BASE_TOKENS, type ThemeTokens } from '../ui/tokens';
 import { blockSummary, decimateWithBounds, DECIMATE_THRESHOLD, ensureRowBuffers, ROW_DATA, ROW_GAP, rowBounds, visibleRange, type RowBuffers } from './decimate';
 import { fillBetween } from './fills';
 import type { TrackBox } from './layout';
-import type { OverlayFrame, OverlayTrack, OverlayViewport, ViewerData, ViewerOverlay } from './overlay';
+import { guard, type OverlayFrame, type OverlayTrack, type OverlayViewport, type ViewerData, type ViewerOverlay } from './overlay';
 import { formatDepth, nearestIndex } from './readout';
-import type { ResolvedCurve, ResolvedTrack } from './resolve';
-import { fractionArray, scaleKey, valueToFraction, wrapFractionArray } from './scale';
+import { findCurve, type ResolvedCurve, type ResolvedTrack } from './resolve';
+import { fractionArray, fractionToValue, scaleKey, valueToFraction, wrapFractionArray, type AxisScale } from './scale';
 import { depthTicks, linearGrid, logGrid } from './ticks';
 import { baseOf, depthOf, yOf, type Viewport } from './viewport';
 
@@ -33,6 +33,8 @@ export interface FrameInput {
   width: number;
   overlays: readonly ViewerOverlay[];
   data: ViewerData;
+  /** Pide otro cuadro (lo usan las superposiciones durante una vista previa). */
+  invalidate?: () => void;
 }
 
 const FONT = BASE_TOKENS.font.sans;
@@ -51,20 +53,28 @@ export function overlayViewport(vp: Viewport): OverlayViewport {
 export function overlayTracks(tracks: readonly ResolvedTrack[], boxes: readonly TrackBox[]): OverlayTrack[] {
   return tracks.map((t, i) => {
     const box = boxes[i]!;
-    const find = (k: string) => t.curves.find((c) => c.key === k) ?? t.curves.find((c) => c.role === k);
+    const axisOf = (k: string | null): AxisScale | null => (k === null ? t.grid : (findCurve(t.curves, k)?.axis ?? null));
     return {
       id: t.id,
       kind: t.kind,
       title: t.title,
+      ...(t.overlayId ? { overlayId: t.overlayId } : {}),
       x: box.x,
       width: box.width,
       curves: t.curves,
+      scale: t.grid,
       hasRole: (role) => t.curves.some((c) => c.role === role),
       xOf: (k, v) => {
-        const c = find(k);
-        if (!c) return null;
-        const f = valueToFraction(v, c.axis);
+        const axis = axisOf(k);
+        if (!axis) return null;
+        const f = valueToFraction(v, axis);
         return Number.isFinite(f) ? f * box.width : null;
+      },
+      valueOf: (k, x) => {
+        const axis = axisOf(k);
+        if (!axis || !(box.width > 0)) return null;
+        const v = fractionToValue(x / box.width, axis);
+        return Number.isFinite(v) ? v : null;
       },
     };
   });
@@ -92,6 +102,8 @@ export class ViewerRenderer {
   private boundsBuf: Int32Array = new Int32Array(1025);
   private xa = new Float32Array(1024);
   private xb = new Float32Array(1024);
+  private va = new Float32Array(1024);
+  private vb = new Float32Array(1024);
 
   /** Olvida los buffers (al cambiar de pozo). */
   reset(): void {
@@ -105,6 +117,8 @@ export class ViewerRenderer {
       this.yBuf = new Float32Array(size);
       this.xa = new Float32Array(size);
       this.xb = new Float32Array(size);
+      this.va = new Float32Array(size);
+      this.vb = new Float32Array(size);
     }
   }
 
@@ -131,6 +145,14 @@ export class ViewerRenderer {
     const b = decimateWithBounds(values, s.bounds!, s.rows, ensureRowBuffers(this.rowBufs.get(key), s.rows), blockSummary(values));
     this.rowBufs.set(key, b);
     return b;
+  }
+
+  /** Valores de la curva (unidad de la curva) en los puntos del perfil, en `out`. */
+  private values(c: ResolvedCurve, s: Sampling, out: Float32Array): void {
+    if (s.decimated) {
+      const b = this.rows(`${c.key}:value`, c.data, s);
+      for (let r = 0; r < s.rows; r++) out[r] = b.state[r] === ROW_DATA ? b.mean[r]! : NaN;
+    } else for (let k = 0; k < s.n; k++) out[k] = c.data[s.i0 + k]!;
   }
 
   /** Perfil x (px, acotado a la pista) para rellenos, en `out`. */
@@ -204,9 +226,17 @@ export class ViewerRenderer {
         if (!Number.isFinite(bf)) continue;
         xb = box.x + Math.min(1, Math.max(0, bf)) * box.width;
       }
+      let diff: Float32Array | undefined;
+      if (fill.kind === 'between' && fill.b && fill.compare === 'value') {
+        // Lado por VALOR (a − b), no por posición: correcto aunque las dos curvas tengan escalas distintas.
+        this.values(fill.a, s, this.va);
+        this.values(fill.b, s, this.vb);
+        for (let k = 0; k < s.n; k++) this.va[k] = this.va[k]! - this.vb[k]!;
+        diff = this.va;
+      }
       const aPath = fill.aLeft ? new Path2D() : null;
       const bPath = fill.bLeft ? new Path2D() : null;
-      fillBetween(s.n, s.y, this.xa, xb, aPath, bPath, box.x, box.x + box.width);
+      fillBetween(s.n, s.y, this.xa, xb, aPath, bPath, box.x, box.x + box.width, diff);
       if (aPath && fill.aLeft) {
         const c = fillColor(fill.aLeft, theme);
         ctx.fillStyle = withAlpha(c.color, c.alpha * fill.opacity);
@@ -364,15 +394,11 @@ export class ViewerRenderer {
     });
     this.drawGrid(ctx, f, ticks);
 
-    const frame: OverlayFrame = { ctx, theme: f.theme, viewport: overlayViewport(f.viewport), tracks: overlayTracks(f.tracks, f.boxes), data: f.data };
+    const frame: OverlayFrame = { ctx, theme: f.theme, viewport: overlayViewport(f.viewport), tracks: overlayTracks(f.tracks, f.boxes), data: f.data, invalidate: f.invalidate ?? (() => {}) };
     const runOverlays = (layer: 'under' | 'over') => {
       for (const o of [...f.overlays].filter((o) => o.layer === layer).sort((a, b) => (a.order ?? 0) - (b.order ?? 0))) {
         ctx.save();
-        try {
-          o.draw(frame);
-        } catch (err) {
-          console.error(`Superposición '${o.id}':`, err);
-        }
+        guard(o.id, 'draw', () => o.draw(frame));
         ctx.restore();
       }
     };
@@ -380,7 +406,7 @@ export class ViewerRenderer {
 
     f.tracks.forEach((t, i) => {
       const b = f.boxes[i]!;
-      if (t.kind === 'depth') return;
+      if (t.kind === 'depth' || t.kind === 'overlay') return;
       ctx.save();
       ctx.beginPath();
       ctx.rect(b.x, 0, b.width, h);
@@ -415,7 +441,19 @@ export class ViewerRenderer {
       ctx.lineTo(x, h);
     }
     ctx.stroke();
+    // Buffers que este cuadro no usó (escala vieja, curva que ya no está): fuera. Mantiene el mapa acotado.
+    for (const [k, stamp] of this.rowStamp) {
+      if (stamp !== this.frameId) {
+        this.rowStamp.delete(k);
+        this.rowBufs.delete(k);
+      }
+    }
     return performance.now() - t0;
+  }
+
+  /** Buffers de reducción en uso (para tests). */
+  get bufferCount(): number {
+    return this.rowBufs.size;
   }
 
   /** Dibuja el canvas de cursor (línea, puntos sobre las curvas y rótulo de profundidad). */

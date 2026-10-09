@@ -40,11 +40,17 @@ export function fillBetween(
   bLeft: PathSink | null,
   lo = -Infinity,
   hi = Infinity,
+  /**
+   * Opcional: diferencia a − b EN VALORES por punto. Si se da, decide el lado (y el punto de cruce) en vez de la
+   * posición en pantalla: `aLeft` = a < b. Para rellenos que no deben depender de la escala (caliper vs. trépano).
+   */
+  valueDiff?: ArrayLike<number>,
 ): void {
   const clampX = (v: number) => (v < lo ? lo : v > hi ? hi : v);
   let side = 0; // −1: a a la izquierda; +1: b a la izquierda; 0: todavía iguales
   let pd = NaN; // diferencia a − b del punto anterior
   let pa = NaN;
+  let pb = NaN;
   let py = NaN;
   runA.length = 0;
   runB.length = 0;
@@ -63,30 +69,33 @@ export function fillBetween(
     const ca = clampX(at(xa, i));
     const cb = clampX(at(xb, i));
     const cy = y[i]!;
-    if (ca !== ca || cb !== cb || cy !== cy) {
+    const d = valueDiff ? valueDiff[i]! : ca - cb;
+    if (ca !== ca || cb !== cb || cy !== cy || d !== d) {
       flush();
       side = 0;
       pd = NaN;
       continue;
     }
-    const d = ca - cb;
     const s = d < 0 ? -1 : d > 0 ? 1 : 0;
     if (pd === pd && s !== 0 && side !== 0 && s !== side) {
       // Cruce entre el punto anterior y este: se cierra el polígono en el punto de cruce y se abre otro.
       const t = pd / (pd - d);
+      // Con valueDiff, x del cruce en cada curva por separado (pueden no coincidir en pantalla).
       const yc = py + t * (cy - py);
       const xc = pa + t * (ca - pa);
+      const xcb = valueDiff ? pb + t * (cb - pb) : xc;
       runA.push(xc, yc);
-      runB.push(xc, yc);
+      runB.push(xcb, yc);
       flush();
       runA.push(xc, yc);
-      runB.push(xc, yc);
+      runB.push(xcb, yc);
       side = s;
     } else if (side === 0) side = s;
     runA.push(ca, cy);
     runB.push(cb, cy);
     pd = d;
     pa = ca;
+    pb = cb;
     py = cy;
   }
   flush();

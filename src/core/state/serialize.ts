@@ -8,7 +8,7 @@
  * donde el deflate directo deja el pozo del TP en ~40 % del binario.
  * Si el entorno no tiene CompressionStream se usa 'f64le-b64' (sin compresión). Todas se leen siempre.
  */
-import { emptyDisplay, type DisplaySettings } from '../display';
+import { emptyDisplay, sanitizeDisplay, type DisplaySettings } from '../display';
 import type { Interpretation } from '../interpretation';
 import { createWell, type Curve, type Well } from '../well';
 import { emptyProgress, type FlowProgress, type Project, type Snapshot } from './project';
@@ -196,7 +196,12 @@ function migrate(file: ProjectFile): ProjectFile {
   return f;
 }
 
-export async function deserializeProject(text: string): Promise<Project> {
+export interface DeserializeOptions {
+  /** Avisos de lo que se descartó por inválido (por defecto, a la consola). */
+  onWarning?: (message: string) => void;
+}
+
+export async function deserializeProject(text: string, opts: DeserializeOptions = {}): Promise<Project> {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -223,12 +228,11 @@ export async function deserializeProject(text: string): Promise<Project> {
       return { well: restored, interpretation, progress: progress ?? emptyProgress() };
     }),
   );
-  const display = project.display ?? emptyDisplay();
   return {
     name: project.name,
     activeWellId: project.activeWellId,
     wells,
     snapshots: project.snapshots ?? [],
-    display: { layouts: display.layouts ?? {}, roles: display.roles ?? {}, curves: display.curves ?? {} },
+    display: sanitizeDisplay(project.display, opts.onWarning ?? ((m) => console.warn(`Proyecto: ${m}`))),
   };
 }
