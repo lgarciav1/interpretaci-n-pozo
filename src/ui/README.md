@@ -14,7 +14,7 @@ Importar siempre desde el índice: `import { Button, Slider, curveStyle } from '
    parámetro = `<SliderField>` dentro de `<Field>`, tabla = `<DataTable>`, mensaje = `<Callout>`, vacío =
    `<EmptyState>` (que diga qué hacer), modal = `<Dialog>`. Si falta algo, se agrega acá con su CSS, no en la pantalla.
 3. **CSS de pantalla** en un archivo propio importado por el componente (como `src/app/shell/shell.css`), con
-   prefijo propio. El prefijo `ui-` es de este sistema. `src/app/styles.css` tiene solo clases heredadas (ver abajo).
+   prefijo propio. El prefijo `ui-` es de este sistema. `src/app/styles.css` tiene solo el error de arranque.
 4. **Números**: `formatNumber` / `formatParamValue` (coma decimal) y clase `num` (cifras tabulares). Para leer lo
    que escribe el usuario, `parseDecimal` (acepta coma o punto).
 5. **Curvas**: color, trazo y escala salen de `curveStyle(rol, tema, catálogo)`. Nunca de `RoleDef.display.color`.
@@ -88,7 +88,7 @@ Escala por `devicePixelRatio`, redibuja al cambiar el tamaño (ResizeObserver) y
 | `Checkbox`, `Switch` | Casilla e interruptor (`role="switch"`), con descripción opcional. |
 | `Badge` | Etiqueta de estado: `tone` neutral/accent/ok/warn/error/info, `variant` soft/outline/solid. |
 | `Chip` | Ficha con muestra de color (zonas, curvas, filtros); seleccionable y removible. |
-| `StatusDot` | Semáforo con nombre accesible; `pulse` para "en curso". |
+| `StatusDot` | Semáforo con nombre accesible; `pulse` para "en curso"; `nativeTitle={false}` si va dentro de un `Tooltip`. |
 | `Callout` | Mensaje en un panel (info, ok, warn, error con `role="alert"`), con título y acciones. |
 | `EmptyState` | Estado vacío: ícono, título, qué hacer y acciones. |
 | `Spinner` | Actividad (anunciada si tiene `label`). |
@@ -100,7 +100,9 @@ Escala por `devicePixelRatio`, redibuja al cambiar el tamaño (ResizeObserver) y
 | `Section` | Bloque con encabezado en versalitas, `meta`, acciones; `collapsible`. |
 | `DataTable` | Tabla con cabecera fija (`maxHeight`), columnas `align: 'num'` (derecha + tabulares), filas seleccionables. |
 | `ResizeHandle` | Separador redimensionable accesible (arrastre, flechas, Enter para colapsar). |
-| `Stepper` | Barra de pasos: estados done / partial / todo / skipped / empty / locked, paso activo y sugerido. |
+| `Stepper` | Barra de pasos navegable (flujo guiado): estados done / partial / todo / skipped / empty / locked, paso activo y sugerido. |
+| `WizardSteps` | Pasos de un asistente dentro de un diálogo (solo informa, no navega): número, check en los completos, actual resaltado. |
+| `FileDrop` | Zona para soltar o elegir un archivo (arrastre, clic, Enter/Espacio); `accept`, `disabled`, `inputTestId`. |
 | `ThemeToggle` | Sistema / claro / oscuro. |
 | `CurveLegend`, `CurveSwatch` | Encabezado de curva (nombre en su color, rango, log, unidad, muestra del trazo). |
 | `Icon`, `BrandMark` | Íconos SVG propios (`ICON_NAMES`); para agregar uno, una entrada en `ICONS`. |
@@ -108,11 +110,11 @@ Escala por `devicePixelRatio`, redibuja al cambiar el tamaño (ResizeObserver) y
 Puro y testeado (`tests/ui/`): `tokens.ts`, `color.ts`, `curves.ts`, `format.ts`, `scale.ts`, `computePosition` de
 `components/layer.tsx`.
 
-## Clases heredadas (a migrar)
+## Clases heredadas
 
-`src/app/styles.css` conserva las clases de las fases 1–2 mapeadas a los tokens (se ven bien en ambos temas). Las
-usan `WellPanel`, `Qc` y el contenido de `LoadWellDialog`. Al migrar cada pantalla a componentes, borrar el bloque
-correspondiente. No agregar clases nuevas ahí.
+Ya no quedan: `WellPanel`, `Qc` y `LoadWellDialog` usan componentes y su propio CSS (`well-panel.css`, `qc.css`,
+`load-well.css`, prefijos `well-panel__`, `qc-`, `lw-`). `src/app/styles.css` solo tiene el error de arranque. No
+agregar clases ahí.
 
 ## Contrato de panel a medida
 

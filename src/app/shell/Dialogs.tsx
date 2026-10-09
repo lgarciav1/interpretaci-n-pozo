@@ -144,9 +144,7 @@ export function QcReportDialog() {
       {qc && (
         <>
           <BoreholeSummary report={qc} />
-          <div className="table-scroll tall">
-            <QcCurveTable report={qc} />
-          </div>
+          <QcCurveTable report={qc} />
         </>
       )}
     </Dialog>

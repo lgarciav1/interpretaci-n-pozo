@@ -60,9 +60,12 @@ export function Chip({ children, color, selected, onClick, onRemove, removeLabel
   );
 }
 
-/** Punto de estado (semáforo). `label` es el nombre accesible. */
-export function StatusDot({ tone, label, pulse = false }: { tone: Tone; label: string; pulse?: boolean }) {
-  return <span className={`ui-dot ui-dot--${tone}${pulse ? ' is-pulsing' : ''}`} role="img" aria-label={label} title={label} />;
+/**
+ * Punto de estado (semáforo). `label` es el nombre accesible y, por defecto, el `title` nativo; con
+ * `nativeTitle={false}` no lo lleva (cuando el punto va dentro de un `<Tooltip>`, para no mostrar dos ayudas).
+ */
+export function StatusDot({ tone, label, pulse = false, nativeTitle = true }: { tone: Tone; label: string; pulse?: boolean; nativeTitle?: boolean }) {
+  return <span className={`ui-dot ui-dot--${tone}${pulse ? ' is-pulsing' : ''}`} role="img" aria-label={label} title={nativeTitle ? label : undefined} />;
 }
 
 const CALLOUT_ICON: Record<Tone, IconName> = { neutral: 'info', accent: 'info', info: 'info', ok: 'check-circle', warn: 'warning', error: 'error' };

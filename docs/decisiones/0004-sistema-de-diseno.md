@@ -153,7 +153,7 @@ primero `todo`/`partial`). Elegir un paso abre su vista en el inspector y, si ti
 - Fase 4: el visor usa `curveStyle()`, `getThemeTokens().viewer` y `subscribeTheme()`; se monta en `ViewerSlot`.
 - Fase 7: histograma y crossplot son entradas de `dockPanels.tsx` y usan los mismos tokens.
 - El desarrollador de interfaz migra las pantallas que quedan con clases viejas (`src/app/styles.css`, sección
-  «Clases heredadas»), que ya están mapeadas a los tokens nuevos y funcionan en ambos temas.
+  «Clases heredadas»), que ya están mapeadas a los tokens nuevos y funcionan en ambos temas. Hecho en la fase 3b: `styles.css` quedó solo con el error de arranque.
 
 ## Abierto
 

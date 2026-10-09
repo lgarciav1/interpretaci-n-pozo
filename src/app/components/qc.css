@@ -1,0 +1,33 @@
+/* Control de calidad (Qc.tsx): conteos, tabla por curva y estado del pozo. */
+.qc-counts { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); }
+.qc-counts__item { display: inline-flex; align-items: center; gap: var(--space-1-5); white-space: nowrap; }
+.qc-counts__item.is-zero { color: var(--color-text-subtle); }
+.qc-counts__n { font-weight: var(--weight-semibold); }
+.qc-counts__item.is-zero .qc-counts__n { font-weight: var(--weight-regular); }
+
+.qc-tip { margin: 0; padding-left: var(--space-3); }
+
+.qc-table .ui-table td { vertical-align: top; }
+.qc-table .ui-table td .ui-dot { transform: translateY(-1px); }
+.qc-table__name { font-weight: var(--weight-medium); }
+.qc-status { display: inline-flex; align-items: center; gap: var(--space-2); white-space: nowrap; }
+.qc-reasons { margin: 0; padding-left: var(--space-3); }
+.qc-reasons li + li { margin-top: var(--space-0-5); }
+.qc-reasons li[data-severity='warning'] { color: var(--color-warn-text); }
+.qc-reasons li[data-severity='bad'] { color: var(--color-error-text); }
+.qc-reasons li[data-severity='info'] { color: var(--color-text-muted); }
+
+.qc-borehole { display: flex; flex-direction: column; gap: var(--space-1-5); min-width: 0; }
+.qc-borehole__meta { margin: 0; color: var(--color-text-muted); }
+.qc-borehole__row { display: grid; grid-template-columns: 8px 1fr; align-items: start; gap: var(--space-0-5) var(--space-2); }
+.qc-borehole__row > .ui-dot { margin-top: calc(var(--leading-normal) * 0.5em - 4px); }
+.qc-borehole__label { font-weight: var(--weight-medium); margin-right: var(--space-1); }
+.qc-borehole__list {
+  grid-column: 2;
+  max-height: 72px;
+  overflow: auto;
+  font-size: var(--text-xs);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-muted);
+}
+.qc-borehole__note { margin: 0; color: var(--color-text-muted); }

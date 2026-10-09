@@ -33,6 +33,8 @@ import {
   Spinner,
   StatusDot,
   Stepper,
+  FileDrop,
+  WizardSteps,
   Switch,
   TabPanel,
   Tabs,
@@ -223,6 +225,20 @@ function Controls() {
           <div className="showcase-stepper">
             <Stepper items={STEPS} activeId="d" suggestedId="e" onSelect={() => {}} aria-label="Ejemplo de pasos" />
           </div>
+        </Field>
+        <Field label="Pasos de un asistente (WizardSteps)">
+          <WizardSteps
+            steps={[
+              { id: 'a', label: 'Archivo' },
+              { id: 'b', label: 'Columnas' },
+              { id: 'c', label: 'Control de calidad' },
+            ]}
+            current="b"
+            aria-label="Ejemplo de asistente"
+          />
+        </Field>
+        <Field label="Zona para soltar archivos (FileDrop)">
+          <FileDrop onFile={(f) => toast({ title: `Elegiste ${f.name}` })} title="Arrastrá un archivo o hacé clic" description="Excel, LAS o CSV" />
         </Field>
       </div>
     </div>

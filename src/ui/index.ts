@@ -35,6 +35,8 @@ export { Panel, ResizeHandle, Section } from './components/Layout';
 export { DataTable, type Column } from './components/DataTable';
 export { Spinner } from './components/Spinner';
 export { Stepper, type StepperItem, type StepperStatus } from './components/Stepper';
+export { WizardSteps, type WizardStep } from './components/WizardSteps';
+export { FileDrop } from './components/FileDrop';
 export { ThemeToggle } from './components/ThemeToggle';
 export { useFlash } from './components/useFlash';
 export { CurveLegend, CurveSwatch } from './components/CurveLegend';
