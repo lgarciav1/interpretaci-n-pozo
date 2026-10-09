@@ -3,7 +3,7 @@
  * La lectura y el QC son puros (src/io); acá solo se arma el flujo y se aplica `addWell` vía `commit`.
  */
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
-import { addWell, setActiveWell } from '../../core/state/project';
+import { addWell, setActiveWell, setStepMark } from '../../core/state/project';
 import { getUnit, listUnits, unitLabel, type UnitId } from '../../core/units';
 import type { Well } from '../../core/well';
 import {
@@ -22,6 +22,7 @@ import {
   type RawTable,
 } from '../../io';
 import { registry } from '../../modules';
+import { Button, Callout, Dialog, Spinner } from '../../ui';
 import { useProject } from '../store/project';
 import { computeQc, setWellQc } from '../store/qc';
 import { BoreholeSummary, QcCounts, QcCurveTable } from './Qc';
@@ -66,7 +67,7 @@ function uniqueWell(well: Well, taken: readonly Well[]): Well {
   return { ...well, id: `${well.id}-${k}`, name: `${well.name} (${k})` };
 }
 
-export function LoadWellDialog({ onClose }: { onClose: () => void }) {
+export function LoadWellDialog({ onClose, initialSource }: { onClose: () => void; initialSource?: 'tp' }) {
   const commit = useProject((s) => s.commit);
   const [step, setStep] = useState<Step>('source');
   const [busy, setBusy] = useState<string | null>(null);
@@ -79,15 +80,7 @@ export function LoadWellDialog({ onClose }: { onClose: () => void }) {
   const [wellName, setWellName] = useState('');
   const [built, setBuilt] = useState<{ result: BuildResult; well: Well; report: QcReport } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
   const roles = useMemo(() => registry.roles.all(), []);
-
-  useEffect(() => dialogRef.current?.focus(), []);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !busy && onClose();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [busy, onClose]);
 
   const parse = async (src: Source) => {
     setError(null);
@@ -135,6 +128,15 @@ export function LoadWellDialog({ onClose }: { onClose: () => void }) {
     }
   };
 
+  // "Usar datos del TP" desde fuera del asistente: arranca leyendo el CSV incluido.
+  const started = useRef(false);
+  useEffect(() => {
+    if (initialSource !== 'tp' || started.current) return;
+    started.current = true;
+    void openTpData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSource]);
+
   const onDrop = (e: DragEvent) => {
     e.preventDefault();
     setOver(false);
@@ -177,7 +179,8 @@ export function LoadWellDialog({ onClose }: { onClose: () => void }) {
     if (!built) return;
     const { well, result, report } = built;
     setWellQc(well, report);
-    commit('Cargar pozo', (p) => setActiveWell(addWell(p, well, result.zones), well.id));
+    // El último paso del asistente es el control de calidad: el paso "Revisar calidad" queda revisado.
+    commit('Cargar pozo', (p) => setStepMark(setActiveWell(addWell(p, well, result.zones), well.id), well.id, 'qc', 'done'));
     onClose();
   };
 
@@ -191,35 +194,61 @@ export function LoadWellDialog({ onClose }: { onClose: () => void }) {
 
   const stepIndex = STEPS.findIndex(([s]) => s === step);
 
-  return (
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !busy && onClose()}>
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="load-well-title" tabIndex={-1} ref={dialogRef}>
-        <header className="modal-head">
-          <h2 id="load-well-title">Cargar pozo</h2>
-          <ol className="steps" aria-label="Pasos">
-            {STEPS.map(([s, label], i) => (
-              <li key={s} className={i === stepIndex ? 'current' : i < stepIndex ? 'done' : ''} aria-current={i === stepIndex ? 'step' : undefined}>
-                <span className="step-n">{i + 1}</span> {label}
-              </li>
-            ))}
-          </ol>
-          <span className="spacer" />
-          <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onClose} disabled={!!busy}>
-            ×
-          </button>
-        </header>
+  const footer =
+    step === 'columns' ? (
+      <>
+        <Button onClick={() => setStep('source')} disabled={!!busy}>
+          Elegir otro archivo
+        </Button>
+        <span className="spacer" />
+        <Button variant="primary" iconRight="arrow-right" onClick={toQc} disabled={!!busy}>
+          Siguiente: control de calidad
+        </Button>
+      </>
+    ) : step === 'qc' ? (
+      <>
+        <Button icon="chevron-left" onClick={() => setStep('columns')}>
+          Atrás
+        </Button>
+        <span className="spacer" />
+        <span className="muted">Las observaciones no impiden cargar el pozo.</span>
+        <Button variant="primary" icon="check" onClick={load}>
+          Cargar
+        </Button>
+      </>
+    ) : (
+      <>
+        <span className="spacer" />
+        <Button onClick={onClose} disabled={!!busy}>
+          Cancelar
+        </Button>
+      </>
+    );
 
-        <div className="modal-body">
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      dismissible={!busy}
+      size="xl"
+      title="Cargar pozo"
+      footer={footer}
+      headerExtra={
+        <ol className="steps" aria-label="Pasos">
+          {STEPS.map(([s, label], i) => (
+            <li key={s} className={i === stepIndex ? 'current' : i < stepIndex ? 'done' : ''} aria-current={i === stepIndex ? 'step' : undefined}>
+              <span className="step-n">{i + 1}</span> {label}
+            </li>
+          ))}
+        </ol>
+      }
+    >
           {busy && (
             <div className="busy" role="status">
-              <span className="spinner" aria-hidden="true" /> {busy}
+              <Spinner size={14} /> {busy}
             </div>
           )}
-          {error && (
-            <div className="callout error" role="alert">
-              {error}
-            </div>
-          )}
+          {error && <Callout tone="error">{error}</Callout>}
 
           {step === 'source' && (
             <>
@@ -253,9 +282,9 @@ export function LoadWellDialog({ onClose }: { onClose: () => void }) {
               />
               <div className="or-row">
                 <span className="muted">o</span>
-                <button type="button" className="btn" onClick={openTpData} disabled={!!busy}>
+                <Button icon="table" onClick={openTpData} disabled={!!busy}>
                   Cargar datos del TP
-                </button>
+                </Button>
                 <span className="muted">perfiles medidos del pozo del TP (5810 muestras, zonas A–E), incluidos en la app</span>
               </div>
             </>
@@ -420,14 +449,13 @@ export function LoadWellDialog({ onClose }: { onClose: () => void }) {
                 <QcCounts report={built.report} />
               </div>
               {built.result.warnings.length > 0 && (
-                <div className="callout warning">
-                  <strong>Avisos de la lectura</strong>
+                <Callout tone="warn" title="Avisos de la lectura">
                   <ul>
                     {built.result.warnings.map((w, i) => (
                       <li key={i}>{w}</li>
                     ))}
                   </ul>
-                </div>
+                </Callout>
               )}
               <h3 className="sub">Estado del pozo</h3>
               <BoreholeSummary report={built.report} />
@@ -437,42 +465,6 @@ export function LoadWellDialog({ onClose }: { onClose: () => void }) {
               </div>
             </>
           )}
-        </div>
-
-        <footer className="modal-foot">
-          {step === 'columns' && (
-            <>
-              <button type="button" className="btn" onClick={() => setStep('source')} disabled={!!busy}>
-                Elegir otro archivo
-              </button>
-              <span className="spacer" />
-              <button type="button" className="btn primary" onClick={toQc} disabled={!!busy}>
-                Siguiente: control de calidad
-              </button>
-            </>
-          )}
-          {step === 'qc' && (
-            <>
-              <button type="button" className="btn" onClick={() => setStep('columns')}>
-                Atrás
-              </button>
-              <span className="spacer" />
-              <span className="muted">Las observaciones no impiden cargar el pozo.</span>
-              <button type="button" className="btn primary" onClick={load}>
-                Cargar
-              </button>
-            </>
-          )}
-          {step === 'source' && (
-            <>
-              <span className="spacer" />
-              <button type="button" className="btn" onClick={onClose} disabled={!!busy}>
-                Cancelar
-              </button>
-            </>
-          )}
-        </footer>
-      </div>
-    </div>
+    </Dialog>
   );
 }

@@ -1,7 +1,8 @@
 # Arquitectura
 
 Webapp 100 % en el navegador (TypeScript + React + Vite) que se entrega como un único `dist/index.html`.
-Las decisiones con sus alternativas descartadas están en [`decisiones/0001-nucleo-y-contrato-de-modulos.md`](decisiones/0001-nucleo-y-contrato-de-modulos.md).
+Las decisiones con sus alternativas descartadas están en [`decisiones/`](decisiones/): núcleo y contrato de módulos
+(0001), lectura de datos (0002), control de calidad (0003) y sistema de diseño, armazón y flujo guiado (0004).
 Este documento resume cómo encajan las piezas y cómo agregar un módulo.
 
 ## Ideas centrales
@@ -48,7 +49,9 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 | `src/modules/index.ts` | **el registro** (una línea por módulo) | no |
 | `src/modules/sharedParams.ts` | catálogo canónico de parámetros compartidos | no |
 | `src/app/` | arranque, worker (`engine.worker.ts`), puente con el motor, stores, pantallas | sí |
-| `src/ui/` | sistema de diseño (fase 3) y contrato de panel | sí |
+| `src/app/shell/` | armazón: barra superior, flujo guiado, inspector, dock (`dockPanels.tsx`: una entrada por panel), lugar del visor, diálogos | sí |
+| `src/app/flow/` | flujo guiado: definición de pasos y evaluación de estados (`flow.ts`, puro y testeado) | `flow.ts` no |
+| `src/ui/` | sistema de diseño: tokens, tema, paleta de curvas, componentes, `useCanvas`; contrato de panel. Guía en `src/ui/README.md`; muestra en `#ui` | sí |
 | `src/io`, `viewer`, `plots`, `ml` | fases siguientes (ver su README) | — |
 
 Un test (`tests/modules.test.ts`) falla si `core`, `petro` o una definición de módulo importan React, zustand o la
@@ -223,7 +226,19 @@ mitad del binario sin comprimir.
 | Regla por defecto de fuentes para roles calculados (VSH/PHIE/SW de un vendedor le ganan a los módulos sin aviso) | fase 2, con la tabla de mnemónicos | Para roles con `origin: 'computed'`, preferir el módulo y ofrecer la curva del archivo como alternativa, o pedir confirmación al importar; en cualquier caso emitir un diagnóstico `info`. |
 | Reenvío completo automático ante "resultado incompleto" | antes de la fase 12 | Mensaje `resync` del cliente: el worker vacía `sent` y la próxima respuesta trae todos los datos. |
 | `kind` de zona en `ZoneSpan` y en la firma | fase 6 | Copiar `kind` a `ZoneSpan` y sumarlo a la firma, para que el sumario distinga reservorio/sello sin mirar el proyecto. |
-| Interfaz: marcar parámetros compartidos, un único control de "comparar" por módulo y distinguir las salidas en comparación en los resultados | fase 3 | Insignia "compartido" en el control (con la lista de módulos que lo usan), el control de comparar en el encabezado del módulo, y las salidas con `active: false` con estilo y leyenda propios. |
+
+## Interfaz (fase 3)
+
+- **Armazón de tres zonas** (`src/app/App.tsx`): pozo/curvas/zonas · visor + dock · inspector del paso activo.
+  Laterales y dock redimensionables y colapsables; medidas en `localStorage` (nunca en el proyecto).
+- **Flujo guiado**: `FLOWS[espacio]` en `src/app/flow/flow.ts`. Un paso de módulos toma los módulos de sus
+  categorías **o** los que producen sus puertos (Rw: categoría `water` o cualquier productor de `RW`/`RWA`/`RMF`),
+  así que agregar un módulo lo suma al paso sin tocar nada más. Lo derivado (pozo, zonas, puertos calculados) no se
+  guarda; las marcas del usuario (completo/saltado) van en `WellEntry.progress` (formato de proyecto v2).
+- **Parámetros compartidos** llevan insignia con los módulos que los usan; "comparar" está en el encabezado del
+  módulo; las salidas en comparación (`active: false`) se marcan como "alternativa" en resultados.
+- **Tema y canvas**: el visor lee colores con `curveStyle()` y `getThemeTokens().viewer`, y redibuja con
+  `subscribeTheme()` (o `useCanvas`).
 
 ## Abierto
 

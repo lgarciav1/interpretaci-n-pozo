@@ -17,6 +17,7 @@ export const CATEGORIES = [
   { id: 'lithology', label: 'Litología' },
   { id: 'shale', label: 'Arcillosidad' },
   { id: 'porosity', label: 'Porosidad' },
+  { id: 'water', label: 'Agua de formación' },
   { id: 'saturation', label: 'Saturación' },
   { id: 'permeability', label: 'Permeabilidad' },
   { id: 'cutoffs', label: 'Cutoffs' },

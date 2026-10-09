@@ -1,0 +1,266 @@
+/**
+ * Íconos SVG propios, en línea (sin librería ni recursos remotos). Grilla de 24, trazo 1,75 px, `currentColor`.
+ * Para agregar uno: una entrada en ICONS con sus trazos.
+ */
+import type { CSSProperties, ReactElement } from 'react';
+
+const ICONS = {
+  check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  x: <path d="M6 6l12 12M18 6L6 18" />,
+  plus: <path d="M12 5v14M5 12h14" />,
+  minus: <path d="M5 12h14" />,
+  'chevron-down': <path d="M6 9l6 6 6-6" />,
+  'chevron-up': <path d="M6 15l6-6 6 6" />,
+  'chevron-left': <path d="M15 6l-6 6 6 6" />,
+  'chevron-right': <path d="M9 6l6 6-6 6" />,
+  'arrow-right': <path d="M5 12h14M13 6l6 6-6 6" />,
+  upload: (
+    <>
+      <path d="M12 15V4M7.5 8.5L12 4l4.5 4.5" />
+      <path d="M4 15v3.5A1.5 1.5 0 005.5 20h13a1.5 1.5 0 001.5-1.5V15" />
+    </>
+  ),
+  download: (
+    <>
+      <path d="M12 4v11M7.5 10.5L12 15l4.5-4.5" />
+      <path d="M4 15v3.5A1.5 1.5 0 005.5 20h13a1.5 1.5 0 001.5-1.5V15" />
+    </>
+  ),
+  folder: <path d="M3.5 7.5A1.5 1.5 0 015 6h4.2l2 2.2H19a1.5 1.5 0 011.5 1.5v8.3A1.5 1.5 0 0119 19.5H5A1.5 1.5 0 013.5 18z" />,
+  save: (
+    <>
+      <path d="M5 4h11l3 3v12a1 1 0 01-1 1H6a1 1 0 01-1-1z" />
+      <path d="M8 4v5h7V4M8 20v-6h8v6" />
+    </>
+  ),
+  bookmark: <path d="M6.5 4h11v16L12 16l-5.5 4z" />,
+  history: (
+    <>
+      <path d="M4 12a8 8 0 102.4-5.7L4 8.5" />
+      <path d="M4 4v4.5h4.5M12 8v4.5l3 2" />
+    </>
+  ),
+  compare: (
+    <>
+      <path d="M8 4v16M16 4v16" />
+      <path d="M4 8h4M16 16h4M4 16h4M16 8h4" />
+    </>
+  ),
+  sun: (
+    <>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4" />
+    </>
+  ),
+  moon: <path d="M19.5 14.5A8 8 0 019.5 4.5a8 8 0 1010 10z" />,
+  monitor: (
+    <>
+      <rect x="3" y="4.5" width="18" height="12" rx="1.5" />
+      <path d="M9 20h6M12 16.5V20" />
+    </>
+  ),
+  info: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v5.5M12 7.6v.4" />
+    </>
+  ),
+  help: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.6 9.4a2.5 2.5 0 014.9.7c0 1.7-2.5 2.1-2.5 3.6M12 16.8v.3" />
+    </>
+  ),
+  warning: (
+    <>
+      <path d="M10.3 4.3a2 2 0 013.4 0l7 12.2a2 2 0 01-1.7 3H5a2 2 0 01-1.7-3z" />
+      <path d="M12 9.5v4M12 16.6v.3" />
+    </>
+  ),
+  error: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9 9l6 6M15 9l-6 6" />
+    </>
+  ),
+  'check-circle': (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8 12.3l2.7 2.7L16 9.7" />
+    </>
+  ),
+  lock: (
+    <>
+      <rect x="5" y="10.5" width="14" height="9.5" rx="1.5" />
+      <path d="M8.5 10.5V8a3.5 3.5 0 017 0v2.5" />
+    </>
+  ),
+  skip: <path d="M6 6l7 6-7 6zM17 6v12" />,
+  more: (
+    <>
+      <circle cx="6" cy="12" r="0.9" fill="currentColor" />
+      <circle cx="12" cy="12" r="0.9" fill="currentColor" />
+      <circle cx="18" cy="12" r="0.9" fill="currentColor" />
+    </>
+  ),
+  'panel-left': (
+    <>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="1.5" />
+      <path d="M9.5 4.5v15" />
+    </>
+  ),
+  'panel-right': (
+    <>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="1.5" />
+      <path d="M14.5 4.5v15" />
+    </>
+  ),
+  'panel-bottom': (
+    <>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="1.5" />
+      <path d="M3.5 14.5h17" />
+    </>
+  ),
+  layers: (
+    <>
+      <path d="M12 4l8.5 4.5L12 13 3.5 8.5z" />
+      <path d="M3.5 12.5L12 17l8.5-4.5M3.5 16.5L12 21l8.5-4.5" />
+    </>
+  ),
+  well: (
+    <>
+      <path d="M12 3v18" />
+      <path d="M8 6.5h2M14 9h2M8 11.5h2M14 14h2M8 16.5h2" />
+      <path d="M9 3h6" />
+    </>
+  ),
+  curve: <path d="M8 3c3 2-2 4 1 6s-3 4 0 6 4 2 1 6M15 3v18" />,
+  tracks: (
+    <>
+      <rect x="3.5" y="4" width="17" height="16" rx="1.5" />
+      <path d="M9.5 4v16M15 4v16" />
+      <path d="M6.5 7c1 2-1 3 0 5s-1 3 0 5M12 7c1 1.5 1 3-.5 5s0 3 1 5" />
+    </>
+  ),
+  table: (
+    <>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="1.5" />
+      <path d="M3.5 9.5h17M3.5 14.5h17M10 9.5v10" />
+    </>
+  ),
+  histogram: <path d="M4 20h16M6 20v-5M10 20V8M14 20v-9M18 20v-4" />,
+  scatter: (
+    <>
+      <path d="M4 4v16h16" />
+      <circle cx="9" cy="14" r="1" fill="currentColor" />
+      <circle cx="12" cy="10" r="1" fill="currentColor" />
+      <circle cx="15.5" cy="12" r="1" fill="currentColor" />
+      <circle cx="17" cy="7" r="1" fill="currentColor" />
+    </>
+  ),
+  cpu: (
+    <>
+      <rect x="6.5" y="6.5" width="11" height="11" rx="1.5" />
+      <path d="M10 3v3.5M14 3v3.5M10 17.5V21M14 17.5V21M3 10h3.5M3 14h3.5M17.5 10H21M17.5 14H21" />
+    </>
+  ),
+  activity: <path d="M3 12h4l2.5-6 5 12 2.5-6h4" />,
+  droplet: <path d="M12 3.5s6 6.4 6 10.5a6 6 0 01-12 0C6 9.9 12 3.5 12 3.5z" />,
+  sigma: <path d="M17 5H7l5.5 7L7 19h10" />,
+  filter: <path d="M4 5h16l-6 7.5V19l-4-2v-4.5z" />,
+  mountain: <path d="M3 19l6.5-11 4 6.5 2-3L21 19z" />,
+  search: (
+    <>
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="M16 16l4 4" />
+    </>
+  ),
+  settings: (
+    <>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 3v2.5M12 18.5V21M4.2 7.5l2.2 1.2M17.6 15.3l2.2 1.2M4.2 16.5l2.2-1.2M17.6 8.7l2.2-1.2" />
+    </>
+  ),
+  sliders: (
+    <>
+      <path d="M4 7h10M18 7h2M4 17h4M12 17h8" />
+      <circle cx="16" cy="7" r="2" />
+      <circle cx="10" cy="17" r="2" />
+    </>
+  ),
+  play: <path d="M7 5l12 7-12 7z" />,
+  refresh: (
+    <>
+      <path d="M20 12a8 8 0 01-14 5.3M4 12a8 8 0 0114-5.3" />
+      <path d="M18 3v3.7h-3.7M6 21v-3.7h3.7" />
+    </>
+  ),
+  trash: (
+    <>
+      <path d="M4.5 7h15M9.5 7V4.5h5V7" />
+      <path d="M6.5 7l1 12.5h9l1-12.5" />
+    </>
+  ),
+  eye: (
+    <>
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
+      <circle cx="12" cy="12" r="2.8" />
+    </>
+  ),
+  grip: (
+    <>
+      <circle cx="9.5" cy="7" r="0.9" fill="currentColor" />
+      <circle cx="14.5" cy="7" r="0.9" fill="currentColor" />
+      <circle cx="9.5" cy="12" r="0.9" fill="currentColor" />
+      <circle cx="14.5" cy="12" r="0.9" fill="currentColor" />
+      <circle cx="9.5" cy="17" r="0.9" fill="currentColor" />
+      <circle cx="14.5" cy="17" r="0.9" fill="currentColor" />
+    </>
+  ),
+  dot: <circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none" />,
+} satisfies Record<string, ReactElement>;
+
+export type IconName = keyof typeof ICONS;
+export const ICON_NAMES = Object.keys(ICONS) as IconName[];
+
+export interface IconProps {
+  name: IconName;
+  /** Tamaño en px (por defecto 16). */
+  size?: number;
+  strokeWidth?: number;
+  className?: string;
+  style?: CSSProperties;
+  /** Si se da, el ícono es significativo (role="img"); si no, es decorativo (aria-hidden). */
+  label?: string;
+}
+
+export function Icon({ name, size = 16, strokeWidth = 1.75, className, style, label }: IconProps) {
+  return (
+    <svg
+      className={className ? `ui-icon ${className}` : 'ui-icon'}
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={style}
+      {...(label ? { role: 'img', 'aria-label': label } : { 'aria-hidden': true, focusable: false })}
+    >
+      {ICONS[name]}
+    </svg>
+  );
+}
+
+/** Marca de la app: traza de perfil dentro de un cuadrado redondeado. */
+export function BrandMark({ size = 22 }: { size?: number }) {
+  return (
+    <svg className="ui-brand-mark" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="1" y="1" width="22" height="22" rx="6" fill="var(--color-accent)" />
+      <path d="M6.5 6.5h11M6.5 12h11M6.5 17.5h11" stroke="rgba(255,255,255,0.22)" strokeWidth="1.2" />
+      <path d="M9 4.5l3.2 2.8-2.4 2.6 4.6 2.4-3.6 2.6 2.4 2.4-2.2 2.2" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}

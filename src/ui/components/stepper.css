@@ -1,0 +1,76 @@
+.ui-stepper { min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.ui-stepper__list { display: flex; align-items: center; margin: 0; padding: 0; list-style: none; }
+.ui-step { display: flex; align-items: center; flex: none; }
+.ui-step__line {
+  width: 22px;
+  height: 1.5px;
+  margin: 0 2px;
+  border-radius: 1px;
+  background: var(--color-border-strong);
+  transition: background-color var(--dur-slow) var(--ease-standard);
+}
+.ui-step__line.is-filled { background: var(--color-ok); opacity: 0.7; }
+.ui-step__button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 32px;
+  padding: 0 var(--space-2-5) 0 var(--space-1-5);
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  background: none;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard), border-color var(--dur-fast) var(--ease-standard);
+}
+.ui-step__button:hover { background: var(--color-surface-hover); color: var(--color-text); }
+.ui-step__button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+
+.ui-step__marker {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  transition: background-color var(--dur-base) var(--ease-standard), border-color var(--dur-base) var(--ease-standard), color var(--dur-base) var(--ease-standard);
+}
+
+/* Estados */
+.ui-step--done .ui-step__marker { background: var(--color-ok); border-color: var(--color-ok); color: #fff; }
+.ui-step--done .ui-step__button { color: var(--color-text); }
+.ui-step--partial .ui-step__marker {
+  border-color: var(--color-accent);
+  color: var(--color-accent-text);
+  background: conic-gradient(var(--color-accent-soft-hover) 0 50%, var(--color-surface) 50% 100%);
+}
+.ui-step--partial .ui-step__button { color: var(--color-text); }
+.ui-step--skipped .ui-step__marker { border-style: dashed; color: var(--color-text-subtle); }
+.ui-step--skipped .ui-step__label { text-decoration: line-through; text-decoration-color: var(--color-text-subtle); }
+.ui-step--empty .ui-step__marker { border-style: dotted; color: var(--color-text-subtle); }
+.ui-step--empty .ui-step__button, .ui-step--locked .ui-step__button { color: var(--color-text-subtle); }
+.ui-step--locked .ui-step__marker { border-color: var(--color-border); color: var(--color-text-subtle); }
+
+/* Sugerido (el próximo a resolver): anillo suave de acento */
+.ui-step.is-suggested .ui-step__marker { border-color: var(--color-accent); color: var(--color-accent-text); box-shadow: 0 0 0 3px var(--color-accent-soft-hover); }
+
+/* Activo (abierto en el inspector) */
+.ui-step.is-active .ui-step__button {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent-border);
+  color: var(--color-accent-text);
+}
+.ui-step.is-active.ui-step--todo .ui-step__marker,
+.ui-step.is-active.ui-step--empty .ui-step__marker,
+.ui-step.is-active.ui-step--skipped .ui-step__marker {
+  border-color: var(--color-accent);
+  color: var(--color-accent-text);
+}

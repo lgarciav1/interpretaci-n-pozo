@@ -1,10 +1,12 @@
 /**
  * Control generado a partir del esquema de un parámetro: slider (lineal o log) + campo numérico, selector o
- * casilla. En modo zona muestra el valor efectivo y si es un override de esa zona.
+ * interruptor, con su ayuda en un tooltip. En modo zona muestra el valor efectivo y si es un override de esa zona.
+ * Los parámetros compartidos llevan una insignia con los módulos que los usan.
  */
 import { useId } from 'react';
 import type { ParamSpec, ParamValue } from '../../core/params';
 import { unitLabel } from '../../core/units';
+import { Badge, Field, Select, SliderField, Switch, Tooltip, formatParamValue } from '../../ui';
 
 export interface ParamControlProps {
   name: string;
@@ -18,98 +20,67 @@ export interface ParamControlProps {
   onChange(value: ParamValue): void;
   onReset?(): void;
   resetLabel?: string;
+  /** Nombres de los módulos que comparten el parámetro (si es compartido). */
+  sharedWith?: readonly string[];
 }
 
-/** Posiciones del slider en escala log (en lineal el slider trabaja directo en unidades del parámetro). */
-const LOG_STEPS = 1000;
-
-type NumberSpec = Extract<ParamSpec, { type: 'number' }>;
-
-function sliderProps(spec: NumberSpec, v: number) {
-  if (spec.scale === 'log') {
-    const [a, b] = [Math.log(spec.min), Math.log(spec.max)];
-    const pos = ((Math.log(Math.min(Math.max(v, spec.min), spec.max)) - a) / (b - a)) * LOG_STEPS;
-    return { min: 0, max: LOG_STEPS, step: 1, value: pos };
-  }
-  return { min: spec.min, max: spec.max, step: spec.step ?? (spec.max - spec.min) / 1000, value: v };
-}
-
-function fromSlider(spec: NumberSpec, raw: number): number {
-  if (spec.scale === 'log') {
-    const t = raw / LOG_STEPS;
-    return +Math.exp(Math.log(spec.min) + t * (Math.log(spec.max) - Math.log(spec.min))).toPrecision(3);
-  }
-  // Limpia el ruido de punto flotante del paso (0.1 + 0.2…).
-  return +raw.toPrecision(12);
-}
-
-export function ParamControl({ name, spec, value, overridden, editable, onChange, onReset, resetLabel }: ParamControlProps) {
+export function ParamControl({ name, spec, value, overridden, editable, onChange, onReset, resetLabel, sharedWith }: ParamControlProps) {
   const id = useId();
-  const head = (
-    <div className="param-head">
-      <label htmlFor={id} title={spec.tooltip}>
-        {spec.label}
-      </label>
-      {overridden && <span className="override">valor de la zona</span>}
-      {onReset && (
-        <button type="button" className="linkish" onClick={onReset}>
+  const aside = (
+    <>
+      {spec.shared && (
+        <Tooltip content={sharedWith && sharedWith.length > 1 ? `Compartido con: ${sharedWith.join(', ')}.` : 'Parámetro compartido: un solo valor para todos los métodos que lo usan.'}>
+          <span tabIndex={0} className="param-badge">
+            <Badge tone="info" variant="outline">
+              compartido
+            </Badge>
+          </span>
+        </Tooltip>
+      )}
+      {overridden && <Badge tone="warn">de la zona</Badge>}
+      {onReset && editable && (
+        <button type="button" className="param-reset" onClick={onReset}>
           {resetLabel ?? 'restablecer'}
         </button>
       )}
-    </div>
+    </>
   );
+  const tooltip = editable ? spec.tooltip : `${spec.tooltip ? `${spec.tooltip} ` : ''}Es único para todo el pozo: editalo en «Global».`;
 
   let body;
   switch (spec.type) {
     case 'number': {
-      const v = value as number;
+      const unit = spec.unit && spec.unit !== 'unitless' ? unitLabel(spec.unit) : undefined;
       body = (
-        <div className="param-row">
-          <input
-            id={id}
-            type="range"
-            name={name}
-            {...sliderProps(spec, v)}
-            disabled={!editable}
-            aria-label={spec.label}
-            onChange={(e) => onChange(fromSlider(spec, Number(e.currentTarget.value)))}
-          />
-          <input
-            type="number"
-            value={v}
-            step={spec.step ?? 'any'}
-            disabled={!editable}
-            aria-label={`${spec.label} (valor)`}
-            onChange={(e) => {
-              const n = Number(e.currentTarget.value);
-              if (e.currentTarget.value !== '' && Number.isFinite(n)) onChange(n);
-            }}
-          />
-          <span className="muted">{spec.unit ? unitLabel(spec.unit) : ''}</span>
-        </div>
+        <SliderField
+          id={id}
+          name={name}
+          aria-label={spec.label}
+          value={value as number}
+          min={spec.min}
+          max={spec.max}
+          {...(spec.step !== undefined ? { step: spec.step } : {})}
+          scale={spec.scale ?? 'linear'}
+          disabled={!editable}
+          unit={unit}
+          mark={{ value: spec.default, label: `Por defecto: ${formatParamValue(spec.default, spec)}` }}
+          formatValue={(v) => `${formatParamValue(v, spec)}${unit ? ` ${unit}` : ''}`}
+          onChange={(v) => onChange(v)}
+        />
       );
       break;
     }
     case 'enum':
-      body = (
-        <select id={id} name={name} value={value as string} disabled={!editable} onChange={(e) => onChange(e.currentTarget.value)}>
-          {spec.options.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      );
+      body = <Select id={id} name={name} block value={value as string} disabled={!editable} onChange={onChange} options={spec.options} />;
       break;
     case 'boolean':
-      body = <input id={id} name={name} type="checkbox" checked={value as boolean} disabled={!editable} onChange={(e) => onChange(e.currentTarget.checked)} />;
+      body = <Switch id={id} name={name} checked={value as boolean} disabled={!editable} onChange={onChange} label={value ? 'Sí' : 'No'} />;
       break;
   }
 
   return (
-    <div className={`param${editable ? '' : ' disabled'}`} title={editable ? spec.tooltip : 'Este parámetro es único para todo el pozo.'}>
-      {head}
+    <Field className="param" label={spec.label} htmlFor={id} tooltip={tooltip} aside={aside} disabled={!editable}>
       {body}
-    </div>
+    </Field>
   );
 }
