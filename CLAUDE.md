@@ -4,6 +4,16 @@ TP de Interpretación de Perfiles (FIUBA, 2C 2026). Webapp multimodular y autoco
 
 El plan completo (funcionalidades por ola, fases, arquitectura) está en el doc "Plan del proyecto" del proyecto de claude.ai: https://claude.ai/code/artifact/c610f6b0-b814-47fe-ab9e-59a12f3798df. Si no podés leerlo, pedí a la usuaria las partes que necesites.
 
+## Módulos obligatorios del profesor (MVP, no negociables)
+1. **Visualizador** multipista.
+2. **Presiones MDT:** presión vs. profundidad, gradientes por fluido, densidad de fluido y contactos, superpuesto al visualizador.
+3. **Crossplot libre:** cualquier curva contra cualquier otra en dos clics, color por tercera curva o por capa, cutoffs arrastrables en X e Y, filtro por capa.
+4. **Datos de corona:** carga de plugs (φ, k, densidad de grano), puesta en profundidad corona–perfil, puntos sobre el visualizador, modelo k–φ.
+5. **Histograma:** cualquier curva, cutoff arrastrable, superposición de histogramas de varias capas.
+6. **Gradientes y líneas de tendencia:** sobre cualquier curva o gráfico, ajuste lineal/log/exponencial/potencial con ecuación y R², gradientes en unidades de campo (presión, temperatura, compactación).
+
+Si una decisión de diseño compite con alguno de estos, gana el módulo obligatorio.
+
 ## Prioridades (en este orden)
 1. Petrofísica correcta y validada contra ejemplos de libro.
 2. Calidad visual excelente: más moderna que el software de la industria, respetando sus convenciones de lectura (colores por curva, escala log para resistividad, rellenos).
