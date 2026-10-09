@@ -139,7 +139,9 @@ describe('pistas del pozo del TP (datos/pozo_tp_perfiles.csv)', () => {
   it('sin calculadas: la pista de interpretación existe y está vacía; las que se ocultan no aparecen', () => {
     expect(track(tracks, 'computed').curves).toEqual([]);
     expect(track(tracks, 'computed').emptyHint).toBeTruthy();
-    expect(tracks.map((t) => t.id)).toEqual(['correlation', 'depth', 'resistivity', 'porosity', 'sonic', 'computed']);
+    expect(tracks.map((t) => t.id)).toEqual(['correlation', 'depth', 'resistivity', 'porosity', 'sonic', 'computed', 'volumetric']);
+    // La pista volumétrica no se esconde: dice qué falta (y no usa IGR como VSH).
+    expect(track(tracks, 'volumetric').stack!.empty).toBe(true);
   });
 
   it('las calculadas aparecen solas: IGR en su lugar, banderas en su franja y un rol nuevo en Interpretación', () => {
@@ -151,15 +153,21 @@ describe('pistas del pozo del TP (datos/pozo_tp_perfiles.csv)', () => {
       { port: 'XYZ', moduleId: 'nuevo', label: 'Rol desconocido', data: new Float64Array(n).fill(3), active: true },
     ];
     const t2 = resolveTracks(BUILTIN_LAYOUTS.petrophysics, { ...src, computed });
-    expect(track(t2, 'computed').curves.map((c) => c.key)).toEqual(['c:igr:IGR', 'c:nuevo:XYZ']);
+    // La alternativa (compare) se dibuja en la pista de su rol, marcada; sin VSH activa no hay relleno de VSH.
+    expect(track(t2, 'computed').curves.map((c) => c.key)).toEqual(['c:vsh-alt:VSH', 'c:igr:IGR', 'c:nuevo:XYZ']);
+    const alt = track(t2, 'computed').curves[0]!;
+    expect(alt.alternative).toBe(true);
+    expect(alt.styles.light.line).toBe('dashed');
+    expect(alt.title).toContain('alternativa');
+    expect(track(t2, 'computed').fills.some((f) => f.a.key === alt.key)).toBe(false);
     expect(track(t2, 'flags').curves.map((c) => c.name)).toEqual(['SHALE_FLAG']);
     expect(track(t2, 'flags').fixed).toBeGreaterThan(0);
     // rol sin escala conocida → rango de los datos
-    const xyz = track(t2, 'computed').curves[1]!;
+    const xyz = track(t2, 'computed').curves[2]!;
     expect(xyz.axis.min).toBeLessThan(3);
     expect(xyz.axis.max).toBeGreaterThan(3);
-    // las alternativas (compare) no se dibujan
-    expect(t2.flatMap((t) => t.curves).some((c) => c.moduleId === 'vsh-alt')).toBe(false);
+    // la alternativa aparece una sola vez
+    expect(t2.flatMap((t) => t.curves).filter((c) => c.moduleId === 'vsh-alt')).toHaveLength(1);
   });
 
   it('overrides: curva > rol > plantilla; color con contraste en ambos temas; ocultar', () => {

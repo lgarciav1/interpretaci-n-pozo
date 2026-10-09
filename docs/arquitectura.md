@@ -45,7 +45,7 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 
 | Carpeta | Qué hay | Puede importar React |
 |---|---|---|
-| `src/core/` | modelo (`well.ts`), unidades, roles, parámetros, contrato de módulo, registro, motor (`engine/`), estado (`state/`), configuración del visor que se guarda y su validación al abrir (`display.ts`) | no |
+| `src/core/` | modelo (`well.ts`), unidades, roles, parámetros, contrato de módulo, registro, motor (`engine/`), estado (`state/`: proyecto, snapshots, recetas de zonas `zones.ts`), configuración del visor que se guarda y su validación al abrir (`display.ts`, incluidas las pilas de la pista volumétrica) | no |
 | `src/petro/` | funciones de cálculo puras, testeadas | no |
 | `src/modules/<id>/index.ts` | definición pura del módulo | no |
 | `src/modules/<id>/panel.tsx` | panel a medida (opcional) | sí |
@@ -53,10 +53,10 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 | `src/modules/index.ts` | **el registro** (una línea por módulo) | no |
 | `src/modules/sharedParams.ts` | catálogo canónico de parámetros compartidos | no |
 | `src/app/` | arranque, worker (`engine.worker.ts`), puente con el motor, stores (`store/viewer.ts`: cursor y tramo visible), descubrimiento de superposiciones (`viewerOverlays.ts`), pantallas | sí |
-| `src/app/shell/` | armazón: barra superior, flujo guiado, inspector, dock (`dockPanels.tsx`: una entrada por panel), `ViewerSlot` (conecta stores con el visor), diálogos | sí |
+| `src/app/shell/` | armazón: barra superior, flujo guiado, inspector, dock (`dockPanels.tsx`: una entrada por panel), `ViewerSlot` (conecta stores con el visor: edición de zonas, modo marcar zona, encabezado), `CurveEditor` (editor de escalas), diálogos | sí |
 | `src/app/flow/` | flujo guiado: definición de pasos y evaluación de estados (`flow.ts`, puro y testeado) | `flow.ts` no |
 | `src/ui/` | sistema de diseño: tokens, tema, paleta de curvas, componentes, `useCanvas`; contrato de panel. Guía en `src/ui/README.md`; muestra en `#ui` | sí |
-| `src/viewer/` | visor multipista: plantillas, resolución de pistas, viewport, ticks, reducción M4, rellenos, lectura, contrato de superposiciones, gestos (`interaction.ts`), dibujo en canvas (`*.ts`, puros o canvas) y el componente `WellViewer.tsx`. Guía en `src/viewer/README.md` | solo `WellViewer.tsx` |
+| `src/viewer/` | visor multipista: plantillas, resolución de pistas, viewport, ticks, reducción M4, rellenos, pilas (`stack.ts`), lectura, contrato de superposiciones (con elementos del teclado), gestos (`interaction.ts`), dibujo en canvas (`*.ts`, puros o canvas) y los componentes `WellViewer.tsx`, `Minimap.tsx`, `WellHeader.tsx`. Guía en `src/viewer/README.md` | solo los `.tsx` |
 | `src/io/` | lectores Excel/LAS/CSV, mnemónicos, control de calidad (ver su README) | no |
 | `src/plots`, `ml` | fases siguientes (ver su README) | — |
 

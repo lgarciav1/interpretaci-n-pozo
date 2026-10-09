@@ -1,7 +1,9 @@
 # 0005 — Visor multipista
 
 - Estado: aceptada (fase 4a; revisada tras la revisión de arquitectura: arrastre, pistas propias de superposiciones,
-  rellenos por valor, escalas log, cachés acotadas, validación al abrir)
+  rellenos por valor, escalas log, cachés acotadas, validación al abrir). Ampliada en la fase 4b (D9–D15): pista
+  volumétrica, edición de zonas, editor de escalas, animación de carga, minimapa, encabezado de pozo, alternativas y
+  elementos de superposición alcanzables con el teclado (cambio aditivo del contrato, D15).
 - Alcance: `src/viewer/` (modelo, cálculos, dibujo y componente), `src/core/display.ts` (configuración guardada),
   `src/app/shell/ViewerSlot.tsx` (conexión con los stores) y `src/app/store/viewer.ts` (cursor publicado).
 - Lo heredan: la fase 4b (pista volumétrica, encabezado de pozo, minimapa, editor de escalas, edición de zonas),
@@ -214,6 +216,112 @@ Descartado:
 - Mouse: rueda = desplazar; Ctrl+rueda o pinza = zoom centrado en el puntero; arrastre = paneo; clic en la franja
   de zonas (o en el nombre de un tope) = seleccionar la zona (`useUi.editingZoneId`), otro clic la deselecciona.
 
+## D9. Pista volumétrica: una pila genérica por rol (fase 4b)
+
+- Tipo de pista nuevo `kind: 'stack'` con `stack: StackSpec` (JSON en `src/core/display.ts`, se guarda y se valida
+  al abrir). Una pila es una lista ordenada (de izquierda a derecha) de componentes: fracción = producto de
+  `factors` (valor de un rol o `1 − valor`), un `rest` por nivel (lo que falta para cerrar a 1) y `children` que
+  parten a su padre. La de Petrofísica (`VOLUMETRIC_STACK`): arcilla = VSH · matriz = resto · porosidad = PHIE,
+  partida en agua = PHIE·SW e hidrocarburo = PHIE·(1 − SW). Geología declara otra pila (mineralogía PE–densidad) sin
+  tocar el dibujante.
+- Cálculo puro en `src/viewer/stack.ts` (con tests: cierre a 1, recortes, NaN, faltantes), en caché por spec e
+  identidad de las entradas (resolver no lo repite si nada cambió). Entradas: la calculada activa gana a la medida
+  (en unidad canónica); **nunca IGR como VSH**.
+- Reglas: cada factor se recorta a [0, 1]; si un nivel suma más de 1 (VSH + PHIE > 1) se **normaliza** conservando
+  proporciones y el resto queda en 0 (la columna no se sale ni cambia de orden; se descartó recortar en orden porque
+  favorece arbitrariamente al primero). NaN en el primer nivel = hueco; en un hijo, el padre se ve entero en esa
+  muestra. Si falta una entrada, ese componente no se dibuja y el resto se rotula «Resto sin partir» con un relleno
+  neutro (`undivided`): con solo VSH se ve arcilla + resto, nunca una matriz inventada. Sin nada calculable, estado
+  vacío que dice qué falta y en qué paso se calcula.
+- Dibujo: cada capa es un relleno entre dos perfiles de fracción (la misma reducción M4 por fila y `fillBetween`
+  que los rellenos de 4a), en color **opaco** (paleta mezclada con el fondo a su opacidad): los hijos tapan
+  exactamente al padre y los colores no se ensucian. La leyenda del encabezado lee el volumen de cada componente bajo
+  el cursor.
+
+## D10. Edición de zonas sobre el perfil (fase 4b)
+
+- Recetas puras en `src/core/state/zones.ts` (con tests) y `applyZoneEdit` en `project.ts`, que guarda en la
+  interpretación: cambiar zonas cambia la firma de geometría del motor y **recalcula los parámetros por zona**.
+- Ajuste a la **muestra** más cercana (convención de una columna ZONA: tope = primera muestra, base = última).
+- **Frenar, no empujar.** Mover un borde frena en la vecina (queda a una muestra). Empujar en cadena puede deshacer
+  trabajo en zonas que no se están mirando, y todavía no hay deshacer. Dos zonas **contiguas** (separadas a lo sumo por
+  una muestra, como A–E del TP) comparten el contacto: se mueve como un solo borde y conserva la separación.
+  Espesor mínimo 0,5 m (`MIN_ZONE_THICKNESS`) para la zona y para la vecina con contacto.
+- **Marcar zona** (botón en la barra del visor y en el panel Zonas; Escape sale): arrastrar crea una zona acotada a
+  la zona (o al hueco) donde empezó el arrastre: nunca se superpone ni borra otra. Dentro de una zona la parte en
+  tres: arriba queda la original (id y parámetros), en el medio la nueva (`Z1`, `zoneColor`) y abajo un resto
+  («C inf.») que **hereda los parámetros** de la original (es la misma roca). Un resto más delgado que el mínimo se
+  suma a la nueva. Nombre, color y tipo se editan, y la zona se borra, desde el panel Zonas (`WellPanel`).
+- Interacción: superposición `zones-tops` con `hit` → `drag` a ±5 px de una línea (cursor `ns-resize`, vista previa
+  con la profundidad y los espesores, Escape cancela, `commit` al soltar con etiqueta en español) y en modo marcar,
+  `drag` en cualquier punto. Teclado: cada borde es un `target` (D15).
+
+## D11. Editor de escalas y colores (fase 4b)
+
+- Clic o Enter en el encabezado de una curva → popover (`Popover` del sistema de diseño) anclado a la curva:
+  mínimo, máximo, lin/log, invertir, color (`ColorPicker`), trazo, grosor, curva de respaldo, ocultar y restablecer.
+- **Alcance explícito**: «esta curva» → `setCurveDisplay` (solo medidas: las calculadas no tienen id de curva) o
+  «todas las curvas del rol» → `setRoleDisplay`. Si la curva tiene ajustes propios que tapan un cambio del rol
+  (precedencia de D3), el editor lo avisa y ofrece quitarlos.
+- Cada cambio válido se guarda al momento (recálculo en vivo; `display` no toca el motor). Lo inválido queda en el
+  campo con el motivo (`src/viewer/curveEdit.ts`, con tests): log con mínimo y máximo > 0, mínimo ≠ máximo, mínimo
+  < máximo (la inversión es un control aparte) y grosor de 0,5 a 6 px. Pasar a log con mínimo ≤ 0 propone la década
+  por debajo de los datos. Una escala se guarda completa (tipo, mínimo y máximo), no campo por campo: así nunca queda
+  una combinación que el resolver tenga que corregir.
+- Las curvas ocultas dejan un contador en el título de la pista que las vuelve a mostrar.
+
+## D12. Animación de carga (fase 4b)
+
+- Al cargar un pozo (cambia `wellKey`) las curvas se "registran" de arriba hacia abajo en 1 s
+  (`LOAD_ANIMATION_MS`, `src/viewer/animation.ts`) con la curva `--ease-standard` y un frente de acento. Más larga
+  que las transiciones de la interfaz a propósito: es un gesto de registro, no de un control.
+- Se implementa como un recorte del alto en `drawBase` (`FrameInput.reveal`): sin la animación el campo no existe y un
+  cuadro normal no paga nada. Cualquier interacción (puntero, rueda, teclado, zoom, minimapa, Tab) la corta en el
+  estado final. Con `prefersReducedMotion()` no se anima.
+
+## D13. Minimapa y encabezado de pozo (fase 4b)
+
+- **Minimapa** (`Minimap.tsx`, geometría pura en `minimap.ts`): columna de 42 px a la derecha, fuera del
+  desplazamiento horizontal, con el pozo entero: zonas y una curva resumen (GR, o la primera de línea) como mínimo–
+  máximo por fila de píxel. El rectángulo de la ventana visible lo mueve el visor en cada cuadro escribiendo estilos
+  (`setWindow`, sin re-render). Arrastrarlo navega; un clic en otro lado centra la vista ahí y se puede seguir
+  arrastrando. Es un `role="slider"` (↑/↓ un décimo de ventana, Re Pág/Av Pág una ventana, Inicio/Fin).
+- **Encabezado** (`WellHeader.tsx`, campos en `wellHeader.ts`): una franja de 30 px con yacimiento, compañía, KB…
+  (mnemónicos LAS y nombres en español), intervalo, paso, curvas medidas + calculadas y zonas (clic = mostrarla). Se
+  despliega para ver todos los campos; se oculta desde el nombre del pozo en la barra (se recuerda por usuario). Un
+  LAS sin metadatos muestra «sin metadatos» y lo que sí se sabe.
+- Descartado: el minimapa como pista más (competiría por ancho con las curvas y se desplazaría en horizontal) y el
+  encabezado como bloque alto al estilo de los perfiles impresos (le roba alto al perfil en pantalla).
+
+## D14. Alternativas y encabezados en pistas angostas (fase 4b)
+
+- Salidas en comparación (`active: false`): se dibujan en la pista de su rol, debajo de la activa, rayadas y al 60 %,
+  con la etiqueta «alternativa» en el encabezado. No alimentan rellenos, `xOf` de superposiciones, pilas ni el
+  minimapa: esos siguen a la fuente que alimenta la cadena.
+- Encabezados: hasta 4 filas por pista; si hay más, las de abajo se agrupan en una fila «AT10 · AT20 +2» que abre la
+  lista completa (también editable). Si todas las curvas de una pista comparten escala (resistividades 0,2–2000) los
+  extremos se muestran **una vez** en una fila propia y cada curva queda con todo el ancho para nombre y lectura. En
+  pistas de menos de 168 px, mientras hay cursor, los extremos por curva se ocultan y la lectura toma su lugar
+  (consulta de contenedor; sin cursor vuelven). Así no se corta el valor y no se agrega alto.
+
+## D15. Cambio del contrato de superposiciones: elementos del teclado (fase 4b)
+
+4a dejó pendiente llegar a un elemento de una superposición solo con teclado: `hit` necesita coordenadas del
+puntero, así que sin mouse no había forma de activar un tope o un plug. Se agregan tres campos **opcionales** (nada
+existente cambia ni se rompe):
+
+- `ViewerOverlay.targets?(frame): OverlayTarget[]` — `{ depth, hit }` por elemento. El visor crea un botón accesible
+  por cada uno, en orden de profundidad después del cuerpo del visor: Tab los recorre; al enfocarlo lo trae a la
+  vista y lo deja activo (↑/↓ → `hit.nudge`, Enter → `hit.activate`, Escape vuelve al perfil) y su nombre accesible es
+  `hit.label`. El botón se ve solo con foco, como una pastilla sobre el elemento.
+- `OverlayHit.key?` — identidad estable del elemento (la misma en `hit` y en `targets`).
+- `OverlayFrame.active?` — `{ overlayId, key }` del elemento activo (teclado o último clic/arrastre), para que su dueño
+  lo resalte.
+
+Descartado: recorrer elementos con flechas dentro del visor (↑/↓ ya mueven el cursor y el elemento; habría que
+inventar un modo), y botones DOM que reemplacen el `hit` (miles de plugs no escalan en DOM; acá solo se crean para
+los elementos que la superposición elige exponer, p. ej. topes y bases).
+
 ## Consecuencias
 
 - 4b agrega pistas nuevas como `kind` de pista con su dibujante (volumétrica), el minimapa como otro consumidor
@@ -224,3 +332,9 @@ Descartado:
 - Al abrir un proyecto, `display` se valida (`sanitizeDisplay`): lo inválido se descarta con aviso (toast) y el
   resto se conserva.
 - `src/app/shell/trackTemplates.ts` desaparece: las plantillas viven en `src/viewer/templates.ts`.
+- 4b: rendimiento medido como en 4a (zoom con Ctrl+rueda, scroll y paneo, 110 cuadros): TP ≈ 3,5 ms de media
+  (p95 ≈ 5 ms), 50 000 muestras ≈ 5,8 ms (p95 ≈ 9 ms). La pila volumétrica con datos suma una reducción por borde de
+  capa (≈ 8 perfiles), del orden de un relleno de 4a.
+- Fase 6 (presiones MDT, plugs de corona) puede exponer sus puntos con `targets` para el teclado.
+- Riesgo conocido: mover topes no tiene deshacer todavía (llega con el historial de `commit`); por eso frena y no
+  empuja, Escape cancela y el umbral de arrastre es de 4 px.

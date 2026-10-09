@@ -13,6 +13,8 @@ export interface ShellLayout {
   rightCollapsed: boolean;
   dockHeight: number;
   dockCollapsed: boolean;
+  /** Franja de encabezado de pozo en el visor. */
+  wellHeader: boolean;
 }
 
 export const LAYOUT_LIMITS = {
@@ -30,6 +32,7 @@ const DEFAULT_LAYOUT: ShellLayout = {
   rightCollapsed: false,
   dockHeight: BASE_TOKENS.size.dock,
   dockCollapsed: false,
+  wellHeader: true,
 };
 
 function loadLayout(): ShellLayout {
@@ -44,6 +47,7 @@ function loadLayout(): ShellLayout {
       leftCollapsed: raw.leftCollapsed === true,
       rightCollapsed: raw.rightCollapsed === true,
       dockCollapsed: raw.dockCollapsed === true,
+      wellHeader: raw.wellHeader !== false,
     };
   } catch {
     return DEFAULT_LAYOUT;
@@ -59,6 +63,8 @@ export interface UiStore {
   editingZoneId: string | null;
   /** Pestaña activa del dock. */
   dockTab: string;
+  /** Modo «marcar zona» del visor: arrastrar sobre el perfil crea una zona. */
+  zoneMarking: boolean;
   /** Asistente de carga abierto (con `tp` arranca leyendo los datos del TP). */
   loadDialog: null | { source?: 'tp' };
   snapshotsOpen: boolean;
@@ -74,6 +80,7 @@ export const useUi = create<UiStore>()((set) => ({
   activeStepId: null,
   editingZoneId: null,
   dockTab: 'results',
+  zoneMarking: false,
   loadDialog: null,
   snapshotsOpen: false,
   qcReportOpen: false,

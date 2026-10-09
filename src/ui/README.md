@@ -67,7 +67,9 @@ Escala por `devicePixelRatio`, redibuja al cambiar el tamaño (ResizeObserver) y
 - `curveStyle(rol, tema, catálogo?, claveDeRespaldo?)` → `{ color, line, dash, width, kind, scale, min, max, reversed, label }`.
   Color y trazo de `CURVE_PALETTE` (curada, claro y oscuro); escala, rango e inversión del catálogo de roles.
   Roles de módulos sin paleta: su `display.color` con contraste ≥ 3:1 garantizado; sin color, uno categórico estable.
-- `FILL_PALETTE` + `fillColor(id, tema)`: cruce de gas, arcilla, arena, caliza, dolomía, fluidos, banderas…
+- `FILL_PALETTE` + `fillColor(id, tema)`: cruce de gas, arcilla, arena, caliza, dolomía, fluidos, banderas,
+  porosidad sin partir (`pore`) y resto sin partir (`undivided`, neutro) de la pista volumétrica…
+- `CURVE_SWATCHES`: colores clásicos de perfiles (de la paleta) para elegir el color de una curva.
 - `ZONE_PALETTE` / `zoneColor(i)`: colores para zonas nuevas.
 - `dashPattern(línea, grosor)`: patrón para `setLineDash` / `stroke-dasharray`.
 
@@ -93,6 +95,8 @@ Escala por `devicePixelRatio`, redibuja al cambiar el tamaño (ResizeObserver) y
 | `EmptyState` | Estado vacío: ícono, título, qué hacer y acciones. |
 | `Spinner` | Actividad (anunciada si tiene `label`). |
 | `Dialog` | Modal: foco atrapado, Escape/fondo cierran (salvo `dismissible={false}`), foco vuelve al disparador; `data-autofocus` para el foco inicial; `headerExtra`, `footer`, `size`. |
+| `Popover` | Capa NO modal anclada a un elemento (`anchorRef`): `role="dialog"` con `label`, foco inicial en `[data-autofocus]` o el primer control, Tab circula adentro, Escape cierra y devuelve el foco al ancla, clic afuera cierra. Se reubica y gira si no entra. La usa el editor de escalas del visor. |
+| `ColorPicker` | Muestras (radiogroup con flechas; por defecto `CURVE_SWATCHES`, o `swatches`, p. ej. `ZONE_PALETTE`) + «Otro» con el selector nativo del sistema. Devuelve `#rrggbb`. |
 | `Menu` | Menú desplegable (flechas, letra inicial, Escape); ítems con ícono, descripción, atajo, separadores y rótulos. |
 | `Tooltip` | Ayuda al pasar el mouse o llegar con teclado; `aria-describedby` (salvo `describe={false}`). |
 | `toast()` + `Toaster` | Avisos efímeros en región `aria-live` (un `Toaster` en la raíz). |
@@ -104,7 +108,7 @@ Escala por `devicePixelRatio`, redibuja al cambiar el tamaño (ResizeObserver) y
 | `WizardSteps` | Pasos de un asistente dentro de un diálogo (solo informa, no navega): número, check en los completos, actual resaltado. |
 | `FileDrop` | Zona para soltar o elegir un archivo (arrastre, clic, Enter/Espacio); `accept`, `disabled`, `inputTestId`. |
 | `ThemeToggle` | Sistema / claro / oscuro. |
-| `CurveLegend`, `CurveSwatch` | Encabezado de curva (nombre en su color, rango, log, unidad, muestra del trazo). |
+| `CurveLegend`, `CurveSwatch` | Encabezado de curva (nombre en su color, rango, log, unidad, muestra del trazo); `tag` agrega una etiqueta («alternativa»). |
 | `Icon`, `BrandMark` | Íconos SVG propios (`ICON_NAMES`); para agregar uno, una entrada en `ICONS`. |
 
 Puro y testeado (`tests/ui/`): `tokens.ts`, `color.ts`, `curves.ts`, `format.ts`, `scale.ts`, `computePosition` de

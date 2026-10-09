@@ -3,20 +3,26 @@
  * componente `WellViewer` de src/viewer, que no conoce stores. Decisión: docs/decisiones/0005-visor-multipista.md.
  *
  * - Pistas: las propias del proyecto (`project.display.layouts[espacio]`) o las de fábrica (`BUILTIN_LAYOUTS`),
- *   resueltas con las curvas medidas y las calculadas activas del motor.
- * - Superposiciones: zonas (clic = editar la zona), calidad del pozo y las que aporten los módulos.
+ *   resueltas con las curvas medidas y las calculadas del motor (activas y alternativas).
+ * - Superposiciones: zonas (clic = editar la zona; arrastre de topes y modo «marcar zona», que guardan por
+ *   `commit`), calidad del pozo y las que aporten los módulos.
+ * - Encabezado de pozo, editor de escalas (popover anclado a la curva) y modo «marcar zona».
  * - Publica el cursor y el tramo visible en `useViewer` para otros paneles.
  */
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ClientResult } from '../../core/engine/client';
+import { activeWellEntry, applyZoneEdit, makeId, setCurveDisplay, setRoleDisplay } from '../../core/state/project';
+import { defaultZoneName } from '../../core/state/zones';
 import type { Well } from '../../core/well';
 import { registry } from '../../modules';
-import { Button, Chip, EmptyState } from '../../ui';
-import type { ViewerData } from '../../viewer/overlay';
+import { Button, Chip, EmptyState, Icon, toast, zoneColor } from '../../ui';
+import { patchOverride } from '../../viewer/curveEdit';
+import type { ViewerData, ViewerZone } from '../../viewer/overlay';
 import { createQcOverlay } from '../../viewer/overlays/qc';
 import { createZonesOverlay } from '../../viewer/overlays/zones';
-import { resolveTracks, type ComputedCurve } from '../../viewer/resolve';
-import { layoutFor, withOverlayTracks } from '../../viewer/templates';
+import { resolveTracks, type ComputedCurve, type HiddenCurve, type ResolvedTrack } from '../../viewer/resolve';
+import { layoutFor, STACK_ROLE_HINTS, withOverlayTracks } from '../../viewer/templates';
+import { WellHeader } from '../../viewer/WellHeader';
 import { WellViewer } from '../../viewer/WellViewer';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useWellQc } from '../store/qc';
@@ -24,8 +30,33 @@ import { useResults } from '../store/results';
 import { useUi } from '../store/ui';
 import { useViewer } from '../store/viewer';
 import { moduleOverlays } from '../viewerOverlays';
+import { CurveEditor } from './CurveEditor';
 
-const BUILTIN_OVERLAYS = [...createZonesOverlay({ onSelect: (id) => useUi.getState().set({ editingZoneId: id }) }), createQcOverlay()];
+const activeWell = () => activeWellEntry(useProject.getState().project);
+
+const BUILTIN_OVERLAYS = [
+  ...createZonesOverlay({
+    onSelect: (id) => useUi.getState().set({ editingZoneId: id }),
+    edit: {
+      current: () => {
+        const e = activeWell();
+        return e ? { zones: e.interpretation.zones, depth: e.well.depth.values } : null;
+      },
+      marking: () => useUi.getState().zoneMarking,
+      commit: (zones, label, clone) => {
+        const e = activeWell();
+        if (e) useProject.getState().commit(label, (p) => applyZoneEdit(p, e.well.id, zones, clone ?? null));
+      },
+      newZone: (zones) => ({ id: makeId('zona'), lowerId: makeId('zona'), name: defaultZoneName(zones), color: zoneColor(zones.length) }),
+      created: (z) => {
+        useUi.getState().set({ zoneMarking: false, editingZoneId: z.id });
+        toast({ tone: 'ok', title: `Zona «${z.name}» creada`, description: 'Cambiale el nombre, el color o el tipo en el panel Zonas.' });
+      },
+      error: (message) => toast({ tone: 'warn', title: 'No se marcó la zona', description: message }),
+    },
+  }),
+  createQcOverlay(),
+];
 /** Incorporadas + las de los módulos (con ids que no choquen con las incorporadas). */
 const OVERLAYS = [...BUILTIN_OVERLAYS, ...moduleOverlays(BUILTIN_OVERLAYS.map((o) => o.id))];
 
@@ -46,7 +77,7 @@ function computedCurves(result: ClientResult | null, well: Well): ComputedCurve[
   const out: ComputedCurve[] = [];
   for (const o of result.outputs) {
     if (o.kind !== 'curve' || !(o.value instanceof Float64Array)) continue;
-    out.push({ port: o.port, moduleId: o.moduleId, label: o.label, data: o.value, active: o.active });
+    out.push({ port: o.port, moduleId: o.moduleId, label: registry.get(o.moduleId)?.name ?? o.label, data: o.value, active: o.active });
   }
   return out;
 }
@@ -54,9 +85,13 @@ function computedCurves(result: ClientResult | null, well: Well): ComputedCurve[
 export function ViewerSlot() {
   const entry = useProject(selectActiveEntry);
   const display = useProject((s) => s.project.display);
+  const commit = useProject((s) => s.commit);
   const workspace = useUi((s) => s.workspace);
   const editingZoneId = useUi((s) => s.editingZoneId);
+  const marking = useUi((s) => s.zoneMarking);
+  const showHeader = useUi((s) => s.layout.wellHeader);
   const setUi = useUi((s) => s.set);
+  const setLayout = useUi((s) => s.setLayout);
   const result = useResults((s) => s.result);
   const well = entry?.well ?? null;
   const qc = useWellQc(well);
@@ -86,6 +121,35 @@ export function ViewerSlot() {
     };
   }, [well, interpretation, editingZoneId, qc, computed]);
 
+  // Editor de escala: qué curva y dónde anclarlo (la curva se vuelve a buscar en cada render: llega al día).
+  const [editing, setEditing] = useState<{ trackId: string; key: string } | null>(null);
+  const anchorRef = useRef<HTMLElement | null>(null);
+  const editingCurve = editing ? tracks.find((t) => t.id === editing.trackId)?.curves.find((c) => c.key === editing.key) : undefined;
+  useEffect(() => {
+    if (editing && !editingCurve) setEditing(null);
+  }, [editing, editingCurve]);
+  useEffect(() => setEditing(null), [well?.id, workspace]);
+
+  // Pedido de mostrar un tramo (zona elegida en el encabezado).
+  const [rangeRequest, setRangeRequest] = useState<{ top: number; base: number; seq: number } | null>(null);
+  const showZone = (z: ViewerZone) => {
+    setUi({ editingZoneId: z.id });
+    setRangeRequest((r) => ({ top: z.top, base: z.base, seq: (r?.seq ?? 0) + 1 }));
+  };
+
+  // Escape sale del modo «marcar zona» aunque el foco no esté en el visor.
+  useEffect(() => {
+    if (!marking) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !e.defaultPrevented) useUi.getState().set({ zoneMarking: false });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [marking]);
+  useEffect(() => {
+    if (!well) setUi({ zoneMarking: false });
+  }, [well, setUi]);
+
   if (!entry || !well || !data) {
     return (
       <div className="shell-viewer shell-viewer--empty">
@@ -109,30 +173,65 @@ export function ViewerSlot() {
     );
   }
 
-  const editing = data.zones.find((z) => z.id === editingZoneId);
+  const showCurve = (_t: ResolvedTrack, h: HiddenCurve) => {
+    commit(`Mostrar ${h.name}`, (p) => {
+      let next = p;
+      if (h.curveId) {
+        const ov = p.display.curves[well.id]?.[h.curveId];
+        if (ov?.hidden) next = setCurveDisplay(next, well.id, h.curveId, patchOverride(ov, { hidden: undefined }));
+      }
+      const rov = h.role ? next.display.roles[h.role] : undefined;
+      if (h.role && rov?.hidden) next = setRoleDisplay(next, h.role, patchOverride(rov, { hidden: undefined }));
+      return next;
+    });
+  };
+
+  const editingZone = data.zones.find((z) => z.id === editingZoneId);
   const toolbarStart = (
     <>
-      <span className="wv-well-name" title={well.name}>
-        {well.name}
-      </span>
-      {data.zones.length === 0 ? (
-        <span className="wv-chip" title="Definí topes y bases en el paso Zonas del flujo guiado">
-          Sin zonas · definilas en el paso Zonas
+      <button
+        type="button"
+        className="wv-well-toggle"
+        aria-expanded={showHeader}
+        title={showHeader ? 'Ocultar el encabezado del pozo' : 'Mostrar el encabezado del pozo'}
+        onClick={() => setLayout({ wellHeader: !showHeader })}
+      >
+        <Icon name="chevron-down" size={14} />
+        <span className="wv-well-name" title={well.name}>
+          {well.name}
         </span>
-      ) : editing ? (
-        <Chip color={editing.color} selected onRemove={() => setUi({ editingZoneId: null })} removeLabel="Dejar de editar la zona" title="Los parámetros que cambies se aplican solo a esta zona">
-          {`Zona ${editing.name}`}
+      </button>
+      {data.zones.length === 0 ? (
+        <span className="wv-chip" title="Definí zonas con «Marcar zona» o cargando un archivo con columna de zona">
+          Sin zonas
+        </span>
+      ) : editingZone ? (
+        <Chip color={editingZone.color} selected onRemove={() => setUi({ editingZoneId: null })} removeLabel="Dejar de editar la zona" title="Los parámetros que cambies se aplican solo a esta zona">
+          {`Zona ${editingZone.name}`}
         </Chip>
       ) : (
-        <span className="wv-chip" title="Clic en la franja de zonas (junto a la profundidad) para editar los parámetros de una zona; doble clic para verla entera">
+        <span className="wv-chip" title="Clic en la franja de zonas (junto a la profundidad) para editar los parámetros de una zona; doble clic para verla entera; arrastrá un tope para moverlo">
           {`${data.zones.length} ${data.zones.length === 1 ? 'zona' : 'zonas'}`}
         </span>
       )}
     </>
   );
 
+  const toolbarEnd = (
+    <Button
+      size="sm"
+      variant={marking ? 'primary' : 'ghost'}
+      icon="zone-add"
+      aria-pressed={marking}
+      title={marking ? 'Salir del modo marcar zona (Esc)' : 'Marcar una zona nueva arrastrando sobre el perfil'}
+      onClick={() => setUi({ zoneMarking: !marking })}
+    >
+      Marcar zona
+    </Button>
+  );
+
   return (
-    <div className="shell-viewer" aria-label="Visor multipista">
+    <div className={`shell-viewer${marking ? ' is-marking' : ''}`} aria-label="Visor multipista">
       <WellViewer
         wellKey={depthKey(well)}
         depth={well.depth.values}
@@ -142,9 +241,32 @@ export function ViewerSlot() {
         overlays={OVERLAYS}
         label={`Perfiles del pozo ${well.name}`}
         toolbarStart={toolbarStart}
+        toolbarEnd={toolbarEnd}
+        header={showHeader ? <WellHeader well={well} zones={data.zones} computedCount={computed.filter((c) => c.active).length} onZone={showZone} /> : undefined}
+        notice={
+          marking ? (
+            <>
+              <Icon name="zone-add" size={14} />
+              Arrastrá sobre el perfil para marcar una zona · <kbd>Esc</kbd> para salir
+            </>
+          ) : undefined
+        }
+        stackHints={STACK_ROLE_HINTS}
+        rangeRequest={rangeRequest}
+        onEditCurve={({ track, curve }, anchor) => {
+          anchorRef.current = anchor;
+          setEditing((e) => (e && e.trackId === track.id && e.key === curve.key ? null : { trackId: track.id, key: curve.key }));
+        }}
+        onShowCurve={showCurve}
+        onEscape={() => {
+          if (!useUi.getState().zoneMarking) return false;
+          setUi({ zoneMarking: false });
+          return true;
+        }}
         onCursorChange={onCursorChange}
         onViewportChange={onViewportChange}
       />
+      {editing && editingCurve && <CurveEditor key={`${editing.trackId}|${editing.key}`} wellId={well.id} curve={editingCurve} anchorRef={anchorRef} onClose={() => setEditing(null)} />}
     </div>
   );
 }

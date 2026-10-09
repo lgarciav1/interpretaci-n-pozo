@@ -60,8 +60,42 @@ export type FillSpec =
   /** Entre la curva y un valor fijo (línea base): `left` donde la curva queda a la izquierda del valor. */
   | { kind: 'baseline'; curve: RoleId; value: number; left?: FillRef; right?: FillRef; opacity?: number };
 
-/** 'overlay': pista propia de una superposición (presiones MDT…), sin curvas; la dibuja `overlayId`. */
-export type TrackKind = 'depth' | 'curves' | 'flags' | 'overlay';
+/**
+ * 'overlay': pista propia de una superposición (presiones MDT…), sin curvas; la dibuja `overlayId`.
+ * 'stack': columna apilada de componentes que cierra a 1 (pista volumétrica, mineralogía), ver `StackSpec`.
+ */
+export type TrackKind = 'depth' | 'curves' | 'flags' | 'overlay' | 'stack';
+
+/** Factor de un componente apilado: el valor de un rol, recortado a [0, 1], o su complemento (1 − valor). */
+export interface StackFactor {
+  role: RoleId;
+  complement?: boolean;
+}
+
+/**
+ * Componente de una pila. Su fracción (del total, o del padre si es hijo) es el producto de sus `factors`; un
+ * componente `rest` es lo que falta para cerrar a 1 (a lo sumo uno por nivel). `children` parte al componente
+ * (agua e hidrocarburo dentro de la porosidad). El orden de la lista es el orden de izquierda a derecha.
+ */
+export interface StackComponentSpec {
+  id: string;
+  label: string;
+  /** Rótulo corto para encabezados angostos («Hidroc.»). */
+  short?: string;
+  fill: FillRef;
+  factors?: StackFactor[];
+  rest?: boolean;
+  /** Resto cuando falta algún hermano (no se puede partir): etiqueta y relleno propios («Resto sin partir»). */
+  partialLabel?: string;
+  partialShort?: string;
+  partialFill?: FillRef;
+  children?: StackComponentSpec[];
+}
+
+/** Pila genérica por rol: la pista volumétrica de Petrofísica o una de mineralogía en Geología. */
+export interface StackSpec {
+  components: StackComponentSpec[];
+}
 
 export interface TrackSpec {
   id: string;
@@ -77,6 +111,8 @@ export interface TrackSpec {
   overlayId?: string;
   /** Pistas 'overlay': unidad de la escala (texto para el encabezado). */
   unit?: string;
+  /** Pistas 'stack': componentes de la columna. */
+  stack?: StackSpec;
   /** Toma las curvas calculadas (o banderas) que ninguna otra pista ubicó. */
   collect?: 'computed' | 'flags';
   /** No se muestra si no tiene curvas. */
@@ -107,7 +143,7 @@ export function isEmptyOverride(o: CurveDisplayOverride | null | undefined): boo
 // Validación al abrir un proyecto: lo inválido se descarta con un aviso (un archivo editado a mano o de una versión
 // con errores no debe tirar abajo el visor).
 
-const TRACK_KINDS = new Set<TrackKind>(['depth', 'curves', 'flags', 'overlay']);
+const TRACK_KINDS = new Set<TrackKind>(['depth', 'curves', 'flags', 'overlay', 'stack']);
 const FILL_KINDS = new Set(['edge', 'between', 'baseline']);
 const LINES = new Set<LineStyleId>(['solid', 'dashed', 'dotted', 'dashdot']);
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -156,6 +192,32 @@ function sanitizeFill(raw: unknown): FillSpec | null {
   return { kind: 'baseline', curve: raw['curve'], value: raw['value'], ...ref('left'), ...ref('right'), ...opacity };
 }
 
+function sanitizeStackComponent(raw: unknown, depth = 0): StackComponentSpec | null {
+  if (!isObj(raw) || !isStr(raw['id']) || typeof raw['label'] !== 'string' || !isStr(raw['fill']) || depth > 3) return null;
+  const c: StackComponentSpec = { id: raw['id'], label: raw['label'], fill: raw['fill'] };
+  if (Array.isArray(raw['factors'])) {
+    const factors = raw['factors'].filter((f): f is Record<string, unknown> => isObj(f) && isStr(f['role']));
+    c.factors = factors.map((f) => ({ role: f['role'] as string, ...(f['complement'] === true ? { complement: true } : {}) }));
+  }
+  if (typeof raw['short'] === 'string' && raw['short']) c.short = raw['short'];
+  if (raw['rest'] === true) c.rest = true;
+  if (typeof raw['partialLabel'] === 'string') c.partialLabel = raw['partialLabel'];
+  if (typeof raw['partialShort'] === 'string' && raw['partialShort']) c.partialShort = raw['partialShort'];
+  if (isStr(raw['partialFill'])) c.partialFill = raw['partialFill'];
+  if (!c.rest && !c.factors?.length) return null; // sin factores ni resto no se puede calcular
+  if (Array.isArray(raw['children'])) {
+    const children = raw['children'].map((k) => sanitizeStackComponent(k, depth + 1)).filter((k): k is StackComponentSpec => !!k);
+    if (children.length) c.children = children;
+  }
+  return c;
+}
+
+function sanitizeStack(raw: unknown): StackSpec | null {
+  if (!isObj(raw) || !Array.isArray(raw['components'])) return null;
+  const components = raw['components'].map((c) => sanitizeStackComponent(c)).filter((c): c is StackComponentSpec => !!c);
+  return components.length ? { components } : null;
+}
+
 function sanitizeTrack(raw: unknown, where: string, warn: (m: string) => void): TrackSpec | null {
   if (!isObj(raw) || !isStr(raw['id']) || typeof raw['title'] !== 'string' || !TRACK_KINDS.has(raw['kind'] as TrackKind)) {
     warn(`${where}: pista inválida (falta id, título o tipo); se descarta.`);
@@ -166,7 +228,12 @@ function sanitizeTrack(raw: unknown, where: string, warn: (m: string) => void): 
     warn(`${where}: la pista '${raw['id']}' es de superposición pero no dice cuál; se descarta.`);
     return null;
   }
-  const t: TrackSpec = { id: raw['id'], title: raw['title'], kind };
+  const stack = kind === 'stack' ? sanitizeStack(raw['stack']) : null;
+  if (kind === 'stack' && !stack) {
+    warn(`${where}: la pista '${raw['id']}' es volumétrica pero sus componentes son inválidos; se descarta.`);
+    return null;
+  }
+  const t: TrackSpec = { id: raw['id'], title: raw['title'], kind, ...(stack ? { stack } : {}) };
   if (isNum(raw['width']) && raw['width'] > 0) t.width = raw['width'];
   if (Array.isArray(raw['curves'])) {
     t.curves = [];

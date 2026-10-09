@@ -176,6 +176,21 @@ export function setZones(project: Project, wellId: string, zones: Zone[]): Proje
   });
 }
 
+/**
+ * Guarda una edición de zonas (recetas de `zones.ts`). Si una zona se partió, la de abajo (`clone.to`) hereda los
+ * parámetros de la original (`clone.from`): es la misma roca. Cambiar zonas cambia la firma de geometría del motor,
+ * que recalcula los parámetros por zona.
+ */
+export function applyZoneEdit(project: Project, wellId: string, zones: Zone[], clone: { from: string; to: string } | null = null): Project {
+  const entry = getWellEntry(project, wellId);
+  if (zones === entry.interpretation.zones && !clone) return project;
+  const next = setZones(project, wellId, zones);
+  if (!clone) return next;
+  const params = entry.interpretation.params.zones[clone.from];
+  if (!params || !zones.some((z) => z.id === clone.to)) return next;
+  return updateInterpretation(next, wellId, (i) => ({ ...i, params: { ...i.params, zones: { ...i.params.zones, [clone.to]: { ...params } } } }));
+}
+
 /** Cambia metadatos de una curva (rol, unidad, descripción). Los datos conservan su referencia. */
 export function updateCurveMeta(
   project: Project,

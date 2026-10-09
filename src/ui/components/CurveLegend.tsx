@@ -42,6 +42,8 @@ export interface CurveLegendProps {
   title?: string;
   /** Mostrar la etiqueta «log» (por defecto sí; el visor la omite porque la grilla ya lo dice). */
   scaleTag?: boolean;
+  /** Etiqueta extra junto al nombre («alternativa» para un método en comparación). */
+  tag?: string;
   /**
    * 'stacked' (por defecto): nombre arriba, escala abajo. 'inline': una sola fila baja al estilo de un encabezado de
    * perfil — extremo izquierdo, nombre y valor sobre el trazo de la curva, extremo derecho; la unidad va al tooltip.
@@ -49,7 +51,7 @@ export interface CurveLegendProps {
   layout?: 'stacked' | 'inline';
 }
 
-export function CurveLegend({ role, name, unit, catalog, scale = true, theme: fixed, curveStyle: resolved, value, title, scaleTag = true, layout = 'stacked' }: CurveLegendProps) {
+export function CurveLegend({ role, name, unit, catalog, scale = true, theme: fixed, curveStyle: resolved, value, title, scaleTag = true, tag, layout = 'stacked' }: CurveLegendProps) {
   const current = useResolvedTheme();
   const theme = fixed ?? current;
   const s = resolved ?? curveStyle(role, theme, catalog, name);
@@ -62,6 +64,7 @@ export function CurveLegend({ role, name, unit, catalog, scale = true, theme: fi
           {name}
         </span>
         {scaleTag && s.scale === 'log' && <span className="ui-curve-legend__tag">log</span>}
+        {tag && <span className="ui-curve-legend__tag ui-curve-legend__tag--alt">{tag}</span>}
         {value !== undefined && <span className="ui-curve-legend__value num">{value}</span>}
       </span>
     );
@@ -91,6 +94,7 @@ export function CurveLegend({ role, name, unit, catalog, scale = true, theme: fi
           {name}
         </span>
         {scaleTag && s.scale === 'log' && <span className="ui-curve-legend__tag">log</span>}
+        {tag && <span className="ui-curve-legend__tag ui-curve-legend__tag--alt">{tag}</span>}
         {value !== undefined && <span className="ui-curve-legend__value num">{value}</span>}
         {unit && <span className="ui-curve-legend__unit">{unit}</span>}
       </div>

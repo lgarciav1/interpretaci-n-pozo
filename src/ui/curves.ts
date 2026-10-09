@@ -74,6 +74,12 @@ export const CURVE_PALETTE: Readonly<Record<RoleId, CurvePaletteEntry>> = {
   LITHO: { light: '#8b939d', dark: '#6b737e', line: 'solid', kind: 'band' },
 };
 
+/**
+ * Muestras para elegir el color de una curva (editor de escalas): los colores clásicos de los perfiles, tomados de
+ * la paleta (rojo de la profunda, azul de la media, verde del GR, negro del caliper…).
+ */
+export const CURVE_SWATCHES: readonly string[] = (['RT', 'RM', 'NPHI', 'GR', 'THOR', 'CALI', 'PEF', 'DT', 'RS', 'RXO', 'VSH', 'BS'] as const).map((r) => CURVE_PALETTE[r]!.light);
+
 /** Rellenos convencionales (crossover, litologías, fluidos, banderas). `alpha` sugerida para canvas. */
 export type FillId =
   | 'gasCrossover'
@@ -92,7 +98,9 @@ export type FillId =
   | 'hydrocarbon'
   | 'washout'
   | 'netReservoir'
-  | 'netPay';
+  | 'netPay'
+  | 'pore'
+  | 'undivided';
 
 export interface FillEntry {
   label: string;
@@ -119,6 +127,10 @@ export const FILL_PALETTE: Readonly<Record<FillId, FillEntry>> = {
   washout: { label: 'Derrumbe', light: '#9aa1ab', dark: '#5b626b', alpha: 0.35 },
   netReservoir: { label: 'Reservorio neto', light: '#f0c43c', dark: '#c79f2c', alpha: 0.8 },
   netPay: { label: 'Pay neto', light: '#e0453f', dark: '#d0423c', alpha: 0.8 },
+  /** Porosidad sin partir (falta Sw): ni agua ni hidrocarburo. */
+  pore: { label: 'Porosidad', light: '#bcdcec', dark: '#4f7f94', alpha: 0.75 },
+  /** Resto de una columna que no se pudo partir (faltan entradas): neutro, para no inventar una matriz. */
+  undivided: { label: 'Sin partir', light: '#c4c8ce', dark: '#5d636b', alpha: 0.55 },
 };
 
 /** Colores sugeridos para zonas nuevas (bandas sobre el perfil, chips, crossplots coloreados por capa). */

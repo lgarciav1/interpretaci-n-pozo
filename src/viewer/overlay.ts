@@ -95,6 +95,11 @@ export interface OverlayFrame {
   data: ViewerData;
   /** Pide redibujar el canvas base en el próximo cuadro (vista previa en vivo de un arrastre). */
   invalidate(): void;
+  /**
+   * Elemento activo (llegado con Tab o con el último clic/arrastre), si dio una `key`: su dueño lo resalta. Las
+   * superposiciones de otro `overlayId` lo ignoran.
+   */
+  active?: { overlayId: string; key: string } | null;
 }
 
 /** Lo mismo que OverlayFrame, sin contexto de dibujo (para `hit`). */
@@ -126,8 +131,10 @@ export interface OverlayDrag {
 }
 
 export interface OverlayHit {
-  /** Texto del tooltip. */
+  /** Texto del tooltip (y nombre accesible si el elemento es un `target`). */
   label: string;
+  /** Identidad estable del elemento (la misma en `hit` y en `targets`): el visor la pasa en `frame.active`. */
+  key?: string;
   cursor?: OverlayCursor;
   /** Clic (sin arrastre) sobre el elemento. */
   activate?(): void;
@@ -145,6 +152,18 @@ export interface OverlayHit {
    * a `nudge(±paso)` (en m; Mayús ×10) en vez de mover el cursor. Escape o un clic en otro lado lo sueltan.
    */
   nudge?(deltaM: number): void;
+}
+
+/**
+ * Elemento al que se llega con el TECLADO. El visor crea un botón accesible por cada uno (en orden de
+ * profundidad, después del cuerpo del visor): Tab los recorre, al enfocarlo lo trae a la vista y lo deja activo
+ * (↑/↓ llaman a `hit.nudge`, Enter a `hit.activate`), y su nombre accesible es `hit.label`.
+ */
+export interface OverlayTarget {
+  /** Profundidad del elemento (m): ordena el recorrido y ubica el foco. */
+  depth: number;
+  /** Lo mismo que devolvería `hit` sobre el elemento; `hit.key` es obligatoria acá. */
+  hit: OverlayHit & { key: string };
 }
 
 /** Pista propia de una superposición (p. ej. presión vs. profundidad). El visor la agrega a las pistas activas. */
@@ -175,6 +194,8 @@ export interface ViewerOverlay {
   draw(frame: OverlayFrame): void;
   /** Elemento bajo el puntero (tooltip, clic, doble clic, arrastre, teclado). */
   hit?(frame: OverlayHitFrame, p: OverlayPointer): OverlayHit | null;
+  /** Elementos navegables con el teclado (topes, plugs, puntos de presión). Ver OverlayTarget. */
+  targets?(frame: OverlayHitFrame): OverlayTarget[];
   /** Si la superposición lee estado propio (un store), avisa acá cuándo redibujar. Devuelve la desuscripción. */
   subscribe?(invalidate: () => void): () => void;
 }

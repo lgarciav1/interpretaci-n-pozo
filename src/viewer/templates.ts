@@ -11,11 +11,35 @@
  *   densidad queda a la izquierda del neutrón; separación de arcilla donde el neutrón queda a la izquierda.
  * - Las curvas se dibujan en el orden listado: la última queda encima.
  */
-import type { TrackSpec } from '../core/display';
+import type { StackSpec, TrackSpec } from '../core/display';
 import type { WorkspaceId } from '../core/workspaces';
 import type { ViewerOverlay } from './overlay';
 
 const RESISTIVITY_SCALE = { kind: 'log', min: 0.2, max: 2000 } as const;
+
+/**
+ * Columna volumétrica (de izquierda a derecha, como ELAN/Techlog): arcilla = VSH, matriz = 1 − VSH − PHIE y la
+ * porosidad PHIE partida en agua = PHIE·SW e hidrocarburo = PHIE·(1 − SW). Nunca usa IGR como VSH.
+ */
+export const VOLUMETRIC_STACK: StackSpec = {
+  components: [
+    { id: 'shale', label: 'Arcilla', fill: 'shale', factors: [{ role: 'VSH' }] },
+    { id: 'matrix', label: 'Matriz', fill: 'sand', rest: true, partialLabel: 'Resto sin partir', partialShort: 'Resto', partialFill: 'undivided' },
+    {
+      id: 'pore',
+      label: 'Porosidad',
+      fill: 'pore',
+      factors: [{ role: 'PHIE' }],
+      children: [
+        { id: 'water', label: 'Agua', fill: 'water', factors: [{ role: 'SW' }] },
+        { id: 'hydrocarbon', label: 'Hidrocarburo', short: 'Hidroc.', fill: 'hydrocarbon', factors: [{ role: 'SW', complement: true }] },
+      ],
+    },
+  ],
+};
+
+/** Dónde se calcula cada entrada de la pila volumétrica (para el estado vacío). */
+export const STACK_ROLE_HINTS: Readonly<Record<string, string>> = { VSH: 'paso Arcilla', PHIE: 'paso Porosidad', SW: 'paso Saturación' };
 
 export const BUILTIN_LAYOUTS: Readonly<Record<WorkspaceId, readonly TrackSpec[]>> = {
   petrophysics: [
@@ -72,6 +96,7 @@ export const BUILTIN_LAYOUTS: Readonly<Record<WorkspaceId, readonly TrackSpec[]>
       fills: [{ kind: 'edge', curve: 'SW', side: 'left', fill: 'hydrocarbon', opacity: 0.6 }],
       hideWhenEmpty: true,
     },
+    { id: 'volumetric', title: 'Litología', kind: 'stack', width: 0.85, stack: VOLUMETRIC_STACK },
     { id: 'permeability', title: 'Permeabilidad', kind: 'curves', width: 0.8, scale: { kind: 'log', min: 0.01, max: 10000 }, curves: [{ select: { role: 'PERM' } }], hideWhenEmpty: true },
     { id: 'flags', title: 'Banderas', kind: 'flags', collect: 'flags', hideWhenEmpty: true },
   ],

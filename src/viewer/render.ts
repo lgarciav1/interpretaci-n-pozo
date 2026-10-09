@@ -9,8 +9,8 @@
  * fila (sobre fracciones precalculadas en caché) y buffers reusados: no se asigna memoria por curva y por cuadro
  * salvo los Path2D de los rellenos.
  */
-import { withAlpha } from '../ui/color';
-import { fillColor } from '../ui/curves';
+import { mix, withAlpha } from '../ui/color';
+import { FILL_PALETTE, fillColor, type FillId } from '../ui/curves';
 import { formatNumber } from '../ui/format';
 import { BASE_TOKENS, type ThemeTokens } from '../ui/tokens';
 import { blockSummary, decimateWithBounds, DECIMATE_THRESHOLD, ensureRowBuffers, ROW_DATA, ROW_GAP, rowBounds, visibleRange, type RowBuffers } from './decimate';
@@ -19,6 +19,7 @@ import type { TrackBox } from './layout';
 import { guard, type OverlayFrame, type OverlayTrack, type OverlayViewport, type ViewerData, type ViewerOverlay } from './overlay';
 import { formatDepth, nearestIndex } from './readout';
 import { findCurve, type ResolvedCurve, type ResolvedTrack } from './resolve';
+import { stackHint } from './stack';
 import { fractionArray, fractionToValue, scaleKey, valueToFraction, wrapFractionArray, type AxisScale } from './scale';
 import { depthTicks, linearGrid, logGrid } from './ticks';
 import { baseOf, depthOf, yOf, type Viewport } from './viewport';
@@ -35,6 +36,15 @@ export interface FrameInput {
   data: ViewerData;
   /** Pide otro cuadro (lo usan las superposiciones durante una vista previa). */
   invalidate?: () => void;
+  /**
+   * Animación de carga: fracción del alto ya "registrada" (0–1). Las pistas se recortan a ese alto y se dibuja el
+   * frente. Ausente = cuadro normal (sin costo extra).
+   */
+  reveal?: number;
+  /** Elemento de superposición activo (teclado o último clic), para que su dueño lo resalte. */
+  active?: { overlayId: string; key: string } | null;
+  /** Textos de ayuda por rol para el estado vacío de las pilas («VSH (paso Arcilla)»). */
+  stackHints?: Readonly<Record<string, string>>;
 }
 
 const FONT = BASE_TOKENS.font.sans;
@@ -44,6 +54,13 @@ const FLAG_COLUMN = 18;
 const crisp = (v: number) => Math.round(v) + 0.5;
 /** Clave de buffers: la misma curva puede estar en dos pistas con escalas distintas. */
 const curveKey = (c: ResolvedCurve) => `${c.key}|${scaleKey(c.axis)}`;
+
+/** Color opaco de una capa de pila (el de la paleta mezclado con el fondo de pista a su opacidad). */
+export function stackFillColor(fill: string, theme: ThemeTokens): string {
+  // Un relleno desconocido (proyecto de otra versión) cae en el neutro en vez de romper el dibujo.
+  const c = fillColor((fill in FILL_PALETTE ? fill : 'undivided') as FillId, theme.name);
+  return mix(theme.viewer.trackBg, c.color, Math.min(1, c.alpha + 0.15));
+}
 
 export function overlayViewport(vp: Viewport): OverlayViewport {
   return { top: vp.top, base: baseOf(vp), pxPerM: vp.pxPerM, height: vp.height, yOf: (d) => yOf(vp, d), depthOf: (y) => depthOf(vp, y) };
@@ -157,11 +174,15 @@ export class ViewerRenderer {
 
   /** Perfil x (px, acotado a la pista) para rellenos, en `out`. */
   private profile(c: ResolvedCurve, box: TrackBox, s: Sampling, out: Float32Array): void {
-    const frac = fractionArray(c.data, c.axis);
+    this.fracProfile(curveKey(c), fractionArray(c.data, c.axis), box, s, out);
+  }
+
+  /** Perfil x (px, acotado a la pista) de un array de fracciones, en `out`. */
+  private fracProfile(key: string, frac: Float32Array, box: TrackBox, s: Sampling, out: Float32Array): void {
     const lo = box.x;
     const w = box.width;
     if (s.decimated) {
-      const b = this.rows(curveKey(c), frac, s);
+      const b = this.rows(key, frac, s);
       for (let r = 0; r < s.rows; r++) out[r] = b.state[r] === ROW_DATA ? lo + Math.min(1, Math.max(0, b.mean[r]!)) * w : NaN;
     } else {
       for (let k = 0; k < s.n; k++) {
@@ -259,14 +280,17 @@ export class ViewerRenderer {
       const frac = fractionArray(c.data, c.axis);
       ctx.strokeStyle = st.color;
       ctx.setLineDash(st.dash);
+      // Alternativa (método en comparación): translúcida, debajo de la activa (resolve la ordena antes).
+      const alpha = c.alternative ? 0.6 : 1;
       if (c.wrap) {
-        ctx.globalAlpha = 0.55;
+        ctx.globalAlpha = 0.55 * alpha;
         ctx.lineWidth = Math.max(0.75, st.width * 0.75);
         this.strokeFractions(ctx, `${curveKey(c)}:wrap`, wrapFractionArray(frac), box, s);
-        ctx.globalAlpha = 1;
       }
+      ctx.globalAlpha = alpha;
       ctx.lineWidth = st.width;
       this.strokeFractions(ctx, curveKey(c), frac, box, s);
+      ctx.globalAlpha = 1;
     }
     ctx.setLineDash([]);
   }
@@ -304,6 +328,50 @@ export class ViewerRenderer {
         }
       }
     });
+  }
+
+  /**
+   * Pila (pista volumétrica): cada capa entre su borde izquierdo y derecho, en color OPACO (el de la paleta mezclado
+   * con el fondo a su opacidad): los hijos tapan exactamente a su padre y los colores no se ensucian al superponerse.
+   */
+  private drawStack(ctx: CanvasRenderingContext2D, t: ResolvedTrack, box: TrackBox, f: FrameInput, s: Sampling): void {
+    const st = t.stack;
+    if (!st) return;
+    if (st.empty) {
+      this.drawEmptyNote(ctx, box, f, stackHint(st, f.stackHints) ?? 'Sin datos para la columna.');
+      return;
+    }
+    for (const l of st.layers) {
+      this.fracProfile(`${t.id}:${l.id}:l`, l.left, box, s, this.xa);
+      this.fracProfile(`${t.id}:${l.id}:r`, l.right, box, s, this.xb);
+      const path = new Path2D();
+      fillBetween(s.n, s.y, this.xa, this.xb, path, null, box.x, box.x + box.width);
+      ctx.fillStyle = stackFillColor(l.fill, f.theme);
+      ctx.fill(path);
+    }
+  }
+
+  /** Mensaje centrado en una pista sin datos (varias líneas si no entra). */
+  private drawEmptyNote(ctx: CanvasRenderingContext2D, box: TrackBox, f: FrameInput, text: string): void {
+    const h = f.viewport.height;
+    ctx.font = `${TEXT_XS}px ${FONT}`;
+    ctx.fillStyle = f.theme.viewer.axisText;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const max = Math.max(40, box.width - 16);
+    const lines: string[] = [];
+    let line = '';
+    for (const word of text.split(/\s+/)) {
+      const next = line ? `${line} ${word}` : word;
+      if (line && ctx.measureText(next).width > max) {
+        lines.push(line);
+        line = word;
+      } else line = next;
+    }
+    if (line) lines.push(line);
+    const lh = TEXT_XS + 5;
+    const y0 = h / 2 - ((lines.length - 1) * lh) / 2;
+    lines.forEach((l, i) => ctx.fillText(l, box.x + box.width / 2, y0 + i * lh));
   }
 
   private drawGrid(ctx: CanvasRenderingContext2D, f: FrameInput, ticks: ReturnType<typeof depthTicks>): void {
@@ -394,7 +462,15 @@ export class ViewerRenderer {
     });
     this.drawGrid(ctx, f, ticks);
 
-    const frame: OverlayFrame = { ctx, theme: f.theme, viewport: overlayViewport(f.viewport), tracks: overlayTracks(f.tracks, f.boxes), data: f.data, invalidate: f.invalidate ?? (() => {}) };
+    const frame: OverlayFrame = {
+      ctx,
+      theme: f.theme,
+      viewport: overlayViewport(f.viewport),
+      tracks: overlayTracks(f.tracks, f.boxes),
+      data: f.data,
+      invalidate: f.invalidate ?? (() => {}),
+      active: f.active ?? null,
+    };
     const runOverlays = (layer: 'under' | 'over') => {
       for (const o of [...f.overlays].filter((o) => o.layer === layer).sort((a, b) => (a.order ?? 0) - (b.order ?? 0))) {
         ctx.save();
@@ -404,14 +480,19 @@ export class ViewerRenderer {
     };
     runOverlays('under');
 
+    // Animación de carga: las pistas se "registran" de arriba hacia abajo hasta `reveal`.
+    const reveal = f.reveal !== undefined && f.reveal < 1 ? Math.max(0, f.reveal) : null;
+    const clipH = reveal === null ? h : h * reveal;
     f.tracks.forEach((t, i) => {
       const b = f.boxes[i]!;
       if (t.kind === 'depth' || t.kind === 'overlay') return;
       ctx.save();
       ctx.beginPath();
-      ctx.rect(b.x, 0, b.width, h);
+      ctx.rect(b.x, 0, b.width, t.kind === 'stack' && t.stack?.empty ? h : clipH);
       ctx.clip();
-      if (t.curves.length === 0) {
+      if (t.kind === 'stack') {
+        this.drawStack(ctx, t, b, f, s);
+      } else if (t.curves.length === 0) {
         ctx.fillStyle = v.axisText;
         ctx.font = `${TEXT_XS}px ${FONT}`;
         ctx.textAlign = 'center';
@@ -425,6 +506,8 @@ export class ViewerRenderer {
       }
       ctx.restore();
     });
+
+    if (reveal !== null) this.drawRevealFront(ctx, f, clipH);
 
     runOverlays('over');
 
@@ -449,6 +532,23 @@ export class ViewerRenderer {
       }
     }
     return performance.now() - t0;
+  }
+
+  /** Frente de la animación de carga: una línea de acento con un halo que se desvanece hacia arriba. */
+  private drawRevealFront(ctx: CanvasRenderingContext2D, f: FrameInput, y: number): void {
+    const accent = f.theme.color.accent;
+    const grad = ctx.createLinearGradient(0, y - 28, 0, y);
+    grad.addColorStop(0, withAlpha(accent, 0));
+    grad.addColorStop(1, withAlpha(accent, 0.14));
+    for (let i = 0; i < f.tracks.length; i++) {
+      const t = f.tracks[i]!;
+      if (t.kind === 'depth' || t.kind === 'overlay') continue;
+      const b = f.boxes[i]!;
+      ctx.fillStyle = grad;
+      ctx.fillRect(b.x, y - 28, b.width, 28);
+      ctx.fillStyle = withAlpha(accent, 0.85);
+      ctx.fillRect(b.x, Math.round(y) - 1, b.width, 1.5);
+    }
   }
 
   /** Buffers de reducción en uso (para tests). */

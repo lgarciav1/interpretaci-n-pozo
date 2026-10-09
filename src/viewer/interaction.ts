@@ -34,6 +34,8 @@ export interface GestureHost {
   requestTick(): void;
   /** Cursor CSS del cuerpo del visor ('' = el de siempre). */
   setCursor?(css: string): void;
+  /** Cambió el elemento activo (para redibujar su resaltado). */
+  activeChanged?(active: HitResult | null): void;
 }
 
 /** Píxeles de movimiento antes de que un apretón sea arrastre (y no clic). */
@@ -82,7 +84,7 @@ export class PointerGestures {
       return 'overlay';
     }
     // Apretar fuera del elemento activo lo suelta (el clic sobre otro lo reemplaza en `click`).
-    this.activeHit = null;
+    this.setActive(null);
     this.pan = { pointerId, lastY: p.y, moved: 0 };
     return 'pan';
   }
@@ -120,7 +122,7 @@ export class PointerGestures {
       if (o.started) {
         this.suppressClick = true;
         guard(o.overlayId, 'drag.end', () => o.drag.end(this.host.pointerAt(p), o.start));
-        if (o.hit.nudge) this.activeHit = { overlayId: o.overlayId, hit: o.hit };
+        if (o.hit.nudge) this.setActive({ overlayId: o.overlayId, hit: o.hit });
       }
       return;
     }
@@ -142,7 +144,7 @@ export class PointerGestures {
       return true;
     }
     if (this.activeHit) {
-      this.activeHit = null;
+      this.setActive(null);
       return true;
     }
     return false;
@@ -173,7 +175,24 @@ export class PointerGestures {
 
   /** Después de un clic sobre un elemento: queda activo si se puede mover con el teclado. */
   clicked(h: HitResult | null): void {
-    this.activeHit = h?.hit.nudge ? h : null;
+    this.setActive(h?.hit.nudge ? h : null);
+  }
+
+  /** Activa un elemento llegado con el teclado (o null para soltarlo). */
+  focus(h: HitResult | null): void {
+    this.setActive(h);
+  }
+
+  /** Clave del elemento activo (si su `hit` la da), para el resaltado. */
+  get activeKey(): { overlayId: string; key: string } | null {
+    const a = this.activeHit;
+    return a?.hit.key ? { overlayId: a.overlayId, key: a.hit.key } : null;
+  }
+
+  private setActive(h: HitResult | null): void {
+    const prev = this.activeHit;
+    this.activeHit = h;
+    if (prev !== h && (prev?.hit.key !== h?.hit.key || prev?.overlayId !== h?.overlayId)) this.host.activeChanged?.(h);
   }
 
   /** ↑/↓ con un elemento activo: lo mueve. false si no hay elemento activo. */
