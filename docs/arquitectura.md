@@ -2,18 +2,21 @@
 
 Webapp 100 % en el navegador (TypeScript + React + Vite) que se entrega como un único `dist/index.html`.
 Las decisiones con sus alternativas descartadas están en [`decisiones/`](decisiones/): núcleo y contrato de módulos
-(0001), lectura de datos (0002), control de calidad (0003), sistema de diseño, armazón y flujo guiado (0004) y visor
-multipista (0005).
+(0001), lectura de datos (0002), control de calidad (0003), sistema de diseño, armazón y flujo guiado (0004), visor
+multipista (0005), deshacer y rehacer (0006) y catálogo de módulos de la fase 6a con sus cambios de núcleo (0007).
 Este documento resume cómo encajan las piezas y cómo agregar un módulo.
 
 ## Ideas centrales
 
 1. **Los módulos se conectan por puertos, no por nombre.** Un módulo dice "necesito GR" y "produzco IGR". El
-   grafo se arma solo. Los puertos de curva son roles (`GR`, `RHOB`, `VSH`…); los escalares y tablas tienen ids
-   en mayúsculas (`RW`, `IGR_BY_ZONE`).
+   grafo se arma solo. Los puertos de curva son roles (`GR`, `RHOB`, `VSH`, `RW`…); los escalares, los escalares
+   por zona y las tablas tienen ids en mayúsculas (`OOIP_TOTAL`, `HPHISH_PAY`, `ZONE_SUMMARY`). Los cuatro tipos
+   pueden ser entrada de otro módulo.
 2. **Varios métodos por paso = varios módulos que producen el mismo puerto.** La interpretación guarda qué fuente
    alimenta cada puerto (`sources`); las alternativas se pueden calcular para comparar (`compare`) sin alimentar
-   la cadena. Por defecto: curva medida con ese rol → primer módulo registrado.
+   la cadena. Por defecto: curva medida con ese rol → primer módulo registrado **que pueda correr** (tiene todas sus
+   entradas requeridas) → primer módulo registrado. Excepción deliberada: si los métodos no tienen parámetros
+   propios y la elección cambia por zona (Vsh, PHIT), es un módulo con un `param.enum` por zona (0007, D1).
 3. **Parámetros declarativos, globales con override por zona.** El esquema genera los controles. El motor parte
    el pozo en tramos de una misma zona y le da a cada tramo sus parámetros ya resueltos.
 4. **Motor incremental, idéntico en worker y en proceso.** Cada módulo tiene una firma (parámetros + zonas +
@@ -76,7 +79,7 @@ interfaz.
   - *En ejecución:* `new Engine(registry, { checkInputs: true })` hashea cada entrada antes y después de `compute`
     y lanza `InputMutationError` con el módulo y la entrada. Está activo en los tests de módulos y en desarrollo
     (`npm run dev`, worker y motor en proceso); en el build de producción está apagado por costo.
-- **Parámetros compartidos en un solo lugar.** Los que usan varios módulos (Rw, a, m, n, GR limpia/arcilla) se
+- **Parámetros compartidos en un solo lugar.** Los que usan varios módulos (a, m, n, Rsh, cutoffs, GR limpia/arcilla) se
   declaran una vez en `src/modules/sharedParams.ts` y los módulos los toman de ahí (`params: { rw: SHARED_PARAMS.rw }`).
   El registro exige que todo parámetro `shared: true` esté en ese catálogo y sea idéntico campo por campo, y avisa
   (`registry.warnings`) si una clave es compartida en un módulo y propia en otro.
@@ -97,22 +100,34 @@ defineModule({
   category: 'shale',               // conocida (src/core/workspaces.ts) o nueva + categoryLabel: 'Mi categoría'
   workspace: 'petrophysics',       // o ['petrophysics', 'geology']
   roles?: [...],                   // roles de curva nuevos que introduce
-  inputs:  { gr: input.curve('GR'), cal: input.optionalCurve('CALI'), rw: input.scalar('RW') },
+  inputs:  { gr: input.curve('GR'), cal: input.optionalCurve('CALI'), k: input.scalar('K_REF'),
+             t: input.table('ZONE_SUMMARY'), h: input.zoneScalar('HPHISH_PAY') },   // + optionalScalar/Table/ZoneScalar
   params:  { grClean: param.number({ label, tooltip, default, min, max, step, unit, scale, scope: 'zone', shared }) ,
              method: param.enum({ ... }), useX: param.boolean({ ... }) },
-  outputs: { igr: output.curve('IGR'), rwa: output.scalar('RWA', {...}), byZone: output.table('X', {...}) },
+  outputs: { igr: output.curve('IGR'), total: output.scalar('X_TOTAL', {...}), byZone: output.table('X', {...}),
+             perZone: output.zoneScalar('X_BY_ZONE', { label, unit }) },
   compute(ctx) { ... },            // pura; ctx: n, depth, thickness, inputs, params, segments, zones, paramsFor, warn
   docs: { summary, equations: [{ latex }], references: [...] },
 });
 ```
 
 `compute` está tipada a partir de las declaraciones: `ctx.inputs.gr` es una curva, `ctx.inputs.cal` puede ser
-`undefined`, `s.params.grClean` es `number`, y el valor devuelto debe tener `igr: Float64Array`, `rwa: number`,
-`byZone: { rows }`.
+`undefined`, `ctx.inputs.t` es una tabla de solo lectura, `ctx.inputs.h` un `Readonly<Record<zoneId, number>>`,
+`s.params.grClean` es `number`, y el valor devuelto debe tener `igr: Float64Array`, `total: number`,
+`byZone: { rows }` y `perZone: Record<zoneId, number>`.
+
+- **Escalar por zona** (`zoneScalar`): exactamente una clave por cada zona de `ctx.zones` (también las que no tienen
+  muestras), `NaN` = sin dato; el motor rechaza claves de más o de menos. Tablas y valores por zona se congelan al
+  guardarse en caché: escribir en una entrada de esos tipos falla.
+- **Entradas opcionales**: si su fuente no puede correr o falla, el módulo corre sin ella (`undefined`) y se informa;
+  no se bloquea por algo opcional.
+- `output.table(port, { ..., hidden: true })`: tabla para un panel a medida, no se lista en Resultados.
+- `ctx.zones[i].kind` (`formation | reservoir | seal | other`) es parte de la firma.
 
 - `ctx.segments`: tramos contiguos de una misma zona con sus parámetros ya resueltos (para cálculos por muestra).
 - `ctx.paramsFor(zoneId)`: parámetros efectivos de una zona (para tablas y sumarios por zona), incluso de zonas
   sin muestras; `paramsFor(null)` = globales.
+- `ctx.zones`: zonas en orden de tope, con `id`, `name`, `kind`, `top`, `base`, `start`, `end`.
 - `ctx.warn(mensaje)`: aviso para el usuario (p. ej. parámetros incoherentes en una zona). Se vuelve a mostrar
   mientras el resultado siga en caché.
 
@@ -128,40 +143,39 @@ distintos en módulos distintos, escalares requeridos que nadie produce, docs fa
 
 ## Cómo agregar un módulo
 
-Ejemplo: Vsh de Larionov (rocas terciarias), que consume `IGR` y produce `VSH`.
+Ejemplo: porosidad efectiva φe = φt·(1 − Vsh), que consume `PHIT` y `VSH` y produce `PHIE`.
 
-1. Función pura y su test en `src/petro/`:
+1. Función pura y su test en `src/petro/` (esta ya existe):
 
    ```ts
-   // src/petro/vsh.ts
-   export function larionovTertiary(igr: number): number {
-     return Number.isNaN(igr) ? NaN : 0.083 * (2 ** (3.7 * igr) - 1);
-   }
+   // src/petro/porosity.ts
+   export function effectivePorosity(phiT: number, vsh: number): number { ... }
+   export function effectivePorosityInto(phiT, vsh, out, start = 0, end = phiT.length): Float64Array { ... }
    ```
 
-2. Carpeta `src/modules/vsh-larionov-tertiary/index.ts`:
+2. Carpeta `src/modules/phie-vsh/index.ts`:
 
    ```ts
    import { defineModule, input, output } from '../../core/module';
-   import { larionovTertiary } from '../../petro/vsh';
+   import { effectivePorosityInto } from '../../petro/porosity';
 
    export default defineModule({
-     id: 'vsh-larionov-tertiary',
-     name: 'Vsh — Larionov (terciario)',
-     category: 'shale',
+     id: 'phie-vsh',
+     name: 'Porosidad efectiva — φt·(1 − Vsh)',
+     category: 'porosity',
      workspace: 'petrophysics',
-     inputs: { igr: input.curve('IGR') },
+     inputs: { phit: input.curve('PHIT'), vsh: input.curve('VSH') },
      params: {},
-     outputs: { vsh: output.curve('VSH') },
+     outputs: { phie: output.curve('PHIE') },
      compute({ n, inputs }) {
-       const vsh = new Float64Array(n);
-       for (let i = 0; i < n; i++) vsh[i] = larionovTertiary(inputs.igr[i]!);
-       return { vsh };
+       const phie = new Float64Array(n);
+       effectivePorosityInto(inputs.phit, inputs.vsh, phie);
+       return { phie };
      },
      docs: {
-       summary: 'Volumen de arcilla a partir de IGR para rocas terciarias no consolidadas.',
-       equations: [{ latex: 'V_{sh} = 0.083\\,(2^{3.7 I_{GR}} - 1)' }],
-       references: ['Larionov, V. V. (1969).'],
+       summary: 'Porosidad efectiva descontando el volumen de arcilla de la porosidad total.',
+       equations: [{ latex: '\\phi_e = \\phi_t\\,(1 - V_{sh})' }],
+       references: ['Asquith, G. y Krygowski, D. (2004). Basic Well Log Analysis, 2.ª ed. AAPG Methods in Exploration 16.'],
      },
    });
    ```
@@ -169,14 +183,15 @@ Ejemplo: Vsh de Larionov (rocas terciarias), que consume `IGR` y produce `VSH`.
 3. Una línea en `src/modules/index.ts`:
 
    ```ts
-   import vshLarionovTertiary from './vsh-larionov-tertiary';
-   export const MODULES = [igr, shaleFlag, vshLarionovTertiary];
+   import phieVsh from './phie-vsh';
+   export const MODULES = [igr, vsh, /* … */ phieVsh];
    ```
 
-Listo: el panel con sus parámetros se genera solo, el módulo aparece en el selector de método de `VSH` si hay otro
-productor, el motor lo encadena detrás de `igr` y los módulos que consumen `VSH` lo reciben.
+Listo: el panel con sus parámetros se genera solo, el módulo aparece en el selector de método de `PHIE` si hay otro
+productor (p. ej. `phie-shale-corrected`), el motor lo encadena detrás de quien produzca `PHIT` y `VSH`, y los
+módulos que consumen `PHIE` lo reciben.
 
-Si el módulo usa un parámetro que comparte con otros métodos (Rw, a, m, n…), no lo copies: agregalo una vez a
+Si el módulo usa un parámetro que comparte con otros métodos (a, m, n, Rsh…), no lo copies: agregalo una vez a
 `src/modules/sharedParams.ts` y usalo desde ahí, como hace `igr`:
 
 ```ts
@@ -228,18 +243,29 @@ mitad del binario sin comprimir.
 
 | Pendiente | Resolver en | Propuesta |
 |---|---|---|
-| `input.table` y escalar por zona | antes de la fase 6 (sumario/volumétrico) | Agregar `input.table(port)` y un tipo de salida `zoneScalar` (valor por zona, `Record<zoneId, number>`) que el motor valide contra `ctx.zones`; el sumario lo consume sin parsear filas. |
 | Slots de cálculo y `compare` en cascada aguas abajo | antes de la fase 9 (snapshots y comparación) | Un "slot" = una asignación de fuentes alternativa; el motor corre la cadena completa por slot (claves `slot:módulo:puerto`), así una alternativa de Sw propaga a k, cutoffs y sumario. |
 | Regla por defecto de fuentes para roles calculados (VSH/PHIE/SW de un vendedor le ganan a los módulos sin aviso) | fase 2, con la tabla de mnemónicos | Para roles con `origin: 'computed'`, preferir el módulo y ofrecer la curva del archivo como alternativa, o pedir confirmación al importar; en cualquier caso emitir un diagnóstico `info`. |
 | Reenvío completo automático ante "resultado incompleto" | antes de la fase 12 | Mensaje `resync` del cliente: el worker vacía `sent` y la próxima respuesta trae todos los datos. |
-| `kind` de zona en `ZoneSpan` y en la firma | fase 6 | Copiar `kind` a `ZoneSpan` y sumarlo a la firma, para que el sumario distinga reservorio/sello sin mirar el proyecto. |
+| Elegir método por zona para puertos con módulos distintos (Archie en arenas limpias, Simandoux en arcillosas) | cuando se pida | `sources` por zona: el motor arma una curva por tramos con la salida del módulo elegido en cada zona. |
+| Ruido de módulos por defecto sin consumidores (p. ej. sónico sin DT informa error aunque nadie use PHIS) | antes de la fase 12 | Bajar a `info` el faltante de un módulo que solo corre por ser fuente por defecto de un puerto sin consumidores. |
+
+## Petrofísica en módulos (fase 6a)
+
+Decisión y catálogo completo: [`docs/decisiones/0007-modulos-fase-6a.md`](decisiones/0007-modulos-fase-6a.md).
+
+- Cadena: `igr` → `vsh` → `phi-*` → `phit` → `phie-*` · `temp-gradient` → `rw-*` (curva `RW` ya corregida por
+  temperatura) → `sw-*` → `bvw-sh`, `perm-*` → `cutoffs` (banderas) → `zone-summary` (tabla + valores por zona) →
+  `volumetrics` (OOIP/OGIP por zona y total, m³ estándar; tabla en SI y en unidades de campo). `cutoff-sensitivity`
+  produce el barrido de cada cutoff en una tabla oculta que dibuja su panel.
+- Los parámetros comunes (a, m, n, Rsh, Δt matriz, Rmf, cutoffs, área, Bo, Bg, fluido) están en `SHARED_PARAMS`.
+- Unidades agregadas: múltiplos de volumen (Mm³, MMm³, Mbbl, MMbbl, MMscf, Bcf), `m3/m3`, gradiente de temperatura.
 
 ## Interfaz (fase 3)
 
 - **Armazón de tres zonas** (`src/app/App.tsx`): pozo/curvas/zonas · visor + dock · inspector del paso activo.
   Laterales y dock redimensionables y colapsables; medidas en `localStorage` (nunca en el proyecto).
 - **Flujo guiado**: `FLOWS[espacio]` en `src/app/flow/flow.ts`. Un paso de módulos toma los módulos de sus
-  categorías **o** los que producen sus puertos (Rw: categoría `water` o cualquier productor de `RW`/`RWA`/`RMF`),
+  categorías **o** los que producen sus puertos (Rw: categoría `water` o cualquier productor de `RW`/`RWA`/`TEMP`),
   así que agregar un módulo lo suma al paso sin tocar nada más. Lo derivado (pozo, zonas, puertos calculados) no se
   guarda; las marcas del usuario (completo/saltado) van en `WellEntry.progress` (formato de proyecto v2).
 - **Parámetros compartidos** llevan insignia con los módulos que los usan; "comparar" está en el encabezado del

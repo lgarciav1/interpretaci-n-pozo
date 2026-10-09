@@ -21,6 +21,8 @@ export type DimensionId =
   | 'pressure'
   | 'area'
   | 'volume'
+  | 'volumeRatio'
+  | 'temperatureGradient'
   | 'dimensionless';
 
 export type KnownUnitId =
@@ -57,6 +59,15 @@ export type KnownUnitId =
   | 'm3'
   | 'bbl'
   | 'ft3'
+  | 'Mm3'
+  | 'MMm3'
+  | 'Mbbl'
+  | 'MMbbl'
+  | 'MMscf'
+  | 'Bcf'
+  | 'm3/m3'
+  | 'degC/100m'
+  | 'degF/100ft'
   | 'unitless';
 
 /** Identificador de unidad. Admite unidades registradas en tiempo de ejecución (`registerUnit`). */
@@ -118,6 +129,18 @@ const BUILTIN_UNITS: UnitDef[] = [
   { id: 'm3', label: 'm³', dimension: 'volume', factor: 1 },
   { id: 'bbl', label: 'bbl', dimension: 'volume', factor: 0.158987294928 },
   { id: 'ft3', label: 'ft³', dimension: 'volume', factor: 0.028316846592 },
+  // Múltiplos para volúmenes in situ (fase 6a): miles y millones de m³, bbl y ft³ (scf = ft³ estándar)
+  { id: 'Mm3', label: 'Mm³', dimension: 'volume', factor: 1e3 },
+  { id: 'MMm3', label: 'MMm³', dimension: 'volume', factor: 1e6 },
+  { id: 'Mbbl', label: 'Mbbl', dimension: 'volume', factor: 158.987294928 },
+  { id: 'MMbbl', label: 'MMbbl', dimension: 'volume', factor: 158987.294928 },
+  { id: 'MMscf', label: 'MMscf', dimension: 'volume', factor: 28316.846592 },
+  { id: 'Bcf', label: 'Bcf', dimension: 'volume', factor: 28316846.592 },
+  // Razón de volúmenes (factores de volumen Bo, Bg: volumen en reservorio / volumen en superficie)
+  { id: 'm3/m3', label: 'm³/m³', dimension: 'volumeRatio', factor: 1 },
+  // Gradiente de temperatura (base: °C/100 m). Es una diferencia de temperatura: sin offset.
+  { id: 'degC/100m', label: '°C/100 m', dimension: 'temperatureGradient', factor: 1 },
+  { id: 'degF/100ft', label: '°F/100 ft', dimension: 'temperatureGradient', factor: 5 / 9 / 0.3048 },
   // Adimensional
   { id: 'unitless', label: '—', dimension: 'dimensionless', factor: 1 },
 ];

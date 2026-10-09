@@ -3,7 +3,7 @@
  * y qué falta. No calcula nada: es puro y barato (se rehace en cada corrida).
  */
 import type { Interpretation, SourceRef } from '../interpretation';
-import { portOf, type AnyModule } from '../module';
+import { PORT_KIND_LABEL, portOf, type AnyModule } from '../module';
 import type { Registry } from '../registry';
 import type { RoleId } from '../roles';
 import { getUnit, type UnitId } from '../units';
@@ -84,10 +84,12 @@ export function planGraph(registry: Registry, curves: readonly CurveMeta[], inte
     for (const spec of Object.values(m.outputs)) addCandidate(portOf(spec), { kind: 'module', moduleId: m.id });
   }
 
-  // 2. Fuente elegida por puerto: la explícita si es válida; si no, la primera candidata.
+  // 2. Fuente elegida por puerto: la explícita si es válida; si no, la primera candidata que pueda correr.
+  //    2a. Fuentes explícitas (las curvas con otro rol elegidas a propósito se suman a las candidatas).
   const curvesById = new Map(curves.map((c) => [c.id, c]));
   const sources = new Map<string, SourceRef>();
   const ports = new Set<string>([...candidates.keys(), ...Object.keys(interp.sources)]);
+  const needDefault: string[] = [];
   for (const port of ports) {
     const explicit = interp.sources[port];
     if (explicit) {
@@ -112,15 +114,43 @@ export function planGraph(registry: Registry, curves: readonly CurveMeta[], inte
       }
       diagnostics.push({ level: 'warning', code: 'invalid-source', port, message: `${problem} Se usa la fuente por defecto.` });
     }
-    const first = candidates.get(port)?.[0];
+    needDefault.push(port);
+  }
+
+  //    2b. Viabilidad estática: un módulo "puede correr" si cada entrada requerida tiene alguna candidata que pueda
+  //        correr y no sea él mismo. Menor punto fijo (un ciclo no se justifica a sí mismo); optimista respecto de
+  //        las fuentes elegidas. Sirve para elegir la fuente por defecto y para soltar entradas opcionales.
+  const viable = new Set<string>();
+  const notSelf = (ref: SourceRef, id: string) => !(ref.kind === 'module' && ref.moduleId === id);
+  const isViable = (ref: SourceRef) => ref.kind === 'curve' || viable.has(ref.moduleId);
+  for (let changed = true; changed; ) {
+    changed = false;
+    for (const m of registry.modules) {
+      if (disabled.has(m.id) || viable.has(m.id)) continue;
+      const ok = Object.values(m.inputs).every(
+        (spec) => spec.optional || (candidates.get(portOf(spec)) ?? []).some((c) => notSelf(c, m.id) && isViable(c)),
+      );
+      if (ok) {
+        viable.add(m.id);
+        changed = true;
+      }
+    }
+  }
+
+  //    2c. Por defecto: curva medida con ese rol → primer módulo registrado que pueda correr → primer candidato.
+  for (const port of needDefault) {
+    const list = candidates.get(port) ?? [];
+    const first = list.find(isViable) ?? list[0];
     if (first) sources.set(port, first);
   }
 
-  // Para un consumidor dado: la fuente elegida, salvo que sea él mismo (entonces la siguiente candidata).
+  // Para un consumidor dado: la fuente elegida, salvo que sea él mismo (entonces la siguiente candidata, preferentemente
+  // una que pueda correr).
   const sourceFor = (port: string, consumer: string): SourceRef | null => {
     const chosen = sources.get(port);
-    if (chosen && !(chosen.kind === 'module' && chosen.moduleId === consumer)) return chosen;
-    return candidates.get(port)?.find((s) => !(s.kind === 'module' && s.moduleId === consumer)) ?? null;
+    if (chosen && notSelf(chosen, consumer)) return chosen;
+    const list = candidates.get(port) ?? [];
+    return list.find((s) => notSelf(s, consumer) && isViable(s)) ?? list.find((s) => notSelf(s, consumer)) ?? null;
   };
 
   // 3. Módulos activos: elegidos para algún puerto o en comparación; luego clausura por dependencias.
@@ -153,7 +183,18 @@ export function planGraph(registry: Registry, curves: readonly CurveMeta[], inte
     let status: NodeStatus = 'ready';
     for (const [key, spec] of Object.entries(m.inputs)) {
       const port = portOf(spec);
-      const src = sourceFor(port, id);
+      let src = sourceFor(port, id);
+      if (src?.kind === 'module' && spec.optional && !isViable(src)) {
+        // Entrada opcional cuya fuente no puede correr: el módulo corre sin ella (no se bloquea por algo opcional).
+        diagnostics.push({
+          level: 'info',
+          code: 'missing-input',
+          moduleId: id,
+          port,
+          message: `${moduleLabel(m, id)} se calcula sin ${port} (opcional): ${moduleLabel(registry.get(src.moduleId), src.moduleId)} no puede calcularse.`,
+        });
+        src = null;
+      }
       inputs[key] = src;
       if (src?.kind === 'module') {
         deps.add(src.moduleId);
@@ -173,7 +214,7 @@ export function planGraph(registry: Registry, curves: readonly CurveMeta[], inte
           message:
             spec.kind === 'curve'
               ? `${moduleLabel(m, id)} necesita una curva con rol ${port} (${what}). Asigná ese rol a una curva del pozo o activá un módulo que la calcule.`
-              : `${moduleLabel(m, id)} necesita el valor ${port} (${what}) y ningún módulo activo lo calcula.`,
+              : `${moduleLabel(m, id)} necesita ${spec.kind === 'scalar' ? 'el valor' : `el dato (${PORT_KIND_LABEL[spec.kind]})`} ${port} (${what}) y ningún módulo activo lo calcula.`,
         });
       }
     }
@@ -227,11 +268,24 @@ export function planGraph(registry: Registry, curves: readonly CurveMeta[], inte
   }
 
   // 6. Propagar bloqueos estáticos aguas abajo (hasta punto fijo: los nodos tras un ciclo no están ordenados).
+  //    Una dependencia que solo alimenta entradas opcionales no bloquea: esas entradas quedan ausentes.
   for (let changed = true; changed; ) {
     changed = false;
     for (const id of order) {
       const n = nodes.get(id)!;
       if (n.status !== 'ready') continue;
+      for (const d of n.deps) {
+        if (nodes.get(d)!.status === 'ready' || !feedsOnlyOptional(registry.get(id)!, n, d)) continue;
+        for (const [key, src] of Object.entries(n.inputs)) if (src?.kind === 'module' && src.moduleId === d) n.inputs[key] = null;
+        n.deps = n.deps.filter((x) => x !== d);
+        changed = true;
+        diagnostics.push({
+          level: 'info',
+          code: 'missing-input',
+          moduleId: id,
+          message: `${moduleLabel(registry.get(id), id)} se calcula sin las entradas opcionales que da ${moduleLabel(registry.get(d), d)}, que no se pudo calcular.`,
+        });
+      }
       const bad = n.deps.find((d) => nodes.get(d)!.status !== 'ready');
       if (bad) {
         n.status = 'blocked';
@@ -247,6 +301,11 @@ export function planGraph(registry: Registry, curves: readonly CurveMeta[], inte
   }
 
   return { sources, candidates, order, nodes, diagnostics };
+}
+
+/** true si el módulo `dep` alimenta a `node` solo a través de entradas opcionales. */
+export function feedsOnlyOptional(m: AnyModule, node: PlanNode, dep: string): boolean {
+  return Object.entries(node.inputs).every(([key, src]) => !(src?.kind === 'module' && src.moduleId === dep) || !!m.inputs[key]?.optional);
 }
 
 function validateExplicitSource(

@@ -4,7 +4,7 @@
  * El esquema genera la interfaz (sliders, selectores, casillas) y define cómo se guardan los valores:
  * - `scope: 'global'`: un único valor para todo el pozo.
  * - `scope: 'zone'`: valor global por defecto + override opcional por zona.
- * - `shared: true`: la clave se comparte entre módulos (p. ej. Rw en Archie y Simandoux) y se guarda una sola vez.
+ * - `shared: true`: la clave se comparte entre módulos (p. ej. m en Archie y Simandoux) y se guarda una sola vez.
  */
 import { getUnit, type UnitId } from './units';
 

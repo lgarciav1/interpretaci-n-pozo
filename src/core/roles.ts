@@ -90,6 +90,10 @@ export const BUILTIN_ROLES: readonly RoleDef[] = [
   { id: 'SW', label: 'Saturación de agua', unit: 'v/v', family: 'saturation', origin: 'computed', display: { color: '#1f77b4', scale: 'linear', min: 0, max: 1, reversed: true } },
   { id: 'SXO', label: 'Saturación de agua en zona lavada', unit: 'v/v', family: 'saturation', origin: 'computed', display: { color: '#17becf', scale: 'linear', min: 0, max: 1, reversed: true } },
   { id: 'BVW', label: 'Volumen de agua', unit: 'v/v', family: 'saturation', origin: 'computed', display: { color: '#4682b4', scale: 'linear', min: 0, max: 0.4, reversed: true } },
+  { id: 'SH', label: 'Saturación de hidrocarburos', unit: 'v/v', family: 'saturation', origin: 'computed', display: { color: '#b03a2e', scale: 'linear', min: 0, max: 1 } },
+  // Agua de formación (fase 6a): Rw a temperatura de formación, por muestra, y Rw aparente
+  { id: 'RW', label: 'Resistividad del agua (Rw)', unit: 'ohm.m', family: 'resistivity', origin: 'computed', display: { color: '#0b5394', scale: 'log', min: 0.01, max: 10 } },
+  { id: 'RWA', label: 'Resistividad aparente del agua (Rwa)', unit: 'ohm.m', family: 'resistivity', origin: 'computed', display: { color: '#3d85c6', scale: 'log', min: 0.01, max: 10 } },
   { id: 'PERM', label: 'Permeabilidad', unit: 'mD', family: 'permeability', origin: 'computed', display: { color: '#ff7f0e', scale: 'log', min: 0.01, max: 10000 } },
   { id: 'NET_RES', label: 'Bandera de reservorio neto', unit: 'unitless', family: 'flag', origin: 'computed', display: { color: '#f1c40f', scale: 'linear', min: 0, max: 1 } },
   { id: 'NET_PAY', label: 'Bandera de pay neto', unit: 'unitless', family: 'flag', origin: 'computed', display: { color: '#e74c3c', scale: 'linear', min: 0, max: 1 } },

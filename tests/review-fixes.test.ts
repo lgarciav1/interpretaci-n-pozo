@@ -36,12 +36,14 @@ describe('nombres de zona en resultados en caché', () => {
     expect(rows).toEqual([{ zone: 'Arenisca' }]);
   });
 
-  it('cambiar solo el color de una zona no recalcula', () => {
+  it('cambiar solo el color de una zona no recalcula; cambiar su tipo sí (fase 6a)', () => {
     const engine = new Engine(createRegistry([byZone]));
     engine.setWell(well([gr]));
     engine.run(interp({ zones: [zone('a', 1000, 1002)] }));
-    const r = engine.run(interp({ zones: [{ ...zone('a', 1000, 1002), color: '#f00', kind: 'reservoir' }] }));
+    let r = engine.run(interp({ zones: [{ ...zone('a', 1000, 1002), color: '#f00' }] }));
     expect(r.stats.recomputed).toEqual([]);
+    r = engine.run(interp({ zones: [{ ...zone('a', 1000, 1002), color: '#f00', kind: 'reservoir' }] }));
+    expect(r.stats.recomputed).toEqual(['by-zone']);
   });
 });
 

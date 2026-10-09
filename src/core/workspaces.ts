@@ -22,6 +22,7 @@ export const CATEGORIES = [
   { id: 'permeability', label: 'Permeabilidad' },
   { id: 'cutoffs', label: 'Cutoffs' },
   { id: 'summary', label: 'Sumario' },
+  { id: 'volumetrics', label: 'Volumétrico' },
   { id: 'geology', label: 'Geología' },
   { id: 'other', label: 'Otros' },
 ] as const;

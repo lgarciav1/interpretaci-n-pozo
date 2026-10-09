@@ -3,9 +3,12 @@
  * crossplot en la fase 7) = una entrada más. `useBadge` es un hook opcional (contador junto al título).
  */
 import type { ComponentType, ReactNode } from 'react';
-import type { TableValue } from '../../core/module';
+import type { OutputRecord } from '../../core/engine/engine';
+import type { TableValue, ZoneScalarValue } from '../../core/module';
+import { unitLabel } from '../../core/units';
 import { registry } from '../../modules';
 import { Badge, DataTable, EmptyState, Section, StatusDot, formatNumber, useFlash, type IconName, type Tone } from '../../ui';
+import { selectActiveEntry, useProject } from '../store/project';
 import { useResults } from '../store/results';
 
 export interface DockPanelDef {
@@ -26,12 +29,49 @@ function Flash({ value, children }: { value: unknown; children: ReactNode }) {
 }
 
 const num = (v: unknown, d = 3) => (typeof v === 'number' && Number.isFinite(v) ? formatNumber(v, { digits: d }) : '—');
+const unitSuffix = (u: string | undefined) => (u && u !== 'unitless' ? ` (${unitLabel(u)})` : '');
+
+interface ZoneRow {
+  id: string;
+  name: string;
+}
+
+/** Valores por zona (salidas `zoneScalar`): una tabla con una fila por zona y una columna por salida. */
+function ZoneScalarsTable({ outputs }: { outputs: readonly OutputRecord[] }) {
+  const zones = useProject((s) => selectActiveEntry(s)?.interpretation.zones);
+  const rows: ZoneRow[] = [...(zones ?? [])].sort((a, b) => a.top - b.top).map((z) => ({ id: z.id, name: z.name }));
+  return (
+    <Section title="Valores por zona">
+      <DataTable<ZoneRow>
+        dense
+        data-testid="zone-scalars"
+        rows={rows}
+        rowKey={(r) => r.id}
+        empty="No hay zonas definidas."
+        columns={[
+          { key: 'zone', header: 'Zona', align: 'left', render: (r) => r.name },
+          ...outputs.map((o) => ({
+            key: o.key,
+            header: `${o.label}${unitSuffix(o.unit)}${o.active ? '' : ' · alternativa'}`,
+            title: registry.get(o.moduleId)?.name ?? o.moduleId,
+            align: 'num' as const,
+            render: (r: ZoneRow) => {
+              const v = (o.value as ZoneScalarValue)[r.id];
+              return <Flash value={v}>{num(v, o.unit === 'm' ? 1 : 3)}</Flash>;
+            },
+          })),
+        ]}
+      />
+    </Section>
+  );
+}
 
 function ResultsPanel() {
   const result = useResults((s) => s.result);
-  const tables = result?.outputs.filter((o) => o.kind === 'table') ?? [];
+  const tables = result?.outputs.filter((o) => o.kind === 'table' && !o.hidden) ?? [];
   const scalars = result?.outputs.filter((o) => o.kind === 'scalar') ?? [];
-  if (tables.length === 0 && scalars.length === 0) {
+  const zoneScalars = result?.outputs.filter((o) => o.kind === 'zoneScalar') ?? [];
+  if (tables.length === 0 && scalars.length === 0 && zoneScalars.length === 0) {
     return <EmptyState size="sm" icon="table" title="Todavía no hay resultados" description="Abrí un paso con módulos y ajustá sus parámetros: las tablas y los valores calculados aparecen acá." />;
   }
   return (
@@ -43,7 +83,7 @@ function ResultsPanel() {
               <div className="stat__label">{s.label}</div>
               <div className="stat__value num">
                 <Flash value={s.value}>{num(s.value)}</Flash>
-                {s.unit && s.unit !== 'unitless' && <span className="stat__unit">{s.unit}</span>}
+                {s.unit && s.unit !== 'unitless' && <span className="stat__unit">{unitLabel(s.unit)}</span>}
               </div>
               <div className="stat__source">
                 {registry.get(s.moduleId)?.name ?? s.moduleId}
@@ -57,6 +97,7 @@ function ResultsPanel() {
           ))}
         </div>
       )}
+      {zoneScalars.length > 0 && <ZoneScalarsTable outputs={zoneScalars} />}
       {tables.map((t) => {
         const spec = Object.values(registry.get(t.moduleId)!.outputs).find((s) => s.kind === 'table' && s.port === t.port);
         const columns = spec?.kind === 'table' ? spec.columns : [];
@@ -86,7 +127,7 @@ function ResultsPanel() {
               rowKey={(_, i) => String(i)}
               columns={columns.map((c) => ({
                 key: c.key,
-                header: `${c.label}${c.unit && c.unit !== 'unitless' ? ` (${c.unit})` : ''}`,
+                header: `${c.label}${unitSuffix(c.unit)}`,
                 align: c.kind === 'text' ? 'left' : 'num',
                 render: (r: Record<string, unknown>) =>
                   c.kind === 'text' ? String(r[c.key] ?? '') : <Flash value={r[c.key]}>{num(r[c.key], c.unit === 'm' ? 1 : 3)}</Flash>,
@@ -160,7 +201,7 @@ export const DOCK_PANELS: readonly DockPanelDef[] = [
     title: 'Resultados',
     icon: 'table',
     component: ResultsPanel,
-    useBadge: () => useResults((s) => s.result?.outputs.filter((o) => o.kind !== 'curve').length || null),
+    useBadge: () => useResults((s) => s.result?.outputs.filter((o) => o.kind !== 'curve' && !o.hidden).length || null),
   },
   {
     id: 'diagnostics',

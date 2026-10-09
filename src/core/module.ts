@@ -8,7 +8,8 @@
  *
  * Puertos: los módulos se conectan por puertos, no por nombre de módulo.
  * - Curvas: el puerto es un rol de curva (catálogo en roles.ts o `roles` del propio módulo).
- * - Escalares y tablas: el puerto es un id en MAYÚSCULAS declarado en `outputs` (no puede coincidir con un rol).
+ * - Escalares, escalares por zona y tablas: el puerto es un id en MAYÚSCULAS declarado en `outputs` (no puede
+ *   coincidir con un rol). Los cuatro tipos pueden ser entrada de otro módulo.
  */
 import type { ParamsSpec, ParamValues } from './params';
 import type { RoleDef, RoleId } from './roles';
@@ -34,7 +35,22 @@ export interface ScalarInputSpec {
   label?: string;
 }
 
-export type InputSpec = CurveInputSpec | ScalarInputSpec;
+export interface TableInputSpec {
+  kind: 'table';
+  port: string;
+  optional?: boolean;
+  label?: string;
+}
+
+/** Escalar por zona (`Record<zoneId, number>`, una entrada por cada zona de `ctx.zones`). */
+export interface ZoneScalarInputSpec {
+  kind: 'zoneScalar';
+  port: string;
+  optional?: boolean;
+  label?: string;
+}
+
+export type InputSpec = CurveInputSpec | ScalarInputSpec | TableInputSpec | ZoneScalarInputSpec;
 export type InputsSpec = Record<string, InputSpec>;
 
 export const input = {
@@ -49,6 +65,18 @@ export const input = {
   },
   optionalScalar(port: string, opts: { label?: string } = {}): ScalarInputSpec & { optional: true } {
     return { kind: 'scalar', port, ...opts, optional: true };
+  },
+  table(port: string, opts: { label?: string } = {}): TableInputSpec {
+    return { kind: 'table', port, ...opts };
+  },
+  optionalTable(port: string, opts: { label?: string } = {}): TableInputSpec & { optional: true } {
+    return { kind: 'table', port, ...opts, optional: true };
+  },
+  zoneScalar(port: string, opts: { label?: string } = {}): ZoneScalarInputSpec {
+    return { kind: 'zoneScalar', port, ...opts };
+  },
+  optionalZoneScalar(port: string, opts: { label?: string } = {}): ZoneScalarInputSpec & { optional: true } {
+    return { kind: 'zoneScalar', port, ...opts, optional: true };
   },
 };
 
@@ -86,7 +114,21 @@ export interface ReadonlyCurve extends Iterable<number> {
 /** Curva de entrada de un módulo (alias de `ReadonlyCurve`). */
 export type InputCurve = ReadonlyCurve;
 
-type InputValue<S extends InputSpec> = S extends CurveInputSpec ? InputCurve : number;
+/** Tabla de entrada: de solo lectura (está en caché y la comparten otros módulos; el motor la congela). */
+export interface ReadonlyTableValue {
+  readonly rows: readonly Readonly<Record<string, TableCell>>[];
+}
+
+/** Escalar por zona de entrada: de solo lectura (el motor lo congela). */
+export type ReadonlyZoneScalarValue = Readonly<Record<string, number>>;
+
+type InputValue<S extends InputSpec> = S extends CurveInputSpec
+  ? InputCurve
+  : S extends ScalarInputSpec
+    ? number
+    : S extends TableInputSpec
+      ? ReadonlyTableValue
+      : ReadonlyZoneScalarValue;
 
 export type InputValues<I extends InputsSpec> = {
   readonly [K in keyof I]: I[K] extends { optional: true } ? InputValue<I[K]> | undefined : InputValue<I[K]>;
@@ -120,9 +162,26 @@ export interface TableOutputSpec {
   port: string;
   label: string;
   columns: readonly TableColumn[];
+  /**
+   * Tabla de datos para un panel a medida o un gráfico (p. ej. el barrido de sensibilidad de cutoffs): no se lista
+   * en el panel genérico de Resultados. Sigue siendo un puerto normal (otro módulo la puede consumir).
+   */
+  hidden?: boolean;
 }
 
-export type OutputSpec = CurveOutputSpec | ScalarOutputSpec | TableOutputSpec;
+/**
+ * Escalar por zona: un número por zona (p. ej. espesor neto pay, OOIP). El valor es `Record<zoneId, number>` con
+ * EXACTAMENTE una clave por cada zona de `ctx.zones` (incluidas las zonas sin muestras); `NaN` = sin dato. El
+ * motor lo valida y rechaza claves de más o de menos.
+ */
+export interface ZoneScalarOutputSpec {
+  kind: 'zoneScalar';
+  port: string;
+  label: string;
+  unit?: UnitId;
+}
+
+export type OutputSpec = CurveOutputSpec | ScalarOutputSpec | TableOutputSpec | ZoneScalarOutputSpec;
 export type OutputsSpec = Record<string, OutputSpec>;
 
 export const output = {
@@ -132,8 +191,11 @@ export const output = {
   scalar(port: string, opts: { label: string; unit?: UnitId }): ScalarOutputSpec {
     return { kind: 'scalar', port, ...opts };
   },
-  table(port: string, opts: { label: string; columns: readonly TableColumn[] }): TableOutputSpec {
+  table(port: string, opts: { label: string; columns: readonly TableColumn[]; hidden?: boolean }): TableOutputSpec {
     return { kind: 'table', port, ...opts };
+  },
+  zoneScalar(port: string, opts: { label: string; unit?: UnitId }): ZoneScalarOutputSpec {
+    return { kind: 'zoneScalar', port, ...opts };
   },
 };
 
@@ -142,10 +204,30 @@ export interface TableValue {
   rows: Record<string, TableCell>[];
 }
 
-export type OutputValue = Float64Array | number | TableValue;
+/** Valor por zona: zoneId → número (NaN = sin dato). */
+export type ZoneScalarValue = Record<string, number>;
+
+export type OutputValue = Float64Array | number | TableValue | ZoneScalarValue;
 
 export type ComputeResult<O extends OutputsSpec> = {
-  [K in keyof O]: O[K] extends CurveOutputSpec ? Float64Array : O[K] extends ScalarOutputSpec ? number : TableValue;
+  [K in keyof O]: O[K] extends CurveOutputSpec
+    ? Float64Array
+    : O[K] extends ScalarOutputSpec
+      ? number
+      : O[K] extends TableOutputSpec
+        ? TableValue
+        : ZoneScalarValue;
+};
+
+/** Tipo de puerto (igual para entradas y salidas). */
+export type PortKind = OutputSpec['kind'];
+
+/** Nombre en español de un tipo de puerto, para mensajes. */
+export const PORT_KIND_LABEL: Readonly<Record<PortKind, string>> = {
+  curve: 'curva',
+  scalar: 'escalar',
+  table: 'tabla',
+  zoneScalar: 'valor por zona',
 };
 
 /** Puerto (id) de una entrada o salida. */
@@ -177,7 +259,10 @@ export interface ComputeContext<I extends InputsSpec, P extends ParamsSpec> {
   params: ParamValues<P>;
   /** Tramos contiguos que cubren [0, n) con los parámetros efectivos de cada zona. */
   segments: readonly ParamSegment<P>[];
-  /** Zonas ubicadas sobre el índice de muestras (orden por tope). Incluye zonas sin muestras (start = end). */
+  /**
+   * Zonas ubicadas sobre el índice de muestras (orden por tope), con su tipo (`kind`: reservorio, sello…).
+   * Incluye zonas sin muestras (start = end). Las salidas `zoneScalar` llevan una clave por cada una.
+   */
   zones: readonly ZoneSpan[];
   /**
    * Parámetros efectivos de una zona (globales + overrides), para cálculos por zona (tablas, sumario) sin

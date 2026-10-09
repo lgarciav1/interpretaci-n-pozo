@@ -55,10 +55,12 @@ export const PETROPHYSICS_FLOW: readonly FlowStepDef[] = [
   ZONES,
   { id: 'shale', label: 'Arcilla', title: 'Volumen de arcilla', kind: 'modules', categories: ['shale'], targets: ['VSH'], hint: 'Elegí las líneas de arena limpia y de arcilla y el método de Vsh.' },
   { id: 'porosity', label: 'Porosidad', title: 'Porosidad', kind: 'modules', categories: ['porosity'], targets: ['PHIE'], hint: 'Calculá la porosidad efectiva a partir de densidad, neutrón o sónico.' },
-  { id: 'rw', label: 'Rw', title: 'Resistividad del agua (Rw)', kind: 'modules', categories: ['water'], ports: ['RW', 'RWA', 'RMF'], targets: ['RW'], hint: 'Obtené Rw desde el SP, Rwa o el gráfico de Pickett.' },
+  { id: 'rw', label: 'Rw', title: 'Temperatura y Rw', kind: 'modules', categories: ['water'], ports: ['RW', 'RWA', 'TEMP'], targets: ['RW'], hint: 'Fijá la temperatura de formación y obtené Rw: conocida, desde el SP o por Rwa.' },
   { id: 'saturation', label: 'Saturación', title: 'Saturación de agua', kind: 'modules', categories: ['saturation'], targets: ['SW'], hint: 'Elegí el modelo de saturación y sus exponentes.' },
-  { id: 'cutoffs', label: 'Cutoffs', title: 'Cutoffs', kind: 'modules', categories: ['cutoffs'], targets: ['NET_PAY'], hint: 'Fijá los cortes de Vsh, φ y Sw para reservorio y pay netos.' },
-  { id: 'summary', label: 'Sumario', title: 'Sumario', kind: 'modules', categories: ['summary'], hint: 'Revisá el sumario por zona y exportalo.' },
+  { id: 'permeability', label: 'Permeabilidad', title: 'Permeabilidad', kind: 'modules', categories: ['permeability'], targets: ['PERM'], hint: 'Estimá la permeabilidad con Timur o Timur–Coates (RMN).' },
+  { id: 'cutoffs', label: 'Cutoffs', title: 'Cutoffs', kind: 'modules', categories: ['cutoffs'], targets: ['NET_PAY'], hint: 'Fijá los cortes de Vsh, φ y Sw para reservorio y pay netos; mirá cuánto cambia el pay con cada uno.' },
+  { id: 'summary', label: 'Sumario', title: 'Sumario por zona', kind: 'modules', categories: ['summary'], targets: ['ZONE_SUMMARY'], hint: 'Revisá espesores, N/G, φ y Sw promedio por zona y exportalo.' },
+  { id: 'volumetrics', label: 'Volumen', title: 'Volumen in situ', kind: 'modules', categories: ['volumetrics'], targets: ['OOIP', 'OGIP'], hint: 'Cargá área, factor de volumen y fluido por zona para estimar el petróleo y el gas in situ.' },
 ];
 
 export const GEOLOGY_FLOW: readonly FlowStepDef[] = [
