@@ -1,9 +1,13 @@
-/** Panel del módulo activo: método elegido, zona en edición y controles generados desde el esquema. */
+/**
+ * Panel del módulo activo: estado, método elegido por puerto, "calcular para comparar", zona en edición y
+ * controles generados desde el esquema (o el panel a medida del módulo).
+ */
 import { useMemo } from 'react';
 import { portOf, type AnyModule } from '../../core/module';
 import { paramScope, paramStorageKey, type ParamValue } from '../../core/params';
 import { clearParam, setCompare, setParam, setSource } from '../../core/state/project';
 import { registry } from '../../modules';
+import { Badge, Field, SegmentedControl, Section, Select, StatusDot, Switch, Tooltip, formatNumber } from '../../ui';
 import { collectPanels } from '../modulePanels';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useResults } from '../store/results';
@@ -11,6 +15,10 @@ import { useUi } from '../store/ui';
 import { ParamControl } from './ParamControl';
 
 const panels = collectPanels(registry);
+const GLOBAL = '@global';
+
+type SourceLike = { kind: string; curveId?: string; moduleId?: string };
+const keyOf = (s: SourceLike) => (s.kind === 'curve' ? `curve:${s.curveId}` : `module:${s.moduleId}`);
 
 export function ModulePanelView({ module }: { module: AnyModule }) {
   const entry = useProject(selectActiveEntry);
@@ -24,7 +32,7 @@ export function ModulePanelView({ module }: { module: AnyModule }) {
   if (!entry) return null;
   const { interpretation, well } = entry;
   const wellId = well.id;
-  const zone = zoneId ? interpretation.zones.find((z) => z.id === zoneId) ?? null : null;
+  const zone = zoneId ? (interpretation.zones.find((z) => z.id === zoneId) ?? null) : null;
 
   const status = result?.nodes.find((n) => n.moduleId === module.id);
   const setLocal = (key: string, value: ParamValue) => {
@@ -32,99 +40,140 @@ export function ModulePanelView({ module }: { module: AnyModule }) {
     const storage = paramStorageKey(module.id, key, spec);
     commit(`Parámetro ${spec.label}`, (p) => setParam(p, wellId, storage, value, zone && paramScope(spec) === 'zone' ? zone.id : null));
   };
+  const alternatives = curvePorts.filter((port) => (result?.candidates[port]?.length ?? 0) > 1);
+  const comparing = interpretation.compare.includes(module.id);
+  const hasZoned = Object.values(module.params).some((s) => paramScope(s) === 'zone');
+
+  const statusView = status ? (
+    status.status === 'ok' ? (
+      <>
+        <StatusDot tone="ok" label="Calculado" />
+        {status.computed ? `Calculado en ${status.ms < 0.1 ? 'menos de 0,1' : formatNumber(status.ms, { digits: 1 })} ms` : 'Sin cambios (caché)'}
+      </>
+    ) : (
+      <>
+        <StatusDot tone={status.status === 'missing-input' ? 'warn' : 'error'} label={status.status} />
+        {status.status === 'missing-input' ? 'Faltan curvas de entrada' : status.status === 'error' ? 'Error en el cálculo' : 'No se pudo calcular'}
+      </>
+    )
+  ) : (
+    <>
+      <StatusDot tone="neutral" label="No corre" />
+      No corre
+    </>
+  );
 
   return (
-    <div>
-      <div className="section">
-        <h2>{module.name}</h2>
-        {module.description && <p className="muted" style={{ margin: 0 }}>{module.description}</p>}
-        <p style={{ margin: '6px 0 0' }}>
-          Estado:{' '}
-          {status ? (
-            <span className={status.status === 'ok' ? 'status-ok' : 'status-bad'}>
-              {status.status === 'ok' ? (status.computed ? `calculado en ${status.ms < 0.1 ? 'menos de 0,1' : status.ms.toFixed(1)} ms` : 'sin cambios (caché)') : status.status}
-            </span>
-          ) : (
-            <span className="muted">no corre</span>
-          )}
-        </p>
-      </div>
-
-      {curvePorts.map((port) => {
-        const candidates = result?.candidates[port] ?? [];
-        if (candidates.length < 2) return null;
-        const chosen = result?.sources[port];
-        const keyOf = (s: { kind: string; curveId?: string; moduleId?: string }) => (s.kind === 'curve' ? `curve:${s.curveId}` : `module:${s.moduleId}`);
-        return (
-          <div className="section" key={port}>
-            <h2>Método para {port}</h2>
-            <select
-              value={chosen ? keyOf(chosen) : ''}
-              onChange={(e) => {
-                const [kind, id] = e.currentTarget.value.split(/:(.*)/) as [string, string];
-                commit(`Método de ${port}`, (p) => setSource(p, wellId, port, kind === 'curve' ? { kind: 'curve', curveId: id } : { kind: 'module', moduleId: id }));
-              }}
-            >
-              {candidates.map((c) => (
-                <option key={keyOf(c)} value={keyOf(c)}>
-                  {c.kind === 'curve' ? `Curva medida ${c.curveId}` : registry.get(c.moduleId)?.name ?? c.moduleId}
-                </option>
-              ))}
-            </select>
-            <label style={{ marginLeft: 8 }}>
-              <input
-                type="checkbox"
-                checked={interpretation.compare.includes(module.id)}
-                onChange={(e) => commit('Comparar método', (p) => setCompare(p, wellId, module.id, e.currentTarget.checked))}
-              />{' '}
-              calcular para comparar
-            </label>
+    <div className="module-panel">
+      <header className="module-panel__head">
+        <div className="module-panel__titles">
+          <h3 className="module-panel__name">{module.name}</h3>
+          {module.description && <p className="module-panel__desc">{module.description}</p>}
+          <div className="module-panel__status num" data-testid="module-status">
+            {statusView}
           </div>
-        );
-      })}
+        </div>
+        {alternatives.length > 0 && (
+          <Tooltip content="Calcula este método aunque no sea el elegido, para compararlo con el que alimenta la cadena.">
+            <span>
+              <Switch checked={comparing} onChange={(on) => commit('Comparar método', (p) => setCompare(p, wellId, module.id, on))} label="Comparar" />
+            </span>
+          </Tooltip>
+        )}
+      </header>
+
+      {alternatives.length > 0 && (
+        <Section title="Método">
+          <div className="module-panel__methods">
+            {alternatives.map((port) => {
+              const candidates = result?.candidates[port] ?? [];
+              const chosen = result?.sources[port];
+              return (
+                <Field key={port} label={<span className="mono">{port}</span>} tooltip={`Qué fuente alimenta ${port} aguas abajo.`}>
+                  <Select
+                    block
+                    value={chosen ? keyOf(chosen) : ''}
+                    onChange={(v) => {
+                      const [kind, id] = v.split(/:(.*)/) as [string, string];
+                      commit(`Método de ${port}`, (p) => setSource(p, wellId, port, kind === 'curve' ? { kind: 'curve', curveId: id } : { kind: 'module', moduleId: id }));
+                    }}
+                    options={candidates.map((c) => ({
+                      value: keyOf(c),
+                      label: c.kind === 'curve' ? `Curva medida ${c.curveId}` : (registry.get(c.moduleId)?.name ?? c.moduleId),
+                    }))}
+                  />
+                </Field>
+              );
+            })}
+          </div>
+        </Section>
+      )}
 
       {Object.keys(module.params).length > 0 && custom?.mode !== 'replace' && (
-        <div className="section">
-          <h2>Parámetros</h2>
-          <div className="tabs" style={{ marginBottom: 12, flexWrap: 'wrap' }} role="group" aria-label="Editar parámetros de">
-            <button type="button" aria-pressed={zoneId === null} onClick={() => setUi({ editingZoneId: null })}>
-              Global
-            </button>
-            {interpretation.zones.map((z) => (
-              <button type="button" key={z.id} aria-pressed={zoneId === z.id} onClick={() => setUi({ editingZoneId: z.id })}>
-                {z.name}
-              </button>
-            ))}
+        <Section title="Parámetros" meta={zone ? `zona ${zone.name}` : 'todo el pozo'}>
+          {hasZoned && interpretation.zones.length > 0 && (
+            <div className="module-panel__zones">
+              {interpretation.zones.length <= 6 ? (
+                <SegmentedControl
+                  aria-label="Editar parámetros de"
+                  size="sm"
+                  block
+                  wrap
+                  value={zoneId ?? GLOBAL}
+                  onChange={(v) => setUi({ editingZoneId: v === GLOBAL ? null : v })}
+                  options={[{ value: GLOBAL, label: 'Global' }, ...interpretation.zones.map((z) => ({ value: z.id, label: z.name }))]}
+                />
+              ) : (
+                <Select
+                  aria-label="Editar parámetros de"
+                  block
+                  size="sm"
+                  value={zoneId ?? GLOBAL}
+                  onChange={(v) => setUi({ editingZoneId: v === GLOBAL ? null : v })}
+                  options={[{ value: GLOBAL, label: 'Global (todo el pozo)' }, ...interpretation.zones.map((z) => ({ value: z.id, label: `Zona ${z.name}` }))]}
+                />
+              )}
+            </div>
+          )}
+          <div className="module-panel__params">
+            {Object.entries(module.params).map(([key, spec]) => {
+              const storage = paramStorageKey(module.id, key, spec);
+              const zoned = paramScope(spec) === 'zone';
+              const globalValue = interpretation.params.global[storage] ?? spec.default;
+              const zoneValue = zone && zoned ? interpretation.params.zones[zone.id]?.[storage] : undefined;
+              const editable = !zone || zoned;
+              const sharedWith = spec.shared ? (registry.paramSpecs.get(storage)?.moduleIds ?? []).map((id) => registry.get(id)?.name ?? id) : undefined;
+              return (
+                <ParamControl
+                  key={key}
+                  name={storage}
+                  spec={spec}
+                  value={zoneValue ?? globalValue}
+                  overridden={zoneValue !== undefined}
+                  editable={editable}
+                  onChange={(v) => setLocal(key, v)}
+                  {...(sharedWith ? { sharedWith } : {})}
+                  {...(zone && zoneValue !== undefined
+                    ? { onReset: () => commit('Quitar valor de zona', (p) => clearParam(p, wellId, storage, zone.id)), resetLabel: 'usar global' }
+                    : !zone && storage in interpretation.params.global
+                      ? { onReset: () => commit('Restablecer parámetro', (p) => clearParam(p, wellId, storage)), resetLabel: 'por defecto' }
+                      : {})}
+                />
+              );
+            })}
           </div>
-          {Object.entries(module.params).map(([key, spec]) => {
-            const storage = paramStorageKey(module.id, key, spec);
-            const zoned = paramScope(spec) === 'zone';
-            const globalValue = interpretation.params.global[storage] ?? spec.default;
-            const zoneValue = zone && zoned ? interpretation.params.zones[zone.id]?.[storage] : undefined;
-            const editable = !zone || zoned;
-            return (
-              <ParamControl
-                key={key}
-                name={storage}
-                spec={spec}
-                value={zoneValue ?? globalValue}
-                overridden={zoneValue !== undefined}
-                editable={editable}
-                onChange={(v) => setLocal(key, v)}
-                {...(zone && zoneValue !== undefined
-                  ? { onReset: () => commit('Quitar valor de zona', (p) => clearParam(p, wellId, storage, zone.id)), resetLabel: 'usar global' }
-                  : !zone && storage in interpretation.params.global
-                    ? { onReset: () => commit('Restablecer parámetro', (p) => clearParam(p, wellId, storage)), resetLabel: 'por defecto' }
-                    : {})}
-              />
-            );
-          })}
-        </div>
+        </Section>
       )}
 
       {custom && (
-        <div className="section">
+        <Section title="Herramientas">
           <custom.component module={module} interpretation={interpretation} zoneId={zoneId} setParam={setLocal} result={result} />
+        </Section>
+      )}
+
+      {comparing && (
+        <div className="module-panel__note">
+          <Badge tone="info">comparando</Badge> Sus salidas se calculan pero no alimentan la cadena.
         </div>
       )}
     </div>

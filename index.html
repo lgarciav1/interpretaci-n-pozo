@@ -3,7 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
     <title>Interpretación de pozo</title>
+    <style>
+      /* Fondo antes de que cargue el JS (evita el destello blanco en modo oscuro). */
+      html { background: #f3f4f6; }
+      @media (prefers-color-scheme: dark) { html { background: #0b0c0f; } }
+    </style>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Crect x=%277%27 y=%271%27 width=%272%27 height=%2714%27 fill=%27%231f6feb%27/%3E%3Cpath d=%27M3 3h3M3 7h3M3 11h3M10 5h3M10 9h3M10 13h3%27 stroke=%27%2366707a%27/%3E%3C/svg%3E" />
   </head>
   <body>

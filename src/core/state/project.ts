@@ -15,6 +15,21 @@ import type { Curve, Well, Zone } from '../well';
 export interface WellEntry {
   well: Well;
   interpretation: Interpretation;
+  /**
+   * Marcas del usuario en el flujo guiado (paso → completo/saltado). Lo derivado del estado (pozo cargado, puertos
+   * calculados) no se guarda. Vive fuera de `interpretation`: no entra en snapshots ni dispara cálculos.
+   */
+  progress: FlowProgress;
+}
+
+export type StepMark = 'done' | 'skipped';
+
+export interface FlowProgress {
+  marks: Record<string, StepMark>;
+}
+
+export function emptyProgress(): FlowProgress {
+  return { marks: {} };
 }
 
 export interface Snapshot {
@@ -48,7 +63,7 @@ export function addWell(project: Project, well: Well, zones: Zone[] = []): Proje
   if (project.wells.some((w) => w.well.id === well.id)) throw new Error(`Ya hay un pozo con el id '${well.id}'.`);
   return {
     ...project,
-    wells: [...project.wells, { well, interpretation: emptyInterpretation(zones) }],
+    wells: [...project.wells, { well, interpretation: emptyInterpretation(zones), progress: emptyProgress() }],
     activeWellId: project.activeWellId ?? well.id,
   };
 }
@@ -172,4 +187,16 @@ export function updateCurveMeta(
 export function setActiveWell(project: Project, wellId: string): Project {
   getWellEntry(project, wellId);
   return { ...project, activeWellId: wellId };
+}
+
+/** Marca un paso del flujo guiado como completo o saltado (null = quitar la marca). */
+export function setStepMark(project: Project, wellId: string, stepId: string, mark: StepMark | null): Project {
+  return mapWell(project, wellId, (e) => {
+    const current = e.progress.marks[stepId];
+    if ((current ?? null) === mark) return e;
+    const marks = { ...e.progress.marks };
+    if (mark) marks[stepId] = mark;
+    else delete marks[stepId];
+    return { ...e, progress: { ...e.progress, marks } };
+  });
 }

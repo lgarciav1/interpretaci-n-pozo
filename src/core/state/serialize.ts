@@ -10,10 +10,15 @@
  */
 import type { Interpretation } from '../interpretation';
 import { createWell, type Curve, type Well } from '../well';
-import type { Project, Snapshot } from './project';
+import { emptyProgress, type FlowProgress, type Project, type Snapshot } from './project';
 
 export const PROJECT_FORMAT = 'pozo-proyecto';
-export const PROJECT_VERSION = 1;
+/**
+ * Historial del formato:
+ * - v1 (fase 1): pozos, interpretación y snapshots.
+ * - v2 (fase 3): `progress` por pozo (marcas del flujo guiado). Migración: v1 → progreso vacío.
+ */
+export const PROJECT_VERSION = 2;
 
 export type ArrayCodec = 'f64le-b64' | 'f64le-deflate-b64' | 'f64le-shuffle-deflate-b64';
 /** 'auto' = la variante comprimida más chica para cada array. */
@@ -41,7 +46,7 @@ export interface ProjectFile {
   project: {
     name: string;
     activeWellId: string | null;
-    wells: { well: SavedWell; interpretation: Interpretation }[];
+    wells: { well: SavedWell; interpretation: Interpretation; progress: FlowProgress }[];
     snapshots: Snapshot[];
   };
 }
@@ -147,7 +152,7 @@ function defaultCodec(): CodecChoice {
 export async function serializeProject(project: Project, opts: { codec?: CodecChoice; savedAt?: string } = {}): Promise<string> {
   const codec = opts.codec ?? defaultCodec();
   const wells = await Promise.all(
-    project.wells.map(async ({ well, interpretation }) => {
+    project.wells.map(async ({ well, interpretation, progress }) => {
       const saved: SavedWell = {
         id: well.id,
         name: well.name,
@@ -159,7 +164,7 @@ export async function serializeProject(project: Project, opts: { codec?: CodecCh
         },
         curves: await Promise.all(well.curves.map(async (c) => ({ ...c, data: await encodeArray(c.data, codec) }))),
       };
-      return { well: saved, interpretation };
+      return { well: saved, interpretation, progress };
     }),
   );
   const file: ProjectFile = {
@@ -171,12 +176,17 @@ export async function serializeProject(project: Project, opts: { codec?: CodecCh
   return JSON.stringify(file);
 }
 
-/** Migra archivos de versiones anteriores a la actual. Hoy solo existe la versión 1. */
+/** Migra archivos de versiones anteriores a la actual, de a una versión por vez. */
 function migrate(file: ProjectFile): ProjectFile {
   if (file.version > PROJECT_VERSION) {
     throw new Error(`El proyecto es de una versión más nueva de la app (v${file.version}); actualizá la app para abrirlo.`);
   }
-  return file;
+  let f = file;
+  if (f.version < 2) {
+    // v1 → v2: progreso del flujo guiado vacío.
+    f = { ...f, version: 2, project: { ...f.project, wells: (f.project.wells ?? []).map((w) => ({ ...w, progress: emptyProgress() })) } };
+  }
+  return f;
 }
 
 export async function deserializeProject(text: string): Promise<Project> {
@@ -192,7 +202,7 @@ export async function deserializeProject(text: string): Promise<Project> {
   }
   const { project } = migrate(file);
   const wells = await Promise.all(
-    project.wells.map(async ({ well, interpretation }) => {
+    project.wells.map(async ({ well, interpretation, progress }) => {
       const depth = await decodeArray(well.depth.values);
       const curves: Curve[] = await Promise.all(well.curves.map(async (c) => ({ ...c, data: await decodeArray(c.data) })));
       const restored = createWell({
@@ -203,7 +213,7 @@ export async function deserializeProject(text: string): Promise<Project> {
         ...(well.depth.sourceUnit ? { depthSourceUnit: well.depth.sourceUnit } : {}),
         curves,
       });
-      return { well: restored, interpretation };
+      return { well: restored, interpretation, progress: progress ?? emptyProgress() };
     }),
   );
   return { name: project.name, activeWellId: project.activeWellId, wells, snapshots: project.snapshots ?? [] };

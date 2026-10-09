@@ -9,6 +9,7 @@ import {
   setModuleEnabled,
   setParam,
   setSource,
+  setStepMark,
   setZones,
   updateCurveMeta,
   type Project,
@@ -115,5 +116,18 @@ describe('snapshots', () => {
     const b = interpOf(setParam(p, 'w1', 'igr.offset', 0));
     expect(diffInterpretations(a, b, registry)).toEqual([]);
     expect(diffInterpretations(a, b)).toHaveLength(1); // sin registro no conoce el default
+  });
+
+  it('marcas del flujo guiado: fuera de la interpretación, sin copiar si no cambian', () => {
+    const p0 = demoProject();
+    expect(getWellEntry(p0, 'w1').progress).toEqual({ marks: {} });
+    const p1 = setStepMark(p0, 'w1', 'qc', 'done');
+    expect(getWellEntry(p1, 'w1').progress.marks).toEqual({ qc: 'done' });
+    expect(getWellEntry(p1, 'w1').interpretation).toBe(getWellEntry(p0, 'w1').interpretation);
+    expect(setStepMark(p1, 'w1', 'qc', 'done')).toBe(p1);
+    const p2 = setStepMark(p1, 'w1', 'qc', null);
+    expect(getWellEntry(p2, 'w1').progress.marks).toEqual({});
+    expect(setStepMark(p2, 'w1', 'zones', null)).toBe(p2);
+    expect(getWellEntry(p0, 'w1').progress.marks).toEqual({});
   });
 });

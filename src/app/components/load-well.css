@@ -1,0 +1,44 @@
+/* Asistente de carga de pozo (contenido; el marco es <Dialog>). */
+.lw-busy { display: flex; align-items: center; gap: var(--space-2); color: var(--color-text-muted); }
+
+.lw-or { display: flex; align-items: center; gap: var(--space-3); color: var(--color-text-subtle); font-size: var(--text-sm); }
+.lw-or::before, .lw-or::after { content: ''; flex: 1; height: 1px; background: var(--color-border-subtle); }
+.lw-tp {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+.lw-tp__text { flex: 1; min-width: 0; }
+.lw-tp__title { font-weight: var(--weight-semibold); }
+
+.lw-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3) var(--space-5); }
+.lw-name { width: 280px; }
+.lw-file { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1-5); margin: 0 0 var(--space-1-5); color: var(--color-text-muted); }
+
+.lw-section.ui-section { padding: 0; border: 0; }
+.lw-section .ui-section__head { margin-bottom: var(--space-1-5); }
+
+.lw-none { color: var(--color-text-subtle); }
+.lw-colname { font-weight: var(--weight-medium); }
+.lw-id { width: 110px; }
+.lw-help-head { cursor: help; text-decoration: underline dotted; text-underline-offset: 3px; }
+.lw-mapping .ui-table tr[data-ignored] td { color: var(--color-text-subtle); }
+.lw-mapping .ui-table tr[data-ignored] .lw-colname { font-weight: var(--weight-regular); }
+.lw-preview .ui-table th, .lw-preview .ui-table td { white-space: nowrap; }
+
+.lw-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-6);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-subtle);
+}
+.lw-summary__well { flex: 1; min-width: 0; }
+.lw-summary__name { font-size: var(--text-lg); font-weight: var(--weight-semibold); }

@@ -1,12 +1,30 @@
 /**
- * Arranque: valida el registro de módulos, carga el pozo de demostración, inicia el motor y monta la interfaz.
- * Si el registro es inválido se muestra el error completo (con todos los problemas) en vez de una pantalla vacía.
+ * Arranque: instala los tokens de diseño y el tema, valida el registro de módulos, carga el pozo de demostración,
+ * inicia el motor y monta la interfaz. Si el registro es inválido se muestra el error completo (con todos los
+ * problemas) en vez de una pantalla vacía.
+ *
+ * `#ui` en la URL abre la página de muestra del sistema de diseño (revisión visual).
  */
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { initTheme } from '../ui/theme';
+import { installTokens } from '../ui/tokens';
+import '../ui/styles/base.css';
 import './styles.css';
 
+installTokens();
+initTheme();
+
 const root = createRoot(document.getElementById('root')!);
+
+async function bootShowcase() {
+  const { DesignSystemPage } = await import('../ui/showcase/DesignSystemPage');
+  root.render(
+    <StrictMode>
+      <DesignSystemPage />
+    </StrictMode>,
+  );
+}
 
 async function boot() {
   try {
@@ -33,4 +51,9 @@ async function boot() {
   }
 }
 
-void boot();
+const showcase = () => location.hash === '#ui';
+void (showcase() ? bootShowcase() : boot());
+// Entrar o salir de la página de muestra recarga (el motor y los stores arrancan una sola vez).
+window.addEventListener('hashchange', (e) => {
+  if (new URL(e.oldURL).hash === '#ui' || showcase()) location.reload();
+});

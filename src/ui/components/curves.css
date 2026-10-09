@@ -1,0 +1,19 @@
+.ui-curve-swatch { display: inline-block; flex: none; vertical-align: middle; }
+.ui-curve-swatch--band { height: 8px; border-radius: 2px; opacity: 0.85; }
+
+.ui-curve-legend { display: flex; flex-direction: column; gap: 1px; min-width: 0; padding: 3px 0; }
+.ui-curve-legend + .ui-curve-legend { border-top: 1px dashed var(--color-border); }
+.ui-curve-legend__top { display: flex; align-items: baseline; gap: var(--space-1); min-width: 0; }
+.ui-curve-legend__name { font-weight: var(--weight-semibold); font-size: var(--text-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui-curve-legend__tag {
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--color-surface-active);
+  color: var(--color-text-muted);
+  font-size: 10px;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.ui-curve-legend__unit { margin-left: auto; color: var(--color-text-subtle); font-size: var(--text-xs); white-space: nowrap; }
+.ui-curve-legend__scale { display: flex; align-items: center; justify-content: space-between; gap: var(--space-1); font-size: var(--text-xs); color: var(--color-text-muted); }
