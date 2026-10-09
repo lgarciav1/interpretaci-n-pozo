@@ -81,7 +81,11 @@ describe('flujo guiado', () => {
   it('los módulos reales del registro caen en sus pasos', () => {
     const mods = registry.modules.map(toFlowModule);
     const byStep = Object.fromEntries(PETROPHYSICS_FLOW.map((s) => [s.id, stepModules(s, mods).map((m) => m.id)]));
-    expect(byStep['shale']).toEqual(['igr']);
-    expect(byStep['cutoffs']).toEqual(['shale-flag']);
+    expect(byStep['shale']).toEqual(['igr', 'vsh']);
+    expect(byStep['porosity']).toEqual(expect.arrayContaining(['phi-density', 'phi-neutron', 'phi-sonic-raymer', 'phit', 'phie-vsh', 'phie-shale-corrected']));
+    expect(byStep['rw']).toEqual(expect.arrayContaining(['temp-gradient', 'rw-manual']));
+    expect(byStep['saturation']).toEqual(expect.arrayContaining(['sw-archie', 'sw-simandoux', 'sw-indonesia', 'bvw-sh']));
+    expect(byStep['permeability']).toEqual(expect.arrayContaining(['perm-timur', 'perm-coates']));
+    expect(Object.values(byStep).flat()).not.toContain('shale-flag');
   });
 });
