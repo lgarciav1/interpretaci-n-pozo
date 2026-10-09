@@ -46,10 +46,11 @@ describe('petro/regression: ajuste lineal contra bibliografía', () => {
     expect(f.rmse).toBeLessThan(1e-12);
   });
 
-  it('rmse en el espacio original: Anscombe I da √(SSE/n) = 1,1887 (SSE = 13,7627 con n = 11, ajuste lineal)', () => {
+  it('rmse en el espacio original: Anscombe I da √(SSE/n) = 1,11855 (SSE = 13,7627 con n = 11, ajuste lineal; numpy)', () => {
     const f = fitTrend(ANSCOMBE_X, ANSCOMBE_Y1, 'linear')!;
     // SSE = (1 − R²)·SST; SST de y1 = 41,2727 (10 · var muestral 4,1273) → SSE = 13,7627.
     expect(f.rmse * f.rmse * f.n).toBeCloseTo(13.7627, 3);
+    expect(f.rmse).toBeCloseTo(1.1185498, 6);
   });
 
   it('y constante: pendiente 0 y R² = 1 (ajuste exacto)', () => {
@@ -385,6 +386,14 @@ describe('petro/regression: intersectTrends', () => {
     expect(intersectTrends(lg, l, [-5, 20])).toBeNull(); // incluye ambas raíces
   });
 
+  it('robustez: valores de g ~1e-170 (el producto de signos subdesbordaría) y raíz de log que subdesborda', () => {
+    // −1e-170 + 1e-173·x = 1e-200·x → x = 1e-170/(1e-173 − 1e-200) ≈ 1000 (g y g' ≈ 1e-170: g_a·g_b = 0 en doble precisión)
+    const x = intersectTrends({ model: 'linear', a: -1e-170, b: 1e-173 }, { model: 'power', a: 1e-200, b: 1 }, [0, 2000])!;
+    expect(x / 1000).toBeCloseTo(1, 6);
+    // log: ln x = (a2 − a1)/db = −2000 → x = exp(−2000) = 0 (no es una abscisa válida)
+    expect(intersectTrends({ model: 'log', a: 0, b: 1 }, { model: 'log', a: -1000, b: 0.5 })).toBeNull();
+  });
+
   it('contacto con rectas obtenidas de ajustes de puntos MDT (kPa, z en m)', () => {
     const z1 = [2000, 2010, 2020, 2030];
     const zc = 2040; // contacto verdadero
@@ -425,6 +434,12 @@ describe('petro/regression: formatTrendEquation', () => {
   it('offset grande conserva la parte entera; coeficientes muy chicos van en notación científica', () => {
     expect(formatTrendEquation({ model: 'linear', a: -3287.4, b: 0.0098 })).toBe('y = 0,0098·x − 3287');
     expect(formatTrendEquation({ model: 'exp', a: 5, b: -3.1e-5 })).toBe('y = 5·e^(−3,1·10⁻⁵·x)');
+  });
+
+  it('números enormes van en notación científica (nunca "1,00e+25")', () => {
+    expect(formatTrendEquation({ model: 'linear', a: 1e25, b: 2 })).toBe('y = 2·x + 1·10²⁵');
+    expect(formatTrendEquation({ model: 'linear', a: -1.2345e13, b: 2 })).toBe('y = 2·x − 1,23·10¹³');
+    expect(formatTrendEquation({ model: 'linear', a: 123456789, b: 2 })).toBe('y = 2·x + 123456789');
   });
 
   it('pendiente nula y offset nulo', () => {

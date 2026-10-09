@@ -334,6 +334,7 @@ export function intersectTrends(
         break;
       }
     }
+    if ((c1.model === 'log' || c1.model === 'power') && !(x > 0)) return null; // exp(−∞) = 0 no es una abscisa válida
     return Number.isFinite(x) && inRange(x) ? x : null;
   }
 
@@ -360,7 +361,7 @@ export function intersectTrends(
       if (prevG === 0) return null;
       found = xk;
       count++;
-    } else if (!Number.isNaN(prevG) && prevG !== 0 && prevG * gk < 0) {
+    } else if (!Number.isNaN(prevG) && prevG !== 0 && prevG < 0 !== gk < 0) {
       let a = prevX;
       let b = xk;
       let ga = prevG;
@@ -373,7 +374,7 @@ export function intersectTrends(
           b = m;
           break;
         }
-        if (ga * gm < 0) b = m;
+        if (ga < 0 !== gm < 0) b = m;
         else {
           a = m;
           ga = gm;
@@ -396,11 +397,10 @@ function formatNumber(v: number, digits: number): string {
   const sign = v < 0 ? '−' : '';
   const abs = Math.abs(v);
   let body: string;
-  if (abs >= Math.pow(10, digits)) {
+  if (abs >= Math.pow(10, digits) && abs < 1e12) {
     // Parte entera completa (no se redondea a cifras significativas para no falsear el orden de magnitud).
     body = Math.round(abs).toString();
-    if (body.includes('e')) body = abs.toExponential(digits - 1);
-  } else if (abs < 1e-4) {
+  } else if (abs < 1e-4 || abs >= 1e12) {
     const [mant, exp] = abs.toExponential(digits - 1).split('e') as [string, string];
     return `${sign}${trimZeros(mant).replace('.', ',')}·10${superscript(Number(exp))}`;
   } else {
