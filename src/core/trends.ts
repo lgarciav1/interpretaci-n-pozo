@@ -119,10 +119,27 @@ export function sanitizeTrend(raw: unknown, where: string, warn: (m: string) => 
     }
     selection[k] = v;
   }
-  if (selection.top !== undefined && selection.base !== undefined && selection.top > selection.base) {
-    [selection.top, selection.base] = [selection.base, selection.top];
-  }
   if (typeof sel['zoneId'] === 'string' && sel['zoneId']) selection.zoneId = sel['zoneId'];
+  // Tramos invertidos: se dan vuelta (la intención es clara). De largo cero: no hay ajuste posible; si la tendencia
+  // sigue a una zona o es a mano, se quita solo ese límite; si no, se descarta.
+  for (const [lo, hi, what] of [['top', 'base', 'tramo de profundidad'], ['xMin', 'xMax', 'rango de x']] as const) {
+    const a = selection[lo];
+    const b = selection[hi];
+    if (a === undefined || b === undefined) continue;
+    if (a > b) {
+      warn(`${label}: el ${what} estaba invertido; se corrigió.`);
+      selection[lo] = b;
+      selection[hi] = a;
+    } else if (a === b) {
+      if (mode === 'fit' && !(lo === 'top' && selection.zoneId)) {
+        warn(`${label}: el ${what} tiene largo cero; se descarta.`);
+        return null;
+      }
+      warn(`${label}: el ${what} tiene largo cero; se quita.`);
+      delete selection[lo];
+      delete selection[hi];
+    }
+  }
   if (Array.isArray(sel['excluded'])) {
     const keys = sel['excluded'].filter((k): k is string => typeof k === 'string');
     if (keys.length !== sel['excluded'].length) warn(`${label}: se descartaron puntos excluidos inválidos.`);

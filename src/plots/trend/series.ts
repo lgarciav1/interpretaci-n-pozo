@@ -46,7 +46,12 @@ export interface ResolvedSeries {
   ref: SeriesRef;
   /** Nombre corto para la ecuación y la lista (mnemónico, rol). */
   label: string;
-  /** Variable independiente. Si `xIsDepth`, profundidad en m, estrictamente creciente. */
+  /**
+   * Variable independiente. Si `xIsDepth`, profundidad en m, NO decreciente (se admiten repetidas: dos pretests MDT a
+   * la misma cota) y finita (los puntos sin profundidad se dejan afuera de la serie).
+   * La serie es INMUTABLE: los cachés de ajuste van por identidad del objeto, así que si los datos cambian el
+   * proveedor devuelve OTRO objeto (nunca mutar `x`/`y` en el lugar).
+   */
   x: ArrayLike<number>;
   /** Variable dependiente. */
   y: ArrayLike<number>;

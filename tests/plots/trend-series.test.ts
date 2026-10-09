@@ -192,3 +192,58 @@ describe('ajuste de una tendencia sobre su serie', () => {
     expect(formatGradientValue(NaN)).toBe('—');
   });
 });
+
+describe('contrato de series para fases siguientes (revisión 6b-1)', () => {
+  // Crossplot: x no es la profundidad (desordenada), filtro por profundidad.
+  const N = 200;
+  const xd = Float64Array.from({ length: N }, (_, i) => ((i * 37) % N) / 10); // 0..19,9 desordenada
+  const cross = {
+    ref: { provider: 'crossplot', key: 'NPHI|RHOB' },
+    label: 'RHOB',
+    x: xd,
+    y: Float64Array.from(xd, (x) => 2 + 0.5 * x),
+    depth: Float64Array.from({ length: N }, (_, i) => 1000 + i),
+    xUnit: 'v/v' as const,
+    yUnit: 'g/cm3' as const,
+    xScale: 'linear' as const,
+    yScale: 'log' as const,
+    xIsDepth: false,
+    pointKey: (i: number) => `p${i}`,
+  };
+
+  it('a mano sobre un crossplot cuenta los puntos entre los dos x (antes daba siempre 0)', () => {
+    const r = evaluateTrend(spec({ series: cross.ref, mode: 'manual', manual: [{ x: 5, y: 4.5 }, { x: 10, y: 7 }], selection: { excluded: ['p0'] } }), cross, []);
+    let want = 0;
+    for (let i = 0; i < N; i++) if (xd[i]! >= 5 && xd[i]! <= 10 && i !== 0) want++;
+    expect(want).toBeGreaterThan(0);
+    expect(r.n).toBe(want);
+    expect(r.gradients).toEqual([]);
+  });
+
+  it('MDT: profundidades repetidas, pista propia, exclusión por id y dos tendencias que se cruzan', () => {
+    const d = [2000, 2010, 2010, 2020, 2030, 2040, 2050, 2050, 2060];
+    const p = d.map((z) => (z <= 2030 ? 3000 + 0.1 * (z - 2000) : 3003 + 1.4 * (z - 2030))); // gas arriba, agua abajo
+    p[2] = 9999; // pretest malo, se excluye por id
+    const mdt = {
+      ref: { provider: 'mdt', key: 'all' },
+      label: 'Presión',
+      x: Float64Array.from(d),
+      y: Float64Array.from(p),
+      xUnit: 'm' as const,
+      yUnit: 'psi' as const,
+      xScale: 'linear' as const,
+      yScale: 'linear' as const,
+      xIsDepth: true,
+      pointKey: (i: number) => `mdt-${i}`,
+      placement: { overlayId: 'mdt' },
+    };
+    const gas = evaluateTrend(spec({ id: 'g', series: mdt.ref, selection: { top: 2000, base: 2030, excluded: ['mdt-2'] } }), mdt, []);
+    const water = evaluateTrend(spec({ id: 'w', series: mdt.ref, selection: { top: 2030, base: 2060, excluded: [] } }), mdt, []);
+    expect(gas.n).toBe(4);
+    expect(gas.excluded).toBe(1);
+    expect(gas.fit!.b).toBeCloseTo(0.1, 9);
+    expect(water.fit!.b).toBeCloseTo(1.4, 9);
+    const zc = (water.coeffs!.a - gas.coeffs!.a) / (gas.coeffs!.b - water.coeffs!.b);
+    expect(zc).toBeCloseTo(2030, 6);
+  });
+});

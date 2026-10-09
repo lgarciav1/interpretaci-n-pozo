@@ -253,6 +253,9 @@ mitad del binario sin comprimir.
 | Reenvío completo automático ante "resultado incompleto" | antes de la fase 12 | Mensaje `resync` del cliente: el worker vacía `sent` y la próxima respuesta trae todos los datos. |
 | Elegir método por zona para puertos con módulos distintos (Archie en arenas limpias, Simandoux en arcillosas) | cuando se pida | `sources` por zona: el motor arma una curva por tramos con la salida del módulo elegido en cada zona. |
 | Ruido de módulos por defecto sin consumidores (p. ej. sónico sin DT informa error aunque nadie use PHIS) | antes de la fase 12 | Bajar a `info` el faltante de un módulo que solo corre por ser fuente por defecto de un puerto sin consumidores. |
+| Dónde viven los puntos MDT y los plugs de corona (el proveedor de series solo lee pozo e interpretación; un store propio no redibuja la capa de tendencias) | al empezar la 6b-2 | Guardarlos en el pozo como conjunto de puntos (cambio de núcleo, decidir en la decisión de MDT). |
+| Contactos MDT: el motor corre en el worker sin proveedores de series | 6b-2 | Calcular el contacto en la interfaz con `evaluateTrend` + `intersectTrends` (`src/petro/regression.ts`), no como salida del motor. |
+| Excluir o incluir muchos puntos a la vez (lazo en el crossplot) | fase 7 | Receta nueva en `src/core/state/trends.ts`; hoy se alterna de a uno. |
 
 ## Petrofísica en módulos (fase 6a)
 

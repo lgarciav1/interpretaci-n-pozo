@@ -187,6 +187,30 @@ describe('formato v4', () => {
     expect(warnings.join('\n')).toMatch(/serie de datos/);
   });
 
+  it('tramos invertidos se corrigen con aviso; de largo cero se descartan (o se quita el límite si sigue a zona o es a mano)', () => {
+    const w: string[] = [];
+    const out = sanitizeTrends(
+      [
+        spec({ id: 'a', selection: { top: 7800, base: 7700, xMin: 5, xMax: 1, excluded: [] } }),
+        spec({ id: 'b', selection: { top: 7750, base: 7750, excluded: [] } }),
+        spec({ id: 'c', selection: { zoneId: 'z', top: 7750, base: 7750, excluded: [] } }),
+        spec({ id: 'd', mode: 'manual', manual: [{ x: 7700, y: 1 }, { x: 7710, y: 2 }], selection: { top: 7750, base: 7750, excluded: [] } }),
+        spec({ id: 'e', selection: { xMin: 2, xMax: 2, excluded: [] } }),
+      ],
+      'Pozo',
+      (m) => w.push(m),
+    );
+    expect(out.map((t) => t.id)).toEqual(['a', 'c', 'd']);
+    expect(out[0]!.selection).toEqual({ top: 7700, base: 7800, xMin: 1, xMax: 5, excluded: [] });
+    expect(out[1]!.selection).toEqual({ zoneId: 'z', excluded: [] });
+    expect(out[2]!.selection).toEqual({ excluded: [] });
+    const all = w.join('\n');
+    expect(all).toMatch(/invertido/);
+    expect(all).toMatch(/tendencia 1 .*rango de x estaba invertido/);
+    expect(all).toMatch(/tendencia 2 .*largo cero; se descarta/);
+    expect(all).toMatch(/tendencia 5 .*largo cero; se descarta/);
+  });
+
   it('sanitizeTrends tolera ausencia y tipos raros', () => {
     expect(sanitizeTrends(undefined, 'x')).toEqual([]);
     const w: string[] = [];

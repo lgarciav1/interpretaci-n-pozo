@@ -154,6 +154,12 @@ export function evaluateTrend(spec: TrendSpec, s: ResolvedSeries, zones: readonl
       const a = Math.max(win.start, lowerBound(s.x, x0));
       const b = Math.min(win.end, upperBound(s.x, x1));
       for (let i = a; i < b; i++) if (Number.isFinite(s.y[i]!) && !(exclude && exclude(i))) n++;
+    } else if (pts) {
+      // x no es la profundidad (crossplot): no está ordenada, se recorre el tramo entero.
+      for (let i = win.start; i < win.end; i++) {
+        const xi = s.x[i]!;
+        if (xi >= x0 && xi <= x1 && Number.isFinite(s.y[i]!) && !(exclude && exclude(i))) n++;
+      }
     }
     const slope = coeffs ? slopeOf(coeffs, x0, x1) : null;
     result = {
