@@ -154,7 +154,7 @@ const BUILTIN_ALIASES: Record<string, UnitId> = {
 };
 
 const units = new Map<string, UnitDef>(BUILTIN_UNITS.map((u) => [u.id, u]));
-const aliases = new Map<string, UnitId>(Object.entries(BUILTIN_ALIASES));
+const aliases = new Map<string, UnitId>(Object.entries(BUILTIN_ALIASES).map(([k, v]) => [normalizeAlias(k), v]));
 
 /** Registra una unidad nueva (p. ej. desde un módulo). Falla si el id ya existe con otra definición. */
 export function registerUnit(def: UnitDef): void {
@@ -183,7 +183,8 @@ export function unitLabel(id: UnitId): string {
 }
 
 function normalizeAlias(text: string): string {
-  return text.trim().toUpperCase().replace(/\s+/g, ' ');
+  // µ (U+00B5) y μ (U+03BC) se unifican: ambos se usan para "micro" en los archivos.
+  return text.trim().replace(/\u00b5/g, '\u03bc').toUpperCase().replace(/\s+/g, ' ');
 }
 
 /** Interpreta un texto de unidad tal como aparece en un archivo. Devuelve null si no se reconoce. */
