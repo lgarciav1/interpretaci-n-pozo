@@ -90,11 +90,11 @@ describe('registro de módulos', () => {
   it('rechaza puertos con tipos inconsistentes y escalares requeridos que nadie produce', () => {
     const scalarY = defineModule({ ...base, id: 's', inputs: {}, params: {}, outputs: { y: output.scalar('PORT', { label: 'y' }) } });
     const tableY = defineModule({ ...base, id: 't', inputs: {}, params: {}, outputs: { y: output.table('PORT', { label: 'y', columns: [] }) } });
-    const needs = defineModule({ ...base, id: 'n', inputs: { rw: input.scalar('RW') }, params: {}, outputs: { y: output.scalar('Z', { label: 'z' }) } });
+    const needs = defineModule({ ...base, id: 'n', inputs: { rw: input.scalar('RW_REF') }, params: {}, outputs: { y: output.scalar('Z', { label: 'z' }) } });
     const clash = defineModule({ ...base, id: 'c', inputs: {}, params: {}, outputs: { y: output.scalar('GR', { label: 'y' }) } });
     const p = problemsOf([scalarY, tableY, needs, clash]).join('\n');
     expect(p).toMatch(/puerto 'PORT' es 'scalar' en otro módulo y 'table' acá/);
-    expect(p).toMatch(/ningún módulo produce el escalar requerido 'RW'/);
+    expect(p).toMatch(/ningún módulo produce el escalar requerido 'RW_REF'/);
     expect(p).toMatch(/coincide con un rol de curva/);
   });
 

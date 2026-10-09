@@ -120,3 +120,14 @@ Si `CompressionStream` no existe, se usa la variante sin compresión.
 - **Fuente explícita con otro rol:** permitida si es la misma magnitud, con diagnóstico `info`.
 - **Supervisor del motor:** recrea el worker o pasa al motor en proceso ante cualquier error, reenviando pozo y
   último pedido; los resultados llevan `wellId` y `gen`, y al cambiar de pozo se borran.
+
+## Revisión (fase 6a)
+
+Ver [0007](0007-modulos-fase-6a.md), Parte 1:
+- D2: la regla por defecto pasa a «curva medida → primer módulo registrado que pueda correr → primer módulo»; una
+  entrada opcional cuya fuente no puede correr o falla queda ausente en vez de bloquear. Excepción a «un módulo por
+  método»: si los métodos no tienen parámetros propios y la elección cambia por zona (Vsh, PHIT), un `param.enum` por
+  zona.
+- D4: entradas de tabla (`input.table`) y salidas/entradas de escalar por zona (`zoneScalar`, validado contra
+  `ctx.zones`); tablas y valores por zona se congelan en la caché.
+- D6: la firma incluye el tipo de cada zona (`ZoneSpan.kind`).

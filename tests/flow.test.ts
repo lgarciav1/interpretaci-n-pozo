@@ -16,7 +16,7 @@ const statusOf = (c: FlowContext) => Object.fromEntries(evaluateFlow(PETROPHYSIC
 
 describe('flujo guiado', () => {
   it('tiene los pasos del plan en orden', () => {
-    expect(PETROPHYSICS_FLOW.map((s) => s.label)).toEqual(['Cargar', 'Calidad', 'Zonas', 'Arcilla', 'Porosidad', 'Rw', 'Saturación', 'Cutoffs', 'Sumario']);
+    expect(PETROPHYSICS_FLOW.map((s) => s.label)).toEqual(['Cargar', 'Calidad', 'Zonas', 'Arcilla', 'Porosidad', 'Rw', 'Saturación', 'Permeabilidad', 'Cutoffs', 'Sumario', 'Volumen']);
     expect(Object.keys(FLOWS)).toEqual(['petrophysics', 'geology']);
     expect(GEOLOGY_FLOW.slice(0, 3).map((s) => s.id)).toEqual(['load', 'qc', 'zones']);
   });
@@ -37,8 +37,10 @@ describe('flujo guiado', () => {
       porosity: 'empty',
       rw: 'empty',
       saturation: 'empty',
+      permeability: 'empty',
       cutoffs: 'partial', // la bandera de ejemplo no produce NET_PAY
       summary: 'empty',
+      volumetrics: 'empty',
     });
   });
 
@@ -64,13 +66,14 @@ describe('flujo guiado', () => {
     const rw = PETROPHYSICS_FLOW.find((s) => s.id === 'rw')!;
     expect(stepModules(rw, mods).map((m) => m.id)).toEqual(['pickett', 'rw-sp']);
     expect(stepsOfModule(PETROPHYSICS_FLOW, PICKETT).map((s) => s.id)).toEqual(['rw', 'saturation']);
-    expect(stepsOfModule(PETROPHYSICS_FLOW, { id: 'k', category: 'permeability', outputPorts: ['PERM'] })).toEqual([]);
+    expect(stepsOfModule(PETROPHYSICS_FLOW, { id: 'k', category: 'permeability', outputPorts: ['PERM'] }).map((s) => s.id)).toEqual(['permeability']);
+    expect(stepsOfModule(PETROPHYSICS_FLOW, { id: 'temp', category: 'other', outputPorts: ['TEMP'] }).map((s) => s.id)).toEqual(['rw']);
   });
 
   it('paso sugerido y progreso', () => {
     const states = evaluateFlow(PETROPHYSICS_FLOW, ctx({ okModules: new Set(['igr']) }));
     expect(suggestedStep(states)?.def.id).toBe('qc');
-    expect(flowProgress(states)).toEqual({ resolved: 2, total: 9 });
+    expect(flowProgress(states)).toEqual({ resolved: 2, total: 11 });
     const all = evaluateFlow(PETROPHYSICS_FLOW, ctx({ marks: Object.fromEntries(PETROPHYSICS_FLOW.map((s) => [s.id, 'skipped'])) }));
     expect(suggestedStep(all)).toBeNull();
   });
@@ -78,7 +81,11 @@ describe('flujo guiado', () => {
   it('los módulos reales del registro caen en sus pasos', () => {
     const mods = registry.modules.map(toFlowModule);
     const byStep = Object.fromEntries(PETROPHYSICS_FLOW.map((s) => [s.id, stepModules(s, mods).map((m) => m.id)]));
-    expect(byStep['shale']).toEqual(['igr']);
-    expect(byStep['cutoffs']).toEqual(['shale-flag']);
+    expect(byStep['shale']).toEqual(['igr', 'vsh']);
+    expect(byStep['porosity']).toEqual(expect.arrayContaining(['phi-density', 'phi-neutron', 'phi-sonic-raymer', 'phit', 'phie-vsh', 'phie-shale-corrected']));
+    expect(byStep['rw']).toEqual(expect.arrayContaining(['temp-gradient', 'rw-manual']));
+    expect(byStep['saturation']).toEqual(expect.arrayContaining(['sw-archie', 'sw-simandoux', 'sw-indonesia', 'bvw-sh']));
+    expect(byStep['permeability']).toEqual(expect.arrayContaining(['perm-timur', 'perm-coates']));
+    expect(Object.values(byStep).flat()).not.toContain('shale-flag');
   });
 });

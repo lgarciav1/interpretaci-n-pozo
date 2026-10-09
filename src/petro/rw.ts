@@ -12,6 +12,7 @@
  *   SP estático                            SSP = −K · log10(Rmfe / Rwe)
  *   Rw equivalente desde el SSP            Rwe = Rmfe · 10^(SSP / K)
  *   Rwe → Rw                               Rw ≈ Rwe  (APROXIMACIÓN, ver nota)
+ *   Rmfe (equivalente del filtrado)        Rmf(75 °F) > 0,1 Ω·m:  Rmfe = 0,85 · Rmf(Tf);  si no, Rmfe ≈ Rmf(Tf)  (aprox.)
  *   Pickett (Sw = 1, n no interviene)      log10 Rt = −m · log10 φ + log10(a · Rw)
  *       Ajuste por mínimos cuadrados en log–log de y = log10 Rt contra x = log10 φ:
  *           pendiente s = −m,   intercepto b = log10(a · Rw)   →   m = −s,   Rw = 10^b / a
@@ -121,6 +122,23 @@ export function waterResistivityFromSpInto(
 ): Float64Array {
   for (let i = start; i < end; i++) out[i] = waterResistivityFromSp(ssp[i]!, rmfe, tF);
   return out;
+}
+
+/** Umbral de Rmf a 75 °F (Ω·m) por encima del cual Rmfe = 0,85·Rmf. */
+export const RMFE_THRESHOLD_75F = 0.1;
+/** Factor Rmfe/Rmf para Rmf(75 °F) > 0,1 Ω·m. */
+export const RMFE_FACTOR = 0.85;
+
+/**
+ * Rmfe desde Rmf a temperatura de formación (Asquith y Krygowski 2004, sección SP): si Rmf a 75 °F > 0,1 Ω·m,
+ * Rmfe = 0,85·Rmf(Tf); si no, Rmfe ≈ Rmf(Tf) (la carta SP-2 no está implementada: aproximación, el módulo avisa).
+ * Rmf ≤ 0 o no finito → NaN.
+ * @param rmfAtTf  Rmf corregida a la temperatura de formación (Ω·m), > 0
+ * @param rmfAt75F Rmf corregida a 75 °F (Ω·m); solo decide la rama (umbral 0,1 Ω·m). NaN → NaN
+ */
+export function equivalentMudFiltrateResistivity(rmfAtTf: number, rmfAt75F: number): number {
+  if (!isPositiveFinite(rmfAtTf) || !isPositiveFinite(rmfAt75F)) return NaN;
+  return rmfAt75F > RMFE_THRESHOLD_75F ? RMFE_FACTOR * rmfAtTf : rmfAtTf;
 }
 
 // ---------------------------------------------------------------------------------------------------------------

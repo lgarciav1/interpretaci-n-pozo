@@ -2,13 +2,13 @@
  * Registro de módulos: valida el contrato de todos los módulos juntos y arma los índices que usa el motor.
  * Si algo está mal lanza un `RegistryError` con TODOS los problemas encontrados (no solo el primero).
  */
-import { portOf, type AnyModule, type OutputSpec } from './module';
+import { PORT_KIND_LABEL, portOf, type AnyModule, type PortKind } from './module';
 import { paramStorageKey, sharedSpecDifferences, validateParamSpec, type ParamSpec, type ParamsSpec } from './params';
 import { BUILTIN_ROLES, RoleCatalog, validateRoleDef, type RoleDef } from './roles';
 import { getUnit } from './units';
 import { CATEGORIES, isWorkspaceId } from './workspaces';
 
-export type PortKind = OutputSpec['kind'];
+export type { PortKind } from './module';
 
 export interface PortInfo {
   id: string;
@@ -46,6 +46,11 @@ const MODULE_ID_PATTERN = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 const CATEGORY_ID_PATTERN = MODULE_ID_PATTERN;
 const PORT_ID_PATTERN = /^[A-Z][A-Z0-9_]*$/;
 const LOCAL_KEY_PATTERN = /^[A-Za-z][A-Za-z0-9_]*$/;
+const REQUIRED_LABEL: Record<Exclude<PortKind, 'curve'>, string> = {
+  scalar: 'el escalar requerido',
+  table: 'la tabla requerida',
+  zoneScalar: 'el valor por zona requerido',
+};
 
 export interface RegistryOptions {
   /** Roles base (por defecto, los incorporados). */
@@ -142,8 +147,8 @@ export function createRegistry(modules: readonly AnyModule[], options: RegistryO
         if (!roles.has(spec.role)) problems.push(`${where(m)}: la salida '${key}' usa el rol desconocido '${spec.role}'.`);
       } else {
         if (!PORT_ID_PATTERN.test(spec.port)) problems.push(`${where(m)}: el puerto '${spec.port}' debe estar en MAYÚSCULAS.`);
-        if (roles.has(spec.port)) problems.push(`${where(m)}: el puerto ${spec.kind === 'scalar' ? 'escalar' : 'de tabla'} '${spec.port}' coincide con un rol de curva.`);
-        if (spec.kind === 'scalar' && spec.unit !== undefined && !getUnit(spec.unit)) {
+        if (roles.has(spec.port)) problems.push(`${where(m)}: el puerto (${PORT_KIND_LABEL[spec.kind] ?? spec.kind}) '${spec.port}' coincide con un rol de curva.`);
+        if ((spec.kind === 'scalar' || spec.kind === 'zoneScalar') && spec.unit !== undefined && !getUnit(spec.unit)) {
           problems.push(`${where(m)}: la salida '${key}' usa la unidad desconocida '${spec.unit}'.`);
         }
       }
@@ -165,10 +170,16 @@ export function createRegistry(modules: readonly AnyModule[], options: RegistryO
       if (!LOCAL_KEY_PATTERN.test(key)) problems.push(`${where(m)}: la entrada '${key}' debe ser un identificador.`);
       if (spec.kind === 'curve') {
         if (!roles.has(spec.role)) problems.push(`${where(m)}: la entrada '${key}' pide el rol desconocido '${spec.role}'.`);
-      } else if (spec.kind === 'scalar') {
+      } else if (spec.kind === 'scalar' || spec.kind === 'table' || spec.kind === 'zoneScalar') {
+        // El tipo del puerto lo fijan sus productores: el consumidor tiene que pedirlo con el mismo tipo.
         const info = ports.get(spec.port);
-        if (info && info.kind !== 'scalar') problems.push(`${where(m)}: la entrada '${key}' pide '${spec.port}' como escalar pero es '${info.kind}'.`);
-        if (!info && !spec.optional) problems.push(`${where(m)}: ningún módulo produce el escalar requerido '${spec.port}'.`);
+        const want = PORT_KIND_LABEL[spec.kind];
+        if (!PORT_ID_PATTERN.test(spec.port)) problems.push(`${where(m)}: la entrada '${key}' pide el puerto '${spec.port}', que debe estar en MAYÚSCULAS.`);
+        if (roles.has(spec.port)) problems.push(`${where(m)}: la entrada '${key}' pide '${spec.port}' como ${want}, pero es un rol de curva: usá input.curve('${spec.port}').`);
+        if (info && info.kind !== spec.kind) {
+          problems.push(`${where(m)}: la entrada '${key}' pide '${spec.port}' como ${want} pero es '${info.kind}' (${PORT_KIND_LABEL[info.kind]}).`);
+        }
+        if (!info && !spec.optional) problems.push(`${where(m)}: ningún módulo produce ${REQUIRED_LABEL[spec.kind]} '${spec.port}'.`);
       } else {
         problems.push(`${where(m)}: la entrada '${key}' tiene un tipo desconocido.`);
       }

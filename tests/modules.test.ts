@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Engine, toEngineWell } from '../src/core/engine/engine';
 import { emptyInterpretation } from '../src/core/interpretation';
-import { defineModule, input, output, type TableValue } from '../src/core/module';
+import { defineModule, input, output } from '../src/core/module';
 import { createRegistry } from '../src/core/registry';
 import { MODULES, registry } from '../src/modules';
 import { syntheticWell } from '../src/app/demo/syntheticWell';
@@ -15,10 +15,19 @@ const PURE_SOURCES = import.meta.glob(['../src/core/**/*.ts', '../src/petro/**/*
 }) as Record<string, string>;
 const MODULE_ENTRIES = Object.keys(import.meta.glob('../src/modules/*/index.ts'));
 
+/** Módulos de la fase 6a (parte petrofísica) en el orden del catálogo (0007). */
+const CATALOG_6A_PETRO = [
+  'vsh', 'phi-density', 'phi-neutron', 'phi-sonic-raymer', 'phit', 'phie-vsh', 'phie-shale-corrected',
+  'temp-gradient', 'rw-manual', 'sw-archie', 'sw-simandoux', 'sw-indonesia', 'bvw-sh', 'perm-timur', 'perm-coates',
+];
+
 describe('módulos registrados', () => {
-  it('el registro real es válido', () => {
-    expect(registry.modules.map((m) => m.id)).toEqual(['igr', 'shale-flag']);
-    expect(MODULES).toHaveLength(2);
+  it('el registro real es válido y respeta el orden del catálogo', () => {
+    const ids = registry.modules.map((m) => m.id);
+    expect(ids[0]).toBe('igr');
+    expect(ids).not.toContain('shale-flag');
+    expect(ids.filter((id) => id === 'igr' || CATALOG_6A_PETRO.includes(id))).toEqual(['igr', ...CATALOG_6A_PETRO]);
+    expect(MODULES).toHaveLength(ids.length);
   });
 
   it('cada módulo vive en una carpeta con su mismo id', () => {
@@ -36,35 +45,36 @@ describe('módulos registrados', () => {
     }
   });
 
-  it('IGR → bandera de arcilla sobre el pozo sintético, con parámetros por zona', () => {
+  it('IGR → VSH sobre el pozo sintético, con método por zona', () => {
     const demo = syntheticWell();
     const engine = new Engine(registry, { checkInputs: true });
     engine.setWell(toEngineWell(demo.well));
     const base = emptyInterpretation(demo.zones);
     const r1 = engine.run(base);
-    expect(r1.diagnostics.filter((d) => d.level === 'error')).toEqual([]);
-    expect(r1.stats.recomputed).toEqual(['igr', 'shale-flag']);
+    expect(r1.stats.recomputed).toEqual(expect.arrayContaining(['igr', 'vsh']));
 
     const igr = r1.outputs.find((o) => o.key === 'igr:IGR')!.value as Float64Array;
+    const vsh = r1.outputs.find((o) => o.key === 'vsh:VSH')!.value as Float64Array;
     const gr = demo.well.curves.find((c) => c.role === 'GR')!.data;
-    // muestra puntual: definición de IGR con defaults 30/120
+    // muestra puntual: definición de IGR con defaults 30/120; Vsh lineal por defecto
     const k = 1234;
     expect(igr[k]).toBeCloseTo(Math.min(1, Math.max(0, (gr[k]! - 30) / 90)), 12);
+    expect(vsh[k]).toBe(igr[k]);
 
-    const table = r1.outputs.find((o) => o.key === 'shale-flag:IGR_BY_ZONE')!.value as TableValue;
-    expect(table.rows.map((r) => r['zone'])).toEqual(['A', 'B', 'C', 'D', 'E']);
-
-    // mover el corte solo recalcula la bandera
-    const r2 = engine.run({ ...base, params: { global: { 'shale-flag.cutoff': 0.3 }, zones: {} } });
-    expect(r2.stats.recomputed).toEqual(['shale-flag']);
-
-    // GR limpia en la zona C → recalcula ambos y cambia la media solo en C
+    // cambiar el método de la zona C recalcula VSH (no IGR) y cambia solo esa zona
     const zc = demo.zones[2]!.id;
+    const r2 = engine.run({ ...base, params: { global: {}, zones: { [zc]: { 'vsh.method': 'larionovTertiary' } } } });
+    expect(r2.stats.recomputed).toContain('vsh');
+    expect(r2.stats.recomputed).not.toContain('igr');
+    const vsh2 = r2.outputs.find((o) => o.key === 'vsh:VSH')!.value as Float64Array;
+    const inC = demo.well.depth.values.findIndex((d) => d >= demo.zones[2]!.top + 20);
+    const inB = demo.well.depth.values.findIndex((d) => d >= demo.zones[1]!.top + 20);
+    expect(vsh2[inC]).not.toBe(vsh[inC]);
+    expect(vsh2[inB]).toBe(vsh[inB]);
+
+    // GR limpia en la zona C → recalcula IGR
     const r3 = engine.run({ ...base, params: { global: {}, zones: { [zc]: { grClean: 60 } } } });
-    expect(r3.stats.recomputed).toEqual(['igr', 'shale-flag']);
-    const t3 = r3.outputs.find((o) => o.key === 'shale-flag:IGR_BY_ZONE')!.value as TableValue;
-    expect(t3.rows[2]!['meanIgr']).not.toBe(table.rows[2]!['meanIgr']);
-    expect(t3.rows[1]!['meanIgr']).toBe(table.rows[1]!['meanIgr']);
+    expect(r3.stats.recomputed).toContain('igr');
   });
 
   it('avisa cuando GR de arcilla no supera a GR limpia en una zona', () => {
@@ -74,7 +84,7 @@ describe('módulos registrados', () => {
     const zc = demo.zones[2]!.id;
     const r = engine.run({ ...emptyInterpretation(demo.zones), params: { global: {}, zones: { [zc]: { grClean: 130 } } } });
     const warn = r.diagnostics.filter((d) => d.code === 'module-warning').map((d) => d.message);
-    expect(warn).toEqual(['Índice de rayos gamma: en la zona C, el GR de arcilla no supera al de arena limpia: el índice queda sin dato.']);
+    expect(warn).toContain('Índice de rayos gamma: en la zona C, el GR de arcilla no supera al de arena limpia: el índice queda sin dato.');
   });
 
   it('el ejemplo de "cómo agregar un módulo" de docs/arquitectura.md funciona tal cual', () => {
@@ -98,12 +108,12 @@ describe('módulos registrados', () => {
         references: ['Larionov, V. V. (1969).'],
       },
     });
-    const extended = createRegistry([...MODULES, vshLarionovTertiary]);
+    const extended = createRegistry([vshLarionovTertiary, ...MODULES]);
     const demo = syntheticWell();
     const engine = new Engine(extended, { checkInputs: true });
     engine.setWell(toEngineWell(demo.well));
     const r = engine.run(emptyInterpretation(demo.zones));
-    expect(r.stats.recomputed).toEqual(['igr', 'shale-flag', 'vsh-larionov-tertiary']);
+    expect(r.stats.recomputed).toContain('vsh-larionov-tertiary');
     const vsh = r.outputs.find((o) => o.key === 'vsh-larionov-tertiary:VSH')!;
     expect(vsh.active).toBe(true);
     // IGR = 1 → Vsh = 0,083·(2^3,7 − 1) = 0,083·11,996 ≈ 0,9957

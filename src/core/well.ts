@@ -138,6 +138,8 @@ export function sampleThickness(depth: ArrayLike<number>): Float64Array {
 export interface ZoneSpan {
   id: string;
   name: string;
+  /** Tipo de la zona (reservorio, sello…): el sumario y el volumétrico lo usan sin mirar el proyecto. */
+  kind: ZoneKind;
   top: number;
   base: number;
   start: number;
@@ -178,7 +180,7 @@ export function layoutZones(depth: ArrayLike<number>, zones: readonly Zone[]): Z
   }
   const n = depth.length;
   const zoneIndex = new Int32Array(n).fill(-1);
-  const spans: ZoneSpan[] = sorted.map((z) => ({ id: z.id, name: z.name, top: z.top, base: z.base, start: n, end: n }));
+  const spans: ZoneSpan[] = sorted.map((z) => ({ id: z.id, name: z.name, kind: z.kind ?? 'formation', top: z.top, base: z.base, start: n, end: n }));
   // Barrido: profundidad creciente, zonas ordenadas por tope.
   let k = 0;
   for (let i = 0; i < n; i++) {
@@ -212,7 +214,7 @@ export function layoutZones(depth: ArrayLike<number>, zones: readonly Zone[]): Z
   return { spans, segments, zoneIndex, problems };
 }
 
-/** Firma de la geometría de zonas (el motor le suma los nombres: los módulos los usan en tablas y avisos). */
+/** Firma de la geometría de zonas (el motor le suma nombres y tipos: los módulos los usan en tablas y avisos). */
 export function zoneGeometryKey(zones: readonly Zone[]): string {
   return zones.map((z) => `${z.id}:${z.top}:${z.base}`).join('|');
 }

@@ -7,7 +7,7 @@
  *
  * Ecuaciones:
  *   Densidad          φD = (ρma − ρb) / (ρma − ρf)
- *   Sónico Wyllie     φS = (Δt − Δtma) / (Δtf − Δtma)                 (sin factor de compactación)
+ *   Sónico Wyllie     φS = (Δt − Δtma) / (Δtf − Δtma) / Cp            (Cp = factor de compactación, 1 si no hay)
  *   Sónico RHG        φS = 0,625 · (Δt − Δtma) / Δt                   (forma simplificada de Raymer-Hunt-Gardner)
  *   Neutrón           φN = NPHI + offset                              (offset = corrección de matriz opcional)
  *   Dens–neutrón      φDN = (φD + φN) / 2                             (líquido)
@@ -15,7 +15,7 @@
  *   Corr. por arcilla φcorr = φ − Vsh · φsh
  *   Efectiva          φe = φt · (1 − Vsh)
  *
- * Referencias: Asquith y Krygowski (2004), "Basic Well Log Analysis", AAPG Methods in Exploration 16, cap. 5
+ * Referencias: Asquith y Krygowski (2004), "Basic Well Log Analysis", AAPG Methods in Exploration 16, cap. 4
  * (densidad, sónico, neutrón, densidad–neutrón, porosidad efectiva); Wyllie et al. (1956); Raymer, Hunt y
  * Gardner (1980), "An improved sonic transit time-to-porosity transform", SPWLA 21st Annual Logging Symposium;
  * Schlumberger, "Log Interpretation Charts" (cartas Por-). Valores típicos de matriz (Asquith): arenisca
@@ -73,16 +73,20 @@ export function densityPorosityInto(
 // ---------------------------------------------------------------------------------------------------------------
 
 /**
- * Porosidad sónica de Wyllie (promedio en tiempo): φS = (Δt − Δtma)/(Δtf − Δtma).
- * No incluye factor de compactación (Cp = 1): en arenas no consolidadas/someras sobreestima la porosidad.
+ * Porosidad sónica de Wyllie (promedio en tiempo) con factor de compactación opcional:
+ *   φS = (Δt − Δtma)/(Δtf − Δtma) / Cp
+ * Con Cp = 1 (por defecto) no hay corrección: en arenas no consolidadas/someras sobreestima la porosidad, y Cp > 1
+ * (típicamente 1,0–1,3; Cp = Δt_arcilla·c/100) la reduce.
  * @param dt   Δt medido (µs/ft)
  * @param dtMa Δt de matriz (µs/ft)
  * @param dtF  Δt de fluido (µs/ft); debe ser mayor que Δtma, si no → NaN
+ * @param cp   factor de compactación (adimensional), > 0 y finito; si no → NaN
  */
-export function sonicPorosityWyllie(dt: number, dtMa: number, dtF: number): number {
+export function sonicPorosityWyllie(dt: number, dtMa: number, dtF: number, cp = 1): number {
   const span = dtF - dtMa;
   if (!(span > 0) || Number.isNaN(dt)) return NaN;
-  return clipPorosity((dt - dtMa) / span);
+  if (!(cp > 0) || cp === Infinity) return NaN;
+  return clipPorosity((dt - dtMa) / span / cp);
 }
 
 /** Variante por tramo [start, end) de `sonicPorosityWyllieInto`, escrita en `out` (mismo índice). */
@@ -232,7 +236,7 @@ export function shaleCorrectedPorosityInto(
 }
 
 /**
- * Porosidad efectiva a partir de la total: φe = φt · (1 − Vsh) (Asquith y Krygowski, cap. 5).
+ * Porosidad efectiva a partir de la total: φe = φt · (1 − Vsh) (Asquith y Krygowski, cap. 4).
  * Equivale a `shaleCorrectedPorosity` con φsh = φt, es decir, supone que la porosidad aparente de la arcilla
  * es la de la propia formación. Se ofrece como aproximación cuando NO hay una φsh de referencia; si hay una
  * lutita limpia en el pozo, usar `shaleCorrectedPorosity` (más rigurosa: usa la φsh realmente medida).

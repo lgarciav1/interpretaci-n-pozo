@@ -148,7 +148,7 @@ describe('pistas del pozo del TP (datos/pozo_tp_perfiles.csv)', () => {
     const n = well.depth.values.length;
     const computed: ComputedCurve[] = [
       { port: 'IGR', moduleId: 'igr', label: 'IGR', data: new Float64Array(n).fill(0.4), active: true },
-      { port: 'SHALE_FLAG', moduleId: 'shale-flag', label: 'Bandera', data: new Float64Array(n).fill(1), active: true },
+      { port: 'NET_RES', moduleId: 'cutoffs', label: 'Bandera', data: new Float64Array(n).fill(1), active: true },
       { port: 'VSH', moduleId: 'vsh-alt', label: 'VSH alternativa', data: new Float64Array(n), active: false },
       { port: 'XYZ', moduleId: 'nuevo', label: 'Rol desconocido', data: new Float64Array(n).fill(3), active: true },
     ];
@@ -160,7 +160,7 @@ describe('pistas del pozo del TP (datos/pozo_tp_perfiles.csv)', () => {
     expect(alt.styles.light.line).toBe('dashed');
     expect(alt.title).toContain('alternativa');
     expect(track(t2, 'computed').fills.some((f) => f.a.key === alt.key)).toBe(false);
-    expect(track(t2, 'flags').curves.map((c) => c.name)).toEqual(['SHALE_FLAG']);
+    expect(track(t2, 'flags').curves.map((c) => c.name)).toEqual(['NET_RES']);
     expect(track(t2, 'flags').fixed).toBeGreaterThan(0);
     // rol sin escala conocida → rango de los datos
     const xyz = track(t2, 'computed').curves[2]!;

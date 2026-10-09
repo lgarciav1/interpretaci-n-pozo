@@ -206,7 +206,7 @@ describe('motor incremental', () => {
       workspace: 'petrophysics',
       inputs: {},
       params: { rw: param.number({ label: 'Rw', default: 0.05, min: 0.01, max: 1 }) },
-      outputs: { rw: output.scalar('RW', { label: 'Rw', unit: 'ohm.m' }) },
+      outputs: { rw: output.scalar('RW_REF', { label: 'Rw', unit: 'ohm.m' }) },
       compute: ({ params }) => ({ rw: params.rw * 2 }),
       docs: { summary: '', equations: [], references: [] },
     });
@@ -215,7 +215,7 @@ describe('motor incremental', () => {
       name: 'Usa Rw',
       category: 'other',
       workspace: 'petrophysics',
-      inputs: { rw: input.scalar('RW'), gr: input.curve('GR') },
+      inputs: { rw: input.scalar('RW_REF'), gr: input.curve('GR') },
       params: {},
       outputs: { y: output.curve('SW') },
       compute: ({ n, inputs }) => ({ y: new Float64Array(n).fill(inputs.rw) }),
