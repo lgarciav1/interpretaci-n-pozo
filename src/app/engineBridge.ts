@@ -2,15 +2,15 @@
  * Puente entre el estado del proyecto y el motor.
  * - El `EngineSupervisor` (core) corre el motor en un Web Worker incrustado en el HTML (`?worker&inline`) y, si el
  *   worker no arranca o se cae, lo recrea o pasa al motor en proceso, reenviando pozo y último pedido.
- * - Cuando cambia el pozo activo → syncWell (solo datos nuevos); cuando cambia su interpretación → run
- *   (el cliente coalesce: gana el último).
+ * - Cuando cambia el pozo activo → syncWell (solo datos nuevos); cuando cambian las entradas del motor de su
+ *   interpretación → run (el cliente coalesce: gana el último). Un cambio solo de tendencias no pide cálculo.
  * - Al cambiar de pozo (generación nueva) se borra el resultado: nunca conviven arrays de un pozo con la
  *   profundidad de otro. Además se ignora cualquier resultado cuyo pozo no sea el activo.
  */
 import { createInProcessClient } from '../core/engine/client';
 import { toEngineWell } from '../core/engine/engine';
 import { EngineSupervisor, type WorkerLike } from '../core/engine/supervisor';
-import type { Interpretation } from '../core/interpretation';
+import { sameEngineInputs, type Interpretation } from '../core/interpretation';
 import type { Registry } from '../core/registry';
 import type { Well } from '../core/well';
 import EngineWorker from './engine.worker?worker&inline';
@@ -64,8 +64,10 @@ export function startEngineBridge(registry: Registry): EngineSupervisor {
       lastInterp = null; // pozo nuevo o curvas cambiadas: recalcular
     }
     if (entry.interpretation !== lastInterp) {
+      // Solo cambió algo que el motor no lee (tendencias): no hace falta calcular.
+      const skip = lastInterp !== null && sameEngineInputs(lastInterp, entry.interpretation);
       lastInterp = entry.interpretation;
-      supervisor.run(entry.interpretation);
+      if (!skip) supervisor.run(entry.interpretation);
     }
   };
   useProject.subscribe(sync);

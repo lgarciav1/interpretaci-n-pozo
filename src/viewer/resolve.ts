@@ -12,7 +12,8 @@
  */
 import type { CurveDisplayOverride, FillSpec, StackSpec, TrackSpec } from '../core/display';
 import type { RoleCatalog, RoleId } from '../core/roles';
-import { convertArray, getUnit, sameDimension, unitLabel, type UnitId } from '../core/units';
+import { canonicalCurveData } from '../core/canonical';
+import { getUnit, unitLabel, type UnitId } from '../core/units';
 import type { Curve } from '../core/well';
 import { ensureContrast } from '../ui/color';
 import { curveStyle, dashPattern, FILL_PALETTE, type CurveStyle, type FillId } from '../ui/curves';
@@ -168,20 +169,9 @@ const FLAG_COLUMN = 18;
 
 const isFillId = (id: string | undefined): id is FillId => !!id && id in FILL_PALETTE;
 
-// ── conversión a unidad canónica (caché) ───────────────────────────────────────────────────────────────────────
+// ── conversión a unidad canónica (caché compartida con las tendencias: src/core/canonical.ts) ──────────────────
 
-const converted = new WeakMap<Float64Array, Map<string, Float64Array>>();
-
-function toCanonical(c: Curve, catalog: RoleCatalog): { data: Float64Array; unit: UnitId } {
-  const role = c.role ? catalog.get(c.role) : undefined;
-  if (!role || role.unit === c.unit || !getUnit(c.unit) || !sameDimension(c.unit, role.unit)) return { data: c.data, unit: c.unit };
-  let byUnit = converted.get(c.data);
-  if (!byUnit) converted.set(c.data, (byUnit = new Map()));
-  const key = `${c.unit}>${role.unit}`;
-  let data = byUnit.get(key);
-  if (!data) byUnit.set(key, (data = convertArray(c.data, c.unit, role.unit)));
-  return { data, unit: role.unit };
-}
+const toCanonical = (c: Curve, catalog: RoleCatalog): { data: Float64Array; unit: UnitId } => canonicalCurveData(c, catalog);
 
 // ── estilo ─────────────────────────────────────────────────────────────────────────────────────────────────────
 

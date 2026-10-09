@@ -139,7 +139,10 @@ export const overlays: ViewerOverlay[] = [
 - **Teclado** (fase 4b): `targets(frame)` devuelve `{ depth, hit }` por elemento (con `hit.key`). El visor crea un
   botón accesible por cada uno: Tab los recorre, al enfocarlo queda activo (↑/↓ → `nudge`, Enter → `activate`) y
   `frame.active` dice cuál es para resaltarlo. Así se llega a un tope o a un plug sin mouse.
-- Las incorporadas (`overlays/zones.ts`, `overlays/qc.ts`) usan el mismo contrato; `ViewerSlot` las compone.
+- Las incorporadas (`overlays/zones.ts`, `overlays/qc.ts`) usan el mismo contrato; `ViewerSlot` las compone, junto
+  con las de **tendencias** (`src/plots/trend/overlay.ts`, docs/decisiones/0008): elegir un tramo con ajuste en vivo,
+  dibujar a mano, manijas arrastrables con ↑/↓ y Tab, excluir muestras con un clic.
+- El tooltip (`hit.label`) admite varias líneas con `\n`.
 - Probado en `tests/viewer/interaction.test.ts` (plug arrastrable, tramo, borde, Escape, teclado) y
   `tests/viewer/review.test.ts` (pista propia).
 

@@ -7,8 +7,9 @@ import { MODULES, registry } from '../src/modules';
 import { syntheticWell } from '../src/app/demo/syntheticWell';
 
 /** Fuentes de las capas que carga el worker (Vite las incluye como texto). */
-// `src/modules/<id>/overlay.ts` (superposiciones del visor) es de la interfaz: el worker no lo importa.
-const PURE_SOURCES = import.meta.glob(['../src/core/**/*.ts', '../src/petro/**/*.ts', '../src/modules/**/*.ts', '!../src/modules/*/overlay.ts'], {
+// `src/modules/<id>/overlay.ts` (superposiciones del visor) y `series.ts` (proveedores de series para tendencias)
+// son de la interfaz: el worker no los importa.
+const PURE_SOURCES = import.meta.glob(['../src/core/**/*.ts', '../src/petro/**/*.ts', '../src/modules/**/*.ts', '!../src/modules/*/overlay.ts', '!../src/modules/*/series.ts'], {
   query: '?raw',
   import: 'default',
   eager: true,

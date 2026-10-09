@@ -3,6 +3,7 @@
  * Es JSON puro (sin typed arrays): se guarda en el proyecto, en los snapshots y se manda al worker en cada cambio.
  */
 import { emptyParamState, type ParamState } from './params';
+import type { TrendSpec } from './trends';
 import type { Zone } from './well';
 
 /** Fuente elegida para un puerto: una curva medida del pozo o un módulo. */
@@ -21,10 +22,24 @@ export interface Interpretation {
   compare: string[];
   /** Módulos desactivados (no se calculan ni pueden ser fuente). */
   disabled: string[];
+  /**
+   * Líneas de tendencia del pozo (docs/decisiones/0008-tendencias-y-gradientes.md). No las usa el motor: la firma de
+   * los módulos no las incluye y `sameEngineInputs` evita pedir un cálculo cuando solo cambiaron ellas.
+   */
+  trends: TrendSpec[];
 }
 
 export function emptyInterpretation(zones: Zone[] = []): Interpretation {
-  return { zones, params: emptyParamState(), sources: {}, compare: [], disabled: [] };
+  return { zones, params: emptyParamState(), sources: {}, compare: [], disabled: [], trends: [] };
+}
+
+/**
+ * true si dos interpretaciones tienen las mismas entradas del motor (zonas, parámetros, fuentes, comparar,
+ * desactivados) por referencia: las recetas comparten estructura, así que un cambio que solo toca `trends` (u otro
+ * campo que el motor no lee) da true y el puente no pide un cálculo.
+ */
+export function sameEngineInputs(a: Interpretation, b: Interpretation): boolean {
+  return a.zones === b.zones && a.params === b.params && a.sources === b.sources && a.compare === b.compare && a.disabled === b.disabled;
 }
 
 export function sourceRefEquals(a: SourceRef | undefined, b: SourceRef | undefined): boolean {

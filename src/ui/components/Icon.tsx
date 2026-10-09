@@ -149,6 +149,27 @@ const ICONS = {
     </>
   ),
   histogram: <path d="M4 20h16M6 20v-5M10 20V8M14 20v-9M18 20v-4" />,
+  trend: (
+    <>
+      <path d="M4 19.5L20 5" />
+      <circle cx="7" cy="14.5" r="1" fill="currentColor" />
+      <circle cx="10.5" cy="13.5" r="1" fill="currentColor" />
+      <circle cx="13" cy="9" r="1" fill="currentColor" />
+      <circle cx="17" cy="9.5" r="1" fill="currentColor" />
+    </>
+  ),
+  pen: (
+    <>
+      <path d="M4 20l1-4.5L15.5 5a2.1 2.1 0 013 3L8 18.5z" />
+      <path d="M13.5 7l3 3" />
+    </>
+  ),
+  copy: (
+    <>
+      <rect x="8.5" y="8.5" width="11" height="11" rx="1.5" />
+      <path d="M15.5 8.5V6A1.5 1.5 0 0014 4.5H6A1.5 1.5 0 004.5 6v8A1.5 1.5 0 006 15.5h2.5" />
+    </>
+  ),
   scatter: (
     <>
       <path d="M4 4v16h16" />
