@@ -21,7 +21,7 @@ import {
 } from '../src/petro/porosity';
 
 describe('petro/porosity: densidad', () => {
-  it('arenisca limpia: ρb=2,45, ρma=2,65, ρf=1,0 → 0,121 (ejemplo tipo Asquith y Krygowski cap. 5)', () => {
+  it('arenisca limpia: ρb=2,45, ρma=2,65, ρf=1,0 → 0,121 (verificado a mano, no de libro)', () => {
     // 0,20/1,65 = 0,121212 (recalculado a mano)
     expect(densityPorosity(2.45, 2.65, 1.0)).toBeCloseTo(0.12121, 4);
   });
@@ -93,7 +93,7 @@ describe('petro/porosity: sónico', () => {
     expect(sonicPorosityRaymer(1e6, 55.5)).toBe(POROSITY_MAX);
   });
 
-  it('Raymer: es menor que Wyllie para Δt=100 (RHG corrige la sobreestimación de Wyllie)', () => {
+  it('Raymer: para Δt=100 el valor RHG es menor que el de Wyllie', () => {
     expect(sonicPorosityRaymer(100, 55.5)).toBeLessThan(sonicPorosityWyllie(100, 55.5, 189));
   });
 
@@ -235,6 +235,8 @@ describe('petro/porosity: arcilla y porosidad efectiva', () => {
 
   it('efectiva: recorta, Vsh fuera de rango, NaN', () => {
     expect(effectivePorosity(0.8, 0)).toBe(POROSITY_MAX);
+    // φt se recorta antes de multiplicar: 0,5·(1−0,5) = 0,25 (verificado a mano, no de libro)
+    expect(effectivePorosity(0.8, 0.5)).toBeCloseTo(0.25, 12);
     expect(effectivePorosity(0.25, 2)).toBe(0);
     expect(effectivePorosity(0.25, -1)).toBeCloseTo(0.25, 12);
     expect(effectivePorosity(NaN, 0.2)).toBeNaN();

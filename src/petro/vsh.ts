@@ -17,7 +17,8 @@
  *  - Lineal, Clavier y Steiber cumplen Vsh(0) = 0 y Vsh(1) = 1.
  *  - Larionov NO llega a 1 en IGR = 1: terciario da 0,083·(2^3,7 − 1) ≈ 0,9957 y rocas antiguas 0,33·(2^2 − 1) = 0,99.
  *    Es una propiedad de las ecuaciones empíricas originales; no se renormaliza para no apartarse de la bibliografía.
- *  - Orden habitual para un mismo IGR: lineal ≥ Clavier ≥ Steiber ≥ Larionov (el lineal es el más pesimista).
+ *  - Orden para un mismo IGR interior: lineal ≥ Larionov antiguo ≥ Clavier ≥ Steiber ≥ Larionov terciario
+ *    (el lineal es el más pesimista; p. ej. con IGR = 0,5: 0,5 / 0,33 / 0,307 / 0,25 / 0,216).
  *
  * Referencia: Asquith, G. y Krygowski, D. (2004), "Basic Well Log Analysis", 2ª ed., AAPG Methods in
  * Exploration 16, cap. 4 (ecuaciones de Vsh); Larionov (1969), Clavier et al. (1971), Steiber (1970).

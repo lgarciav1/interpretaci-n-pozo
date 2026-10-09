@@ -55,6 +55,7 @@ export function densityPorosity(rhoB: number, rhoMa: number, rhoF: number): numb
   return clipPorosity((rhoMa - rhoB) / span);
 }
 
+/** Variante por tramo [start, end) de `densityPorosityInto`, escrita en `out` (mismo índice). */
 export function densityPorosityInto(
   rhoB: ArrayLike<number>,
   out: Float64Array,
@@ -84,6 +85,7 @@ export function sonicPorosityWyllie(dt: number, dtMa: number, dtF: number): numb
   return clipPorosity((dt - dtMa) / span);
 }
 
+/** Variante por tramo [start, end) de `sonicPorosityWyllieInto`, escrita en `out` (mismo índice). */
 export function sonicPorosityWyllieInto(
   dt: ArrayLike<number>,
   out: Float64Array,
@@ -109,6 +111,7 @@ export function sonicPorosityRaymer(dt: number, dtMa: number): number {
   return clipPorosity((RAYMER_COEFFICIENT * (dt - dtMa)) / dt);
 }
 
+/** Variante por tramo [start, end) de `sonicPorosityRaymerInto`, escrita en `out` (mismo índice). */
 export function sonicPorosityRaymerInto(
   dt: ArrayLike<number>,
   out: Float64Array,
@@ -136,6 +139,7 @@ export function neutronPorosity(nphi: number, matrixOffset = 0): number {
   return clipPorosity(nphi + matrixOffset);
 }
 
+/** Variante por tramo [start, end) de `neutronPorosityInto`, escrita en `out` (mismo índice). */
 export function neutronPorosityInto(
   nphi: ArrayLike<number>,
   out: Float64Array,
@@ -160,6 +164,7 @@ export function densityNeutronPorosity(phiD: number, phiN: number): number {
   return clipPorosity((clipPorosity(phiD) + clipPorosity(phiN)) / 2);
 }
 
+/** Variante por tramo [start, end) de `densityNeutronPorosityInto`, escrita en `out` (mismo índice). */
 export function densityNeutronPorosityInto(
   phiD: ArrayLike<number>,
   phiN: ArrayLike<number>,
@@ -184,6 +189,7 @@ export function densityNeutronGasPorosity(phiD: number, phiN: number): number {
   return clipPorosity(Math.sqrt((d * d + n * n) / 2));
 }
 
+/** Variante por tramo [start, end) de `densityNeutronGasPorosityInto`, escrita en `out` (mismo índice). */
 export function densityNeutronGasPorosityInto(
   phiD: ArrayLike<number>,
   phiN: ArrayLike<number>,
@@ -212,6 +218,7 @@ export function shaleCorrectedPorosity(phi: number, vsh: number, phiSh: number):
   return clipPorosity(phi - clip01(vsh) * phiSh);
 }
 
+/** Variante por tramo [start, end) de `shaleCorrectedPorosityInto`, escrita en `out` (mismo índice). */
 export function shaleCorrectedPorosityInto(
   phi: ArrayLike<number>,
   vsh: ArrayLike<number>,
@@ -229,12 +236,14 @@ export function shaleCorrectedPorosityInto(
  * Equivale a `shaleCorrectedPorosity` con φsh = φt, es decir, supone que la porosidad aparente de la arcilla
  * es la de la propia formación. Se ofrece como aproximación cuando NO hay una φsh de referencia; si hay una
  * lutita limpia en el pozo, usar `shaleCorrectedPorosity` (más rigurosa: usa la φsh realmente medida).
+ * φt se recorta a [0, 0,5] antes de multiplicar, igual que en las combinaciones densidad–neutrón.
  */
 export function effectivePorosity(phiT: number, vsh: number): number {
   if (Number.isNaN(phiT) || Number.isNaN(vsh)) return NaN;
-  return clipPorosity(phiT * (1 - clip01(vsh)));
+  return clipPorosity(clipPorosity(phiT) * (1 - clip01(vsh)));
 }
 
+/** Variante por tramo [start, end) de `effectivePorosityInto`, escrita en `out` (mismo índice). */
 export function effectivePorosityInto(
   phiT: ArrayLike<number>,
   vsh: ArrayLike<number>,

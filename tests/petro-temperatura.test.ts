@@ -72,7 +72,6 @@ describe('petro/temperature: gradiente lineal', () => {
 describe('petro/temperature: Arps', () => {
   it('75 °F → 200 °F con R=0,5: 0,5·81,77/206,77 = 0,19773', () => {
     // verificado a mano, no de libro: (75+6,77)=81,77 ; (200+6,77)=206,77 ; 81,77/206,77 = 0,39546 ; ·0,5 = 0,19773
-    // (el brief mencionaba ≈0,17; la cuenta exacta da 0,1977, mismo orden de magnitud)
     expect(arpsResistivityF(0.5, 75, 200)).toBeCloseTo(0.19773, 4);
   });
 
