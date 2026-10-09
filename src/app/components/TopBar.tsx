@@ -1,4 +1,4 @@
-/** Barra superior: espacio de trabajo, snapshots y guardar/abrir proyecto. */
+/** Barra superior: carga de pozo, espacio de trabajo, snapshots y guardar/abrir proyecto. */
 import { useRef, useState } from 'react';
 import { deserializeProject, serializeProject } from '../../core/state/serialize';
 import { createSnapshot, describeDiff, diffInterpretations, restoreSnapshot } from '../../core/state/snapshots';
@@ -6,6 +6,7 @@ import { WORKSPACES } from '../../core/workspaces';
 import { registry } from '../../modules';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useUi } from '../store/ui';
+import { LoadWellDialog } from './LoadWellDialog';
 
 export function TopBar() {
   const workspace = useUi((s) => s.workspace);
@@ -18,6 +19,7 @@ export function TopBar() {
   const [selected, setSelected] = useState('');
   const [diff, setDiff] = useState<string[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const snapshots = project.snapshots.filter((s) => s.wellId === entry?.well.id);
 
@@ -51,6 +53,9 @@ export function TopBar() {
           </button>
         ))}
       </div>
+      <button type="button" className="btn primary" onClick={() => setLoading(true)}>
+        Cargar pozo
+      </button>
       <span className="spacer" />
       {entry && (
         <>
@@ -98,6 +103,7 @@ export function TopBar() {
       </button>
       <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={(e) => e.currentTarget.files?.[0] && open(e.currentTarget.files[0])} />
       {message && <span className="muted">{message}</span>}
+      {loading && <LoadWellDialog onClose={() => setLoading(false)} />}
       {diff && (
         <div style={{ flexBasis: '100%' }}>
           <strong>Diferencias con el snapshot:</strong> {diff.length === 0 ? 'ninguna' : diff.join(' · ')}{' '}

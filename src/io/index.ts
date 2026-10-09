@@ -21,6 +21,22 @@ export type { Confidence, RoleSuggestion } from './mnemonics';
 export { listXlsxSheets, parseXlsx } from './xlsx';
 export { parseLas } from './las';
 export { parseCsv } from './csv';
+export { getCurveQc, PAD_ROLES, PHYSICAL_RANGES, QC_DEFAULTS, QC_FLAGS, runQc, unreliableMask } from './qc';
+export type {
+  BoreholeInterval,
+  BoreholeIssue,
+  BoreholeQc,
+  ConstantRun,
+  CurveQc,
+  CurveStats,
+  PhysicalRange,
+  QcOptions,
+  QcReason,
+  QcReasonCode,
+  QcReport,
+  QcSeverity,
+  QcStatus,
+} from './qc';
 
 /** Contenido de un archivo: bytes (lo que entrega `File.arrayBuffer()`) o texto ya decodificado. */
 export type FileInput = string | Uint8Array | ArrayBuffer;
