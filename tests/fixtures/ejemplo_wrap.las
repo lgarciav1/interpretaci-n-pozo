@@ -1,0 +1,17 @@
+~V
+VERS. 2.0 :
+WRAP. YES :
+~W
+NULL. -999.25 :
+WELL. Pozo Wrap :
+~C
+DEPT.M :
+A.UNIT :
+B.UNIT :
+C.UNIT :
+~A
+100.0
+1.0 2.0
+3.0
+100.5
+4.0 -999.25 6.0

@@ -70,3 +70,11 @@ describe('unidades', () => {
     expect(() => registerUnit({ id: 'kft', label: 'kft', dimension: 'length', factor: 1 })).toThrow(/otra definición/);
   });
 });
+
+describe('alias con micro', () => {
+  it('reconoce µs/ft con micro (U+00B5) y mu griega (U+03BC)', () => {
+    expect(parseUnit('µs/ft')).toBe('us/ft');
+    expect(parseUnit('μs/ft')).toBe('us/ft');
+    expect(parseUnit('us/m')).toBe('us/m');
+  });
+});
