@@ -217,6 +217,19 @@ const ICONS = {
       <circle cx="14.5" cy="17" r="0.9" fill="currentColor" />
     </>
   ),
+  'zoom-in': (
+    <>
+      <circle cx="10.5" cy="10.5" r="6" />
+      <path d="M15 15l5 5M8 10.5h5M10.5 8v5" />
+    </>
+  ),
+  'zoom-out': (
+    <>
+      <circle cx="10.5" cy="10.5" r="6" />
+      <path d="M15 15l5 5M8 10.5h5" />
+    </>
+  ),
+  'fit-height': <path d="M12 3.5v17M8.5 7L12 3.5 15.5 7M8.5 17l3.5 3.5 3.5-3.5M5 12h3M16 12h3" />,
   dot: <circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none" />,
 } satisfies Record<string, ReactElement>;
 

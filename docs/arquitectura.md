@@ -2,7 +2,8 @@
 
 Webapp 100 % en el navegador (TypeScript + React + Vite) que se entrega como un único `dist/index.html`.
 Las decisiones con sus alternativas descartadas están en [`decisiones/`](decisiones/): núcleo y contrato de módulos
-(0001), lectura de datos (0002), control de calidad (0003) y sistema de diseño, armazón y flujo guiado (0004).
+(0001), lectura de datos (0002), control de calidad (0003), sistema de diseño, armazón y flujo guiado (0004) y visor
+multipista (0005).
 Este documento resume cómo encajan las piezas y cómo agregar un módulo.
 
 ## Ideas centrales
@@ -18,6 +19,8 @@ Este documento resume cómo encajan las piezas y cómo agregar un módulo.
 4. **Motor incremental, idéntico en worker y en proceso.** Cada módulo tiene una firma (parámetros + zonas +
    versión de entradas); si no cambió, se reusa el resultado.
 5. **Estado en tres capas.** Proyecto (se guarda), UI (no se guarda), resultados (derivados, no se guardan).
+   La configuración del visor (pistas propias, overrides de escala y color) es parte del proyecto, fuera de la
+   interpretación.
 
 ## Flujo
 
@@ -42,17 +45,20 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 
 | Carpeta | Qué hay | Puede importar React |
 |---|---|---|
-| `src/core/` | modelo (`well.ts`), unidades, roles, parámetros, contrato de módulo, registro, motor (`engine/`), estado (`state/`) | no |
+| `src/core/` | modelo (`well.ts`), unidades, roles, parámetros, contrato de módulo, registro, motor (`engine/`), estado (`state/`), configuración del visor que se guarda (`display.ts`) | no |
 | `src/petro/` | funciones de cálculo puras, testeadas | no |
 | `src/modules/<id>/index.ts` | definición pura del módulo | no |
 | `src/modules/<id>/panel.tsx` | panel a medida (opcional) | sí |
+| `src/modules/<id>/overlay.ts` | superposiciones del visor (opcional, `overlays: ViewerOverlay[]`; el worker no lo importa) | no (canvas) |
 | `src/modules/index.ts` | **el registro** (una línea por módulo) | no |
 | `src/modules/sharedParams.ts` | catálogo canónico de parámetros compartidos | no |
-| `src/app/` | arranque, worker (`engine.worker.ts`), puente con el motor, stores, pantallas | sí |
-| `src/app/shell/` | armazón: barra superior, flujo guiado, inspector, dock (`dockPanels.tsx`: una entrada por panel), lugar del visor, diálogos | sí |
+| `src/app/` | arranque, worker (`engine.worker.ts`), puente con el motor, stores (`store/viewer.ts`: cursor y tramo visible), descubrimiento de superposiciones (`viewerOverlays.ts`), pantallas | sí |
+| `src/app/shell/` | armazón: barra superior, flujo guiado, inspector, dock (`dockPanels.tsx`: una entrada por panel), `ViewerSlot` (conecta stores con el visor), diálogos | sí |
 | `src/app/flow/` | flujo guiado: definición de pasos y evaluación de estados (`flow.ts`, puro y testeado) | `flow.ts` no |
 | `src/ui/` | sistema de diseño: tokens, tema, paleta de curvas, componentes, `useCanvas`; contrato de panel. Guía en `src/ui/README.md`; muestra en `#ui` | sí |
-| `src/io`, `viewer`, `plots`, `ml` | fases siguientes (ver su README) | — |
+| `src/viewer/` | visor multipista: plantillas, resolución de pistas, viewport, ticks, reducción M4, rellenos, lectura, contrato de superposiciones, dibujo en canvas (`*.ts`, puros o canvas) y el componente `WellViewer.tsx`. Guía en `src/viewer/README.md` | solo `WellViewer.tsx` |
+| `src/io/` | lectores Excel/LAS/CSV, mnemónicos, control de calidad (ver su README) | no |
+| `src/plots`, `ml` | fases siguientes (ver su README) | — |
 
 Un test (`tests/modules.test.ts`) falla si `core`, `petro` o una definición de módulo importan React, zustand o la
 interfaz.
@@ -203,8 +209,8 @@ de otro.
 
 ## Guardar / abrir
 
-`serializeProject` / `deserializeProject` (`src/core/state/serialize.ts`): JSON con `format`, `version` y
-migraciones. Los arrays van como Float64 little-endian comprimidos con `CompressionStream('deflate')` (con o sin
+`serializeProject` / `deserializeProject` (`src/core/state/serialize.ts`): JSON con `format`, `version` (hoy 3: v2
+agregó el progreso del flujo, v3 la configuración del visor) y migraciones. Los arrays van como Float64 little-endian comprimidos con `CompressionStream('deflate')` (con o sin
 "byte shuffle", lo que salga más chico) en base64: exactos bit a bit. Los perfiles del TP quedan en menos de la
 mitad del binario sin comprimir.
 
@@ -239,6 +245,20 @@ mitad del binario sin comprimir.
   módulo; las salidas en comparación (`active: false`) se marcan como "alternativa" en resultados.
 - **Tema y canvas**: el visor lee colores con `curveStyle()` y `getThemeTokens().viewer`, y redibuja con
   `subscribeTheme()` (o `useCanvas`).
+
+## Visor (fase 4)
+
+- `ViewerSlot` toma las pistas del proyecto (`project.display.layouts[espacio]`) o las de fábrica
+  (`src/viewer/templates.ts`) y las resuelve con `resolveTracks`: curvas por rol (medidas convertidas a la unidad
+  canónica + salidas activas del motor), curvas sin rol por magnitud, y pistas recolectoras para que las salidas de
+  módulos nuevos (y sus banderas) aparezcan solas.
+- Dibujo en dos canvas (base y cursor) bajo encabezados HTML; un único viewport para todas las pistas; cuadros en
+  `requestAnimationFrame` con reducción M4 por fila de píxel (3,6 ms por cuadro con el TP, 5,4 ms con 50 000
+  muestras).
+- Superposiciones: contrato `ViewerOverlay` (`src/viewer/overlay.ts`); zonas y calidad son incorporadas, los
+  módulos agregan las suyas en `src/modules/<id>/overlay.ts`.
+- El cursor publica su profundidad en `useViewer.cursorDepth`; clic en la franja de zonas fija
+  `useUi.editingZoneId`.
 
 ## Abierto
 

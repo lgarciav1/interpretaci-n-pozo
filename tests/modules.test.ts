@@ -7,7 +7,8 @@ import { MODULES, registry } from '../src/modules';
 import { syntheticWell } from '../src/app/demo/syntheticWell';
 
 /** Fuentes de las capas que carga el worker (Vite las incluye como texto). */
-const PURE_SOURCES = import.meta.glob(['../src/core/**/*.ts', '../src/petro/**/*.ts', '../src/modules/**/*.ts'], {
+// `src/modules/<id>/overlay.ts` (superposiciones del visor) es de la interfaz: el worker no lo importa.
+const PURE_SOURCES = import.meta.glob(['../src/core/**/*.ts', '../src/petro/**/*.ts', '../src/modules/**/*.ts', '!../src/modules/*/overlay.ts'], {
   query: '?raw',
   import: 'default',
   eager: true,
@@ -31,6 +32,7 @@ describe('módulos registrados', () => {
       expect(src, f).not.toMatch(/from ['"](react|react-dom|zustand)(\/[^'"]*)?['"]/);
       expect(src, f).not.toMatch(/from ['"][./]*(app|ui|viewer|plots)\//);
       expect(src, f).not.toMatch(/\bpanel['"]/);
+      expect(src, f).not.toMatch(/\/overlay['"]/);
     }
   });
 

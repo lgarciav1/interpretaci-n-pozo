@@ -8,6 +8,7 @@
  * donde el deflate directo deja el pozo del TP en ~40 % del binario.
  * Si el entorno no tiene CompressionStream se usa 'f64le-b64' (sin compresión). Todas se leen siempre.
  */
+import { emptyDisplay, type DisplaySettings } from '../display';
 import type { Interpretation } from '../interpretation';
 import { createWell, type Curve, type Well } from '../well';
 import { emptyProgress, type FlowProgress, type Project, type Snapshot } from './project';
@@ -17,8 +18,9 @@ export const PROJECT_FORMAT = 'pozo-proyecto';
  * Historial del formato:
  * - v1 (fase 1): pozos, interpretación y snapshots.
  * - v2 (fase 3): `progress` por pozo (marcas del flujo guiado). Migración: v1 → progreso vacío.
+ * - v3 (fase 4): `display` del proyecto (pistas propias y overrides del visor). Migración: v2 → `display` vacío.
  */
-export const PROJECT_VERSION = 2;
+export const PROJECT_VERSION = 3;
 
 export type ArrayCodec = 'f64le-b64' | 'f64le-deflate-b64' | 'f64le-shuffle-deflate-b64';
 /** 'auto' = la variante comprimida más chica para cada array. */
@@ -48,6 +50,7 @@ export interface ProjectFile {
     activeWellId: string | null;
     wells: { well: SavedWell; interpretation: Interpretation; progress: FlowProgress }[];
     snapshots: Snapshot[];
+    display: DisplaySettings;
   };
 }
 
@@ -171,7 +174,7 @@ export async function serializeProject(project: Project, opts: { codec?: CodecCh
     format: PROJECT_FORMAT,
     version: PROJECT_VERSION,
     savedAt: opts.savedAt ?? new Date().toISOString(),
-    project: { name: project.name, activeWellId: project.activeWellId, wells, snapshots: project.snapshots },
+    project: { name: project.name, activeWellId: project.activeWellId, wells, snapshots: project.snapshots, display: project.display },
   };
   return JSON.stringify(file);
 }
@@ -185,6 +188,10 @@ function migrate(file: ProjectFile): ProjectFile {
   if (f.version < 2) {
     // v1 → v2: progreso del flujo guiado vacío.
     f = { ...f, version: 2, project: { ...f.project, wells: (f.project.wells ?? []).map((w) => ({ ...w, progress: emptyProgress() })) } };
+  }
+  if (f.version < 3) {
+    // v2 → v3: sin pistas propias ni overrides del visor.
+    f = { ...f, version: 3, project: { ...f.project, display: emptyDisplay() } };
   }
   return f;
 }
@@ -216,5 +223,12 @@ export async function deserializeProject(text: string): Promise<Project> {
       return { well: restored, interpretation, progress: progress ?? emptyProgress() };
     }),
   );
-  return { name: project.name, activeWellId: project.activeWellId, wells, snapshots: project.snapshots ?? [] };
+  const display = project.display ?? emptyDisplay();
+  return {
+    name: project.name,
+    activeWellId: project.activeWellId,
+    wells,
+    snapshots: project.snapshots ?? [],
+    display: { layouts: display.layouts ?? {}, roles: display.roles ?? {}, curves: display.curves ?? {} },
+  };
 }

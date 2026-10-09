@@ -1,0 +1,121 @@
+/*
+ * Visor multipista (prefijo wv-). Encabezados HTML sobre dos canvas apilados. Colores: tokens del tema; las curvas
+ * se pintan en canvas con curveStyle() y getThemeTokens().viewer.
+ */
+.wv { position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; }
+
+.wv-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: none;
+  min-height: 38px;
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-surface);
+}
+.wv-toolbar__start { display: flex; align-items: center; gap: var(--space-2); flex: 1; min-width: 0; color: var(--color-text-muted); font-size: var(--text-sm); }
+.wv-toolbar__end { display: flex; align-items: center; gap: var(--space-2-5); flex: none; }
+.wv-toolbar__range { color: var(--color-text); font-size: var(--text-sm); font-weight: var(--weight-medium); white-space: nowrap; }
+.wv-toolbar__scale {
+  padding: 1px var(--space-1-5);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface-active);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+.wv-toolbar__zoom { display: flex; align-items: center; gap: 1px; padding-left: var(--space-1); border-left: 1px solid var(--color-border-subtle); }
+
+.wv-scroll { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-x: auto; overflow-y: hidden; }
+.wv-inner { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 100%; }
+
+.wv-heads {
+  display: grid;
+  flex: none;
+  max-height: 42%;
+  overflow-y: auto;
+  border-bottom: 1px solid var(--viewer-track-border);
+  background: var(--color-surface);
+}
+.wv-head {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 64px;
+  padding: var(--space-1-5) var(--space-2-5) var(--space-1);
+  border-right: 1px solid var(--viewer-track-border);
+}
+.wv-head:last-child { border-right: 0; }
+.wv-head--depth { align-items: center; justify-content: space-between; padding-inline: var(--space-1); background: var(--viewer-track-bg-alt); }
+.wv-head__title {
+  margin-bottom: var(--space-1);
+  overflow: hidden;
+  color: var(--color-text-subtle);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.wv-head--depth .wv-head__title,
+.wv-head--flags .wv-head__title { margin-bottom: 0; letter-spacing: 0.02em; }
+.wv-head__depth { color: var(--viewer-axis-text); font-size: var(--text-xs); }
+.wv-head__curves { display: flex; flex-direction: column; justify-content: flex-end; flex: 1; }
+.wv-head__empty { display: flex; flex-direction: column; gap: 2px; margin-top: auto; color: var(--color-text-muted); font-size: var(--text-sm); }
+.wv-head__hint { color: var(--color-text-subtle); font-size: var(--text-xs); line-height: var(--leading-tight); }
+.wv-head--flags { padding-inline: var(--space-1-5); }
+/* Leyendas compactas: el mnemónico nunca se corta; cede la lectura del cursor. */
+.wv-head .ui-curve-legend { padding: 2px 0 1px; gap: 0; }
+.wv-head .ui-curve-legend__name { flex: none; max-width: 70%; }
+.wv-head .ui-curve-legend__value { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.wv-head .ui-curve-legend__unit { font-size: 10px; }
+.wv-head--flags .ui-curve-legend__scale { display: none; }
+
+.wv-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  background: var(--viewer-track-bg);
+  cursor: crosshair;
+}
+.wv-body:focus { outline: none; }
+.wv-body:focus-visible::after { content: ''; position: absolute; inset: 0; z-index: var(--z-raised); box-shadow: inset 0 0 0 2px var(--color-focus); pointer-events: none; }
+.wv-canvas { position: absolute; top: 0; left: 0; display: block; }
+.wv-canvas--cursor { pointer-events: none; }
+
+.wv-tip {
+  position: absolute;
+  z-index: var(--z-tooltip);
+  max-width: 320px;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-inverse);
+  box-shadow: var(--shadow-md);
+  color: var(--color-text-inverse);
+  font-size: var(--text-xs);
+  line-height: var(--leading-tight);
+  pointer-events: none;
+}
+.wv-tip[hidden] { display: none; }
+
+/* Chips de la barra (zonas, avisos) */
+.wv-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-width: 0;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-subtle);
+  border: 1px solid var(--color-border-subtle);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+.wv-chip__dot { width: 8px; height: 8px; flex: none; border-radius: 50%; }
+.wv-well-name { overflow: hidden; color: var(--color-text); font-weight: var(--weight-semibold); text-overflow: ellipsis; white-space: nowrap; }

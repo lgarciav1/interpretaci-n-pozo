@@ -88,9 +88,10 @@ describe('guardar / abrir proyecto', () => {
     const demo = syntheticWell();
     const p = setStepMark(addWell(createProject('Viejo'), demo.well, demo.zones), demo.well.id, 'qc', 'done');
     const file = JSON.parse(await serializeProject(p, { codec: 'f64le-b64' }));
-    expect(file.version).toBe(2);
+    expect(file.version).toBe(3);
     // Así eran los archivos de la fase 1–2.
     file.version = 1;
+    delete file.project.display;
     for (const w of file.project.wells) delete w.progress;
     const back = await deserializeProject(JSON.stringify(file));
     expect(back.wells[0]!.progress).toEqual({ marks: {} });

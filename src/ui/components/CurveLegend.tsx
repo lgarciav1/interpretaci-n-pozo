@@ -2,6 +2,7 @@
  * Leyenda de curva al estilo del encabezado de un perfil: muestra del trazo (color y tipo de línea del tema),
  * nombre, rango de escala y unidad. La usan el visor (encabezados HTML de pista), gráficos y listas de curvas.
  */
+import type { ReactNode } from 'react';
 import type { RoleCatalog } from '../../core/roles';
 import { curveStyle, type CurveStyle } from '../curves';
 import { formatNumber } from '../format';
@@ -33,21 +34,30 @@ export interface CurveLegendProps {
   scale?: boolean;
   /** Tema fijo (por defecto, el resuelto de la app). */
   theme?: ThemeName;
+  /** Estilo ya resuelto (con overrides del usuario); si falta, `curveStyle(role, tema, catálogo)`. */
+  curveStyle?: CurveStyle;
+  /** Valor a la derecha del nombre, antes de la unidad (lectura del cursor en el visor). */
+  value?: ReactNode;
+  /** Texto del tooltip nativo (por defecto, la etiqueta del rol). */
+  title?: string;
+  /** Mostrar la etiqueta «log» (por defecto sí; el visor la omite porque la grilla ya lo dice). */
+  scaleTag?: boolean;
 }
 
-export function CurveLegend({ role, name, unit, catalog, scale = true, theme: fixed }: CurveLegendProps) {
+export function CurveLegend({ role, name, unit, catalog, scale = true, theme: fixed, curveStyle: resolved, value, title, scaleTag = true }: CurveLegendProps) {
   const current = useResolvedTheme();
   const theme = fixed ?? current;
-  const s = curveStyle(role, theme, catalog, name);
+  const s = resolved ?? curveStyle(role, theme, catalog, name);
   const lo = s.reversed ? s.max : s.min;
   const hi = s.reversed ? s.min : s.max;
   return (
-    <div className="ui-curve-legend" title={s.label}>
+    <div className="ui-curve-legend" title={title ?? s.label}>
       <div className="ui-curve-legend__top">
         <span className="ui-curve-legend__name" style={{ color: s.color }}>
           {name}
         </span>
-        {s.scale === 'log' && <span className="ui-curve-legend__tag">log</span>}
+        {scaleTag && s.scale === 'log' && <span className="ui-curve-legend__tag">log</span>}
+        {value !== undefined && <span className="ui-curve-legend__value num">{value}</span>}
         {unit && <span className="ui-curve-legend__unit">{unit}</span>}
       </div>
       <div className="ui-curve-legend__scale num">
