@@ -9,10 +9,12 @@
 import { createRegistry } from '../core/registry';
 import igr from './igr';
 import shaleFlag from './shale-flag';
+import { SHARED_PARAMS } from './sharedParams';
 
 export const MODULES = [
   igr,
   shaleFlag,
 ];
 
-export const registry = createRegistry(MODULES);
+/** Parámetros compartidos: ver sharedParams.ts (el registro exige que coincidan con ese catálogo). */
+export const registry = createRegistry(MODULES, { sharedParams: SHARED_PARAMS });

@@ -94,4 +94,26 @@ describe('grafo de cálculo', () => {
     expect(plan.nodes.get('rt-synth')!.reason).toBe('dependency');
     expect(plan.order).toEqual(['rt-synth', 'rt-corr']);
   });
+
+  it('una curva con otro rol elegida a propósito se acepta con un aviso info (p. ej. AT60 como RT)', () => {
+    const r = createRegistry([linearModule('sw', 'RT', 'SW')]);
+    const res = [
+      { id: 'AT90', mnemonic: 'AT90', role: 'RT', unit: 'ohm.m' },
+      { id: 'AT60', mnemonic: 'AT60', role: 'RM', unit: 'ohm.m' },
+      { id: 'ZDEN', mnemonic: 'ZDEN', role: 'RHOB', unit: 'g/cm3' },
+    ];
+    const plan = planGraph(r, res, interp({ sources: { RT: { kind: 'curve', curveId: 'AT60' } } }));
+    expect(plan.nodes.get('sw')!.inputs['x']).toEqual({ kind: 'curve', curveId: 'AT60' });
+    expect(plan.diagnostics).toEqual([
+      { level: 'info', code: 'cross-role-source', port: 'RT', message: "Se usa la curva 'AT60' (rol RM) como RT por elección explícita." },
+    ]);
+    expect(plan.candidates.get('RT')).toEqual([
+      { kind: 'curve', curveId: 'AT90' },
+      { kind: 'curve', curveId: 'AT60' },
+    ]);
+    // otra magnitud: se rechaza y cae a la fuente por defecto
+    const bad = planGraph(r, res, interp({ sources: { RT: { kind: 'curve', curveId: 'ZDEN' } } }));
+    expect(bad.sources.get('RT')).toEqual({ kind: 'curve', curveId: 'AT90' });
+    expect(bad.diagnostics[0]!.message).toMatch(/La curva 'ZDEN' \(g\/cm³\) no puede ser RT: se esperaba una magnitud en ohm·m/);
+  });
 });

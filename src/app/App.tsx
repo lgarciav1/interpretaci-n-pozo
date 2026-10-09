@@ -1,5 +1,4 @@
 /** Layout de tres zonas: pozo/curvas/zonas · visor (fase 4) · panel del módulo activo. */
-import { CATEGORIES } from '../core/workspaces';
 import { moduleWorkspaces } from '../core/module';
 import { registry } from '../modules';
 import { ModulePanelView } from './components/ModulePanelView';
@@ -29,7 +28,7 @@ export function App() {
           <div className="section">
             <h2>Módulos</h2>
             <div className="module-list">
-              {CATEGORIES.flatMap((c) =>
+              {registry.categories.flatMap((c) =>
                 modules
                   .filter((m) => m.category === c.id)
                   .map((m) => (

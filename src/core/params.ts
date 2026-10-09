@@ -149,20 +149,38 @@ export function validateParamSpec(where: string, key: string, spec: ParamSpec): 
   return p;
 }
 
-/** Dos declaraciones del mismo parámetro compartido deben ser compatibles. */
-export function sharedSpecsCompatible(a: ParamSpec, b: ParamSpec): string | null {
-  if (a.type !== b.type) return `tipos distintos (${a.type} / ${b.type})`;
-  if (paramScope(a) !== paramScope(b)) return `alcances distintos (${paramScope(a)} / ${paramScope(b)})`;
-  if (a.default !== b.default) return `defaults distintos (${String(a.default)} / ${String(b.default)})`;
-  if (a.type === 'number' && b.type === 'number' && (a.unit ?? '') !== (b.unit ?? '')) {
-    return `unidades distintas (${a.unit ?? '—'} / ${b.unit ?? '—'})`;
+/**
+ * Dos declaraciones del mismo parámetro compartido tienen que ser idénticas en todo lo que afecta al valor o a
+ * cómo se muestra (un único control y un único valor guardado para todos los módulos). Devuelve la lista de
+ * diferencias (vacía si son compatibles). `tooltip` y `group` pueden variar entre módulos.
+ */
+export function sharedSpecDifferences(a: ParamSpec, b: ParamSpec): string[] {
+  const diffs: string[] = [];
+  const cmp = (field: string, x: unknown, y: unknown) => {
+    if (x !== y) diffs.push(`${field} (${fmt(x)} / ${fmt(y)})`);
+  };
+  cmp('tipo', a.type, b.type);
+  cmp('etiqueta', a.label, b.label);
+  cmp('alcance', paramScope(a), paramScope(b));
+  cmp('default', a.default, b.default);
+  cmp('shared', !!a.shared, !!b.shared);
+  if (a.type === 'number' && b.type === 'number') {
+    cmp('min', a.min, b.min);
+    cmp('max', a.max, b.max);
+    cmp('step', a.step, b.step);
+    cmp('escala', a.scale ?? 'linear', b.scale ?? 'linear');
+    cmp('unidad', a.unit, b.unit);
   }
   if (a.type === 'enum' && b.type === 'enum') {
-    const va = a.options.map((o) => o.value).join(',');
-    const vb = b.options.map((o) => o.value).join(',');
-    if (va !== vb) return 'opciones distintas';
+    const oa = a.options.map((o) => `${o.value}=${o.label}`).join(', ');
+    const ob = b.options.map((o) => `${o.value}=${o.label}`).join(', ');
+    cmp('opciones', oa, ob);
   }
-  return null;
+  return diffs;
+}
+
+function fmt(v: unknown): string {
+  return v === undefined ? '—' : String(v);
 }
 
 export interface ResolvedModuleParams {

@@ -6,4 +6,5 @@ import { serveEngine } from '../core/engine/serve';
 import type { Endpoint } from '../core/engine/protocol';
 import { registry } from '../modules';
 
-serveEngine(self as unknown as Endpoint, registry);
+// En desarrollo el motor verifica que ningún módulo escriba en sus entradas (en producción no, por costo).
+serveEngine(self as unknown as Endpoint, registry, { checkInputs: import.meta.env.DEV });

@@ -3,11 +3,11 @@
  * proceso) y mantiene residentes el pozo y la caché del motor.
  */
 import type { Registry } from '../registry';
-import { Engine, type EngineCurve } from './engine';
+import { Engine, type EngineCurve, type EngineOptions } from './engine';
 import type { Endpoint, FromEngine, ToEngine, WireOutput } from './protocol';
 
-export function serveEngine(endpoint: Endpoint, registry: Registry): () => void {
-  const engine = new Engine(registry);
+export function serveEngine(endpoint: Endpoint, registry: Registry, options: EngineOptions = {}): () => void {
+  const engine = new Engine(registry, options);
   let gen = -1;
   let curves = new Map<string, EngineCurve>();
   /** Versión de cada salida que ya tiene el cliente (para no reenviar datos sin cambios). */

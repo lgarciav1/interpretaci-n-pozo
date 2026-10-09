@@ -106,3 +106,17 @@ Si `CompressionStream` no existe, se usa la variante sin compresión.
   `src/app/`.
 - Abierto: cancelar un cálculo largo a mitad de camino (hoy se coalesce entre cálculos, no dentro de uno);
   enlazar un parámetro a un escalar calculado (hoy un escalar puede ser entrada, no valor de un slider).
+
+## Revisión (fase 1, después de la revisión independiente)
+
+- **Inmutabilidad de entradas:** tipo propio `ReadonlyCurve` (sin métodos que mutan, `subarray` de solo lectura) y
+  modo `checkInputs` del motor que hashea las entradas antes y después de `compute`. El tipo protege en
+  compilación salvo casts; el modo de verificación lo detecta en ejecución (tests y desarrollo).
+- **Parámetros compartidos:** catálogo canónico `src/modules/sharedParams.ts`, comparación de todos los campos y
+  aviso si una clave es compartida en un módulo y propia en otro.
+- **Categorías extensibles:** un módulo puede declarar una categoría nueva (`category` + `categoryLabel`) sin
+  tocar el núcleo; las conocidas solo fijan orden y etiqueta.
+- **Contexto de cálculo:** `ctx.paramsFor(zoneId)` para cálculos por zona.
+- **Fuente explícita con otro rol:** permitida si es la misma magnitud, con diagnóstico `info`.
+- **Supervisor del motor:** recrea el worker o pasa al motor en proceso ante cualquier error, reenviando pozo y
+  último pedido; los resultados llevan `wellId` y `gen`, y al cambiar de pozo se borran.

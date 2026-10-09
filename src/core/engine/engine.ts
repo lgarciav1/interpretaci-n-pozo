@@ -14,6 +14,7 @@ import {
   type InputsSpec,
   type OutputValue,
   type ParamSegment,
+  type ReadonlyCurve,
   type TableValue,
 } from '../module';
 import { resolveModuleParams, type ParamsSpec, type ParamValues } from '../params';
@@ -96,6 +97,30 @@ export function toEngineWell(well: { id: string; depth: { values: Float64Array }
   return { id: well.id, depth: well.depth.values, curves: well.curves };
 }
 
+export interface EngineOptions {
+  /**
+   * Verifica en cada cálculo que el módulo no haya modificado sus entradas (curvas, profundidad, espesor):
+   * las hashea antes y después de `compute` y lanza `InputMutationError` si cambiaron. Cuesta una pasada por
+   * entrada; se activa en los tests y en desarrollo.
+   */
+  checkInputs?: boolean;
+}
+
+/** Un módulo escribió en una entrada de solo lectura (la caché del motor quedó corrupta). */
+export class InputMutationError extends Error {
+  constructor(
+    readonly moduleId: string,
+    readonly inputs: string[],
+    moduleName: string,
+  ) {
+    super(
+      `El módulo '${moduleName}' (${moduleId}) modificó ${inputs.length > 1 ? 'sus entradas' : 'su entrada'} ${inputs.map((i) => `'${i}'`).join(', ')}. ` +
+        'Las entradas son de solo lectura: copiá con slice() antes de modificar.',
+    );
+    this.name = 'InputMutationError';
+  }
+}
+
 export class Engine {
   private well: EngineWell | null = null;
   private thickness: Float64Array = new Float64Array(0);
@@ -106,7 +131,10 @@ export class Engine {
   private nextRev = 1;
   private nextVersion = 1;
 
-  constructor(readonly registry: Registry) {}
+  constructor(
+    readonly registry: Registry,
+    private readonly options: EngineOptions = {},
+  ) {}
 
   /** Carga un pozo nuevo y descarta toda la caché. */
   setWell(well: EngineWell): void {
@@ -208,7 +236,7 @@ export class Engine {
       }
 
       // Entradas y su firma
-      const inputs: Record<string, Readonly<Float64Array> | number | undefined> = {};
+      const inputs: Record<string, ReadonlyCurve | number | undefined> = {};
       const inputStamps: string[] = [];
       let inputError: string | null = null;
       for (const [key, spec] of Object.entries(m.inputs)) {
@@ -275,16 +303,24 @@ export class Engine {
         params: params.global as ParamValues<ParamsSpec>,
         segments,
         zones: layout.spans,
+        paramsFor: (zoneId) => {
+          if (zoneId === null) return params.global as ParamValues<ParamsSpec>;
+          const values = params.byZone.get(zoneId);
+          if (!values) throw new Error(`paramsFor: la zona '${zoneId}' no existe (o es inválida y se ignoró).`);
+          return values as ParamValues<ParamsSpec>;
+        },
         warn: (message) => {
           if (!warnings.includes(message)) warnings.push(message);
         },
       };
 
+      const guarded = this.options.checkInputs ? guardedCurves(inputs, well.depth, this.thickness) : null;
       const t1 = now();
       let produced: Record<string, unknown>;
       try {
         produced = m.compute(ctx) as Record<string, unknown>;
       } catch (err) {
+        if (guarded) assertUnchanged(guarded, m);
         report.ms = now() - t1;
         report.status = 'error';
         this.cache.set(id, { stamp, version: this.nextVersion++, ok: false, outputs: new Map(), warnings: [] });
@@ -293,6 +329,7 @@ export class Engine {
       }
       report.ms = now() - t1;
       report.computed = true;
+      if (guarded) assertUnchanged(guarded, m);
 
       const outputs = new Map<string, OutputValue>();
       const problem = collectOutputs(m, produced, n, outputs);
@@ -344,8 +381,8 @@ export class Engine {
 }
 
 /** Atajo sin caché: corre la cadena completa una vez (útil en tests y Monte Carlo). */
-export function computeOnce(registry: Registry, well: EngineWell, interp: Interpretation): EngineRunResult {
-  const engine = new Engine(registry);
+export function computeOnce(registry: Registry, well: EngineWell, interp: Interpretation, options: EngineOptions = {}): EngineRunResult {
+  const engine = new Engine(registry, options);
   engine.setWell(well);
   return engine.run(interp);
 }
@@ -386,4 +423,41 @@ function errorMessage(err: unknown): string {
 
 function now(): number {
   return typeof performance !== 'undefined' ? performance.now() : Date.now();
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Verificación de inmutabilidad de entradas (modo checkInputs)
+
+interface GuardedCurve {
+  name: string;
+  data: Float64Array;
+  hash: string;
+}
+
+/** Hash de 64 bits (dos carriles FNV-1a sobre los bits de cada float: distingue NaN, -0, etc.). */
+function hashCurve(data: Float64Array): string {
+  const words = new Uint32Array(data.buffer, data.byteOffset, data.length * 2);
+  let h1 = 0x811c9dc5;
+  let h2 = 0x01000193 ^ data.length;
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i]!;
+    h1 = Math.imul(h1 ^ w, 0x01000193);
+    h2 = Math.imul(h2 ^ w, 0x5bd1e995) ^ (h2 >>> 15);
+  }
+  return `${(h1 >>> 0).toString(16)}${(h2 >>> 0).toString(16)}`;
+}
+
+function guardedCurves(inputs: Record<string, unknown>, depth: Float64Array, thickness: Float64Array): GuardedCurve[] {
+  const list: GuardedCurve[] = [
+    { name: 'depth', data: depth, hash: '' },
+    { name: 'thickness', data: thickness, hash: '' },
+  ];
+  for (const [name, v] of Object.entries(inputs)) if (v instanceof Float64Array) list.push({ name, data: v, hash: '' });
+  for (const g of list) g.hash = hashCurve(g.data);
+  return list;
+}
+
+function assertUnchanged(guarded: GuardedCurve[], m: AnyModule): void {
+  const changed = guarded.filter((g) => hashCurve(g.data) !== g.hash).map((g) => g.name);
+  if (changed.length) throw new InputMutationError(m.id, changed, m.name);
 }

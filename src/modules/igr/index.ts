@@ -7,8 +7,8 @@
  * Definición PURA: no importar React ni nada de la interfaz (la ejecuta el Web Worker).
  */
 import { defineModule, input, output } from '../../core/module';
-import { param } from '../../core/params';
 import { gammaRayIndexInto } from '../../petro/igr';
+import { SHARED_PARAMS } from '../sharedParams';
 
 export default defineModule({
   id: 'igr',
@@ -20,28 +20,9 @@ export default defineModule({
     gr: input.curve('GR'),
   },
   params: {
-    grClean: param.number({
-      label: 'GR de arena limpia',
-      tooltip: 'Lectura de rayos gamma en la arena más limpia de la zona.',
-      default: 30,
-      min: 0,
-      max: 150,
-      step: 0.5,
-      unit: 'gAPI',
-      scope: 'zone',
-      shared: true,
-    }),
-    grShale: param.number({
-      label: 'GR de arcilla',
-      tooltip: 'Lectura de rayos gamma en las arcillas de la zona.',
-      default: 120,
-      min: 20,
-      max: 300,
-      step: 0.5,
-      unit: 'gAPI',
-      scope: 'zone',
-      shared: true,
-    }),
+    // Compartidos: los usan también otros métodos de arcillosidad (ver sharedParams.ts).
+    grClean: SHARED_PARAMS.grClean,
+    grShale: SHARED_PARAMS.grShale,
   },
   outputs: {
     igr: output.curve('IGR'),

@@ -52,8 +52,39 @@ export const input = {
   },
 };
 
-/** Curva de entrada: solo lectura (está en caché y la comparten otros módulos). */
-export type InputCurve = Readonly<Float64Array>;
+/**
+ * Curva de solo lectura. Es la vista que reciben los módulos de sus entradas, de la profundidad y del espesor:
+ * esos arrays están en caché y los comparten otros módulos (y, para curvas medidas, el proyecto).
+ *
+ * Expone solo operaciones que no mutan. `subarray` devuelve otra vista de solo lectura; `slice`, `map` y `filter`
+ * devuelven copias nuevas (mutables, son del módulo). Los callbacks reciben el array como `ReadonlyCurve`.
+ * Un `Float64Array` se puede pasar donde se pide un `ReadonlyCurve`; al revés hace falta un cast explícito, que
+ * es exactamente lo que el modo `checkInputs` del motor detecta en tiempo de ejecución si se usa para escribir.
+ */
+export interface ReadonlyCurve extends Iterable<number> {
+  readonly length: number;
+  readonly [index: number]: number;
+  at(index: number): number | undefined;
+  subarray(begin?: number, end?: number): ReadonlyCurve;
+  slice(start?: number, end?: number): Float64Array;
+  indexOf(value: number, fromIndex?: number): number;
+  lastIndexOf(value: number, fromIndex?: number): number;
+  includes(value: number, fromIndex?: number): boolean;
+  every(predicate: (value: number, index: number, array: ReadonlyCurve) => unknown): boolean;
+  some(predicate: (value: number, index: number, array: ReadonlyCurve) => unknown): boolean;
+  find(predicate: (value: number, index: number, array: ReadonlyCurve) => unknown): number | undefined;
+  findIndex(predicate: (value: number, index: number, array: ReadonlyCurve) => unknown): number;
+  forEach(callback: (value: number, index: number, array: ReadonlyCurve) => void): void;
+  map(callback: (value: number, index: number, array: ReadonlyCurve) => number): Float64Array;
+  filter(predicate: (value: number, index: number, array: ReadonlyCurve) => unknown): Float64Array;
+  reduce<U>(callback: (acc: U, value: number, index: number, array: ReadonlyCurve) => U, initial: U): U;
+  entries(): IterableIterator<[number, number]>;
+  keys(): IterableIterator<number>;
+  values(): IterableIterator<number>;
+}
+
+/** Curva de entrada de un módulo (alias de `ReadonlyCurve`). */
+export type InputCurve = ReadonlyCurve;
 
 type InputValue<S extends InputSpec> = S extends CurveInputSpec ? InputCurve : number;
 
@@ -146,8 +177,14 @@ export interface ComputeContext<I extends InputsSpec, P extends ParamsSpec> {
   params: ParamValues<P>;
   /** Tramos contiguos que cubren [0, n) con los parámetros efectivos de cada zona. */
   segments: readonly ParamSegment<P>[];
-  /** Zonas ubicadas sobre el índice de muestras (orden por tope). */
+  /** Zonas ubicadas sobre el índice de muestras (orden por tope). Incluye zonas sin muestras (start = end). */
   zones: readonly ZoneSpan[];
+  /**
+   * Parámetros efectivos de una zona (globales + overrides), para cálculos por zona (tablas, sumario) sin
+   * buscar en `segments`. Funciona también para zonas sin muestras. `null` = parámetros globales.
+   * Lanza un error si la zona no está en `zones`.
+   */
+  paramsFor(zoneId: string | null): ParamValues<P>;
   /**
    * Informa una advertencia para el usuario (en español, sin ecuaciones), p. ej. parámetros incoherentes en una
    * zona. Queda asociada al resultado: se vuelve a mostrar mientras el resultado siga en caché.
@@ -179,7 +216,10 @@ export interface ModuleDefinition<
   /** Nombre en español para la interfaz. */
   name: string;
   description?: string;
+  /** Categoría: una conocida (src/core/workspaces.ts) o una nueva, en cuyo caso hay que dar `categoryLabel`. */
   category: CategoryId;
+  /** Etiqueta en español de una categoría nueva (no hace falta para las conocidas). */
+  categoryLabel?: string;
   /** Espacio(s) de trabajo donde aparece. */
   workspace: WorkspaceId | readonly WorkspaceId[];
   /** Roles de curva nuevos que introduce este módulo. */

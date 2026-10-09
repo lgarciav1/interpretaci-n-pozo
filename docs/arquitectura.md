@@ -34,6 +34,7 @@ Este documento resume cómo encajan las piezas y cómo agregar un módulo.
  paneles, visor, tablas ◄── store de resultados ◄── EngineClient (reconstruye todo) ◄──     (Float64Array transferibles)
 ```
 
+El `EngineSupervisor` decide si el motor corre en un worker o en proceso y lo recrea si se cae.
 Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia con caché), sin worker.
 
 ## Carpetas
@@ -45,6 +46,7 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 | `src/modules/<id>/index.ts` | definición pura del módulo | no |
 | `src/modules/<id>/panel.tsx` | panel a medida (opcional) | sí |
 | `src/modules/index.ts` | **el registro** (una línea por módulo) | no |
+| `src/modules/sharedParams.ts` | catálogo canónico de parámetros compartidos | no |
 | `src/app/` | arranque, worker (`engine.worker.ts`), puente con el motor, stores, pantallas | sí |
 | `src/ui/` | sistema de diseño (fase 3) y contrato de panel | sí |
 | `src/io`, `viewer`, `plots`, `ml` | fases siguientes (ver su README) | — |
@@ -56,8 +58,19 @@ interfaz.
 
 - **Arrays inmutables.** Las curvas son `Float64Array` con `NaN` = sin dato. Nunca se modifican en el lugar: para
   editar una curva se crea un array nuevo. El motor detecta cambios por identidad del array.
-- **Entradas de solo lectura.** `compute` no puede escribir en sus entradas (están en caché y las comparten otros
-  módulos). El tipo `InputCurve` lo impide en compilación para la escritura por índice.
+- **Entradas de solo lectura.** `compute` no puede escribir en sus entradas, ni en `ctx.depth` / `ctx.thickness`
+  (están en caché y las comparten otros módulos y, las medidas, el proyecto). Qué se garantiza:
+  - *En compilación:* las curvas de entrada son `ReadonlyCurve` (`src/core/module.ts`): índice de solo lectura y
+    solo métodos que no mutan (`fill`, `set`, `sort`, `reverse`, `copyWithin` no existen; `subarray` devuelve otra
+    vista de solo lectura; `slice`/`map`/`filter` devuelven copias del módulo). Un cast explícito
+    (`as unknown as Float64Array`) lo saltea: el tipo no es una garantía en tiempo de ejecución.
+  - *En ejecución:* `new Engine(registry, { checkInputs: true })` hashea cada entrada antes y después de `compute`
+    y lanza `InputMutationError` con el módulo y la entrada. Está activo en los tests de módulos y en desarrollo
+    (`npm run dev`, worker y motor en proceso); en el build de producción está apagado por costo.
+- **Parámetros compartidos en un solo lugar.** Los que usan varios módulos (Rw, a, m, n, GR limpia/arcilla) se
+  declaran una vez en `src/modules/sharedParams.ts` y los módulos los toman de ahí (`params: { rw: SHARED_PARAMS.rw }`).
+  El registro exige que todo parámetro `shared: true` esté en ese catálogo y sea idéntico campo por campo, y avisa
+  (`registry.warnings`) si una clave es compartida en un módulo y propia en otro.
 - **Unidades canónicas.** El motor convierte cada curva medida a la unidad canónica de su rol antes de pasarla a un
   módulo (`%` → `v/v`, `kg/m³` → `g/cm³`…). Los módulos nunca convierten.
 - **Profundidad en metros**, estrictamente creciente.
@@ -71,14 +84,14 @@ interfaz.
 defineModule({
   id: 'kebab-case',                // = nombre de la carpeta
   name: 'Nombre en español',
-  category: 'shale',               // ver src/core/workspaces.ts
+  category: 'shale',               // conocida (src/core/workspaces.ts) o nueva + categoryLabel: 'Mi categoría'
   workspace: 'petrophysics',       // o ['petrophysics', 'geology']
   roles?: [...],                   // roles de curva nuevos que introduce
   inputs:  { gr: input.curve('GR'), cal: input.optionalCurve('CALI'), rw: input.scalar('RW') },
   params:  { grClean: param.number({ label, tooltip, default, min, max, step, unit, scale, scope: 'zone', shared }) ,
              method: param.enum({ ... }), useX: param.boolean({ ... }) },
   outputs: { igr: output.curve('IGR'), rwa: output.scalar('RWA', {...}), byZone: output.table('X', {...}) },
-  compute(ctx) { ... },            // pura; ctx: n, depth, thickness, inputs, params, segments, zones, warn
+  compute(ctx) { ... },            // pura; ctx: n, depth, thickness, inputs, params, segments, zones, paramsFor, warn
   docs: { summary, equations: [{ latex }], references: [...] },
 });
 ```
@@ -86,6 +99,17 @@ defineModule({
 `compute` está tipada a partir de las declaraciones: `ctx.inputs.gr` es una curva, `ctx.inputs.cal` puede ser
 `undefined`, `s.params.grClean` es `number`, y el valor devuelto debe tener `igr: Float64Array`, `rwa: number`,
 `byZone: { rows }`.
+
+- `ctx.segments`: tramos contiguos de una misma zona con sus parámetros ya resueltos (para cálculos por muestra).
+- `ctx.paramsFor(zoneId)`: parámetros efectivos de una zona (para tablas y sumarios por zona), incluso de zonas
+  sin muestras; `paramsFor(null)` = globales.
+- `ctx.warn(mensaje)`: aviso para el usuario (p. ej. parámetros incoherentes en una zona). Se vuelve a mostrar
+  mientras el resultado siga en caché.
+
+**Fuentes explícitas con otro rol.** Elegir para un puerto una curva medida que tiene otro rol (p. ej. AT60, rol
+`RM`, como `RT`) es intencional y está permitido: el motor la convierte a la unidad del puerto y emite un
+diagnóstico `info` ("Se usa la curva 'AT60' (rol RM) como RT por elección explícita."). Si la curva es de otra
+magnitud (una densidad como `RT`), la elección se rechaza con advertencia y se usa la fuente por defecto.
 
 `createRegistry` valida todo junto y, si algo está mal, lanza un error con **todos** los problemas: ids repetidos
 o mal formados, roles desconocidos, rangos de parámetros inválidos (min ≥ max, default fuera de rango, log con
@@ -142,6 +166,18 @@ Ejemplo: Vsh de Larionov (rocas terciarias), que consume `IGR` y produce `VSH`.
 Listo: el panel con sus parámetros se genera solo, el módulo aparece en el selector de método de `VSH` si hay otro
 productor, el motor lo encadena detrás de `igr` y los módulos que consumen `VSH` lo reciben.
 
+Si el módulo usa un parámetro que comparte con otros métodos (Rw, a, m, n…), no lo copies: agregalo una vez a
+`src/modules/sharedParams.ts` y usalo desde ahí, como hace `igr`:
+
+```ts
+import { SHARED_PARAMS } from '../sharedParams';
+// ...
+params: { grClean: SHARED_PARAMS.grClean, grShale: SHARED_PARAMS.grShale },
+```
+
+Si el módulo no encaja en ninguna categoría conocida, declarala en el propio módulo, sin tocar el núcleo:
+`category: 'sedimentology', categoryLabel: 'Sedimentología'`.
+
 Opcional: un panel a medida en `src/modules/<id>/panel.tsx` que exporte
 `export const panel: ModulePanel = { moduleId: '<id>', component: MiPanel }` (contrato en `src/ui/modulePanel.ts`).
 Se descubre solo; no hace falta registrarlo.
@@ -150,9 +186,17 @@ Se descubre solo; no hace falta registrarlo.
 
 `src/app/engineBridge.ts` importa `./engine.worker?worker&inline` y `vite.config.ts` fija `worker.format = 'iife'`.
 Vite empaqueta el worker aparte (≈ 33 kB, sin React) y lo incrusta como texto en el bundle; en ejecución se crea
-desde un Blob URL, que Chromium permite desde `file://`. Si la creación falla o el worker da error antes de
-responder por primera vez, el puente cambia al motor en proceso (`createInProcessClient`, mismo protocolo sobre un
-`MessageChannel`) sin perder el estado.
+desde un Blob URL, que Chromium permite desde `file://`.
+
+`EngineSupervisor` (`src/core/engine/supervisor.ts`) mantiene vivo el motor:
+- si el worker no se puede crear o da error antes de su primera respuesta, pasa al motor en proceso
+  (`createInProcessClient`, mismo protocolo sobre un `MessageChannel`);
+- si da error después de haber respondido (se cayó), lo recrea hasta 2 veces y después pasa al motor en proceso;
+- en ambos casos reenvía el pozo y relanza el último pedido, así que la interfaz nunca queda "calculando…".
+
+Cada `ClientResult` lleva `wellId` y `gen` (generación del pozo, única en toda la página). Al cambiar de pozo el
+puente pone `result: null` e ignora resultados de otro pozo: nunca conviven arrays de un pozo con la profundidad
+de otro.
 
 ## Guardar / abrir
 
@@ -169,6 +213,17 @@ mitad del binario sin comprimir.
 | `npm test` | tests (Vitest) |
 | `npm run typecheck` | TypeScript estricto sin emitir |
 | `npm run build` | genera `dist/index.html` autocontenido |
+
+## Pendientes por fase
+
+| Pendiente | Resolver en | Propuesta |
+|---|---|---|
+| `input.table` y escalar por zona | antes de la fase 6 (sumario/volumétrico) | Agregar `input.table(port)` y un tipo de salida `zoneScalar` (valor por zona, `Record<zoneId, number>`) que el motor valide contra `ctx.zones`; el sumario lo consume sin parsear filas. |
+| Slots de cálculo y `compare` en cascada aguas abajo | antes de la fase 9 (snapshots y comparación) | Un "slot" = una asignación de fuentes alternativa; el motor corre la cadena completa por slot (claves `slot:módulo:puerto`), así una alternativa de Sw propaga a k, cutoffs y sumario. |
+| Regla por defecto de fuentes para roles calculados (VSH/PHIE/SW de un vendedor le ganan a los módulos sin aviso) | fase 2, con la tabla de mnemónicos | Para roles con `origin: 'computed'`, preferir el módulo y ofrecer la curva del archivo como alternativa, o pedir confirmación al importar; en cualquier caso emitir un diagnóstico `info`. |
+| Reenvío completo automático ante "resultado incompleto" | antes de la fase 12 | Mensaje `resync` del cliente: el worker vacía `sent` y la próxima respuesta trae todos los datos. |
+| `kind` de zona en `ZoneSpan` y en la firma | fase 6 | Copiar `kind` a `ZoneSpan` y sumarlo a la firma, para que el sumario distinga reservorio/sello sin mirar el proyecto. |
+| Interfaz: marcar parámetros compartidos, un único control de "comparar" por módulo y distinguir las salidas en comparación en los resultados | fase 3 | Insignia "compartido" en el control (con la lista de módulos que lo usan), el control de comparar en el encabezado del módulo, y las salidas con `active: false` con estilo y leyenda propios. |
 
 ## Abierto
 

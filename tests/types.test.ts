@@ -54,3 +54,35 @@ describe('tipos del contrato de módulo', () => {
     });
   });
 });
+
+describe('ReadonlyCurve', () => {
+  it('bloquea en compilación toda forma de mutación', () => {
+    const c: InputCurve = Float64Array.from([3, 1, 2]);
+    // Solo se compila (no se ejecuta): cada línea tiene que dar error de tipos.
+    const neverCalled = () => {
+      // @ts-expect-error escritura por índice
+      c[0] = 1;
+      // @ts-expect-error fill no existe
+      c.fill(0);
+      // @ts-expect-error set no existe
+      c.set([1]);
+      // @ts-expect-error sort no existe
+      c.sort();
+      // @ts-expect-error reverse no existe
+      c.reverse();
+      // @ts-expect-error copyWithin no existe
+      c.copyWithin(0, 1);
+      const view = c.subarray(1);
+      // @ts-expect-error subarray también es de solo lectura
+      view[0] = 9;
+      // @ts-expect-error el array del callback también es de solo lectura
+      c.forEach((_v, i, arr) => (arr[i] = 0));
+    };
+    void neverCalled;
+    // las copias sí son del módulo
+    const copy = c.slice();
+    copy[0] = 9;
+    expect([...c]).toEqual([3, 1, 2]);
+    expect(c.map((x) => x * 2)).toBeInstanceOf(Float64Array);
+  });
+});

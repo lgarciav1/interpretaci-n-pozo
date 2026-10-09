@@ -6,6 +6,7 @@ import type { Interpretation, SourceRef } from '../interpretation';
 import { portOf, type AnyModule } from '../module';
 import type { Registry } from '../registry';
 import type { RoleId } from '../roles';
+import { getUnit, type UnitId } from '../units';
 
 export interface Diagnostic {
   level: 'error' | 'warning' | 'info';
@@ -15,6 +16,7 @@ export interface Diagnostic {
     | 'cycle'
     | 'invalid-source'
     | 'compute-error'
+    | 'cross-role-source'
     | 'module-warning'
     | 'invalid-output'
     | 'unit-mismatch'
@@ -31,6 +33,8 @@ export interface CurveMeta {
   id: string;
   mnemonic: string;
   role: RoleId | null;
+  /** Para validar fuentes explícitas con otro rol (si falta, no se valida la dimensión). */
+  unit?: UnitId;
 }
 
 export type NodeStatus = 'ready' | 'missing-input' | 'cycle' | 'blocked';
@@ -81,15 +85,29 @@ export function planGraph(registry: Registry, curves: readonly CurveMeta[], inte
   }
 
   // 2. Fuente elegida por puerto: la explícita si es válida; si no, la primera candidata.
-  const curveIds = new Set(curves.map((c) => c.id));
+  const curvesById = new Map(curves.map((c) => [c.id, c]));
   const sources = new Map<string, SourceRef>();
   const ports = new Set<string>([...candidates.keys(), ...Object.keys(interp.sources)]);
   for (const port of ports) {
     const explicit = interp.sources[port];
     if (explicit) {
-      const problem = validateExplicitSource(registry, curveIds, disabled, port, explicit);
+      const problem = validateExplicitSource(registry, curvesById, disabled, port, explicit);
       if (!problem) {
         sources.set(port, explicit);
+        if (explicit.kind === 'curve') {
+          const c = curvesById.get(explicit.curveId)!;
+          if (c.role !== port) {
+            // Intencional: el usuario puede usar una curva con otro rol (p. ej. AT60 como RT). Se informa y se
+            // ofrece en el selector junto a las candidatas normales.
+            diagnostics.push({
+              level: 'info',
+              code: 'cross-role-source',
+              port,
+              message: `Se usa la curva '${c.mnemonic}'${c.role ? ` (rol ${c.role})` : ' (sin rol)'} como ${port} por elección explícita.`,
+            });
+            addCandidate(port, explicit);
+          }
+        }
         continue;
       }
       diagnostics.push({ level: 'warning', code: 'invalid-source', port, message: `${problem} Se usa la fuente por defecto.` });
@@ -233,14 +251,21 @@ export function planGraph(registry: Registry, curves: readonly CurveMeta[], inte
 
 function validateExplicitSource(
   registry: Registry,
-  curveIds: Set<string>,
+  curvesById: Map<string, CurveMeta>,
   disabled: Set<string>,
   port: string,
   ref: SourceRef,
 ): string | null {
   if (ref.kind === 'curve') {
     if (!registry.roles.has(port)) return `El puerto ${port} no es una curva: no puede tener como fuente una curva medida.`;
-    if (!curveIds.has(ref.curveId)) return `La curva '${ref.curveId}' elegida para ${port} no existe en el pozo.`;
+    const c = curvesById.get(ref.curveId);
+    if (!c) return `La curva '${ref.curveId}' elegida para ${port} no existe en el pozo.`;
+    // Con otro rol se admite, pero tiene que ser la misma magnitud (no se puede usar una densidad como Rt).
+    const expected = getUnit(registry.roles.unitOf(port));
+    const actual = c.unit !== undefined ? getUnit(c.unit) : undefined;
+    if (c.role !== port && expected && actual && actual.dimension !== expected.dimension) {
+      return `La curva '${c.mnemonic}' (${actual.label}) no puede ser ${port}: se esperaba una magnitud en ${expected.label}.`;
+    }
     return null;
   }
   const m = registry.get(ref.moduleId);

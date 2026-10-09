@@ -11,7 +11,11 @@ export type SourceRef = { kind: 'curve'; curveId: string } | { kind: 'module'; m
 export interface Interpretation {
   zones: Zone[];
   params: ParamState;
-  /** Fuente elegida por puerto (rol de curva o id de escalar/tabla). Lo ausente usa la regla por defecto. */
+  /**
+   * Fuente elegida por puerto (rol de curva o id de escalar/tabla). Lo ausente usa la regla por defecto.
+   * Una curva elegida explícitamente puede tener OTRO rol (p. ej. usar AT60 como RT): es intencional, el motor la
+   * acepta si es de la misma magnitud (la convierte a la unidad del puerto) y emite un diagnóstico `info`.
+   */
   sources: Record<string, SourceRef>;
   /** Módulos alternativos que se calculan para comparar, aunque no alimenten la cadena. */
   compare: string[];

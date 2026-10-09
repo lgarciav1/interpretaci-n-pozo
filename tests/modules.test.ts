@@ -36,7 +36,7 @@ describe('módulos registrados', () => {
 
   it('IGR → bandera de arcilla sobre el pozo sintético, con parámetros por zona', () => {
     const demo = syntheticWell();
-    const engine = new Engine(registry);
+    const engine = new Engine(registry, { checkInputs: true });
     engine.setWell(toEngineWell(demo.well));
     const base = emptyInterpretation(demo.zones);
     const r1 = engine.run(base);
@@ -67,7 +67,7 @@ describe('módulos registrados', () => {
 
   it('avisa cuando GR de arcilla no supera a GR limpia en una zona', () => {
     const demo = syntheticWell();
-    const engine = new Engine(registry);
+    const engine = new Engine(registry, { checkInputs: true });
     engine.setWell(toEngineWell(demo.well));
     const zc = demo.zones[2]!.id;
     const r = engine.run({ ...emptyInterpretation(demo.zones), params: { global: {}, zones: { [zc]: { grClean: 130 } } } });
@@ -98,7 +98,7 @@ describe('módulos registrados', () => {
     });
     const extended = createRegistry([...MODULES, vshLarionovTertiary]);
     const demo = syntheticWell();
-    const engine = new Engine(extended);
+    const engine = new Engine(extended, { checkInputs: true });
     engine.setWell(toEngineWell(demo.well));
     const r = engine.run(emptyInterpretation(demo.zones));
     expect(r.stats.recomputed).toEqual(['igr', 'shale-flag', 'vsh-larionov-tertiary']);

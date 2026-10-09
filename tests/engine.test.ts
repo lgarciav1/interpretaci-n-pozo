@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { computeOnce, Engine } from '../src/core/engine/engine';
+import { computeOnce, Engine, InputMutationError } from '../src/core/engine/engine';
 import { defineModule, input, output } from '../src/core/module';
 import { param } from '../src/core/params';
 import { createRegistry } from '../src/core/registry';
@@ -99,6 +99,32 @@ describe('motor incremental', () => {
     // cambiar solo el color de la zona no invalida (el nombre sí: los módulos lo usan en tablas y avisos)
     const recolored = [{ ...zone('a', 1000, 1003), color: '#f00' }];
     expect(engine.run(interp({ zones: recolored, params: { global: {}, zones: { a: { 'igr.offset': 5 } } } })).stats.recomputed).toEqual([]);
+  });
+
+  it('paramsFor da los parámetros efectivos de cada zona, incluso sin muestras', () => {
+    const perZone = defineModule({
+      id: 'per-zone',
+      name: 'Por zona',
+      category: 'other',
+      workspace: 'petrophysics',
+      inputs: { x: input.curve('GR') },
+      params: { k: param.number({ label: 'K', default: 1, min: 0, max: 100, scope: 'zone' }) },
+      outputs: { t: output.table('PER_ZONE', { label: 'Por zona', columns: [] }) },
+      compute: ({ zones, paramsFor }) => ({
+        t: { rows: [...zones.map((z) => ({ zone: z.id, k: paramsFor(z.id).k, samples: z.end - z.start })), { zone: 'global', k: paramsFor(null).k, samples: null }] },
+      }),
+      docs: { summary: '', equations: [], references: [] },
+    });
+    // 'lejos' está fuera del rango del pozo: no tiene muestras, pero tiene parámetros
+    const zones = [zone('a', 1000, 1002), zone('lejos', 5000, 5100)];
+    const r = computeOnce(createRegistry([perZone]), well([gr]), interp({ zones, params: { global: { 'per-zone.k': 3 }, zones: { lejos: { 'per-zone.k': 42 } } } }));
+    expect((r.outputs[0]!.value as { rows: unknown[] }).rows).toEqual([
+      { zone: 'a', k: 3, samples: 5 },
+      { zone: 'lejos', k: 42, samples: 0 },
+      { zone: 'global', k: 3, samples: null },
+    ]);
+    const bad = defineModule({ ...perZone, id: 'bad', outputs: { s: output.scalar('S', { label: 'S' }) }, compute: ({ paramsFor }) => ({ s: paramsFor('nope').k }) });
+    expect(computeOnce(createRegistry([bad]), well([gr]), interp()).diagnostics[0]!.message).toMatch(/paramsFor: la zona 'nope' no existe/);
   });
 
   it('un override en un parámetro global-only se ignora', () => {
@@ -244,8 +270,39 @@ describe('motor incremental', () => {
     );
   });
 
+  it('checkInputs detecta un módulo que escribe en su entrada (aunque haga un cast)', () => {
+    const sneaky = defineModule({
+      id: 'sneaky',
+      name: 'Tramposo',
+      category: 'other',
+      workspace: 'petrophysics',
+      inputs: { x: input.curve('GR') },
+      params: {},
+      outputs: { y: output.curve('IGR') },
+      compute: ({ inputs }) => {
+        const x = inputs.x as unknown as Float64Array;
+        x.fill(0, 0, 1);
+        return { y: x.slice() };
+      },
+      docs: { summary: '', equations: [], references: [] },
+    });
+    const data = curve('GR1', 'GR', [10, 20, 30]);
+    const engine = new Engine(createRegistry([sneaky]), { checkInputs: true });
+    engine.setWell(well([data]));
+    expect(() => engine.run(interp())).toThrow(InputMutationError);
+    const e2 = new Engine(createRegistry([sneaky]), { checkInputs: true });
+    e2.setWell(well([curve('GR1', 'GR', [10, 20, 30])]));
+    expect(() => e2.run(interp())).toThrow(
+      "El módulo 'Tramposo' (sneaky) modificó su entrada 'x'. Las entradas son de solo lectura: copiá con slice() antes de modificar.",
+    );
+    // sin el modo de verificación pasa inadvertido (por eso se activa en tests y en desarrollo)
+    const quiet = new Engine(createRegistry([sneaky]));
+    quiet.setWell(well([curve('GR1', 'GR', [10, 20, 30])]));
+    expect(() => quiet.run(interp())).not.toThrow();
+  });
+
   it('los módulos no mutan sus entradas (la caché queda intacta)', () => {
-    const engine = new Engine(chainRegistry());
+    const engine = new Engine(chainRegistry(), { checkInputs: true });
     engine.setWell(well([gr]));
     const before = [...gr.data];
     engine.run(interp());

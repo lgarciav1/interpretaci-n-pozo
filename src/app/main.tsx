@@ -20,6 +20,7 @@ async function boot() {
     ]);
     const demo = syntheticWell();
     useProject.getState().replace(addWell(createProject('Demostración'), demo.well, demo.zones), 'Pozo de demostración');
+    for (const w of registry.warnings) console.warn(`Registro de módulos: ${w}`);
     startEngineBridge(registry);
     root.render(
       <StrictMode>

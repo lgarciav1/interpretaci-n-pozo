@@ -8,12 +8,15 @@
  */
 import type { Interpretation } from '../interpretation';
 import type { Registry } from '../registry';
-import type { EngineRunResult, EngineWell, OutputRecord } from './engine';
+import type { EngineOptions, EngineRunResult, EngineWell, OutputRecord } from './engine';
 import type { Endpoint, FromEngine, ToEngine, WireCurve } from './protocol';
 import { serveEngine } from './serve';
 
 export interface ClientResult extends EngineRunResult {
   seq: number;
+  /** Pozo y generación a los que corresponde el resultado (los arrays tienen el largo de ESA profundidad). */
+  wellId: string;
+  gen: number;
   /** Tiempo desde que se pidió el cálculo hasta que llegó la respuesta (ms). */
   roundTripMs: number;
   /** Pedidos descartados por coalescencia que este resultado reemplazó (gana el último). */
@@ -24,6 +27,12 @@ export type ClientEvent =
   | { type: 'result'; result: ClientResult }
   | { type: 'error'; message: string }
   | { type: 'busy'; busy: boolean };
+
+/**
+ * Generaciones únicas en toda la página (no por cliente): si un cliente se reemplaza por otro (worker que se
+ * reinicia), sus generaciones no se pueden confundir con las del anterior.
+ */
+let lastGen = 0;
 
 export class EngineClient {
   private seq = 0;
@@ -59,10 +68,10 @@ export class EngineClient {
    * Sincroniza el pozo con el motor. Si cambia el pozo o la profundidad, empieza una generación nueva y manda
    * todo; si no, manda metadatos y solo los arrays de datos que cambiaron (por identidad).
    */
-  syncWell(well: EngineWell): void {
+  syncWell(well: EngineWell): { gen: number; isNew: boolean } {
     const isNew = well.id !== this.wellId || well.depth !== this.depth;
     if (isNew) {
-      this.gen++;
+      this.gen = ++lastGen;
       this.wellId = well.id;
       this.depth = well.depth;
       this.sentData.clear();
@@ -84,6 +93,7 @@ export class EngineClient {
       this.pending = null;
       this.send(next);
     }
+    return { gen: this.gen, isNew };
   }
 
   /** Pide un cálculo. Si hay uno en vuelo, queda pendiente y reemplaza a cualquier otro pendiente. */
@@ -152,7 +162,15 @@ export class EngineClient {
         }
         this.emit({
           type: 'result',
-          result: { ...msg.result, outputs: [...merged.values()], seq: msg.seq, roundTripMs: now() - flight.sentAt, coalesced },
+          result: {
+            ...msg.result,
+            outputs: [...merged.values()],
+            seq: msg.seq,
+            wellId: this.wellId!,
+            gen: msg.gen,
+            roundTripMs: now() - flight.sentAt,
+            coalesced,
+          },
         });
       }
     }
@@ -171,9 +189,9 @@ export class EngineClient {
  * Cliente con el motor en el mismo hilo, conectado por un MessageChannel (mismo protocolo, misma semántica de
  * copia/transferencia que un worker). Sirve como alternativa si no se puede crear el worker, y para tests.
  */
-export function createInProcessClient(registry: Registry): EngineClient {
+export function createInProcessClient(registry: Registry, options: EngineOptions = {}): EngineClient {
   const channel = new MessageChannel();
-  const stopServer = serveEngine(channel.port2, registry);
+  const stopServer = serveEngine(channel.port2, registry, options);
   return new EngineClient(channel.port1, () => {
     stopServer();
     channel.port1.close();

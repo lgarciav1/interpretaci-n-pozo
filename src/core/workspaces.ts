@@ -7,7 +7,11 @@ export const WORKSPACES = [
 
 export type WorkspaceId = (typeof WORKSPACES)[number]['id'];
 
-/** Orden de las categorías = orden en que se muestran (sigue el flujo de interpretación). */
+/**
+ * Categorías conocidas: fijan el orden y la etiqueta de las habituales (siguen el flujo de interpretación).
+ * Un módulo puede usar una categoría nueva sin tocar este archivo: `category: 'mi-categoria'` y
+ * `categoryLabel: 'Mi categoría'`. Las nuevas se muestran después de las conocidas.
+ */
 export const CATEGORIES = [
   { id: 'qc', label: 'Control de calidad' },
   { id: 'lithology', label: 'Litología' },
@@ -21,12 +25,14 @@ export const CATEGORIES = [
   { id: 'other', label: 'Otros' },
 ] as const;
 
-export type CategoryId = (typeof CATEGORIES)[number]['id'];
+export type KnownCategoryId = (typeof CATEGORIES)[number]['id'];
+/** Id de categoría: una conocida o una nueva declarada por un módulo (kebab-case). */
+export type CategoryId = KnownCategoryId | (string & {});
 
 export function isWorkspaceId(id: string): id is WorkspaceId {
   return WORKSPACES.some((w) => w.id === id);
 }
 
-export function isCategoryId(id: string): id is CategoryId {
+export function isKnownCategoryId(id: string): id is KnownCategoryId {
   return CATEGORIES.some((c) => c.id === id);
 }
