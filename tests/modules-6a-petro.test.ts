@@ -132,6 +132,8 @@ describe('módulos 6a de petrofísica: valores por muestra = función de petro',
     expectSamples(curveOf(r, 'phit:PHIT'), (i) => PHIT[i]!);
     const r2 = run({
       params: params({}, { [ZB]: { 'phit.method': 'densityNeutronGas' }, [ZC]: { 'phit.method': 'sonic' } }),
+      // Wyllie es la fuente por defecto de PHIS (va antes en el registro); acá se fija Raymer.
+      sources: { PHIS: { kind: 'module', moduleId: 'phi-sonic-raymer' } },
     });
     expectSamples(curveOf(r2, 'phit:PHIT'), (i) => {
       const z = inZone(i);

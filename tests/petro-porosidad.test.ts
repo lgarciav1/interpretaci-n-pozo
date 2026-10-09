@@ -81,6 +81,24 @@ describe('petro/porosity: sónico', () => {
     expect(sonicPorosityWyllie(100, NaN, 189)).toBeNaN();
   });
 
+  it('Wyllie con Cp: Cp = 1 reproduce el caso sin factor (compatibilidad); Cp = 1,2 divide', () => {
+    // verificado a mano: (90 − 55,5)/(189 − 55,5) = 34,5/133,5 = 0,258427; /1,2 = 0,215356
+    expect(sonicPorosityWyllie(90, 55.5, 189, 1)).toBe(sonicPorosityWyllie(90, 55.5, 189));
+    expect(sonicPorosityWyllie(100, 55.5, 189, 1)).toBeCloseTo(1 / 3, 6);
+    expect(sonicPorosityWyllie(90, 55.5, 189, 1.2)).toBeCloseTo(0.21535580524344572, 12);
+    expect(sonicPorosityWyllie(100, 55.5, 189, 1.2)).toBeCloseTo(1 / 3 / 1.2, 12);
+  });
+
+  it('Wyllie con Cp: el recorte a [0, 0,5] se aplica después de dividir; Cp ≤ 0, NaN o Infinity → NaN', () => {
+    expect(sonicPorosityWyllie(189, 55.5, 189, 1.2)).toBe(POROSITY_MAX); // 1/1,2 = 0,833 → 0,5
+    expect(sonicPorosityWyllie(50, 55.5, 189, 1.5)).toBe(0);
+    expect(sonicPorosityWyllie(100, 55.5, 189, 0)).toBeNaN();
+    expect(sonicPorosityWyllie(100, 55.5, 189, -1)).toBeNaN();
+    expect(sonicPorosityWyllie(100, 55.5, 189, NaN)).toBeNaN();
+    expect(sonicPorosityWyllie(100, 55.5, 189, Infinity)).toBeNaN();
+    expect(sonicPorosityWyllie(NaN, 55.5, 189, 1.2)).toBeNaN();
+  });
+
   it('Raymer-Hunt-Gardner: Δt=100, Δtma=55,5 → 0,625·44,5/100 = 0,278125', () => {
     // verificado a mano, no de libro (forma 5/8 de Asquith y Krygowski)
     expect(sonicPorosityRaymer(100, 55.5)).toBeCloseTo(0.278125, 8);

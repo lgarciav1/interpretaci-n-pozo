@@ -221,6 +221,18 @@ export function planGraph(registry: Registry, curves: readonly CurveMeta[], inte
     nodes.set(id, { moduleId: id, reason: reasons.get(id)!, inputs, deps: [...deps], status });
   }
 
+  // Un módulo activo solo por defecto (nadie lo eligió, nadie lo compara y ningún otro lo consume) al que le falta
+  // una entrada no es un error: p. ej. 'Rw desde el SP' en un pozo sin SP. Se informa como `info`.
+  const consumed = new Set([...nodes.values()].flatMap((n) => n.deps));
+  const explicitModules = new Set(
+    Object.values(interp.sources).flatMap((s) => (s.kind === 'module' ? [s.moduleId] : [])),
+  );
+  for (const d of diagnostics) {
+    if (d.code !== 'missing-input' || d.level !== 'error' || !d.moduleId) continue;
+    const id = d.moduleId;
+    if (reasons.get(id) === 'chain' && !consumed.has(id) && !explicitModules.has(id)) d.level = 'info';
+  }
+
   // 4. Orden topológico (Kahn) con desempate por orden de registro → determinístico.
   const byRegistry = (a: string, b: string) => registry.indexOf(a) - registry.indexOf(b);
   const indegree = new Map<string, number>();

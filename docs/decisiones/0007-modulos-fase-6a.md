@@ -522,6 +522,41 @@ divide.
 - Criterio de terminado: `npm run typecheck`, `npm test`, `npm run build`; flujo Petrofísica de punta a punta con el
   pozo del TP sin tocar fuentes (las elige N3).
 
+## Parte 6 — Precisiones al implementar P1–P7 y C4, C11, C12, C19, C21, C22
+
+No se encontró ningún error matemático ni de unidades en las ecuaciones del documento (se recalcularon a mano los
+casos de los tests). Cambios y precisiones de las firmas y fichas:
+
+- **P2 (`summarizeRanges`):** `noData` = espesor con `netRes` NaN (falta Vsh o φ). Cada promedio usa solo las muestras
+  netas con dato en sus variables, así que `hphiShRes` suma solo las muestras con Sw y la identidad
+  h·φ̄·(1 − S̄w) = h·φ·Sh es exacta en el pay (siempre tiene φ y Sw) pero en el reservorio solo si todas las muestras
+  netas tienen Sw. Los rangos no deben solaparse.
+- **P3:** `inPlaceVolume` también devuelve NaN con área < 0 o h·φ·Sh < 0 (rango físico), además de B ≤ 0 o no finito.
+  `zoneInPlace('oil', …)` con h·φ·Sh NaN da `{ ooip: NaN, ogip: 0 }`.
+- **P5:** `sweepThresholds` fuerza el último umbral a `max` exacto (la suma `min + j·dx` puede errar en el último ulp) y
+  lanza `RangeError` si `steps` no es un entero ≥ 2 o no se cumple `min < max`. La búsqueda del bin usa los mismos
+  `t_j` con una estimación inicial por división corregida por comparación (O(1) por muestra).
+- **P6:** además de la función se exportan `RMFE_THRESHOLD_75F = 0,1` y `RMFE_FACTOR = 0,85`. Si `rmfAt75F` es NaN,
+  el resultado es NaN. El umbral es estricto (`> 0,1`).
+- **P7:** Cp ≤ 0, NaN o Infinity → NaN; el recorte a [0; 0,5] se aplica después de dividir por Cp.
+- **C11 (`rw-sp`):** la tabla `RW_SP_BY_ZONE` tiene una fila por tramo con muestras (zona, «Fuera de zonas» o «Pozo
+  completo» sin zonas). El 75 °F se calcula como `fahrenheitToCelsius(75)` (23,8889 °C). Overlay de las líneas de SP:
+  pendiente (opcional).
+- **C12 (`rw-rwa`):** el modo `'well'` informa en `count` las muestras usadas en todo el pozo. Con VSH presente, las
+  muestras con Vsh NaN se excluyen; sin VSH se usan todas.
+- **C19 (`cutoffs`):** sin cambios. Overlay de cortes: pendiente (opcional).
+- **C21 (`zone-summary`):** los valores por zona (`NET_PAY_H`, `HPHISH_PAY`) y los totales son **NaN (sin dato)** cuando
+  la zona no tiene muestras o ninguna es clasificable (falta Vsh o φ en todas); con muestras clasificables y sin pay
+  valen 0. La fila de la tabla conserva las sumas (0). El `top`/`base` del «Total» son el menor tope y la mayor base.
+  Sin zonas, el intervalo «Pozo completo» tiene `kind` nulo y `top`/`base` de la primera y la última profundidad.
+- **C22 (`volumetrics`):** una zona con h·φ·Sh NaN da volumen NaN y no entra en el total (la suma ignora NaN; si todas
+  son NaN, el total es NaN). En la tabla, las celdas del fluido que no corresponde son `null` (petróleo: gas `null`;
+  gas: petróleo `null`); sello y «Sin hidrocarburo» muestran 0 en ambos. El sello no muestra área, h·φ·Sh ni factor
+  de volumen. La fila «Total» no suma áreas (zonas apiladas comparten mapa).
+- **Orden de registro:** `phi-sonic-wyllie` (C4) va antes que `phi-sonic-raymer` (C5), así que Wyllie es la fuente por
+  defecto de `PHIS` (regla N3). `rw-sp`, aunque no sea la fuente de `RW`, corre igual y en pozos sin curva SP informa
+  `missing-input` como error (es el caso de «Abierto» sobre módulos que no pueden correr).
+
 ## Reparto sugerido
 
 1. `analista-numerico`: P1–P7 con tests (revisa otro agente).

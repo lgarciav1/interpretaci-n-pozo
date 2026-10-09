@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   apparentWaterResistivity,
   apparentWaterResistivityInto,
+  equivalentMudFiltrateResistivity,
   equivalentWaterResistivityFromSp,
   pickettFit,
   pickettFitFixedM,
@@ -247,5 +248,35 @@ describe('petro/rw: valores no finitos en el SP', () => {
   it('SSP = ±Infinity → NaN (no Rwe = 0 ni Infinity)', () => {
     expect(equivalentWaterResistivityFromSp(Infinity, 0.5, 150)).toBeNaN();
     expect(equivalentWaterResistivityFromSp(-Infinity, 0.5, 150)).toBeNaN();
+  });
+});
+
+describe('petro/rw: Rmfe (Asquith y Krygowski 2004, cap. SP)', () => {
+  // Rmf(Tf) por Arps: 0,5 Ω·m a 75 °F → a 150 °F: 0,5·(75 + 6,77)/(150 + 6,77) = 0,2607960706767876 (Python)
+  it('Rmf(75 °F) = 0,5 > 0,1: Rmfe = 0,85·Rmf(Tf) = 0,85·0,260796 = 0,221677 (verificado a mano)', () => {
+    expect(equivalentMudFiltrateResistivity(0.2607960706767876, 0.5)).toBeCloseTo(0.22167666007526945, 12);
+  });
+
+  it('el umbral es estricto: Rmf(75 °F) = 0,1 usa Rmfe ≈ Rmf(Tf); 0,1000001 aplica 0,85', () => {
+    expect(equivalentMudFiltrateResistivity(0.05, 0.1)).toBe(0.05);
+    expect(equivalentMudFiltrateResistivity(0.05, 0.1000001)).toBeCloseTo(0.0425, 12);
+  });
+
+  it('Rmf(75 °F) bajo (0,04, lodo salado): aproximación Rmfe ≈ Rmf(Tf)', () => {
+    expect(equivalentMudFiltrateResistivity(0.02, 0.04)).toBe(0.02);
+  });
+
+  it('Rmf ≤ 0, NaN o no finita → NaN', () => {
+    expect(equivalentMudFiltrateResistivity(0, 0.5)).toBeNaN();
+    expect(equivalentMudFiltrateResistivity(-1, 0.5)).toBeNaN();
+    expect(equivalentMudFiltrateResistivity(NaN, 0.5)).toBeNaN();
+    expect(equivalentMudFiltrateResistivity(0.2, NaN)).toBeNaN();
+    expect(equivalentMudFiltrateResistivity(Infinity, 0.5)).toBeNaN();
+  });
+
+  it('cadena SP a mano: Rmfe = 0,221677, T = 150 °F (K = 79,95), SSP = −80 mV → Rw = 0,0221358 Ω·m', () => {
+    // K = 60 + 0,133·150 = 79,95; Rwe = 0,221677·10^(−80/79,95) = 0,0221358 (Python)
+    const rmfe = equivalentMudFiltrateResistivity(0.2607960706767876, 0.5);
+    expect(waterResistivityFromSp(-80, rmfe, 150)).toBeCloseTo(0.022135767193509112, 12);
   });
 });

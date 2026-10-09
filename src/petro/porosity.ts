@@ -7,7 +7,7 @@
  *
  * Ecuaciones:
  *   Densidad          φD = (ρma − ρb) / (ρma − ρf)
- *   Sónico Wyllie     φS = (Δt − Δtma) / (Δtf − Δtma)                 (sin factor de compactación)
+ *   Sónico Wyllie     φS = (Δt − Δtma) / (Δtf − Δtma) / Cp            (Cp = factor de compactación, 1 si no hay)
  *   Sónico RHG        φS = 0,625 · (Δt − Δtma) / Δt                   (forma simplificada de Raymer-Hunt-Gardner)
  *   Neutrón           φN = NPHI + offset                              (offset = corrección de matriz opcional)
  *   Dens–neutrón      φDN = (φD + φN) / 2                             (líquido)
@@ -73,16 +73,20 @@ export function densityPorosityInto(
 // ---------------------------------------------------------------------------------------------------------------
 
 /**
- * Porosidad sónica de Wyllie (promedio en tiempo): φS = (Δt − Δtma)/(Δtf − Δtma).
- * No incluye factor de compactación (Cp = 1): en arenas no consolidadas/someras sobreestima la porosidad.
+ * Porosidad sónica de Wyllie (promedio en tiempo) con factor de compactación opcional:
+ *   φS = (Δt − Δtma)/(Δtf − Δtma) / Cp
+ * Con Cp = 1 (por defecto) no hay corrección: en arenas no consolidadas/someras sobreestima la porosidad, y Cp > 1
+ * (típicamente 1,0–1,3; Cp = Δt_arcilla·c/100) la reduce.
  * @param dt   Δt medido (µs/ft)
  * @param dtMa Δt de matriz (µs/ft)
  * @param dtF  Δt de fluido (µs/ft); debe ser mayor que Δtma, si no → NaN
+ * @param cp   factor de compactación (adimensional), > 0 y finito; si no → NaN
  */
-export function sonicPorosityWyllie(dt: number, dtMa: number, dtF: number): number {
+export function sonicPorosityWyllie(dt: number, dtMa: number, dtF: number, cp = 1): number {
   const span = dtF - dtMa;
   if (!(span > 0) || Number.isNaN(dt)) return NaN;
-  return clipPorosity((dt - dtMa) / span);
+  if (!(cp > 0) || cp === Infinity) return NaN;
+  return clipPorosity((dt - dtMa) / span / cp);
 }
 
 /** Variante por tramo [start, end) de `sonicPorosityWyllieInto`, escrita en `out` (mismo índice). */
