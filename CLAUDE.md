@@ -55,7 +55,8 @@ La sesión principal orquesta: planifica, delega en subagentes, revisa todo lo q
 
 | Subagente | Modelo · esfuerzo | Para qué |
 |---|---|---|
-| `investigador` | Sonnet · medio | Default: investigación, lectura de archivos, redacción, tests simples, lectores con especificación clara, tareas repetitivas |
+| `explorador` | Haiku 5.5 · medio | Lo más barato: buscar en el código, correr tests/build y resumir, cambios mecánicos, completar tablas con un patrón, leer y resumir documentación |
+| `investigador` | Sonnet · medio | Default para tareas con criterio: investigación, lectura de archivos, redacción, tests simples, lectores con especificación clara, tareas repetitivas |
 | `analista-numerico` | Sonnet · alto | Ecuaciones petrofísicas, algoritmos numéricos, ML, verificación matemática |
 | `desarrollador-ui` | Opus · medio | Componentes y pantallas estándar, módulos nuevos sobre la arquitectura existente, integración |
 | `arquitecto` | Opus · alto | Arquitectura, sistema de diseño, visor multipista, interacciones visuales complejas |
@@ -64,7 +65,7 @@ Reglas:
 - Escalá un nivel si la tarea define algo que otras partes heredan, si es matemática no trivial, o si un intento previo falló la revisión.
 - El motor petrofísico y la arquitectura los revisa un subagente distinto del que los escribió.
 - Cada brief es autocontenido: objetivo, contexto, archivos, criterio de terminado, formato de respuesta.
-- Plan Pro con límite de uso: pocos subagentes bien definidos antes que muchos en paralelo.
+- Plan Pro con límite de uso: pocos subagentes bien definidos antes que muchos en paralelo. Todo lo mecánico va a `explorador` (Haiku), que cuesta unas 20 veces menos que Sonnet.
 
 Orquestador recomendado por fase (lo elige la usuaria en el selector): Opus alto para arquitectura (1), sistema de diseño (3), visor (4) y sarta (11); Sonnet medio para lectura de datos (2) y pulido (12); Opus medio para el resto. Al empezar una sesión, decí qué fase toca y qué configuración conviene.
 
