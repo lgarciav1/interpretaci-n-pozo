@@ -6,7 +6,7 @@
  * Esto permite deshacer/rehacer guardando proyectos anteriores, y que el puente con el motor detecte cambios por
  * referencia.
  */
-import { emptyInterpretation, type Interpretation, type SourceRef } from '../interpretation';
+import { emptyInterpretation, sourceRefEquals, type Interpretation, type SourceRef } from '../interpretation';
 import type { ParamValue } from '../params';
 import type { RoleId } from '../roles';
 import type { UnitId } from '../units';
@@ -63,14 +63,15 @@ export function activeWellEntry(project: Project): WellEntry | null {
   return project.wells.find((w) => w.well.id === project.activeWellId) ?? null;
 }
 
+/** Aplica `fn` a un pozo. Si `fn` devuelve la misma entrada, devuelve el mismo proyecto (sin cambios). */
 function mapWell(project: Project, wellId: string, fn: (e: WellEntry) => WellEntry): Project {
-  let found = false;
-  const wells = project.wells.map((e) => {
-    if (e.well.id !== wellId) return e;
-    found = true;
-    return fn(e);
-  });
-  if (!found) throw new Error(`No existe el pozo '${wellId}'.`);
+  const index = project.wells.findIndex((e) => e.well.id === wellId);
+  if (index < 0) throw new Error(`No existe el pozo '${wellId}'.`);
+  const prev = project.wells[index]!;
+  const next = fn(prev);
+  if (next === prev) return project;
+  const wells = [...project.wells];
+  wells[index] = next;
   return { ...project, wells };
 }
 
@@ -79,7 +80,10 @@ export function updateInterpretation(
   wellId: string,
   fn: (i: Interpretation) => Interpretation,
 ): Project {
-  return mapWell(project, wellId, (e) => ({ ...e, interpretation: fn(e.interpretation) }));
+  return mapWell(project, wellId, (e) => {
+    const interpretation = fn(e.interpretation);
+    return interpretation === e.interpretation ? e : { ...e, interpretation };
+  });
 }
 
 /** Fija un parámetro (global si zoneId es null; override de zona si no). `key` es la clave de almacenamiento. */
@@ -117,6 +121,7 @@ export function clearParam(project: Project, wellId: string, key: string, zoneId
 /** Elige la fuente de un puerto (null = volver a la regla por defecto). */
 export function setSource(project: Project, wellId: string, port: string, ref: SourceRef | null): Project {
   return updateInterpretation(project, wellId, (i) => {
+    if (ref ? sourceRefEquals(i.sources[port], ref) : !(port in i.sources)) return i;
     const sources = { ...i.sources };
     if (ref) sources[port] = ref;
     else delete sources[port];

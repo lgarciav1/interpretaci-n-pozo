@@ -2,7 +2,7 @@
  * Motor de cálculo incremental. Sin dependencias de navegador ni de React: corre igual en un Web Worker,
  * en el hilo principal, en los tests y en Monte Carlo.
  *
- * Invalidación: cada módulo tiene una firma de entrada = parámetros resueltos + geometría de zonas + versión de
+ * Invalidación: cada módulo tiene una firma de entrada = parámetros resueltos + zonas (geometría y nombre) + versión de
  * cada entrada. Si la firma no cambió desde la corrida anterior, se reusa el resultado; si cambió, se recalcula y
  * sus salidas reciben una versión nueva, lo que cambia la firma de sus dependientes (y solo de ellos).
  */
@@ -152,7 +152,8 @@ export class Engine {
   }
 
   private zoneLayout(interp: Interpretation): ZoneLayout {
-    const key = zoneGeometryKey(interp.zones);
+    // Geometría + nombres: los nombres viajan en `ctx.zones` y en los avisos, así que también invalidan.
+    const key = `${zoneGeometryKey(interp.zones)}#${interp.zones.map((z) => z.name).join('\u0000')}`;
     if (!this.layout || this.layout.key !== key) {
       this.layout = { key, value: layoutZones(this.well!.depth, interp.zones) };
     }
@@ -249,7 +250,7 @@ export class Engine {
 
       const params = resolveModuleParams(id, m.params, interp.params, zoneIds);
       for (const p of params.problems) diagnostics.push({ level: 'warning', code: 'params', moduleId: id, message: `'${m.name}': ${p}` });
-      const stamp = JSON.stringify([params.key, layout.spans.map((s) => `${s.id}:${s.start}:${s.end}`), inputStamps]);
+      const stamp = JSON.stringify([params.key, layout.spans.map((s) => [s.id, s.name, s.start, s.end]), inputStamps]);
 
       const cached = this.cache.get(id);
       if (cached && cached.ok && cached.stamp === stamp) {

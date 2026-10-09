@@ -212,7 +212,7 @@ export function layoutZones(depth: ArrayLike<number>, zones: readonly Zone[]): Z
   return { spans, segments, zoneIndex, problems };
 }
 
-/** Firma de la geometría de zonas (lo único de las zonas que afecta los cálculos). */
+/** Firma de la geometría de zonas (el motor le suma los nombres: los módulos los usan en tablas y avisos). */
 export function zoneGeometryKey(zones: readonly Zone[]): string {
   return zones.map((z) => `${z.id}:${z.top}:${z.base}`).join('|');
 }

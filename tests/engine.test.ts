@@ -96,9 +96,9 @@ describe('motor incremental', () => {
     expect(engine.run(interp({ zones, params: { global: {}, zones: { a: { 'igr.offset': 5 } } } })).stats.recomputed).toEqual(['igr']);
     // mover una zona también invalida
     expect(engine.run(interp({ zones: [zone('a', 1000, 1003)], params: { global: {}, zones: { a: { 'igr.offset': 5 } } } })).stats.recomputed).toEqual(['igr']);
-    // cambiar solo el nombre o el color de la zona no invalida
-    const renamed = [{ ...zone('a', 1000, 1003), name: 'Otra', color: '#f00' }];
-    expect(engine.run(interp({ zones: renamed, params: { global: {}, zones: { a: { 'igr.offset': 5 } } } })).stats.recomputed).toEqual([]);
+    // cambiar solo el color de la zona no invalida (el nombre sí: los módulos lo usan en tablas y avisos)
+    const recolored = [{ ...zone('a', 1000, 1003), color: '#f00' }];
+    expect(engine.run(interp({ zones: recolored, params: { global: {}, zones: { a: { 'igr.offset': 5 } } } })).stats.recomputed).toEqual([]);
   });
 
   it('un override en un parámetro global-only se ignora', () => {

@@ -56,14 +56,16 @@ export function serveEngine(endpoint: Endpoint, registry: Registry): () => void 
       try {
         const result = engine.run(msg.interpretation);
         const transfer: Transferable[] = [];
-        const present = new Set<string>();
+        // Lo que el cliente va a tener si este mensaje llega. Se confirma en `sent` solo después de enviarlo:
+        // si postMessage falla (p. ej. una tabla con un valor no clonable), `sent` sigue describiendo lo que el
+        // cliente tiene y la próxima corrida reenvía lo que falte.
+        const delivered = new Map<string, number>();
         const outputs: WireOutput[] = result.outputs.map((o) => {
-          present.add(o.key);
+          delivered.set(o.key, o.version);
           if (sent.get(o.key) === o.version) {
             const { value: _omit, ...meta } = o;
             return meta;
           }
-          sent.set(o.key, o.version);
           if (o.value instanceof Float64Array) {
             // Copia: el original queda en la caché del motor; la copia se transfiere sin volver a copiar.
             const copy = o.value.slice();
@@ -72,8 +74,10 @@ export function serveEngine(endpoint: Endpoint, registry: Registry): () => void 
           }
           return o;
         });
-        for (const key of [...sent.keys()]) if (!present.has(key)) sent.delete(key);
         reply({ type: 'result', seq: msg.seq, gen: msg.gen, result: { ...result, outputs } }, transfer);
+        // Llegó: lo que no está en esta respuesta ya no lo tiene el cliente (reconstruye el conjunto completo).
+        sent.clear();
+        for (const [key, version] of delivered) sent.set(key, version);
       } catch (err) {
         reply({ type: 'error', seq: msg.seq, gen: msg.gen, message: err instanceof Error ? err.message : String(err) });
       }

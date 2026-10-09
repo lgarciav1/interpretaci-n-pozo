@@ -62,7 +62,7 @@ definición, ni `core`, ni `petro`, importe React.
 ### D6. Motor incremental, igual en proceso y en worker
 
 `Engine` (en `src/core/engine/`) es una clase sin dependencias de navegador. Cada nodo tiene una **firma de
-entrada**: parámetros resueltos que lo afectan + geometría de zonas + versión de cada entrada (revisión de la curva
+entrada**: parámetros resueltos que lo afectan + zonas (geometría y nombre; no el color) + versión de cada entrada (revisión de la curva
 medida o versión de la salida del módulo proveedor). Si la firma no cambió, reusa el resultado; si cambió, recalcula
 e incrementa la versión de sus salidas, lo que invalida solo a sus dependientes. Tests y Monte Carlo usan `Engine`
 directo; la app lo usa a través de un worker con el mismo protocolo (`serveEngine` / `EngineClient`), que también
