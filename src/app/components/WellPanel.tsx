@@ -106,7 +106,7 @@ export function WellPanel() {
           aria-label={`Rol de ${c.mnemonic}`}
           value={c.role ?? ''}
           options={roleOptions}
-          onChange={(v) => commit('Asignar rol', (p) => updateCurveMeta(p, well.id, c.id, { role: v || null }))}
+          onChange={(v) => commit(`Asignar rol a ${c.mnemonic}`, (p) => updateCurveMeta(p, well.id, c.id, { role: v || null }))}
         />
       ),
     },
@@ -329,11 +329,11 @@ function ZoneEditor({ wellId, zone, zones, onDeleted }: { wellId: string; zone: 
           />
         </Field>
         <Field label="Tipo" htmlFor={`zk-${zone.id}`}>
-          <Select id={`zk-${zone.id}`} size="sm" block value={zone.kind} options={KIND_OPTIONS} onChange={(v) => save({ kind: v as ZoneKind }, `Tipo de la zona ${zone.name}`)} />
+          <Select id={`zk-${zone.id}`} size="sm" block value={zone.kind} options={KIND_OPTIONS} onChange={(v) => save({ kind: v as ZoneKind }, `Cambiar tipo de ${zone.name}`)} />
         </Field>
       </div>
       <Field label="Color">
-        <ColorPicker aria-label={`Color de la zona ${zone.name}`} swatches={ZONE_PALETTE} value={zone.color} onChange={(c) => save({ color: c }, `Color de la zona ${zone.name}`)} />
+        <ColorPicker aria-label={`Cambiar color de ${zone.name}`} swatches={ZONE_PALETTE} value={zone.color} onChange={(c) => save({ color: c }, `Cambiar color de ${zone.name}`)} />
       </Field>
       <p className="well-panel__hint num">
         {fmt(zone.top)} – {fmt(zone.base)} m · {fmt(zone.base - zone.top, 1)} m de espesor

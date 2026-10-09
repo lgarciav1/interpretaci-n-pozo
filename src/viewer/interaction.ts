@@ -36,6 +36,8 @@ export interface GestureHost {
   setCursor?(css: string): void;
   /** Cambió el elemento activo (para redibujar su resaltado). */
   activeChanged?(active: HitResult | null): void;
+  /** Empezó (true) o terminó (false: soltado o cancelado) el arrastre de un elemento. */
+  dragChanged?(dragging: boolean): void;
 }
 
 /** Píxeles de movimiento antes de que un apretón sea arrastre (y no clic). */
@@ -97,6 +99,7 @@ export class PointerGestures {
       if (!o.started) {
         o.started = true;
         this.host.setCursor?.(o.drag.cursor ?? 'grabbing');
+        this.host.dragChanged?.(true);
       }
       guard(o.overlayId, 'drag.move', () => o.drag.move(this.host.pointerAt(p), o.start));
       if (this.autoscrollSpeed(p) !== 0) this.host.requestTick();
@@ -121,6 +124,7 @@ export class PointerGestures {
       this.host.setCursor?.('');
       if (o.started) {
         this.suppressClick = true;
+        this.host.dragChanged?.(false);
         guard(o.overlayId, 'drag.end', () => o.drag.end(this.host.pointerAt(p), o.start));
         if (o.hit.nudge) this.setActive({ overlayId: o.overlayId, hit: o.hit });
       }
@@ -140,7 +144,10 @@ export class PointerGestures {
       this.overlay = null;
       this.suppressClick = true;
       this.host.setCursor?.('');
-      if (o.started) guard(o.overlayId, 'drag.cancel', () => o.drag.cancel?.());
+      if (o.started) {
+        this.host.dragChanged?.(false);
+        guard(o.overlayId, 'drag.cancel', () => o.drag.cancel?.());
+      }
       return true;
     }
     if (this.activeHit) {

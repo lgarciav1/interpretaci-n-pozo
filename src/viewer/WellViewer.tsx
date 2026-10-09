@@ -77,6 +77,8 @@ export interface WellViewerProps {
   minimap?: boolean;
   onCursorChange?(depth: number | null): void;
   onViewportChange?(range: { top: number; base: number }): void;
+  /** Empieza o termina el arrastre de un elemento del perfil (tope, zona nueva…). */
+  onDragChange?(dragging: boolean): void;
 }
 
 const ZOOM_STEP = 1.25;
@@ -484,6 +486,7 @@ export function WellViewer(props: WellViewerProps) {
     [hitFrame],
   );
 
+  const draggingRef = useRef(false);
   const gestures = useRef<PointerGestures>(null as unknown as PointerGestures);
   gestures.current ??= new PointerGestures({
     viewport: () => vpRef.current,
@@ -502,7 +505,18 @@ export function WellViewer(props: WellViewerProps) {
       if (bodyRef.current) bodyRef.current.style.cursor = css;
     },
     activeChanged: () => invalidateRef.current('base'),
+    dragChanged: (dragging) => {
+      draggingRef.current = dragging;
+      propsRef.current.onDragChange?.(dragging);
+    },
   });
+  // Desmontado a mitad de un arrastre: avisar que terminó.
+  useEffect(
+    () => () => {
+      if (draggingRef.current) propsRef.current.onDragChange?.(false);
+    },
+    [],
+  );
   const setViewportRef = useRef(setViewport);
   setViewportRef.current = setViewport;
   const overlayPointerRef = useRef(overlayPointer);
@@ -532,6 +546,15 @@ export function WellViewer(props: WellViewerProps) {
     const k = focused?.dataset['target'];
     const again = k ? list.find((t) => `${t.overlayId}|${t.key}` === k) : undefined;
     if (again) gestures.current.focus({ overlayId: again.overlayId, hit: again.hit });
+    else {
+      // El activo (último clic o arrastre) también se actualiza; si ya no existe (deshacer quitó la zona), se suelta.
+      const a = gestures.current.active;
+      const own = a?.hit.key ? props.overlays.find((o) => o.id === a.overlayId) : undefined;
+      if (a && own?.targets) {
+        const fresh = list.find((t) => t.overlayId === a.overlayId && t.key === a.hit.key);
+        gestures.current.focus(fresh ? { overlayId: fresh.overlayId, hit: fresh.hit } : null);
+      }
+    }
   }, [props.data, props.overlays, tracks, size.height, hitFrame]);
 
   useLayoutEffect(() => {

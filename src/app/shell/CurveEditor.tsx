@@ -61,9 +61,11 @@ export function CurveEditor({ wellId, curve, anchorRef, onClose }: CurveEditorPr
   const roleLabel = curve.role ? (registry.roles.get(curve.role)?.label ?? curve.role) : null;
   const style = curve.styles[theme];
 
-  const write = (patch: Partial<Record<keyof CurveDisplayOverride, unknown>>, what: string) => {
+  const write = (patch: Partial<Record<keyof CurveDisplayOverride, unknown>>, what: 'escala' | 'sentido' | 'color' | 'trazo' | 'grosor' | 'respaldo' | 'ocultar') => {
     const next = patchOverride(current, patch);
-    const label = `${what} de ${scope === 'curve' ? curve.name : `las ${curve.role}`}`;
+    // Se lee en «Deshacer: Cambiar escala de GR» / «Se deshizo: Ocultar las RT».
+    const subject = scope === 'curve' ? curve.name : `las ${curve.role}`;
+    const label = what === 'ocultar' ? `Ocultar ${subject}` : `Cambiar ${what} de ${subject}`;
     commit(label, (p) => (scope === 'curve' && curve.curveId ? setCurveDisplay(p, wellId, curve.curveId, next) : curve.role ? setRoleDisplay(p, curve.role, next) : p));
   };
 
@@ -82,7 +84,7 @@ export function CurveEditor({ wellId, curve, anchorRef, onClose }: CurveEditorPr
       return;
     }
     setDraft(null);
-    write({ scale: next.scale, min: next.min, max: next.max }, 'Escala');
+    write({ scale: next.scale, min: next.min, max: next.max }, 'escala');
   };
 
   const reset = () => {
@@ -141,7 +143,7 @@ export function CurveEditor({ wellId, curve, anchorRef, onClose }: CurveEditorPr
               { value: 'log', label: 'Log' },
             ]}
           />
-          <Switch checked={curve.axis.reversed} onChange={(v) => write({ reversed: v }, 'Inversión')} label="Invertir" />
+          <Switch checked={curve.axis.reversed} onChange={(v) => write({ reversed: v }, 'sentido')} label="Invertir" />
         </div>
 
         <div className="ce__grid">
@@ -178,12 +180,12 @@ export function CurveEditor({ wellId, curve, anchorRef, onClose }: CurveEditorPr
         </div>
 
         <Field label="Color">
-          <ColorPicker aria-label={`Color de ${curve.name}`} value={current?.color ?? style.color} onChange={(c) => write({ color: c }, 'Color')} />
+          <ColorPicker aria-label={`Color de ${curve.name}`} value={current?.color ?? style.color} onChange={(c) => write({ color: c }, 'color')} />
         </Field>
 
         <div className="ce__grid">
           <Field label="Trazo">
-            <Select size="sm" block aria-label="Tipo de trazo" value={style.line} options={LINES} onChange={(v) => write({ line: v }, 'Trazo')} />
+            <Select size="sm" block aria-label="Tipo de trazo" value={style.line} options={LINES} onChange={(v) => write({ line: v }, 'trazo')} />
           </Field>
           <Field label="Grosor" error={widthError}>
             <NumberField
@@ -201,7 +203,7 @@ export function CurveEditor({ wellId, curve, anchorRef, onClose }: CurveEditorPr
                   return;
                 }
                 setWidthDraft(null);
-                write({ width: v }, 'Grosor');
+                write({ width: v }, 'grosor');
               }}
             />
           </Field>
@@ -210,7 +212,7 @@ export function CurveEditor({ wellId, curve, anchorRef, onClose }: CurveEditorPr
         <Switch
           checked={curve.wrap}
           disabled={effective.scale === 'log'}
-          onChange={(v) => write({ wrap: v }, 'Curva de respaldo')}
+          onChange={(v) => write({ wrap: v }, 'respaldo')}
           label="Curva de respaldo"
           description={effective.scale === 'log' ? 'Solo en escala lineal.' : 'Lo que pasa del máximo vuelve a entrar corrido un ancho de escala.'}
         />
@@ -236,7 +238,7 @@ export function CurveEditor({ wellId, curve, anchorRef, onClose }: CurveEditorPr
           variant="ghost"
           icon="eye-off"
           onClick={() => {
-            write({ hidden: true }, 'Ocultar');
+            write({ hidden: true }, 'ocultar');
             onClose();
           }}
         >

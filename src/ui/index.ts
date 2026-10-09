@@ -31,7 +31,7 @@ export { Dialog } from './components/Dialog';
 export { Menu, type MenuEntry } from './components/Menu';
 export { Popover } from './components/Popover';
 export { ColorPicker } from './components/ColorPicker';
-export { Toaster, toast } from './components/Toast';
+export { Toaster, dismissToast, toast } from './components/Toast';
 export { Tooltip } from './components/Tooltip';
 export { Panel, ResizeHandle, Section } from './components/Layout';
 export { DataTable, type Column } from './components/DataTable';

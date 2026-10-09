@@ -77,7 +77,7 @@ export function SnapshotsDialog() {
                     size="sm"
                     icon="history"
                     onClick={() => {
-                      commit('Restaurar snapshot', (p) => restoreSnapshot(p, s.id));
+                      commit(`Restaurar snapshot «${s.name}»`, (p) => restoreSnapshot(p, s.id));
                       toast({ title: `Snapshot «${s.name}» restaurado`, tone: 'ok' });
                       setDiff(null);
                     }}

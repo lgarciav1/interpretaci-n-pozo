@@ -177,7 +177,7 @@ export function LoadWellDialog({ onClose, initialSource }: { onClose: () => void
     const { well, result, report } = built;
     setWellQc(well, report);
     // El último paso del asistente es el control de calidad: el paso "Revisar calidad" queda revisado.
-    commit('Cargar pozo', (p) => setStepMark(setActiveWell(addWell(p, well, result.zones), well.id), well.id, 'qc', 'done'));
+    commit(`Cargar ${well.name}`, (p) => setStepMark(setActiveWell(addWell(p, well, result.zones), well.id), well.id, 'qc', 'done'));
     onClose();
   };
 

@@ -28,18 +28,22 @@ async function bootShowcase() {
 
 async function boot() {
   try {
-    const [{ registry }, { App }, { startEngineBridge }, { useProject }, { syntheticWell }, { addWell, createProject }] = await Promise.all([
+    const [{ registry }, { App }, { startEngineBridge }, { useProject }, { syntheticWell }, { addWell, createProject }, { installUiSync }, { installHistoryShortcuts }] = await Promise.all([
       import('../modules'),
       import('./App'),
       import('./engineBridge'),
       import('./store/project'),
       import('./demo/syntheticWell'),
       import('../core/state/project'),
+      import('./store/uiSync'),
+      import('./shell/historyActions'),
     ]);
     // `?muestras=50000` genera un pozo sintético más largo (pruebas de rendimiento del visor).
     const requested = Number(new URLSearchParams(location.search).get('muestras'));
     const demo = syntheticWell(Number.isInteger(requested) && requested >= 100 && requested <= 1_000_000 ? requested : undefined);
     useProject.getState().replace(addWell(createProject('Demostración'), demo.well, demo.zones), 'Pozo de demostración');
+    installUiSync((id) => registry.get(id) !== undefined);
+    installHistoryShortcuts();
     for (const w of registry.warnings) console.warn(`Registro de módulos: ${w}`);
     startEngineBridge(registry);
     root.render(

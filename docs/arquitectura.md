@@ -84,7 +84,8 @@ interfaz.
   módulo (`%` → `v/v`, `kg/m³` → `g/cm³`…). Los módulos nunca convierten.
 - **Profundidad en metros**, estrictamente creciente.
 - **Las acciones sobre el proyecto son funciones puras** (`src/core/state/project.ts`, `snapshots.ts`) y se aplican
-  con `useProject.getState().commit(etiqueta, receta)`. Ese es el punto donde se agregará deshacer/rehacer.
+  con `useProject.getState().commit(etiqueta, receta)`. Todo lo que pasa por `commit` se puede deshacer (ver
+  «Deshacer y rehacer»); la etiqueta es corta, en español y con verbo («Mover tope de C», «Cambiar Rw»).
 - **Textos de interfaz en español, identificadores en inglés.** Las ecuaciones van solo en `docs` del módulo.
 
 ## Contrato de módulo (resumen)
@@ -263,10 +264,30 @@ mitad del binario sin comprimir.
 - El cursor publica su profundidad en `useViewer.cursorDepth`; clic en la franja de zonas fija
   `useUi.editingZoneId`.
 
+## Deshacer y rehacer
+
+Decisión: [`docs/decisiones/0006-deshacer-rehacer.md`](decisiones/0006-deshacer-rehacer.md).
+
+- **Lógica pura** en `src/core/state/history.ts`: pilas pasado/futuro de `{ project, label, at }` con el proyecto
+  *anterior* a cada cambio (barato: estructuras compartidas, los `Float64Array` no se copian). Hasta 100 entradas;
+  un cambio nuevo vacía el futuro.
+- **Agrupado**: cambios seguidos con la **misma etiqueta** a menos de 800 ms del anterior se funden en una entrada
+  que conserva el proyecto previo al primero (un slider arrastrado, ↑/↓ en un campo, un tope movido con el
+  teclado: un Ctrl+Z vuelve al valor inicial). Deshacer o rehacer corta el grupo. Un arrastre del visor ya es un
+  solo `commit` al soltar.
+- **Qué entra**: todo `commit` (parámetros, fuentes, zonas, roles, display de curvas, snapshots, cargar o cambiar de
+  pozo). `replace` (abrir un proyecto) vacía el historial. El motor recalcula solo, porque cambia la interpretación.
+- **Store**: `useProject` expone `undo()`, `redo()`, `canUndo`, `canRedo`, `undoLabel`, `redoLabel`.
+  `src/app/store/uiSync.ts` corrige referencias de interfaz que quedan colgadas (zona en edición borrada, sin pozo
+  activo, módulo inexistente); el visor suelta el elemento activo de una superposición si ya no está.
+- **Interfaz** (`src/app/shell/historyActions.ts`): botones en la barra superior con «Deshacer: …» en el tooltip,
+  aviso «Se deshizo: …» / «Se rehízo: …». Ctrl/Cmd+Z deshace; Ctrl/Cmd+Mayús+Z y Ctrl+Y rehacen. Con el foco en un
+  campo de texto queda el deshacer del navegador; durante un arrastre en el visor (`useViewer.dragging`) no pasa
+  nada.
+
 ## Abierto
 
 - Cancelar un cálculo largo a mitad de camino (hoy se coalesce entre cálculos, no dentro de uno). Si Monte Carlo
   necesita correr en paralelo con la interacción, usar un segundo worker con su propio `Engine`.
 - Enlazar el valor de un parámetro a un escalar calculado (hoy un escalar puede ser entrada de un módulo, no el
   valor de un slider).
-- Deshacer/rehacer: el punto de enganche existe (`commit`), falta el historial.

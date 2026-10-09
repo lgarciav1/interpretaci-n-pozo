@@ -87,7 +87,7 @@ describe('arrastrar un contacto', () => {
     // Durante el arrastre el visor dibuja las zonas de la vista previa; el proyecto todavía no cambió.
     expect(state.commits).toEqual([]);
     gestures.up(1, { x, y: y - 20 });
-    expect(state.commits).toEqual(['Mover contacto (A/B)']);
+    expect(state.commits).toEqual(['Mover contacto A/B']);
     const b = state.zones.find((q) => q.id === 'b')!;
     const a = state.zones.find((q) => q.id === 'a')!;
     expect(b.top).toBeLessThan(1020.5);

@@ -49,6 +49,15 @@ export function zoneBoundaries(zones: readonly Zone[], depth: ArrayLike<number>)
   return out;
 }
 
+/**
+ * Nombre del borde para la etiqueta del cambio («tope de C», «base de E», «contacto A/B»): se lee en
+ * «Deshacer: Mover tope de C». El arrastre y ↑/↓ usan la misma etiqueta, así varios ↑/↓ seguidos se agrupan.
+ */
+export function boundaryName(b: ZoneBoundary): string {
+  const head = b.label.split(' · ')[0]!;
+  return head.charAt(0).toLowerCase() + head.slice(1);
+}
+
 export interface ZonesEditOptions {
   /** Zonas y profundidad ACTUALES (del store): las recetas siempre parten del estado al día. */
   current(): { zones: readonly Zone[]; depth: ArrayLike<number> } | null;
@@ -199,7 +208,7 @@ export function createZonesOverlay(opts: ZonesOverlayOptions = {}): ViewerOverla
         preview = null;
         if (!cur || !p) return;
         const next = moveZoneEdge(cur.zones, b.zoneId, b.edge, p.depth, { depth: cur.depth });
-        if (next !== cur.zones) edit!.commit(next, b.key.startsWith('c:') ? `Mover contacto (${b.label.split(' · ')[0].replace('Contacto ', '')})` : `Mover ${b.label.split(' · ')[0].toLowerCase()}`);
+        if (next !== cur.zones) edit!.commit(next, `Mover ${boundaryName(b)}`);
         frameRef?.invalidate();
       },
       cancel() {
@@ -213,7 +222,7 @@ export function createZonesOverlay(opts: ZonesOverlayOptions = {}): ViewerOverla
       // La zona puede haber cambiado de borde desde que se calculó el hit: se busca de nuevo por clave.
       const fresh = zoneBoundaries(cur.zones, cur.depth).find((x) => x.key === b.key) ?? b;
       const next = nudgeZoneEdge(cur.zones, fresh.zoneId, fresh.edge, deltaM, { depth: cur.depth });
-      if (next !== cur.zones) edit!.commit(next, `Ajustar ${fresh.label.split(' · ')[0].toLowerCase()}`);
+      if (next !== cur.zones) edit!.commit(next, `Mover ${boundaryName(fresh)}`);
     },
   });
 

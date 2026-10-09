@@ -62,6 +62,7 @@ const OVERLAYS = [...BUILTIN_OVERLAYS, ...moduleOverlays(BUILTIN_OVERLAYS.map((o
 
 const onCursorChange = (cursorDepth: number | null) => useViewer.setState({ cursorDepth });
 const onViewportChange = (visible: { top: number; base: number }) => useViewer.setState({ visible });
+const onDragChange = (dragging: boolean) => useViewer.setState({ dragging });
 
 /** Id estable por array de profundidad (un pozo re-importado con otra profundidad vuelve a "ver todo"). */
 const depthIds = new WeakMap<Float64Array, number>();
@@ -265,6 +266,7 @@ export function ViewerSlot() {
         }}
         onCursorChange={onCursorChange}
         onViewportChange={onViewportChange}
+        onDragChange={onDragChange}
       />
       {editing && editingCurve && <CurveEditor key={`${editing.trackId}|${editing.key}`} wellId={well.id} curve={editingCurve} anchorRef={anchorRef} onClose={() => setEditing(null)} />}
     </div>
