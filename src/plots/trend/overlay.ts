@@ -18,7 +18,7 @@ import { ensureContrast, withAlpha } from '../../ui/color';
 import { formatNumber } from '../../ui/format';
 import { BASE_TOKENS, type ThemeName, type ThemeTokens } from '../../ui/tokens';
 import type { OverlayFrame, OverlayHit, OverlayHitFrame, OverlayPointer, OverlayTarget, OverlayTrack, ViewerData, ViewerOverlay } from '../../viewer/overlay';
-import { evaluateTrend, type TrendPreview, type TrendResult } from './compute';
+import { evaluateTrend, excludedIndices, type TrendPreview, type TrendResult } from './compute';
 import { distanceToPolylines, drawTrend, drawTrendLabel, trendGeometry, type TrendGeometry, type TrendMapping } from './draw';
 import { trendCanvasLabel, trendTooltip } from './format';
 import { CURVE_PROVIDER_ID, curveSeriesKey, lowerBound, upperBound, type ResolvedSeries } from './series';
@@ -645,9 +645,8 @@ function drawSamples(ctx: CanvasRenderingContext2D, frame: OverlayFrame, pl: Pla
   ctx.strokeStyle = pl.color;
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  for (const k of keys) {
-    const i = s.indexOfKey ? s.indexOfKey(k) : -1;
-    if (i < 0) continue;
+  // Por `excludedIndices` (caché por lista): sirve también para proveedores sin `indexOfKey` (MDT, plugs).
+  for (const i of excludedIndices(keys, s)) {
     const q = px(i);
     if (!q || q[1] < -4 || q[1] > vp.height + 4) continue;
     ctx.moveTo(q[0] - 3, q[1] - 3);

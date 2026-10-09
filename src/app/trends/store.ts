@@ -16,6 +16,19 @@ export interface TrendsUiStore {
   requestRange(top: number, base: number): void;
 }
 
+/**
+ * Lo que hay que limpiar del estado de interfaz cuando las tendencias del pozo activo cambiaron por fuera (deshacer,
+ * restaurar un snapshot, cambiar de pozo): una selección o una herramienta que apuntan a una tendencia que ya no está.
+ * null si no hay nada que cambiar.
+ */
+export function staleTrendsUi(ui: Pick<TrendsUiStore, 'tool' | 'selectedId'>, trends: readonly { id: string }[]): Partial<Pick<TrendsUiStore, 'tool' | 'selectedId'>> | null {
+  const has = (id: string) => trends.some((t) => t.id === id);
+  const patch: Partial<Pick<TrendsUiStore, 'tool' | 'selectedId'>> = {};
+  if (ui.selectedId && !has(ui.selectedId)) patch.selectedId = null;
+  if (ui.tool?.trendId && !has(ui.tool.trendId)) patch.tool = null;
+  return Object.keys(patch).length ? patch : null;
+}
+
 export const useTrendsUi = create<TrendsUiStore>()((set) => ({
   tool: null,
   selectedId: null,

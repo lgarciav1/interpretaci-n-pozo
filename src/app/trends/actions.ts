@@ -11,7 +11,7 @@ import { toast } from '../../ui';
 import { useProject } from '../store/project';
 import { useUi } from '../store/ui';
 import { resolveSeries } from './providers';
-import { useTrendsUi } from './store';
+import { staleTrendsUi, useTrendsUi } from './store';
 
 const activeWellId = () => activeWellEntry(useProject.getState().project)?.well.id ?? null;
 
@@ -85,4 +85,12 @@ export const TREND_OVERLAYS = createTrendsOverlays({
     error: (message) => toast({ tone: 'warn', title: 'No se guardó la tendencia', description: message }),
   },
   subscribe: (invalidate) => useTrendsUi.subscribe((s, prev) => (s.tool !== prev.tool || s.selectedId !== prev.selectedId) && invalidate()),
+});
+
+// Deshacer, restaurar un snapshot o cambiar de pozo pueden dejar la selección o la herramienta apuntando a una
+// tendencia que ya no está (la herramienta quedaría activa sin responder): se limpian.
+useProject.subscribe((s, prev) => {
+  if (s.project === prev.project) return;
+  const patch = staleTrendsUi(useTrendsUi.getState(), activeWellEntry(s.project)?.interpretation.trends ?? []);
+  if (patch) useTrendsUi.getState().set(patch);
 });

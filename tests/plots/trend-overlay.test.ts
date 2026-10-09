@@ -261,3 +261,33 @@ describe('manijas, teclado y muestras', () => {
     expect(s.over.targets!(s.frame())).toEqual([]);
   });
 });
+
+describe('dibujo de puntos excluidos', () => {
+  it('marca con × los excluidos aunque el proveedor no tenga indexOfKey (MDT, plugs: es opcional en el contrato)', () => {
+    const moves: [number, number][] = [];
+    const ctx = new Proxy({} as Record<string | symbol, unknown>, {
+      get(target, prop) {
+        if (prop in target) return target[prop];
+        if (prop === 'moveTo') return (x: number, y: number) => moves.push([x, y]);
+        if (prop === 'measureText') return (t: string) => ({ width: t.length * 6 });
+        return () => {};
+      },
+      set(target, prop, v) {
+        target[prop] = v;
+        return true;
+      },
+    }) as unknown as CanvasRenderingContext2D;
+    const [, over] = createTrendsOverlays({
+      resolve: (data, ref) => {
+        const r = curveSeriesProvider.resolve({ well: data.well, interpretation: data.interpretation, computed: data.computed, catalog: defaultRoleCatalog }, ref.key);
+        if (!r) return null;
+        const { indexOfKey: _sin, ...rest } = r;
+        return rest;
+      },
+    });
+    s.app.trends = [{ id: 't1', name: 'DT', visible: true, series: { provider: 'curve', key: 'm:DT' }, model: 'linear', mode: 'fit', selection: { top: 1150, base: 1250, excluded: ['1200'] }, extend: false }];
+    over!.draw!({ ...s.frame(), ctx });
+    const p = onCurve(s.state.vp, 1200);
+    expect(moves.some(([x, y]) => Math.abs(x - (p.x - 3)) < 0.01 && Math.abs(y - (p.y - 3)) < 0.01)).toBe(true);
+  });
+});

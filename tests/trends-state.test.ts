@@ -7,7 +7,7 @@ import { syntheticWell } from '../src/app/demo/syntheticWell';
 import { Engine, toEngineWell } from '../src/core/engine/engine';
 import { sameEngineInputs } from '../src/core/interpretation';
 import { emptyHistory, recordChange, undo } from '../src/core/state/history';
-import { addWell, createProject, getWellEntry, setParam } from '../src/core/state/project';
+import { addWell, applyZoneEdit, createProject, getWellEntry, setParam } from '../src/core/state/project';
 import { deserializeProject, PROJECT_VERSION, serializeProject } from '../src/core/state/serialize';
 import { createSnapshot, restoreSnapshot } from '../src/core/state/snapshots';
 import { addTrend, duplicateTrend, removeTrend, setTrendRange, setTrendZone, toggleTrendPoint, updateTrend } from '../src/core/state/trends';
@@ -87,6 +87,22 @@ describe('recetas de tendencias', () => {
     expect(trendDepthRange(sel, [])).toEqual({ top: z.top, base: z.base });
     // Elegir otro tramo deja de seguir a la zona.
     expect(trends(setTrendRange(p, W, 't1', 7700, 7710))[0]!.selection.zoneId).toBeUndefined();
+  });
+
+  it('mover y después borrar la zona de una tendencia: queda el ÚLTIMO tramo de la zona, sin referencia colgada', () => {
+    const z = demo.zones[2]!;
+    const p = setTrendZone(addTrend(base(), W, spec()), W, 't1', z.id);
+    const zones = getWellEntry(p, W).interpretation.zones;
+    const moved = applyZoneEdit(p, W, zones.map((zz) => (zz.id === z.id ? { ...zz, top: z.top + 3 } : zz)));
+    expect(trends(moved)[0]!.selection).toMatchObject({ zoneId: z.id, top: z.top + 3, base: z.base });
+    const gone = applyZoneEdit(moved, W, zones.filter((zz) => zz.id !== z.id));
+    const sel = trends(gone)[0]!.selection;
+    expect(sel.zoneId).toBeUndefined();
+    expect(trendDepthRange(sel, getWellEntry(gone, W).interpretation.zones)).toEqual({ top: z.top + 3, base: z.base });
+    // Una edición de zonas que no toca tendencias conserva la lista por referencia.
+    const q = addTrend(base(), W, spec());
+    const q2 = applyZoneEdit(q, W, getWellEntry(q, W).interpretation.zones.slice(1));
+    expect(trends(q2)).toBe(trends(q));
   });
 
   it('el historial deshace un agregado con su etiqueta', () => {
