@@ -2,8 +2,10 @@
  * Columna izquierda: pozo, curvas medidas (con su semáforo de calidad), resumen del control de calidad,
  * curvas calculadas y zonas. El detalle de calidad vive en el paso Calidad del inspector y en el informe.
  */
-import { setActiveWell, updateCurveMeta } from '../../core/state/project';
-import type { Curve } from '../../core/well';
+import { useEffect, useState } from 'react';
+import { applyZoneEdit, setActiveWell, updateCurveMeta } from '../../core/state/project';
+import { deleteZone, updateZone, validateZoneName } from '../../core/state/zones';
+import type { Curve, Zone, ZoneKind } from '../../core/well';
 import { unitLabel } from '../../core/units';
 import type { OutputRecord } from '../../core/engine/engine';
 import { registry } from '../../modules';
@@ -11,6 +13,10 @@ import {
   Badge,
   Button,
   Chip,
+  ColorPicker,
+  Field,
+  TextField,
+  ZONE_PALETTE,
   DataTable,
   EmptyState,
   Icon,
@@ -38,6 +44,7 @@ export function WellPanel() {
   const commit = useProject((s) => s.commit);
   const result = useResults((s) => s.result);
   const editingZoneId = useUi((s) => s.editingZoneId);
+  const marking = useUi((s) => s.zoneMarking);
   const setUi = useUi((s) => s.set);
   const { states, suggested } = useFlow();
 
@@ -99,7 +106,7 @@ export function WellPanel() {
           aria-label={`Rol de ${c.mnemonic}`}
           value={c.role ?? ''}
           options={roleOptions}
-          onChange={(v) => commit('Asignar rol', (p) => updateCurveMeta(p, well.id, c.id, { role: v || null }))}
+          onChange={(v) => commit(`Asignar rol a ${c.mnemonic}`, (p) => updateCurveMeta(p, well.id, c.id, { role: v || null }))}
         />
       ),
     },
@@ -220,13 +227,21 @@ export function WellPanel() {
         )}
       </Section>
 
-      <Section title="Zonas" meta={interpretation.zones.length || undefined}>
+      <Section
+        title="Zonas"
+        meta={interpretation.zones.length || undefined}
+        actions={
+          <Button size="sm" variant={marking ? 'primary' : 'ghost'} icon="zone-add" aria-pressed={marking} onClick={() => setUi({ zoneMarking: !marking })} title="Arrastrá sobre el perfil para marcar una zona nueva">
+            Marcar
+          </Button>
+        }
+      >
         {interpretation.zones.length === 0 ? (
           <EmptyState
             size="sm"
             icon="layers"
             title="El pozo no tiene zonas"
-            description="Cargá un archivo con una columna de zona (p. ej. ZONA). Sin zonas, los parámetros valen para todo el pozo."
+            description="Usá «Marcar» y arrastrá sobre el perfil, o cargá un archivo con una columna de zona (p. ej. ZONA). Sin zonas, los parámetros valen para todo el pozo."
           />
         ) : (
           <>
@@ -263,12 +278,86 @@ export function WellPanel() {
                   </Chip>
                 </>
               ) : (
-                <span className="well-panel__hint">Elegí una zona para editar sus parámetros; sin elegir, se editan los globales.</span>
+                <span className="well-panel__hint">Elegí una zona para editar sus parámetros; sin elegir, se editan los globales. Los topes se mueven arrastrándolos en el perfil.</span>
               )}
             </div>
+            {editingZone && <ZoneEditor key={editingZone.id} wellId={well.id} zone={editingZone} zones={interpretation.zones} onDeleted={() => setUi({ editingZoneId: null })} />}
           </>
         )}
       </Section>
+    </div>
+  );
+}
+
+const KIND_OPTIONS: { value: ZoneKind; label: string }[] = [
+  { value: 'formation', label: 'Formación' },
+  { value: 'reservoir', label: 'Reservorio' },
+  { value: 'seal', label: 'Sello' },
+  { value: 'other', label: 'Otra' },
+];
+
+/** Nombre, color y tipo de la zona elegida, y borrarla. Los topes se editan sobre el perfil. */
+function ZoneEditor({ wellId, zone, zones, onDeleted }: { wellId: string; zone: Zone; zones: readonly Zone[]; onDeleted(): void }) {
+  const commit = useProject((s) => s.commit);
+  const [name, setName] = useState(zone.name);
+  const [confirm, setConfirm] = useState(false);
+  useEffect(() => setName(zone.name), [zone.name]);
+  const error = name === zone.name ? null : validateZoneName(zones, zone.id, name);
+  const save = (patch: Partial<Pick<Zone, 'name' | 'color' | 'kind'>>, label: string) => {
+    commit(label, (p) => applyZoneEdit(p, wellId, updateZone(zones, zone.id, patch)));
+  };
+  const saveName = () => {
+    if (name.trim() === zone.name || error) return;
+    save({ name }, `Renombrar zona ${zone.name}`);
+  };
+  return (
+    <div className="well-panel__zone-editor" aria-label={`Zona ${zone.name}`} role="group">
+      <div className="well-panel__zone-grid">
+        <Field label="Nombre" htmlFor={`zn-${zone.id}`} error={error}>
+          <TextField
+            id={`zn-${zone.id}`}
+            size="sm"
+            block
+            value={name}
+            invalid={!!error}
+            onChange={setName}
+            onBlur={saveName}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') saveName();
+              if (e.key === 'Escape') setName(zone.name);
+            }}
+          />
+        </Field>
+        <Field label="Tipo" htmlFor={`zk-${zone.id}`}>
+          <Select id={`zk-${zone.id}`} size="sm" block value={zone.kind} options={KIND_OPTIONS} onChange={(v) => save({ kind: v as ZoneKind }, `Cambiar tipo de ${zone.name}`)} />
+        </Field>
+      </div>
+      <Field label="Color">
+        <ColorPicker aria-label={`Cambiar color de ${zone.name}`} swatches={ZONE_PALETTE} value={zone.color} onChange={(c) => save({ color: c }, `Cambiar color de ${zone.name}`)} />
+      </Field>
+      <p className="well-panel__hint num">
+        {fmt(zone.top)} – {fmt(zone.base)} m · {fmt(zone.base - zone.top, 1)} m de espesor
+      </p>
+      {confirm ? (
+        <div className="well-panel__confirm" role="alert">
+          <span>¿Borrar la zona {zone.name}? Sus parámetros propios se pierden.</span>
+          <div className="well-panel__confirm-actions">
+            <Button size="sm" variant="danger" onClick={() => {
+              commit(`Borrar zona ${zone.name}`, (p) => applyZoneEdit(p, wellId, deleteZone(zones, zone.id)));
+              onDeleted();
+            }}>
+              Borrar
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setConfirm(false)}>
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button size="sm" variant="ghost" icon="trash" className="well-panel__delete" onClick={() => setConfirm(true)}>
+          Borrar zona
+        </Button>
+      )}
     </div>
   );
 }

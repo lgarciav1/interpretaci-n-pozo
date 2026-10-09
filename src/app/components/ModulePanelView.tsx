@@ -38,7 +38,7 @@ export function ModulePanelView({ module }: { module: AnyModule }) {
   const setLocal = (key: string, value: ParamValue) => {
     const spec = module.params[key]!;
     const storage = paramStorageKey(module.id, key, spec);
-    commit(`Parámetro ${spec.label}`, (p) => setParam(p, wellId, storage, value, zone && paramScope(spec) === 'zone' ? zone.id : null));
+    commit(`Cambiar ${spec.label}`, (p) => setParam(p, wellId, storage, value, zone && paramScope(spec) === 'zone' ? zone.id : null));
   };
   const alternatives = curvePorts.filter((port) => (result?.candidates[port]?.length ?? 0) > 1);
   const comparing = interpretation.compare.includes(module.id);
@@ -76,7 +76,7 @@ export function ModulePanelView({ module }: { module: AnyModule }) {
         {alternatives.length > 0 && (
           <Tooltip content="Calcula este método aunque no sea el elegido, para compararlo con el que alimenta la cadena.">
             <span>
-              <Switch checked={comparing} onChange={(on) => commit('Comparar método', (p) => setCompare(p, wellId, module.id, on))} label="Comparar" />
+              <Switch checked={comparing} onChange={(on) => commit(on ? `Comparar métodos de ${module.name}` : `Dejar de comparar ${module.name}`, (p) => setCompare(p, wellId, module.id, on))} label="Comparar" />
             </span>
           </Tooltip>
         )}
@@ -95,7 +95,7 @@ export function ModulePanelView({ module }: { module: AnyModule }) {
                     value={chosen ? keyOf(chosen) : ''}
                     onChange={(v) => {
                       const [kind, id] = v.split(/:(.*)/) as [string, string];
-                      commit(`Método de ${port}`, (p) => setSource(p, wellId, port, kind === 'curve' ? { kind: 'curve', curveId: id } : { kind: 'module', moduleId: id }));
+                      commit(`Elegir fuente de ${port}`, (p) => setSource(p, wellId, port, kind === 'curve' ? { kind: 'curve', curveId: id } : { kind: 'module', moduleId: id }));
                     }}
                     options={candidates.map((c) => ({
                       value: keyOf(c),
@@ -154,9 +154,9 @@ export function ModulePanelView({ module }: { module: AnyModule }) {
                   onChange={(v) => setLocal(key, v)}
                   {...(sharedWith ? { sharedWith } : {})}
                   {...(zone && zoneValue !== undefined
-                    ? { onReset: () => commit('Quitar valor de zona', (p) => clearParam(p, wellId, storage, zone.id)), resetLabel: 'usar global' }
+                    ? { onReset: () => commit(`Usar ${spec.label} global en ${zone.name}`, (p) => clearParam(p, wellId, storage, zone.id)), resetLabel: 'usar global' }
                     : !zone && storage in interpretation.params.global
-                      ? { onReset: () => commit('Restablecer parámetro', (p) => clearParam(p, wellId, storage)), resetLabel: 'por defecto' }
+                      ? { onReset: () => commit(`Restablecer ${spec.label}`, (p) => clearParam(p, wellId, storage)), resetLabel: 'por defecto' }
                       : {})}
                 />
               );

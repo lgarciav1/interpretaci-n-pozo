@@ -19,3 +19,10 @@
 .well-panel__zone { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: var(--weight-medium); }
 .well-panel__swatch { width: 10px; height: 10px; flex: none; border-radius: 3px; box-shadow: inset 0 0 0 1px var(--color-border-strong); }
 .well-panel__editing { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-2-5); }
+
+/* Editor de la zona elegida */
+.well-panel__zone-editor { display: flex; flex-direction: column; gap: var(--space-2-5); margin-top: var(--space-3); padding: var(--space-3); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); background: var(--color-surface-subtle); }
+.well-panel__zone-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: var(--space-2); align-items: start; }
+.well-panel__delete { align-self: flex-start; margin-left: calc(var(--space-2) * -1); color: var(--color-error-text); }
+.well-panel__confirm { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-2) var(--space-2-5); border: 1px solid var(--color-error-border); border-radius: var(--radius-sm); background: var(--color-error-soft); color: var(--color-text); font-size: var(--text-sm); }
+.well-panel__confirm-actions { display: flex; gap: var(--space-2); }

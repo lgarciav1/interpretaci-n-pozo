@@ -6,6 +6,7 @@
  * Esto permite deshacer/rehacer guardando proyectos anteriores, y que el puente con el motor detecte cambios por
  * referencia.
  */
+import { emptyDisplay, isEmptyOverride, type CurveDisplayOverride, type DisplaySettings, type TrackSpec } from '../display';
 import { emptyInterpretation, sourceRefEquals, type Interpretation, type SourceRef } from '../interpretation';
 import type { ParamValue } from '../params';
 import type { RoleId } from '../roles';
@@ -46,6 +47,11 @@ export interface Project {
   wells: WellEntry[];
   activeWellId: string | null;
   snapshots: Snapshot[];
+  /**
+   * Pistas propias y overrides de escala/color del visor (docs/decisiones/0005-visor-multipista.md, D3).
+   * Fuera de `Interpretation`: no recalcula el motor ni entra en snapshots.
+   */
+  display: DisplaySettings;
 }
 
 let idCounter = 0;
@@ -56,7 +62,7 @@ export function makeId(prefix: string): string {
 }
 
 export function createProject(name = 'Proyecto sin nombre'): Project {
-  return { name, wells: [], activeWellId: null, snapshots: [] };
+  return { name, wells: [], activeWellId: null, snapshots: [], display: emptyDisplay() };
 }
 
 export function addWell(project: Project, well: Well, zones: Zone[] = []): Project {
@@ -170,6 +176,21 @@ export function setZones(project: Project, wellId: string, zones: Zone[]): Proje
   });
 }
 
+/**
+ * Guarda una edición de zonas (recetas de `zones.ts`). Si una zona se partió, la de abajo (`clone.to`) hereda los
+ * parámetros de la original (`clone.from`): es la misma roca. Cambiar zonas cambia la firma de geometría del motor,
+ * que recalcula los parámetros por zona.
+ */
+export function applyZoneEdit(project: Project, wellId: string, zones: Zone[], clone: { from: string; to: string } | null = null): Project {
+  const entry = getWellEntry(project, wellId);
+  if (zones === entry.interpretation.zones && !clone) return project;
+  const next = setZones(project, wellId, zones);
+  if (!clone) return next;
+  const params = entry.interpretation.params.zones[clone.from];
+  if (!params || !zones.some((z) => z.id === clone.to)) return next;
+  return updateInterpretation(next, wellId, (i) => ({ ...i, params: { ...i.params, zones: { ...i.params.zones, [clone.to]: { ...params } } } }));
+}
+
 /** Cambia metadatos de una curva (rol, unidad, descripción). Los datos conservan su referencia. */
 export function updateCurveMeta(
   project: Project,
@@ -199,4 +220,41 @@ export function setStepMark(project: Project, wellId: string, stepId: string, ma
     else delete marks[stepId];
     return { ...e, progress: { ...e.progress, marks } };
   });
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Visualización (pistas y overrides del visor)
+
+/** Fija las pistas propias de un espacio de trabajo (null = volver a la plantilla de fábrica). */
+export function setTrackLayout(project: Project, workspace: string, tracks: TrackSpec[] | null): Project {
+  const has = workspace in project.display.layouts;
+  if (!tracks && !has) return project;
+  const layouts = { ...project.display.layouts };
+  if (tracks) layouts[workspace] = tracks;
+  else delete layouts[workspace];
+  return { ...project, display: { ...project.display, layouts } };
+}
+
+/** Override de dibujo para un rol en todo el proyecto (null o vacío = quitarlo). */
+export function setRoleDisplay(project: Project, role: string, override: CurveDisplayOverride | null): Project {
+  const roles = { ...project.display.roles };
+  if (isEmptyOverride(override)) {
+    if (!(role in roles)) return project;
+    delete roles[role];
+  } else roles[role] = override!;
+  return { ...project, display: { ...project.display, roles } };
+}
+
+/** Override de dibujo para una curva de un pozo (null o vacío = quitarlo). */
+export function setCurveDisplay(project: Project, wellId: string, curveId: string, override: CurveDisplayOverride | null): Project {
+  getWellEntry(project, wellId);
+  const forWell = { ...(project.display.curves[wellId] ?? {}) };
+  if (isEmptyOverride(override)) {
+    if (!(curveId in forWell)) return project;
+    delete forWell[curveId];
+  } else forWell[curveId] = override!;
+  const curves = { ...project.display.curves };
+  if (Object.keys(forWell).length) curves[wellId] = forWell;
+  else delete curves[wellId];
+  return { ...project, display: { ...project.display, curves } };
 }

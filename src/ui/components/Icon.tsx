@@ -189,6 +189,18 @@ const ICONS = {
     </>
   ),
   play: <path d="M7 5l12 7-12 7z" />,
+  undo: (
+    <>
+      <path d="M9 14L4.5 9.5 9 5" />
+      <path d="M4.5 9.5h10a5 5 0 010 10H11" />
+    </>
+  ),
+  redo: (
+    <>
+      <path d="M15 14l4.5-4.5L15 5" />
+      <path d="M19.5 9.5h-10a5 5 0 000 10H13" />
+    </>
+  ),
   refresh: (
     <>
       <path d="M20 12a8 8 0 01-14 5.3M4 12a8 8 0 0114-5.3" />
@@ -207,6 +219,19 @@ const ICONS = {
       <circle cx="12" cy="12" r="2.8" />
     </>
   ),
+  'eye-off': (
+    <>
+      <path d="M9.9 5.8A9.8 9.8 0 0112 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 01-2.6 3.4M6.4 7.4A16.6 16.6 0 002.5 12S6 18.5 12 18.5a9.4 9.4 0 004.6-1.2" />
+      <path d="M9.9 10a2.8 2.8 0 004 4M4 4l16 16" />
+    </>
+  ),
+  'zone-add': (
+    <>
+      <path d="M3.5 6h17M3.5 18h17" />
+      <path d="M6 9.5h7v5H6z" />
+      <path d="M17.5 9.5v5M15 12h5" />
+    </>
+  ),
   grip: (
     <>
       <circle cx="9.5" cy="7" r="0.9" fill="currentColor" />
@@ -217,6 +242,19 @@ const ICONS = {
       <circle cx="14.5" cy="17" r="0.9" fill="currentColor" />
     </>
   ),
+  'zoom-in': (
+    <>
+      <circle cx="10.5" cy="10.5" r="6" />
+      <path d="M15 15l5 5M8 10.5h5M10.5 8v5" />
+    </>
+  ),
+  'zoom-out': (
+    <>
+      <circle cx="10.5" cy="10.5" r="6" />
+      <path d="M15 15l5 5M8 10.5h5" />
+    </>
+  ),
+  'fit-height': <path d="M12 3.5v17M8.5 7L12 3.5 15.5 7M8.5 17l3.5 3.5 3.5-3.5M5 12h3M16 12h3" />,
   dot: <circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none" />,
 } satisfies Record<string, ReactElement>;
 

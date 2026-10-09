@@ -1,10 +1,11 @@
 /** Barra superior: marca, proyecto y pozo, espacio de trabajo, estado del motor y acciones agrupadas. */
 import { useRef } from 'react';
 import { WORKSPACES, type WorkspaceId } from '../../core/workspaces';
-import { BrandMark, Button, Icon, Menu, SegmentedControl, Spinner, StatusDot, ThemeToggle, Tooltip, formatNumber } from '../../ui';
+import { BrandMark, Button, Icon, IconButton, Menu, SegmentedControl, Spinner, StatusDot, ThemeToggle, Tooltip, formatNumber } from '../../ui';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useResults } from '../store/results';
 import { useUi } from '../store/ui';
+import { IS_MAC, REDO_SHORTCUT, UNDO_SHORTCUT, redoChange, undoChange } from './historyActions';
 import { openProjectFile, saveProject } from './projectActions';
 
 const WORKSPACE_ICON: Record<WorkspaceId, 'sliders' | 'mountain'> = { petrophysics: 'sliders', geology: 'mountain' };
@@ -30,6 +31,34 @@ function EngineStatus() {
         <span className="num">{label}</span>
       </button>
     </Tooltip>
+  );
+}
+
+/** Deshacer y rehacer: qué cambio deshace cada uno en el tooltip, deshabilitados sin nada que hacer. */
+function HistoryButtons() {
+  const undoLabel = useProject((s) => s.undoLabel);
+  const redoLabel = useProject((s) => s.redoLabel);
+  return (
+    <div className="shell-history" role="group" aria-label="Historial de cambios">
+      <IconButton
+        icon="undo"
+        label={undoLabel ? `Deshacer: ${undoLabel}` : 'Nada para deshacer'}
+        hint={UNDO_SHORTCUT}
+        aria-keyshortcuts={IS_MAC ? 'Meta+Z' : 'Control+Z'}
+        disabled={!undoLabel}
+        onClick={undoChange}
+        data-testid="undo"
+      />
+      <IconButton
+        icon="redo"
+        label={redoLabel ? `Rehacer: ${redoLabel}` : 'Nada para rehacer'}
+        hint={REDO_SHORTCUT}
+        aria-keyshortcuts={IS_MAC ? 'Meta+Shift+Z' : 'Control+Shift+Z Control+Y'}
+        disabled={!redoLabel}
+        onClick={redoChange}
+        data-testid="redo"
+      />
+    </div>
   );
 }
 
@@ -65,6 +94,8 @@ export function TopBar() {
       />
       <span className="shell-spacer" />
       <EngineStatus />
+      <HistoryButtons />
+      <span className="shell-topbar__divider" aria-hidden="true" />
       <div className="shell-actions">
         <Button variant="primary" icon="upload" onClick={() => setUi({ loadDialog: {} })}>
           Cargar pozo

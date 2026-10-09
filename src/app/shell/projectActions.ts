@@ -22,9 +22,14 @@ export async function saveProject(): Promise<void> {
 
 export async function openProjectFile(file: File): Promise<void> {
   try {
-    useProject.getState().replace(await deserializeProject(await file.text()));
+    const warnings: string[] = [];
+    useProject.getState().replace(await deserializeProject(await file.text(), { onWarning: (m) => warnings.push(m) }));
     useUi.getState().set({ activeStepId: null, activeModuleId: null, editingZoneId: null });
     toast({ title: 'Proyecto abierto', description: file.name, tone: 'ok' });
+    if (warnings.length) {
+      console.warn(warnings.join('\n'));
+      toast({ title: 'Se descartó parte de la configuración del visor', description: warnings.length === 1 ? warnings[0]! : `${warnings[0]} (y ${warnings.length - 1} más; detalle en la consola)`, tone: 'warn' });
+    }
   } catch (err) {
     toast({ title: 'No se pudo abrir el proyecto', description: err instanceof Error ? err.message : String(err), tone: 'error' });
   }
