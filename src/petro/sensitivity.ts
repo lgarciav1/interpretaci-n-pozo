@@ -15,7 +15,7 @@
  * modo que una muestra exactamente sobre un umbral queda del lado correcto del borde.
  *
  * Referencias: Worthington, P.F. y Cosentino, L. (2005), "The role of cut-offs in integrated reservoir studies",
- * SPE Reservoir Evaluation & Engineering 8(4); Asquith y Krygowski (2004), cap. 6.
+ * SPE Reservoir Evaluation & Engineering 8(4); Asquith y Krygowski (2004).
  */
 import type { Cutoffs } from './cutoffs';
 

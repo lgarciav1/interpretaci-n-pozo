@@ -131,7 +131,7 @@ export default defineModule({
       { latex: 'R_w(T) = R_{w,24}\\,\\frac{24 + 21{,}5}{T + 21{,}5}', description: 'Corrección de Arps, temperaturas en °C.' },
     ],
     references: [
-      'Asquith, G. y Krygowski, D. (2004). Basic Well Log Analysis, 2.ª ed. AAPG Methods in Exploration 16, cap. 5 (Rwa).',
+      'Asquith, G. y Krygowski, D. (2004). Basic Well Log Analysis, 2.ª ed. AAPG Methods in Exploration 16 (Rwa).',
       'Arps, J. J. (1953). The effect of temperature on the density and electrical resistivity of sodium chloride solutions. Trans. AIME 198.',
     ],
     notes: 'El percentil elegido por encima del mínimo descarta valores espurios de Rwa (RT bajo por derrumbes, φ subestimada).',

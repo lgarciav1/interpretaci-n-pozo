@@ -12,7 +12,7 @@
  * Verificación de libro: 1 acre · 1 ft de hφSh = 1 con B = 1 → 43 560 ft³ = 7758,4 bbl (la constante «7758 bbl por
  * acre-pie» de la ingeniería de reservorios).
  *
- * Referencias: Dake, L.P. (1978), "Fundamentals of Reservoir Engineering", cap. 2 (7758 bbl/acre-ft);
+ * Referencias: Dake, L.P. (1978), "Fundamentals of Reservoir Engineering" (7758 bbl/acre-ft);
  * Asquith y Krygowski (2004), "Basic Well Log Analysis", AAPG Methods in Exploration 16 (h·φ·Sh).
  */
 

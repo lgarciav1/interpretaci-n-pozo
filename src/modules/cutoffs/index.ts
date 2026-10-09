@@ -52,7 +52,7 @@ export default defineModule({
       { latex: 'NET_{pay} = 1 \\iff NET_{res} = 1\\ \\wedge\\ S_w \\le S_{w,max}', description: 'Si no, 0.' },
     ],
     references: [
-      'Asquith, G. y Krygowski, D. (2004). Basic Well Log Analysis, 2.ª ed. AAPG Methods in Exploration 16, cap. 6.',
+      'Asquith, G. y Krygowski, D. (2004). Basic Well Log Analysis, 2.ª ed. AAPG Methods in Exploration 16.',
       'Worthington, P. F. y Cosentino, L. (2005). The role of cut-offs in integrated reservoir studies. SPE Reservoir Evaluation & Engineering 8(4).',
     ],
   },

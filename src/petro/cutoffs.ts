@@ -10,7 +10,7 @@
  *   Por construcción pay ⊆ reservorio (NET_PAY = 1 implica NET_RES = 1).
  *
  * Los cortes son decisiones del intérprete (no hay valores «de libro»); los valores usuales para una arenisca
- * (Vsh ≤ 0,4–0,5; φ ≥ 0,06–0,10; Sw ≤ 0,5–0,6) se discuten en Asquith y Krygowski (2004), cap. 6.
+ * (Vsh ≤ 0,4–0,5; φ ≥ 0,06–0,10; Sw ≤ 0,5–0,6) se discuten en Asquith y Krygowski (2004).
  *
  * Referencias: Asquith y Krygowski (2004), "Basic Well Log Analysis", AAPG Methods in Exploration 16
  * (espesor neto de reservorio y de pay por cutoffs); Worthington, P.F. y Cosentino, L. (2005), "The role of

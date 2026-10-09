@@ -118,7 +118,7 @@ export default defineModule({
       { latex: 'h\\phi S_h = \\sum h_i\\,\\phi_i\\,(1 - S_{w,i})', description: 'Sumado sobre el pay neto.' },
     ],
     references: [
-      'Dake, L. P. (1978). Fundamentals of Reservoir Engineering. Elsevier, cap. 2.',
+      'Dake, L. P. (1978). Fundamentals of Reservoir Engineering. Elsevier.',
       'Asquith, G. y Krygowski, D. (2004). Basic Well Log Analysis, 2.ª ed. AAPG Methods in Exploration 16.',
     ],
     notes:

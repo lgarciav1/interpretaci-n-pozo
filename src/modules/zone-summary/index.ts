@@ -142,7 +142,7 @@ export default defineModule({
       { latex: 'kh = \\sum h_i\\,k_i', description: 'Capacidad de flujo del pay, en mD·m.' },
     ],
     references: [
-      'Asquith, G. y Krygowski, D. (2004). Basic Well Log Analysis, 2.ª ed. AAPG Methods in Exploration 16, cap. 6.',
+      'Asquith, G. y Krygowski, D. (2004). Basic Well Log Analysis, 2.ª ed. AAPG Methods in Exploration 16.',
       'Worthington, P. F. y Cosentino, L. (2005). The role of cut-offs in integrated reservoir studies. SPE Reservoir Evaluation & Engineering 8(4).',
     ],
     notes:

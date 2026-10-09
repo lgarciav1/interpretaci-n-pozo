@@ -18,7 +18,7 @@
  * a °F (exacto), y la diferencia con la forma redondeada es < 0,1 % en rangos de yacimiento.
  *
  * Referencias: Arps, J.J. (1953), "The effect of temperature on the density and electrical resistivity of sodium
- * chloride solutions", Trans. AIME 198; Asquith y Krygowski (2004), cap. 4-5, ecuación de Arps; Schlumberger,
+ * chloride solutions", Trans. AIME 198; Asquith y Krygowski (2004), ecuación de Arps; Schlumberger,
  * "Log Interpretation Charts", carta Gen-9.
  */
 

@@ -64,7 +64,7 @@ export default defineModule({
       },
     ],
     references: [
-      'Asquith, G. y Krygowski, D. (2004). Basic Well Log Analysis, 2.ª ed. AAPG Methods in Exploration 16, cap. 5.',
+      'Asquith, G. y Krygowski, D. (2004). Basic Well Log Analysis, 2.ª ed. AAPG Methods in Exploration 16, cap. 4.',
       'Wyllie, M. R. J., Gregory, A. R. y Gardner, L. W. (1956). Elastic wave velocities in heterogeneous and porous media. Geophysics 21(1).',
     ],
   },

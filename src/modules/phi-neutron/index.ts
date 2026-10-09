@@ -18,7 +18,7 @@ export default defineModule({
   params: {
     matrixOffset: param.number({
       label: 'Corrección de matriz',
-      tooltip: 'Se resta a la lectura del neutrón. Con NPHI en unidades de caliza leído en arenisca, ≈ +0,04 v/v.',
+      tooltip: 'Se suma a la lectura del neutrón. Con NPHI en unidades de caliza y la zona en arenisca, ≈ +0,04 v/v (el neutrón de caliza lee de menos en arenisca).',
       default: 0,
       min: -0.1,
       max: 0.1,
@@ -36,8 +36,8 @@ export default defineModule({
     return { phin: out };
   },
   docs: {
-    summary: 'Porosidad neutrónica: la lectura del neutrón menos la corrección por litología de la matriz.',
-    equations: [{ latex: '\\phi_N = \\phi_{N,leida} - \\Delta_{matriz}', description: 'Se recorta a [0, 0,5].' }],
+    summary: 'Porosidad neutrónica: la lectura del neutrón más la corrección por litología de la matriz.',
+    equations: [{ latex: '\\phi_N = \\phi_{N,leida} + \\Delta_{matriz}', description: 'Se recorta a [0, 0,5].' }],
     references: ['Asquith, G. y Krygowski, D. (2004). Basic Well Log Analysis, 2.ª ed. AAPG Methods in Exploration 16.'],
   },
 });

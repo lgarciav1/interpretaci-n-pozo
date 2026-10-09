@@ -119,7 +119,7 @@ export default defineModule({
       { latex: 'R_{we} = R_{mfe}\\,10^{SSP/K}', description: 'Se toma Rw ≈ Rwe (aproximación: no se usa la carta SP-2).' },
     ],
     references: [
-      'Asquith, G. y Krygowski, D. (2004). Basic Well Log Analysis, 2.ª ed. AAPG Methods in Exploration 16, cap. 4 (SP).',
+      'Asquith, G. y Krygowski, D. (2004). Basic Well Log Analysis, 2.ª ed. AAPG Methods in Exploration 16 (SP).',
       'Schlumberger (2009). Log Interpretation Charts, cartas SP-1 y SP-2.',
     ],
     notes:

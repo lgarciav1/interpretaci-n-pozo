@@ -130,7 +130,7 @@ export const RMFE_THRESHOLD_75F = 0.1;
 export const RMFE_FACTOR = 0.85;
 
 /**
- * Rmfe desde Rmf a temperatura de formación (Asquith y Krygowski 2004, cap. SP): si Rmf a 75 °F > 0,1 Ω·m,
+ * Rmfe desde Rmf a temperatura de formación (Asquith y Krygowski 2004, sección SP): si Rmf a 75 °F > 0,1 Ω·m,
  * Rmfe = 0,85·Rmf(Tf); si no, Rmfe ≈ Rmf(Tf) (la carta SP-2 no está implementada: aproximación, el módulo avisa).
  * Rmf ≤ 0 o no finito → NaN.
  * @param rmfAtTf  Rmf corregida a la temperatura de formación (Ω·m), > 0

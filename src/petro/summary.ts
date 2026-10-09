@@ -19,7 +19,7 @@
  * Neto cero → promedios NaN y sumas 0. Varios rangos se acumulan (sumas) y los promedios se recalculan desde las
  * sumas, no promediando promedios; los rangos no deben solaparse.
  *
- * Referencias: Asquith y Krygowski (2004), "Basic Well Log Analysis", AAPG Methods in Exploration 16, cap. 6
+ * Referencias: Asquith y Krygowski (2004), "Basic Well Log Analysis", AAPG Methods in Exploration 16
  * (espesor neto, φ promedio ponderada por espesor, Sw promedio ponderada por porosidad); Worthington y Cosentino
  * (2005), SPE Reservoir Evaluation & Engineering 8(4).
  */

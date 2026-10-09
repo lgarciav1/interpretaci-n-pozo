@@ -21,7 +21,7 @@
  *    (el lineal es el más pesimista; p. ej. con IGR = 0,5: 0,5 / 0,33 / 0,307 / 0,25 / 0,216).
  *
  * Referencia: Asquith, G. y Krygowski, D. (2004), "Basic Well Log Analysis", 2ª ed., AAPG Methods in
- * Exploration 16, cap. 4 (ecuaciones de Vsh); Larionov (1969), Clavier et al. (1971), Steiber (1970).
+ * Exploration 16 (ecuaciones de Vsh); Larionov (1969), Clavier et al. (1971), Steiber (1973).
  */
 
 /** Métodos de Vsh disponibles (ids estables, usados por el esquema de parámetros del módulo). */

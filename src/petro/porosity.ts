@@ -15,7 +15,7 @@
  *   Corr. por arcilla φcorr = φ − Vsh · φsh
  *   Efectiva          φe = φt · (1 − Vsh)
  *
- * Referencias: Asquith y Krygowski (2004), "Basic Well Log Analysis", AAPG Methods in Exploration 16, cap. 5
+ * Referencias: Asquith y Krygowski (2004), "Basic Well Log Analysis", AAPG Methods in Exploration 16, cap. 4
  * (densidad, sónico, neutrón, densidad–neutrón, porosidad efectiva); Wyllie et al. (1956); Raymer, Hunt y
  * Gardner (1980), "An improved sonic transit time-to-porosity transform", SPWLA 21st Annual Logging Symposium;
  * Schlumberger, "Log Interpretation Charts" (cartas Por-). Valores típicos de matriz (Asquith): arenisca
@@ -236,7 +236,7 @@ export function shaleCorrectedPorosityInto(
 }
 
 /**
- * Porosidad efectiva a partir de la total: φe = φt · (1 − Vsh) (Asquith y Krygowski, cap. 5).
+ * Porosidad efectiva a partir de la total: φe = φt · (1 − Vsh) (Asquith y Krygowski, cap. 4).
  * Equivale a `shaleCorrectedPorosity` con φsh = φt, es decir, supone que la porosidad aparente de la arcilla
  * es la de la propia formación. Se ofrece como aproximación cuando NO hay una φsh de referencia; si hay una
  * lutita limpia en el pozo, usar `shaleCorrectedPorosity` (más rigurosa: usa la φsh realmente medida).

@@ -122,3 +122,23 @@ describe('entradas opcionales', () => {
     expect([...(fixed.outputs.find((o) => o.key === 'sw:SW')!.value as Float64Array)]).toEqual([11, 12, 13, 14]);
   });
 });
+
+describe('faltantes de módulos que nadie consume', () => {
+  // 'extra' es la única fuente de PERM y nadie la consume: activa por defecto, sin curva GR.
+  const reg = createRegistry([linearModule('extra', 'GR', 'PERM'), linearModule('sw', 'RT', 'SW')]);
+  const metas = [{ id: 'AT90', mnemonic: 'AT90', role: 'RT' }];
+  const missing = (plan: ReturnType<typeof planGraph>) => plan.diagnostics.filter((d) => d.code === 'missing-input' && d.moduleId === 'extra');
+
+  it('por defecto se informa como info', () => {
+    expect(missing(planGraph(reg, metas, interp())).map((d) => d.level)).toEqual(['info']);
+  });
+
+  it('si el usuario lo pidió para comparar, sigue siendo error (no se esconde)', () => {
+    expect(missing(planGraph(reg, metas, interp({ compare: ['extra'] }))).map((d) => d.level)).toEqual(['error']);
+  });
+
+  it('si el usuario lo eligió como fuente, sigue siendo error', () => {
+    const plan = planGraph(reg, metas, interp({ sources: { PERM: { kind: 'module', moduleId: 'extra' } } }));
+    expect(missing(plan).map((d) => d.level)).toEqual(['error']);
+  });
+});
