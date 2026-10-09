@@ -10,6 +10,7 @@ import { emptyDisplay, isEmptyOverride, type CurveDisplayOverride, type DisplayS
 import { emptyInterpretation, sourceRefEquals, type Interpretation, type SourceRef } from '../interpretation';
 import type { ParamValue } from '../params';
 import type { RoleId } from '../roles';
+import type { TrendSpec } from '../trends';
 import type { UnitId } from '../units';
 import type { Curve, Well, Zone } from '../well';
 
@@ -172,8 +173,32 @@ export function setZones(project: Project, wellId: string, zones: Zone[]): Proje
   if (ids.size !== zones.length) throw new Error('Hay zonas con ids repetidos.');
   return updateInterpretation(project, wellId, (i) => {
     const zoneParams = Object.fromEntries(Object.entries(i.params.zones).filter(([id]) => ids.has(id)));
-    return { ...i, zones, params: { ...i.params, zones: zoneParams } };
+    return { ...i, zones, params: { ...i.params, zones: zoneParams }, trends: trendsFollowingZones(i.trends, i.zones, zones) };
   });
+}
+
+/**
+ * Tendencias que usan una zona como tramo: `top`/`base` guardan el último tramo de la zona (respaldo, D2 de la
+ * decisión 0008). Si la zona se borra, la tendencia se queda con ese tramo y deja de referirla. Sin tendencias
+ * afectadas, devuelve la misma lista (no cambia la identidad).
+ */
+function trendsFollowingZones(trends: TrendSpec[], prev: readonly Zone[], next: readonly Zone[]): TrendSpec[] {
+  let changed = false;
+  const out = trends.map((t) => {
+    const zid = t.selection.zoneId;
+    if (!zid) return t;
+    const z = next.find((zz) => zz.id === zid);
+    if (z) {
+      if (t.selection.top === z.top && t.selection.base === z.base) return t;
+      changed = true;
+      return { ...t, selection: { ...t.selection, top: z.top, base: z.base } };
+    }
+    const old = prev.find((zz) => zz.id === zid);
+    const { zoneId: _gone, ...rest } = t.selection;
+    changed = true;
+    return { ...t, selection: old ? { ...rest, top: old.top, base: old.base } : rest };
+  });
+  return changed ? out : trends;
 }
 
 /**

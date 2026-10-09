@@ -10,6 +10,7 @@ import { registry } from '../../modules';
 import { Badge, DataTable, EmptyState, Section, StatusDot, formatNumber, useFlash, type IconName, type Tone } from '../../ui';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useResults } from '../store/results';
+import { TrendsPanel } from '../trends/TrendsPanel';
 
 export interface DockPanelDef {
   id: string;
@@ -237,6 +238,13 @@ export const DOCK_PANELS: readonly DockPanelDef[] = [
     icon: 'warning',
     component: DiagnosticsPanel,
     useBadge: () => useResults((s) => s.result?.diagnostics.length || null),
+  },
+  {
+    id: 'trends',
+    title: 'Tendencias',
+    icon: 'trend',
+    component: TrendsPanel,
+    useBadge: () => useProject((s) => selectActiveEntry(s)?.interpretation.trends.length || null),
   },
   { id: 'engine', title: 'Motor', icon: 'cpu', component: EnginePanel },
 ];

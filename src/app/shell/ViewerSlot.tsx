@@ -6,11 +6,11 @@
  *   resueltas con las curvas medidas y las calculadas del motor (activas y alternativas).
  * - Superposiciones: zonas (clic = editar la zona; arrastre de topes y modo «marcar zona», que guardan por
  *   `commit`), calidad del pozo y las que aporten los módulos.
+ * - Tendencias (`src/app/trends/`): herramienta «elegir tramo» / «dibujar a mano» y sus avisos en la barra.
  * - Encabezado de pozo, editor de escalas (popover anclado a la curva) y modo «marcar zona».
  * - Publica el cursor y el tramo visible en `useViewer` para otros paneles.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ClientResult } from '../../core/engine/client';
 import { activeWellEntry, applyZoneEdit, makeId, setCurveDisplay, setRoleDisplay } from '../../core/state/project';
 import { defaultZoneName } from '../../core/state/zones';
 import type { Well } from '../../core/well';
@@ -20,7 +20,7 @@ import { patchOverride } from '../../viewer/curveEdit';
 import type { ViewerData, ViewerZone } from '../../viewer/overlay';
 import { createQcOverlay } from '../../viewer/overlays/qc';
 import { createZonesOverlay } from '../../viewer/overlays/zones';
-import { resolveTracks, type ComputedCurve, type HiddenCurve, type ResolvedTrack } from '../../viewer/resolve';
+import { resolveTracks, type HiddenCurve, type ResolvedTrack } from '../../viewer/resolve';
 import { layoutFor, STACK_ROLE_HINTS, withOverlayTracks } from '../../viewer/templates';
 import { WellHeader } from '../../viewer/WellHeader';
 import { WellViewer } from '../../viewer/WellViewer';
@@ -29,7 +29,10 @@ import { useWellQc } from '../store/qc';
 import { useResults } from '../store/results';
 import { useUi } from '../store/ui';
 import { useViewer } from '../store/viewer';
+import { computedCurves } from '../computed';
 import { moduleOverlays } from '../viewerOverlays';
+import { startTrendTool, stopTrendTool, TREND_OVERLAYS } from '../trends/actions';
+import { useTrendsUi } from '../trends/store';
 import { CurveEditor } from './CurveEditor';
 
 const activeWell = () => activeWellEntry(useProject.getState().project);
@@ -56,6 +59,8 @@ const BUILTIN_OVERLAYS = [
     },
   }),
   createQcOverlay(),
+  // Tendencias y gradientes (docs/decisiones/0008): bandas del tramo debajo de las curvas, líneas encima.
+  ...TREND_OVERLAYS,
 ];
 /** Incorporadas + las de los módulos (con ids que no choquen con las incorporadas). */
 const OVERLAYS = [...BUILTIN_OVERLAYS, ...moduleOverlays(BUILTIN_OVERLAYS.map((o) => o.id))];
@@ -73,16 +78,6 @@ function depthKey(well: Well): string {
   return `${well.id}#${id}`;
 }
 
-function computedCurves(result: ClientResult | null, well: Well): ComputedCurve[] {
-  if (!result || result.wellId !== well.id) return [];
-  const out: ComputedCurve[] = [];
-  for (const o of result.outputs) {
-    if (o.kind !== 'curve' || !(o.value instanceof Float64Array)) continue;
-    out.push({ port: o.port, moduleId: o.moduleId, label: registry.get(o.moduleId)?.name ?? o.label, data: o.value, active: o.active });
-  }
-  return out;
-}
-
 export function ViewerSlot() {
   const entry = useProject(selectActiveEntry);
   const display = useProject((s) => s.project.display);
@@ -93,6 +88,8 @@ export function ViewerSlot() {
   const showHeader = useUi((s) => s.layout.wellHeader);
   const setUi = useUi((s) => s.set);
   const setLayout = useUi((s) => s.setLayout);
+  const trendTool = useTrendsUi((s) => s.tool);
+  const trendRange = useTrendsUi((s) => s.showRange);
   const result = useResults((s) => s.result);
   const well = entry?.well ?? null;
   const qc = useWellQc(well);
@@ -133,6 +130,9 @@ export function ViewerSlot() {
 
   // Pedido de mostrar un tramo (zona elegida en el encabezado).
   const [rangeRequest, setRangeRequest] = useState<{ top: number; base: number; seq: number } | null>(null);
+  useEffect(() => {
+    if (trendRange) setRangeRequest((r) => ({ top: trendRange.top, base: trendRange.base, seq: (r?.seq ?? 0) + 1 }));
+  }, [trendRange]);
   const showZone = (z: ViewerZone) => {
     setUi({ editingZoneId: z.id });
     setRangeRequest((r) => ({ top: z.top, base: z.base, seq: (r?.seq ?? 0) + 1 }));
@@ -147,9 +147,25 @@ export function ViewerSlot() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [marking]);
+  // Lo mismo para la herramienta de tendencias (elegir tramo o dibujar a mano).
   useEffect(() => {
-    if (!well) setUi({ zoneMarking: false });
+    if (!trendTool) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !e.defaultPrevented && !useViewer.getState().dragging) stopTrendTool();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [trendTool]);
+  useEffect(() => {
+    if (!well) {
+      setUi({ zoneMarking: false });
+      stopTrendTool();
+    }
   }, [well, setUi]);
+  // «Marcar zona» y la herramienta de tendencias se excluyen.
+  useEffect(() => {
+    if (marking) stopTrendTool();
+  }, [marking]);
 
   if (!entry || !well || !data) {
     return (
@@ -219,20 +235,32 @@ export function ViewerSlot() {
   );
 
   const toolbarEnd = (
-    <Button
-      size="sm"
-      variant={marking ? 'primary' : 'ghost'}
-      icon="zone-add"
-      aria-pressed={marking}
-      title={marking ? 'Salir del modo marcar zona (Esc)' : 'Marcar una zona nueva arrastrando sobre el perfil'}
-      onClick={() => setUi({ zoneMarking: !marking })}
-    >
-      Marcar zona
-    </Button>
+    <>
+      <Button
+        size="sm"
+        variant={trendTool ? 'primary' : 'ghost'}
+        icon="trend"
+        aria-pressed={!!trendTool}
+        title={trendTool ? 'Salir de la herramienta de tendencias (Esc)' : 'Trazar una línea de tendencia: arrastrá sobre una curva para elegir el tramo del ajuste'}
+        onClick={() => (trendTool ? stopTrendTool() : startTrendTool({ kind: 'fit' }))}
+      >
+        Tendencia
+      </Button>
+      <Button
+        size="sm"
+        variant={marking ? 'primary' : 'ghost'}
+        icon="zone-add"
+        aria-pressed={marking}
+        title={marking ? 'Salir del modo marcar zona (Esc)' : 'Marcar una zona nueva arrastrando sobre el perfil'}
+        onClick={() => setUi({ zoneMarking: !marking })}
+      >
+        Marcar zona
+      </Button>
+    </>
   );
 
   return (
-    <div className={`shell-viewer${marking ? ' is-marking' : ''}`} aria-label="Visor multipista">
+    <div className={`shell-viewer${marking || trendTool ? ' is-marking' : ''}`} aria-label="Visor multipista">
       <WellViewer
         wellKey={depthKey(well)}
         depth={well.depth.values}
@@ -250,6 +278,16 @@ export function ViewerSlot() {
               <Icon name="zone-add" size={14} />
               Arrastrá sobre el perfil para marcar una zona · <kbd>Esc</kbd> para salir
             </>
+          ) : trendTool ? (
+            <>
+              <Icon name={trendTool.kind === 'manual' ? 'pen' : 'trend'} size={14} />
+              {trendTool.kind === 'manual'
+                ? 'Arrastrá sobre una curva de un punto a otro para dibujar la tendencia'
+                : trendTool.trendId
+                  ? 'Arrastrá sobre el perfil para elegir el nuevo tramo del ajuste'
+                  : 'Arrastrá sobre una curva para elegir el tramo del ajuste'}{' '}
+              · <kbd>Esc</kbd> para salir
+            </>
           ) : undefined
         }
         stackHints={STACK_ROLE_HINTS}
@@ -260,9 +298,19 @@ export function ViewerSlot() {
         }}
         onShowCurve={showCurve}
         onEscape={() => {
-          if (!useUi.getState().zoneMarking) return false;
-          setUi({ zoneMarking: false });
-          return true;
+          if (useTrendsUi.getState().tool) {
+            stopTrendTool();
+            return true;
+          }
+          if (useUi.getState().zoneMarking) {
+            setUi({ zoneMarking: false });
+            return true;
+          }
+          if (useTrendsUi.getState().selectedId) {
+            useTrendsUi.getState().set({ selectedId: null });
+            return true;
+          }
+          return false;
         }}
         onCursorChange={onCursorChange}
         onViewportChange={onViewportChange}

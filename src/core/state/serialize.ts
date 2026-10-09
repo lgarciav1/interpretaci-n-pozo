@@ -10,6 +10,7 @@
  */
 import { emptyDisplay, sanitizeDisplay, type DisplaySettings } from '../display';
 import type { Interpretation } from '../interpretation';
+import { sanitizeTrends } from '../trends';
 import { createWell, type Curve, type Well } from '../well';
 import { emptyProgress, type FlowProgress, type Project, type Snapshot } from './project';
 
@@ -19,8 +20,9 @@ export const PROJECT_FORMAT = 'pozo-proyecto';
  * - v1 (fase 1): pozos, interpretación y snapshots.
  * - v2 (fase 3): `progress` por pozo (marcas del flujo guiado). Migración: v1 → progreso vacío.
  * - v3 (fase 4): `display` del proyecto (pistas propias y overrides del visor). Migración: v2 → `display` vacío.
+ * - v4 (fase 6b-1): `interpretation.trends` (líneas de tendencia) en cada pozo y snapshot. Migración: v3 → `[]`.
  */
-export const PROJECT_VERSION = 3;
+export const PROJECT_VERSION = 4;
 
 export type ArrayCodec = 'f64le-b64' | 'f64le-deflate-b64' | 'f64le-shuffle-deflate-b64';
 /** 'auto' = la variante comprimida más chica para cada array. */
@@ -193,6 +195,19 @@ function migrate(file: ProjectFile): ProjectFile {
     // v2 → v3: sin pistas propias ni overrides del visor.
     f = { ...f, version: 3, project: { ...f.project, display: emptyDisplay() } };
   }
+  if (f.version < 4) {
+    // v3 → v4: sin líneas de tendencia (en cada pozo y en cada snapshot).
+    const withTrends = (i: Interpretation): Interpretation => ({ ...i, trends: [] });
+    f = {
+      ...f,
+      version: 4,
+      project: {
+        ...f.project,
+        wells: (f.project.wells ?? []).map((w) => ({ ...w, interpretation: withTrends(w.interpretation) })),
+        snapshots: (f.project.snapshots ?? []).map((s) => ({ ...s, interpretation: withTrends(s.interpretation) })),
+      },
+    };
+  }
   return f;
 }
 
@@ -213,6 +228,9 @@ export async function deserializeProject(text: string, opts: DeserializeOptions 
     throw new Error('El archivo no es un proyecto de esta app.');
   }
   const { project } = migrate(file);
+  const warn = opts.onWarning ?? ((m: string) => console.warn(`Proyecto: ${m}`));
+  /** Tendencias validadas al abrir: lo inválido se descarta con aviso (como `display`). */
+  const cleanInterp = (i: Interpretation, where: string): Interpretation => ({ ...i, trends: sanitizeTrends(i.trends, where, warn) });
   const wells = await Promise.all(
     project.wells.map(async ({ well, interpretation, progress }) => {
       const depth = await decodeArray(well.depth.values);
@@ -225,14 +243,14 @@ export async function deserializeProject(text: string, opts: DeserializeOptions 
         ...(well.depth.sourceUnit ? { depthSourceUnit: well.depth.sourceUnit } : {}),
         curves,
       });
-      return { well: restored, interpretation, progress: progress ?? emptyProgress() };
+      return { well: restored, interpretation: cleanInterp(interpretation, `Pozo '${well.name}'`), progress: progress ?? emptyProgress() };
     }),
   );
   return {
     name: project.name,
     activeWellId: project.activeWellId,
     wells,
-    snapshots: project.snapshots ?? [],
-    display: sanitizeDisplay(project.display, opts.onWarning ?? ((m) => console.warn(`Proyecto: ${m}`))),
+    snapshots: (project.snapshots ?? []).map((s) => ({ ...s, interpretation: cleanInterp(s.interpretation, `Snapshot '${s.name}'`) })),
+    display: sanitizeDisplay(project.display, warn),
   };
 }

@@ -3,7 +3,8 @@
 Webapp 100 % en el navegador (TypeScript + React + Vite) que se entrega como un único `dist/index.html`.
 Las decisiones con sus alternativas descartadas están en [`decisiones/`](decisiones/): núcleo y contrato de módulos
 (0001), lectura de datos (0002), control de calidad (0003), sistema de diseño, armazón y flujo guiado (0004), visor
-multipista (0005), deshacer y rehacer (0006) y catálogo de módulos de la fase 6a con sus cambios de núcleo (0007).
+multipista (0005), deshacer y rehacer (0006), catálogo de módulos de la fase 6a con sus cambios de núcleo (0007) y
+tendencias y gradientes (0008).
 Este documento resume cómo encajan las piezas y cómo agregar un módulo.
 
 ## Ideas centrales
@@ -48,7 +49,7 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 
 | Carpeta | Qué hay | Puede importar React |
 |---|---|---|
-| `src/core/` | modelo (`well.ts`), unidades, roles, parámetros, contrato de módulo, registro, motor (`engine/`), estado (`state/`: proyecto, snapshots, recetas de zonas `zones.ts`), configuración del visor que se guarda y su validación al abrir (`display.ts`, incluidas las pilas de la pista volumétrica) | no |
+| `src/core/` | modelo (`well.ts`), unidades, roles, parámetros, contrato de módulo, registro, motor (`engine/`), estado (`state/`: proyecto, snapshots, recetas de zonas `zones.ts` y de tendencias `trends.ts`), configuración del visor que se guarda y su validación al abrir (`display.ts`, incluidas las pilas de la pista volumétrica), tendencias (`trends.ts`: `TrendSpec`, saneamiento), conversión a unidad canónica compartida (`canonical.ts`) | no |
 | `src/petro/` | funciones de cálculo puras, testeadas | no |
 | `src/modules/<id>/index.ts` | definición pura del módulo | no |
 | `src/modules/<id>/panel.tsx` | panel a medida (opcional) | sí |
@@ -61,7 +62,10 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 | `src/ui/` | sistema de diseño: tokens, tema, paleta de curvas, componentes, `useCanvas`; contrato de panel. Guía en `src/ui/README.md`; muestra en `#ui` | sí |
 | `src/viewer/` | visor multipista: plantillas, resolución de pistas, viewport, ticks, reducción M4, rellenos, pilas (`stack.ts`), lectura, contrato de superposiciones (con elementos del teclado), gestos (`interaction.ts`), dibujo en canvas (`*.ts`, puros o canvas) y los componentes `WellViewer.tsx`, `Minimap.tsx`, `WellHeader.tsx`. Guía en `src/viewer/README.md` | solo los `.tsx` |
 | `src/io/` | lectores Excel/LAS/CSV, mnemónicos, control de calidad (ver su README) | no |
-| `src/plots`, `ml` | fases siguientes (ver su README) | — |
+| `src/plots/trend/` | tendencias: contrato y registro de proveedores de series (`series.ts`, proveedor `curve`), ajuste sobre la serie (`compute.ts`), dibujo independiente de los ejes (`draw.ts`), textos (`format.ts`) y superposición del visor sin stores (`overlay.ts`). Guía en `src/plots/README.md` | no |
+| `src/app/trends/` | estado de interfaz de las tendencias (herramienta, selección), proveedores de los módulos (`providers.ts`), conexión con los stores (`actions.ts`) y panel «Tendencias» del dock | sí |
+| `src/modules/<id>/series.ts` | proveedores de series para tendencias (opcional, `seriesProviders: TrendSeriesProvider[]`): MDT, plugs de corona…; el worker no lo importa | no |
+| `src/plots` (resto), `ml` | fases siguientes (ver su README) | — |
 
 Un test (`tests/modules.test.ts`) falla si `core`, `petro` o una definición de módulo importan React, zustand o la
 interfaz.
@@ -225,8 +229,9 @@ de otro.
 
 ## Guardar / abrir
 
-`serializeProject` / `deserializeProject` (`src/core/state/serialize.ts`): JSON con `format`, `version` (hoy 3: v2
-agregó el progreso del flujo, v3 la configuración del visor) y migraciones. Los arrays van como Float64 little-endian comprimidos con `CompressionStream('deflate')` (con o sin
+`serializeProject` / `deserializeProject` (`src/core/state/serialize.ts`): JSON con `format`, `version` (hoy 4: v2
+agregó el progreso del flujo, v3 la configuración del visor, v4 las tendencias de cada pozo y snapshot) y
+migraciones. Al abrir, `display` y las tendencias se validan: lo inválido se descarta con aviso. Los arrays van como Float64 little-endian comprimidos con `CompressionStream('deflate')` (con o sin
 "byte shuffle", lo que salga más chico) en base64: exactos bit a bit. Los perfiles del TP quedan en menos de la
 mitad del binario sin comprimir.
 
@@ -248,6 +253,9 @@ mitad del binario sin comprimir.
 | Reenvío completo automático ante "resultado incompleto" | antes de la fase 12 | Mensaje `resync` del cliente: el worker vacía `sent` y la próxima respuesta trae todos los datos. |
 | Elegir método por zona para puertos con módulos distintos (Archie en arenas limpias, Simandoux en arcillosas) | cuando se pida | `sources` por zona: el motor arma una curva por tramos con la salida del módulo elegido en cada zona. |
 | Ruido de módulos por defecto sin consumidores (p. ej. sónico sin DT informa error aunque nadie use PHIS) | antes de la fase 12 | Bajar a `info` el faltante de un módulo que solo corre por ser fuente por defecto de un puerto sin consumidores. |
+| Dónde viven los puntos MDT y los plugs de corona (el proveedor de series solo lee pozo e interpretación; un store propio no redibuja la capa de tendencias) | al empezar la 6b-2 | Guardarlos en el pozo como conjunto de puntos (cambio de núcleo, decidir en la decisión de MDT). |
+| Contactos MDT: el motor corre en el worker sin proveedores de series | 6b-2 | Calcular el contacto en la interfaz con `evaluateTrend` + `intersectTrends` (`src/petro/regression.ts`), no como salida del motor. |
+| Excluir o incluir muchos puntos a la vez (lazo en el crossplot) | fase 7 | Receta nueva en `src/core/state/trends.ts`; hoy se alterna de a uno. |
 
 ## Petrofísica en módulos (fase 6a)
 
@@ -289,6 +297,30 @@ Decisión y catálogo completo: [`docs/decisiones/0007-modulos-fase-6a.md`](deci
 - Al abrir un proyecto, `display` se valida: lo inválido se descarta con un aviso.
 - El cursor publica su profundidad en `useViewer.cursorDepth`; clic en la franja de zonas fija
   `useUi.editingZoneId`.
+
+## Tendencias y gradientes (fase 6b-1)
+
+Decisión: [`docs/decisiones/0008-tendencias-y-gradientes.md`](decisiones/0008-tendencias-y-gradientes.md). Módulo
+obligatorio del profesor: tendencia sobre cualquier curva o gráfico, ajuste lineal/log/exp/potencial con ecuación y
+R² a la vista (excepción deliberada a «las ecuaciones no se muestran»: es un resultado), a mano, y gradientes en
+unidades de campo.
+
+- **Modelo**: `Interpretation.trends: TrendSpec[]` (serie, modelo, ajuste o a mano, tramo de profundidad o zona,
+  puntos excluidos por clave estable, extensión). Entra en snapshots y en deshacer; **no recalcula el motor**: la
+  firma de los módulos no la incluye y `engineBridge` no pide cálculo si `sameEngineInputs` (zonas, parámetros,
+  fuentes, comparar, desactivados) da igual.
+- **Series**: `SeriesRef { provider, key }` resuelta por un proveedor (`TrendSeriesProvider`). Incorporado: `curve`
+  (curvas medidas en unidad canónica `m:<id>` y fuente activa de un rol `r:<ROL>`; x = profundidad). Un módulo
+  agrega proveedores en `src/modules/<id>/series.ts` (MDT: presión vs. profundidad en su pista propia; crossplot k–φ).
+- **Ajuste**: `evaluateTrend` (bisección del tramo, excluidos → índices una vez, `fitTrend` O(n) sin asignaciones;
+  caché por identidad del spec y la serie). Gradiente = pendiente (lineal) o pendiente en el centro del tramo.
+- **Dibujo**: `trendGeometry` con dos mapeos dato→px y `transpose` (visor o crossplot), muestreo adaptativo en px
+  (una recta en pista log se dibuja curva), extensión punteada, manijas y etiqueta.
+- **Visor**: `createTrendsOverlays` (bandas debajo, líneas encima) compuesta en `ViewerSlot`; herramienta «Tendencia»
+  en la barra (elegir tramo arrastrando; a mano de un punto a otro; un `commit` al soltar; Esc cancela), manijas con
+  ↑/↓ y Tab, clic en una muestra del tramo de la seleccionada la excluye. Panel «Tendencias» en el dock.
+- **Costo** con 50 000 muestras y el tramo creciendo hasta toda la serie: la capa de tendencias (ajuste + muestreo +
+  dibujo) suma 2,4 ms de media por cuadro (p95 4,5 ms) en Chromium sin GPU.
 
 ## Deshacer y rehacer
 
