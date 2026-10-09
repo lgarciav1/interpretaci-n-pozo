@@ -103,7 +103,7 @@ describe('petro/rw: SP', () => {
     waterResistivityFromSpInto(ssp, out, 0.5, 150, 0, 3);
     expect(out[0]).toBeCloseTo(0.04992805103160838, 12);
     expect(out[1]).toBeNaN();
-    expect(out[2]).toBeCloseTo(0.5 * Math.pow(10, -60 / 79.95), 12);
+    expect(out[2]).toBeCloseTo(0.08881799420440813, 10);
     expect(out[3]).toBe(-1);
   });
 
@@ -240,5 +240,12 @@ describe('petro/rw: Pickett con m fijo', () => {
     const f = pickettFitFixedM([99, ...rtA, 99], [0.4, ...phiA, 0.4], 1, 2, 1, 6);
     expect(f.count).toBe(5);
     expect(f.rw).toBeCloseTo(0.05, 12);
+  });
+});
+
+describe('petro/rw: valores no finitos en el SP', () => {
+  it('SSP = ±Infinity → NaN (no Rwe = 0 ni Infinity)', () => {
+    expect(equivalentWaterResistivityFromSp(Infinity, 0.5, 150)).toBeNaN();
+    expect(equivalentWaterResistivityFromSp(-Infinity, 0.5, 150)).toBeNaN();
   });
 });

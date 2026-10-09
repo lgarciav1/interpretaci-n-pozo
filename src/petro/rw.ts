@@ -33,8 +33,8 @@
  *    sin arcilla significativa; puntos con hidrocarburos (Rt alto) sesgan Rw y m.
  *  - El ajuste libre y el de m fijo usan el mismo tramo [start, end) de los vectores `rt` y `phi`.
  *
- * Referencias: Asquith y Krygowski (2004), "Basic Well Log Analysis", AAPG Methods in Exploration 16, cap. 3
- * (SP, ecuaciones de K y SSP) y cap. 5 (Rwa, método de Pickett); Pickett, G.R. (1966), "A review of current
+ * Referencias: Asquith y Krygowski (2004), "Basic Well Log Analysis", AAPG Methods in Exploration 16
+ * (SP, ecuaciones de K y SSP; Rwa; método de Pickett); Pickett, G.R. (1966), "A review of current
  * techniques for determination of water saturation from logs", JPT 18(11); Schlumberger, "Log Interpretation
  * Charts" (SP-1, SP-2).
  */
@@ -98,13 +98,13 @@ export function spCoefficient(tF: number): number {
  */
 export function equivalentWaterResistivityFromSp(ssp: number, rmfe: number, tF: number): number {
   const k = spCoefficient(tF);
-  if (Number.isNaN(ssp) || !isPositiveFinite(rmfe) || Number.isNaN(k)) return NaN;
+  if (!Number.isFinite(ssp) || !isPositiveFinite(rmfe) || Number.isNaN(k)) return NaN;
   return rmfe * Math.pow(10, ssp / k);
 }
 
 /**
- * Rw desde el SP: aproximación Rw ≈ Rwe (no se aplica la conversión Rwe → Rw de la carta SP-2; ver nota de
- * cabecera). Mismos parámetros y unidades que `equivalentWaterResistivityFromSp`.
+ * Rw desde el SP: aproximación Rw ≈ Rwe. NO aplica la conversión Rwe → Rw de la carta SP-2: en agua dulce
+ * (Rwe > ~0,12 Ω·m a 75 °F) subestima Rw; ver nota de cabecera. Mismos parámetros y unidades que `equivalentWaterResistivityFromSp`.
  */
 export function waterResistivityFromSp(ssp: number, rmfe: number, tF: number): number {
   return equivalentWaterResistivityFromSp(ssp, rmfe, tF);
@@ -139,7 +139,7 @@ export interface PickettFit {
   count: number;
 }
 
-const PICKETT_MIN_SPREAD = 1e-12;
+const PICKETT_MIN_SPREAD = 1e-6;
 
 const PICKETT_NAN = (count: number): PickettFit => ({ m: NaN, rw: NaN, r2: NaN, count });
 

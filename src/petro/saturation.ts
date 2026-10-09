@@ -33,9 +33,9 @@
  *  - Sw decrece al subir Rt, con φ, Rw y demás parámetros fijos, en las tres ecuaciones.
  *
  * Referencias: Archie, G.E. (1942), Trans. AIME 146; Simandoux, P. (1963), Revue de l'Institut Français du Pétrole
- *; Poupon, A. y Leveaux, J. (1971), "Evaluation of water
+ * (supl.); Poupon, A. y Leveaux, J. (1971), "Evaluation of water
  * saturation in shaly formations", The Log Analyst 12(4) (ecuación de Indonesia); Asquith y Krygowski (2004),
- * "Basic Well Log Analysis", AAPG Methods in Exploration 16, cap. 5 y 6 (Archie, Simandoux, Indonesia).
+ * "Basic Well Log Analysis", AAPG Methods in Exploration 16 (Archie, Simandoux, Indonesia).
  */
 
 import { clipPorosity } from './porosity';
@@ -120,7 +120,7 @@ export function simandouxSw(
   if (
     !isPositiveFinite(rt) ||
     !isPositiveFinite(phi) ||
-    Number.isNaN(vsh) ||
+    !Number.isFinite(vsh) ||
     !isPositiveFinite(rw) ||
     !isPositiveFinite(a) ||
     !isPositiveFinite(m)
@@ -177,7 +177,7 @@ export function indonesiaSw(
   if (
     !isPositiveFinite(rt) ||
     !isPositiveFinite(phi) ||
-    Number.isNaN(vsh) ||
+    !Number.isFinite(vsh) ||
     !isPositiveFinite(rw) ||
     !isPositiveFinite(a) ||
     !isPositiveFinite(m) ||
@@ -222,7 +222,7 @@ export function indonesiaSwInto(
  * Es constante en una zona a saturación irreducible (criterio de Buckles).
  */
 export function bulkVolumeWater(phi: number, sw: number): number {
-  if (Number.isNaN(phi) || Number.isNaN(sw)) return NaN;
+  if (!Number.isFinite(phi) || !Number.isFinite(sw)) return NaN;
   return clipPorosity(phi) * clip01(sw);
 }
 
@@ -240,7 +240,7 @@ export function bulkVolumeWaterInto(
 
 /** Saturación de hidrocarburos Sh = 1 − Sw (v/v); Sw se recorta a [0, 1]; NaN se propaga. */
 export function hydrocarbonSaturation(sw: number): number {
-  if (Number.isNaN(sw)) return NaN;
+  if (!Number.isFinite(sw)) return NaN;
   return 1 - clip01(sw);
 }
 

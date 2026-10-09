@@ -383,3 +383,19 @@ describe('petro/saturacion: BVW y Sh', () => {
     expect(s[0]).toBeCloseTo(0.7, 12);
   });
 });
+
+describe('petro/saturation: Vsh, φ y Sw no finitos', () => {
+  it('Vsh = ±Infinity → NaN en Simandoux e Indonesia (no se recorta a 0 o 1)', () => {
+    expect(simandouxSw(10, 0.2, Infinity, 0.05, 4, 1, 2)).toBeNaN();
+    expect(simandouxSw(10, 0.2, -Infinity, 0.05, 4, 1, 2)).toBeNaN();
+    expect(indonesiaSw(10, 0.2, Infinity, 0.05, 4, 1, 2, 2)).toBeNaN();
+    expect(indonesiaSw(10, 0.2, -Infinity, 0.05, 4, 1, 2, 2)).toBeNaN();
+  });
+
+  it('BVW y Sh con entradas ±Infinity → NaN', () => {
+    expect(bulkVolumeWater(Infinity, 0.5)).toBeNaN();
+    expect(bulkVolumeWater(0.2, Infinity)).toBeNaN();
+    expect(hydrocarbonSaturation(Infinity)).toBeNaN();
+    expect(hydrocarbonSaturation(-Infinity)).toBeNaN();
+  });
+});

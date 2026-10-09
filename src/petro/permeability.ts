@@ -23,7 +23,7 @@
  *    la permeabilidad de plugs en profundidad.
  *  - Entradas esperadas: φ efectiva (PHIE) y BVI de la curva de RMN (PHI_BVI); ambas deben ser coherentes (BVI ≤ φ).
  *
- * Referencias: Asquith y Krygowski (2004), "Basic Well Log Analysis", AAPG Methods in Exploration 16, cap. 7 (Timur);
+ * Referencias: Asquith y Krygowski (2004), "Basic Well Log Analysis", AAPG Methods in Exploration 16 (Timur);
  * Timur, A. (1968), "An investigation of permeability, porosity and residual water saturation relationships for
  * sandstone reservoirs", The Log Analyst 9(4); Coates, G.R. y Dumanoir, J.L. (1974), "A new approach to improved
  * log-derived permeability", The Log Analyst 15(1) (forma FFI/BVI, base de Timur–Coates).
