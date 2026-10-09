@@ -1,8 +1,8 @@
 /**
  * Índice de rayos gamma (IGR).
  *
- * EJEMPLO DE FASE 1: demuestra el contrato de `src/petro/` (funciones puras, sin UI, testeadas). La petrofísica
- * real (Vsh lineal/Larionov/Clavier/Steiber, etc.) se implementa y valida en la fase 5.
+ * Primera pieza del contrato de `src/petro/` (funciones puras, sin UI, testeadas). Vsh a partir del IGR
+ * (lineal/Larionov/Clavier/Steiber) está en `vsh.ts`.
  *
  * IGR = (GR − GRclean) / (GRshale − GRclean), recortado a [0, 1].
  * Sin dato (NaN) en GR → NaN. Si GRshale ≤ GRclean el índice no está definido → NaN.
