@@ -3,6 +3,7 @@
  * - Ctrl/Cmd+Z deshace; Ctrl/Cmd+Mayús+Z y Ctrl+Y rehacen.
  * - Con el foco en un campo de texto editable se deja el deshacer nativo del navegador.
  * - Con un arrastre en curso en el visor no se hace nada (Escape lo cancela).
+ * - Con un diálogo modal abierto tampoco: deshacer cambiaría el proyecto detrás del diálogo sin que se vea.
  */
 import { dismissToast, toast } from '../../ui';
 import { useProject } from '../store/project';
@@ -61,7 +62,7 @@ export function installHistoryShortcuts(): void {
     if (!action) return;
     if (hasNativeUndo(document.activeElement)) return;
     e.preventDefault();
-    if (useViewer.getState().dragging) return;
+    if (useViewer.getState().dragging || document.querySelector('[role="dialog"][aria-modal="true"]')) return;
     if (action === 'undo') undoChange();
     else redoChange();
   });

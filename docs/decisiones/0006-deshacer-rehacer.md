@@ -38,4 +38,6 @@ archivo sería confuso. El estado de interfaz (`useUi`) no entra; si queda apunt
 
 Ctrl/Cmd+Z deshace; Ctrl/Cmd+Mayús+Z y Ctrl+Y rehacen, con un `keydown` en `window`. Con el foco en un campo de
 texto editable (input de texto o número, textarea, contenteditable) el atajo es del navegador. Durante un arrastre
-del visor no se hace nada (el visor avisa con `onDragChange` y `ViewerSlot` lo publica en `useViewer.dragging`).
+del visor no se hace nada (el visor avisa con `onDragChange` y `ViewerSlot` lo publica en `useViewer.dragging`). Con un diálogo modal abierto
+tampoco: deshacer cambiaría el proyecto detrás del diálogo sin que se vea (los botones de la barra siguen disponibles
+al cerrarlo).
