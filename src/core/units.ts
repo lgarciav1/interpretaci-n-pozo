@@ -174,6 +174,11 @@ export function getUnit(id: UnitId): UnitDef | undefined {
   return units.get(id);
 }
 
+/** Unidades registradas (todas o las de una dimensión), p. ej. para los selectores del asistente de columnas. */
+export function listUnits(dimension?: DimensionId): UnitDef[] {
+  return [...units.values()].filter((u) => dimension === undefined || u.dimension === dimension);
+}
+
 export function isKnownUnit(id: string): id is UnitId {
   return units.has(id);
 }

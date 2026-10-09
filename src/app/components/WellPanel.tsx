@@ -1,15 +1,19 @@
-/** Columna izquierda: pozo, curvas (medidas y calculadas) y zonas. */
-import { updateCurveMeta } from '../../core/state/project';
+/** Columna izquierda: pozo, curvas (medidas, con su semáforo de calidad, y calculadas), control de calidad y zonas. */
+import { setActiveWell, updateCurveMeta } from '../../core/state/project';
 import { unitLabel } from '../../core/units';
 import { registry } from '../../modules';
 import { selectActiveEntry, useProject } from '../store/project';
+import { useWellQc } from '../store/qc';
 import { useResults } from '../store/results';
 import { useUi } from '../store/ui';
+import { BoreholeSummary, QcCounts, QcDot } from './Qc';
 
 const fmt = (v: number, d = 2) => v.toLocaleString('es-AR', { minimumFractionDigits: d, maximumFractionDigits: d });
 
 export function WellPanel() {
   const entry = useProject(selectActiveEntry);
+  const wells = useProject((s) => s.project.wells);
+  const qc = useWellQc(entry?.well ?? null);
   const commit = useProject((s) => s.commit);
   const result = useResults((s) => s.result);
   const editingZoneId = useUi((s) => s.editingZoneId);
@@ -24,47 +28,80 @@ export function WellPanel() {
     <>
       <div className="section">
         <h2>Pozo</h2>
-        <div style={{ fontWeight: 600 }}>{well.name}</div>
-        <div className="muted">
+        {wells.length > 1 ? (
+          <select
+            aria-label="Pozo activo"
+            className="well-select"
+            value={well.id}
+            onChange={(e) => commit('Cambiar de pozo', (p) => setActiveWell(p, e.currentTarget.value))}
+          >
+            {wells.map((w) => (
+              <option key={w.well.id} value={w.well.id}>
+                {w.well.name}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <div style={{ fontWeight: 600 }}>{well.name}</div>
+        )}
+        <div className="muted" data-testid="well-summary">
           {fmt(d[0]!)} – {fmt(d[d.length - 1]!)} m · {d.length.toLocaleString('es-AR')} muestras
           {well.depth.step ? ` · paso ${fmt(well.depth.step, 4)} m` : ''}
         </div>
       </div>
       <div className="section">
         <h2>Curvas medidas</h2>
-        <table className="grid">
+        <table className="grid curves">
           <thead>
             <tr>
+              <th aria-label="Calidad" />
               <th>Curva</th>
               <th>Rol</th>
               <th>Unidad</th>
             </tr>
           </thead>
           <tbody>
-            {well.curves.map((c) => (
-              <tr key={c.id}>
-                <td className="mono" title={c.description}>
-                  {c.mnemonic}
-                </td>
-                <td>
-                  <select
-                    aria-label={`Rol de ${c.mnemonic}`}
-                    value={c.role ?? ''}
-                    onChange={(e) => commit('Asignar rol', (p) => updateCurveMeta(p, well.id, c.id, { role: e.currentTarget.value || null }))}
-                  >
-                    <option value="">—</option>
-                    {roles.map((r) => (
-                      <option key={r.id} value={r.id} title={r.label}>
-                        {r.id}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td className="muted">{unitLabel(c.unit)}</td>
-              </tr>
-            ))}
+            {well.curves.map((c) => {
+              const q = qc?.curves.find((x) => x.curveId === c.id);
+              return (
+                <tr key={c.id} data-curve={c.id} data-qc={q?.status}>
+                  <td className="qc-cell">
+                    {q ? <QcDot status={q.status} title={q.reasons.map((r) => r.message).join('\n') || 'Sin observaciones'} /> : null}
+                  </td>
+                  <td className="mono" title={c.description}>
+                    {c.mnemonic}
+                  </td>
+                  <td>
+                    <select
+                      aria-label={`Rol de ${c.mnemonic}`}
+                      value={c.role ?? ''}
+                      onChange={(e) => commit('Asignar rol', (p) => updateCurveMeta(p, well.id, c.id, { role: e.currentTarget.value || null }))}
+                    >
+                      <option value="">—</option>
+                      {roles.map((r) => (
+                        <option key={r.id} value={r.id} title={r.label}>
+                          {r.id}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="muted nowrap">{unitLabel(c.unit)}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
+      </div>
+      <div className="section">
+        <h2>Control de calidad</h2>
+        {qc ? (
+          <>
+            <QcCounts report={qc} />
+            <BoreholeSummary report={qc} compact />
+          </>
+        ) : (
+          <div className="muted">Analizando…</div>
+        )}
       </div>
       <div className="section">
         <h2>Curvas calculadas</h2>
