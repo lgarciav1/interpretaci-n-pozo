@@ -5,7 +5,7 @@
 import type { ComponentType, ReactNode } from 'react';
 import type { OutputRecord } from '../../core/engine/engine';
 import type { TableValue, ZoneScalarValue } from '../../core/module';
-import { unitLabel } from '../../core/units';
+import { convert, unitLabel, type UnitId } from '../../core/units';
 import { registry } from '../../modules';
 import { Badge, DataTable, EmptyState, Section, StatusDot, formatNumber, useFlash, type IconName, type Tone } from '../../ui';
 import { selectActiveEntry, useProject } from '../store/project';
@@ -31,6 +31,25 @@ function Flash({ value, children }: { value: unknown; children: ReactNode }) {
 const num = (v: unknown, d = 3) => (typeof v === 'number' && Number.isFinite(v) ? formatNumber(v, { digits: d }) : '—');
 const unitSuffix = (u: string | undefined) => (u && u !== 'unitless' ? ` (${unitLabel(u)})` : '');
 
+/**
+ * Cómo mostrar valores de una unidad: los volúmenes en m³ se pasan a Mm³ o MMm³ según el mayor valor (un OOIP
+ * de millones de m³ con tres decimales no se lee); el resto, con decimales según la unidad.
+ */
+interface Display {
+  unit: UnitId | undefined;
+  digits: number;
+  value(v: unknown): unknown;
+}
+function displayFor(unit: UnitId | undefined, values: readonly unknown[]): Display {
+  if (unit === 'm3') {
+    const max = Math.max(0, ...values.map((v) => (typeof v === 'number' && Number.isFinite(v) ? Math.abs(v) : 0)));
+    const to: UnitId = max >= 1e9 ? 'MMm3' : 'Mm3';
+    return { unit: to, digits: to === 'MMm3' ? 2 : 1, value: (v) => (typeof v === 'number' ? convert(v, 'm3', to) : v) };
+  }
+  const digits = unit === 'm' || unit === 'mD' || unit === 'Mm3' ? 1 : unit === 'MMm3' || unit === 'MMbbl' || unit === 'Bcf' || unit === 'km2' ? 2 : 3;
+  return { unit, digits, value: (v) => v };
+}
+
 interface ZoneRow {
   id: string;
   name: string;
@@ -50,16 +69,19 @@ function ZoneScalarsTable({ outputs }: { outputs: readonly OutputRecord[] }) {
         empty="No hay zonas definidas."
         columns={[
           { key: 'zone', header: 'Zona', align: 'left', render: (r) => r.name },
-          ...outputs.map((o) => ({
-            key: o.key,
-            header: `${o.label}${unitSuffix(o.unit)}${o.active ? '' : ' · alternativa'}`,
-            title: registry.get(o.moduleId)?.name ?? o.moduleId,
-            align: 'num' as const,
-            render: (r: ZoneRow) => {
-              const v = (o.value as ZoneScalarValue)[r.id];
-              return <Flash value={v}>{num(v, o.unit === 'm' ? 1 : 3)}</Flash>;
-            },
-          })),
+          ...outputs.map((o) => {
+            const d = displayFor(o.unit, Object.values(o.value as ZoneScalarValue));
+            return {
+              key: o.key,
+              header: `${o.label}${unitSuffix(d.unit)}${o.active ? '' : ' · alternativa'}`,
+              title: registry.get(o.moduleId)?.name ?? o.moduleId,
+              align: 'num' as const,
+              render: (r: ZoneRow) => {
+                const v = (o.value as ZoneScalarValue)[r.id];
+                return <Flash value={v}>{num(d.value(v), d.digits)}</Flash>;
+              },
+            };
+          }),
         ]}
       />
     </Section>
@@ -78,12 +100,14 @@ function ResultsPanel() {
     <div className="dock-results">
       {scalars.length > 0 && (
         <div className="stat-grid">
-          {scalars.map((s) => (
+          {scalars.map((s) => {
+            const d = displayFor(s.unit, [s.value]);
+            return (
             <div key={s.key} className={`stat${s.active ? '' : ' is-alternative'}`}>
               <div className="stat__label">{s.label}</div>
               <div className="stat__value num">
-                <Flash value={s.value}>{num(s.value)}</Flash>
-                {s.unit && s.unit !== 'unitless' && <span className="stat__unit">{unitLabel(s.unit)}</span>}
+                <Flash value={s.value}>{num(d.value(s.value), d.digits)}</Flash>
+                {d.unit && d.unit !== 'unitless' && <span className="stat__unit">{unitLabel(d.unit)}</span>}
               </div>
               <div className="stat__source">
                 {registry.get(s.moduleId)?.name ?? s.moduleId}
@@ -94,7 +118,8 @@ function ResultsPanel() {
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
       {zoneScalars.length > 0 && <ZoneScalarsTable outputs={zoneScalars} />}
@@ -102,6 +127,7 @@ function ResultsPanel() {
         const spec = Object.values(registry.get(t.moduleId)!.outputs).find((s) => s.kind === 'table' && s.port === t.port);
         const columns = spec?.kind === 'table' ? spec.columns : [];
         const rows = (t.value as TableValue).rows;
+        const totalRow = (r: Record<string, unknown>) => ({ 'data-total': r[columns[0]?.key ?? ''] === 'Total' ? '' : undefined });
         return (
           <Section
             key={t.key}
@@ -125,12 +151,14 @@ function ResultsPanel() {
               data-testid={`table-${t.port}`}
               rows={rows}
               rowKey={(_, i) => String(i)}
+              className="dock-table"
+              rowProps={totalRow}
               columns={columns.map((c) => ({
                 key: c.key,
                 header: `${c.label}${unitSuffix(c.unit)}`,
                 align: c.kind === 'text' ? 'left' : 'num',
                 render: (r: Record<string, unknown>) =>
-                  c.kind === 'text' ? String(r[c.key] ?? '') : <Flash value={r[c.key]}>{num(r[c.key], c.unit === 'm' ? 1 : 3)}</Flash>,
+                  c.kind === 'text' ? String(r[c.key] ?? '') : <Flash value={r[c.key]}>{num(r[c.key], displayFor(c.unit, []).digits)}</Flash>,
               }))}
             />
           </Section>

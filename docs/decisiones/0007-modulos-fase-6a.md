@@ -553,6 +553,13 @@ casos de los tests). Cambios y precisiones de las firmas y fichas:
   son NaN, el total es NaN). En la tabla, las celdas del fluido que no corresponde son `null` (petróleo: gas `null`;
   gas: petróleo `null`); sello y «Sin hidrocarburo» muestran 0 en ambos. El sello no muestra área, h·φ·Sh ni factor
   de volumen. La fila «Total» no suma áreas (zonas apiladas comparten mapa).
+- **C20 (`cutoff-sensitivity`):** además de los `steps` umbrales de la grilla, cada serie (variable × intervalo) lleva
+  una fila con `current = 1` (columna nueva `current`) evaluada exactamente en el cutoff vigente del intervalo (en el
+  Total, cada zona con el suyo; el `threshold` del Total es el global). Así coincide con el sumario y el volumétrico
+  aunque el cutoff no caiga sobre la grilla (p. ej. 24 · 0,025 = 0,6000000000000001). Zonas sin muestras
+  clasificables: filas en `null`, como el sumario. El panel es `mode: 'replace'`: zona o Total (usa la zona en edición
+  de la interfaz), tres gráficos con la línea del cutoff arrastrable (`setParam` al soltar, «Cambiar Sw máxima»…) y
+  «Puntos del barrido»; el volumen va en Mm³ o MMm³ según la magnitud.
 - **Orden de registro:** `phi-sonic-wyllie` (C4) va antes que `phi-sonic-raymer` (C5), así que Wyllie es la fuente por
   defecto de `PHIS` (regla N3). `rw-sp`, aunque no sea la fuente de `RW`, corre igual y en pozos sin curva SP informa
   `missing-input` como error (es el caso de «Abierto» sobre módulos que no pueden correr).

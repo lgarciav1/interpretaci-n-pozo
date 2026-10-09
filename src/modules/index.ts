@@ -27,6 +27,7 @@ import bvwSh from './bvw-sh';
 import permTimur from './perm-timur';
 import permCoates from './perm-coates';
 import cutoffs from './cutoffs';
+import cutoffSensitivity from './cutoff-sensitivity';
 import zoneSummary from './zone-summary';
 import volumetrics from './volumetrics';
 import { SHARED_PARAMS } from './sharedParams';
@@ -52,6 +53,7 @@ export const MODULES = [
   permTimur,
   permCoates,
   cutoffs,
+  cutoffSensitivity,
   zoneSummary,
   volumetrics,
 ];

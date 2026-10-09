@@ -1,0 +1,51 @@
+/* Panel de sensibilidad a los cutoffs (prefijo cs-). Solo tokens del sistema de diseño. */
+.cs-panel { display: flex; flex-direction: column; gap: var(--space-3); }
+.cs-panel__zones { display: flex; flex-direction: column; gap: var(--space-1-5); }
+.cs-panel__hint { color: var(--color-text-muted); font-size: var(--text-sm); line-height: var(--leading-normal); }
+.cs-panel__foot { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.cs-panel__steps { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--color-text-muted); font-size: var(--text-sm); }
+.cs-spacer { flex: 1; }
+
+.cs-legend { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-1-5) var(--space-3); color: var(--color-text-muted); font-size: var(--text-xs); min-height: var(--size-control-sm); }
+.cs-legend__item { display: inline-flex; align-items: center; gap: var(--space-1-5); white-space: nowrap; }
+.cs-legend__area { width: 14px; height: 9px; border-top: 2px solid; border-radius: 1px; }
+.cs-legend__dash { width: 16px; height: 0; border-top: 2px dashed; }
+
+.cs-charts { display: flex; flex-direction: column; gap: var(--space-2-5); }
+.cs-chart {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--viewer-track-bg);
+  padding: var(--space-2) var(--space-2) var(--space-1);
+}
+.cs-chart__head { display: flex; align-items: baseline; gap: var(--space-1-5); padding: 0 var(--space-1) var(--space-1); min-width: 0; }
+.cs-chart__swatch { width: 3px; height: 12px; border-radius: var(--radius-full); align-self: center; flex: none; }
+.cs-chart__title { font-weight: var(--weight-semibold); white-space: nowrap; }
+.cs-chart__cut { color: var(--color-text-muted); font-size: var(--text-sm); white-space: nowrap; }
+.cs-chart__read { display: inline-flex; gap: var(--space-2); font-size: var(--text-sm); white-space: nowrap; }
+.cs-chart__read-pay { color: var(--color-text); font-weight: var(--weight-semibold); }
+.cs-chart__read-vol { color: var(--color-text-muted); }
+.cs-chart__plot { position: relative; border-radius: var(--radius-sm); }
+.cs-chart__plot:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.cs-chart__canvas { display: block; width: 100%; height: 132px; cursor: crosshair; touch-action: none; }
+.cs-chart__plot.is-near .cs-chart__canvas, .cs-chart__plot.is-dragging .cs-chart__canvas { cursor: ew-resize; }
+.cs-chart__note { padding: var(--space-1) var(--space-1) 0; color: var(--color-text-muted); font-size: var(--text-xs); }
+
+.cs-tip {
+  position: absolute;
+  top: var(--space-5);
+  z-index: var(--z-tooltip);
+  min-width: 150px;
+  padding: var(--space-1-5) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-inverse);
+  color: var(--color-text-inverse);
+  box-shadow: var(--shadow-md);
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.cs-tip__head { font-weight: var(--weight-semibold); margin-bottom: 2px; }
+.cs-tip__row { display: flex; justify-content: space-between; gap: var(--space-3); }
+.cs-tip__row > span:first-child { opacity: 0.75; }

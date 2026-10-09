@@ -1,0 +1,12 @@
+/* Panel del volumen in situ (prefijo vol-). Solo tokens del sistema de diseño. */
+.vol { display: flex; flex-direction: column; gap: var(--space-3); }
+.vol-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--space-2); }
+.vol-kpi { padding: var(--space-2) var(--space-2-5); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-subtle); min-width: 0; }
+.vol-kpi__label { color: var(--color-text-muted); font-size: var(--text-xs); }
+.vol-kpi__value { font-size: var(--text-xl); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-tight); white-space: nowrap; }
+.vol-kpi__unit { color: var(--color-text-muted); font-size: var(--text-sm); font-weight: var(--weight-regular); }
+.vol-kpi__sub { color: var(--color-text-muted); font-size: var(--text-xs); white-space: nowrap; }
+.vol-table tbody tr[data-total] td { font-weight: var(--weight-semibold); background: var(--color-surface-subtle); border-top: 1px solid var(--color-border); }
+.vol-zone, .vol-fluid { white-space: nowrap; }
+.vol-fluid { color: var(--color-text-muted); }
+.vol-note { color: var(--color-text-muted); font-size: var(--text-xs); }
