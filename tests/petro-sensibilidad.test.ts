@@ -11,22 +11,35 @@ function brute(
   const netRes = new Float64Array(t.length);
   const netPay = new Float64Array(t.length);
   const hphi = new Float64Array(t.length);
+  const noDataPay = new Float64Array(t.length);
   const res = new Float64Array(vsh.length);
   const pay = new Float64Array(vsh.length);
   for (let j = 0; j < t.length; j++) {
     const c = { ...cutoffs, ...(variable === 'vsh' ? { vshMax: t[j]! } : variable === 'phi' ? { phiMin: t[j]! } : { swMax: t[j]! }) };
     netFlagsInto(vsh, phi, sw, res, pay, c);
+    let nRes = 0;
+    let nKnown = 0;
     for (const { start, end } of ranges) {
       for (let i = start; i < end; i++) {
-        if (res[i] === 1) netRes[j]! += h[i]!;
+        if (res[i] === 1) {
+          netRes[j]! += h[i]!;
+          nRes++;
+          if (Number.isNaN(pay[i]!)) noDataPay[j]! += h[i]!;
+          else nKnown++;
+        }
         if (pay[i] === 1) {
           netPay[j]! += h[i]!;
           hphi[j]! += h[i]! * phi[i]! * (1 - sw[i]!);
         }
       }
     }
+    // regla 2: reservorio sin ninguna muestra con dato de pay → pay sin dato
+    if (nRes > 0 && nKnown === 0) {
+      netPay[j] = NaN;
+      hphi[j] = NaN;
+    }
   }
-  return { t, netRes, netPay, hphi };
+  return { t, netRes, netPay, hphi, noDataPay };
 }
 
 const GRIDS: Record<SweepVariable, SweepGrid> = {
@@ -43,7 +56,10 @@ function lcg(seed: number) {
 
 function closeArrays(a: Float64Array, b: Float64Array, tol = 1e-9) {
   expect(a.length).toBe(b.length);
-  for (let i = 0; i < a.length; i++) expect(Math.abs(a[i]! - b[i]!), `índice ${i}`).toBeLessThanOrEqual(tol);
+  for (let i = 0; i < a.length; i++) {
+    if (Number.isNaN(b[i]!)) expect(a[i], `índice ${i}`).toBeNaN();
+    else expect(Math.abs(a[i]! - b[i]!), `índice ${i}`).toBeLessThanOrEqual(tol);
+  }
 }
 
 describe('petro/sensitivity: umbrales', () => {
@@ -86,6 +102,7 @@ describe('petro/sensitivity: contra fuerza bruta', () => {
       closeArrays(got.netRes, ref.netRes);
       closeArrays(got.netPay, ref.netPay);
       closeArrays(got.hphiShPay, ref.hphi);
+      closeArrays(got.noDataPay, ref.noDataPay);
       expect(got.netPay[Math.round(GRIDS[variable].steps * 0.5)]).toBeGreaterThan(0);
     });
   }
@@ -130,6 +147,45 @@ describe('petro/sensitivity: contra fuerza bruta', () => {
       expect(g.netPay[j]!).toBeCloseTo(netPay, 9);
       expect(g.hphiShPay[j]!).toBeCloseTo(hphi, 9);
     }
+  });
+});
+
+describe('petro/sensitivity: fuerza bruta con muchos NaN (reglas 1 y 2)', () => {
+  const rnd = lcg(99);
+  const n = 1200;
+  const pick = (x: number, pNaN: number) => (rnd() < pNaN ? NaN : x);
+  // 25 % de NaN en Vsh y φ (combinaciones NaN-conocida-que-falla); Sw con tramos totalmente NaN
+  const vsh = Array.from({ length: n }, () => pick(rnd(), 0.25));
+  const phi = Array.from({ length: n }, () => pick(rnd() * 0.4, 0.25));
+  const sw = Array.from({ length: n }, (_, i) => (i >= 400 && i < 700 ? NaN : pick(rnd(), 0.1)));
+  const h = Array.from({ length: n }, () => 0.1 + rnd() * 0.2);
+  const cases: Record<string, { start: number; end: number }[]> = {
+    'rango con Sw parcial': [{ start: 0, end: 400 }],
+    'rango sin ningún Sw': [{ start: 400, end: 700 }],
+    'unión de ambos': [{ start: 0, end: 700 }],
+    'tramo final': [{ start: 700, end: n }],
+  };
+  for (const [name, ranges] of Object.entries(cases)) {
+    for (const variable of ['vsh', 'phi', 'sw'] as const) {
+      it(`${name}, variable ${variable}: coincide con la fuerza bruta (incluye NaN y noDataPay)`, () => {
+        const got = cutoffSweep(vsh, phi, sw, h, CUT, variable, GRIDS[variable], ranges);
+        const ref = brute(vsh, phi, sw, h, CUT, variable, GRIDS[variable], ranges);
+        closeArrays(got.netRes, ref.netRes);
+        closeArrays(got.netPay, ref.netPay);
+        closeArrays(got.hphiShPay, ref.hphi);
+        closeArrays(got.noDataPay, ref.noDataPay);
+      });
+    }
+  }
+
+  it('en el rango sin ningún Sw, el pay es NaN en todos los umbrales con reservorio y 0 donde no lo hay', () => {
+    const g = cutoffSweep(vsh, phi, sw, h, CUT, 'sw', GRIDS.sw, [{ start: 400, end: 700 }]);
+    expect(g.netRes[0]!).toBeGreaterThan(0);
+    for (let j = 0; j < g.netPay.length; j++) expect(g.netPay[j]).toBeNaN();
+    const v = cutoffSweep(vsh, phi, sw, h, CUT, 'vsh', GRIDS.vsh, [{ start: 400, end: 700 }]);
+    expect(v.netPay[0]).toBe(0); // Vsh ≤ 0: sin reservorio
+    expect(v.netRes[0]).toBe(0);
+    expect(v.netPay[40]).toBeNaN();
   });
 });
 
@@ -189,13 +245,33 @@ describe('petro/sensitivity: bordes y casos a mano', () => {
     expect(g.hphiShPay[0]).toBeCloseTo(0.05 * 0.7 + 0.2 * 0.7, 12);
   });
 
-  it('NaN: Vsh o φ NaN no cuenta nunca; Sw NaN cuenta en reservorio pero no en pay; sin rangos → ceros', () => {
+  it('NaN: sin clasificar no cuenta; reservorio sin Sw es «sin dato pay» y, si no hay ningún Sw, el pay es NaN', () => {
     const grid = { min: 0, max: 1, steps: 3 };
-    const g = cutoffSweep([NaN, 0.1, 0.1], [0.2, NaN, 0.2], [0.1, 0.1, NaN], [1, 1, 1], CUT, 'vsh', grid, [{ start: 0, end: 3 }]);
-    expect(Array.from(g.netRes)).toEqual([0, 1, 1]);
-    expect(Array.from(g.netPay)).toEqual([0, 0, 0]);
+    // 0: Vsh NaN (φ pasa) → sin clasificar; 1: φ NaN (Vsh pasa) → sin clasificar; 2: reservorio con Sw NaN
+    const g = cutoffSweep([NaN, 0.1, 0.1], [0.2, NaN, 0.2], [0.1, 0.1, NaN], [1, 1, 2], CUT, 'vsh', grid, [{ start: 0, end: 3 }]);
+    expect(Array.from(g.netRes)).toEqual([0, 2, 2]);
+    expect(Array.from(g.noDataPay)).toEqual([0, 2, 2]);
+    expect(Array.from(g.netPay)).toEqual([0, NaN, NaN]); // t = 0: sin reservorio → 0; luego reservorio sin Sw → NaN
+    expect(Array.from(g.hphiShPay)).toEqual([0, NaN, NaN]);
     const e = cutoffSweep([0.1], [0.2], [0.3], [1], CUT, 'phi', { min: 0, max: 0.4, steps: 3 }, []);
     expect(Array.from(e.netRes)).toEqual([0, 0, 0]);
+    expect(Array.from(e.netPay)).toEqual([0, 0, 0]);
+  });
+
+  it('Sw parcialmente NaN: se suma lo conocido y el resto va a noDataPay (variable sw: reservorio constante)', () => {
+    const grid = { min: 0, max: 1, steps: 3 };
+    const g = cutoffSweep([0.1, 0.1, 0.1], [0.2, 0.2, 0.2], [0.2, NaN, 0.8], [1, 2, 1], CUT, 'sw', grid, [{ start: 0, end: 3 }]);
+    expect(Array.from(g.netRes)).toEqual([4, 4, 4]);
+    expect(Array.from(g.noDataPay)).toEqual([2, 2, 2]);
+    expect(Array.from(g.netPay)).toEqual([0, 1, 2]); // t=0,5: muestra 0; t=1: + muestra 2
+    expect(g.hphiShPay[1]).toBeCloseTo(0.2 * 0.8, 12);
+  });
+
+  it('descarte seguro en el barrido: Vsh alto con φ NaN (y φ bajo con Vsh NaN) no es reservorio ni «sin dato»', () => {
+    const g = cutoffSweep([0.9, NaN, 0.1], [NaN, 0.02, 0.2], [0.3, 0.3, 0.3], [1, 1, 1], CUT, 'sw', { min: 0, max: 1, steps: 3 }, [{ start: 0, end: 3 }]);
+    expect(Array.from(g.netRes)).toEqual([1, 1, 1]); // solo la muestra 2
+    expect(Array.from(g.noDataPay)).toEqual([0, 0, 0]);
+    expect(Array.from(g.netPay)).toEqual([0, 1, 1]);
   });
 
   it('una zona y el total: las curvas del total son la suma de las de cada zona', () => {

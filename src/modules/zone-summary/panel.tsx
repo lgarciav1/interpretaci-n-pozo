@@ -27,6 +27,25 @@ const zoneCol: Column<Row> = {
   ),
 };
 
+/** Reservorio sin Sw (m) de una fila; el sello y las filas sin faltante no muestran nada. */
+const payGap = (r: Row): number | null => {
+  const g = val(r.noDataPay);
+  return r.kind !== 'Sello' && g !== null && g > 0 ? g : null;
+};
+const gapCol: Column<Row> = {
+  key: 'noDataPay',
+  header: 'Sin dato pay',
+  align: 'num',
+  render: (r) => {
+    const g = payGap(r);
+    return g === null ? null : (
+      <span className="zsum-gap" title="Reservorio al que le falta Sw: no se cuenta como no pay.">
+        {formatNumber(g, { digits: 1 })}
+      </span>
+    );
+  },
+};
+
 function ZoneSummaryPanel({ module, result }: ModulePanelProps) {
   const out = result?.outputs.find((o) => o.moduleId === module.id && o.port === 'ZONE_SUMMARY');
   const rows = (out?.value as TableValue | undefined)?.rows;
@@ -34,6 +53,7 @@ function ZoneSummaryPanel({ module, result }: ModulePanelProps) {
     return <EmptyState size="sm" icon="table" title="Todavía no hay sumario" description="El sumario necesita las banderas de los cutoffs, la porosidad efectiva y Sw." />;
   }
   const total = rows.find(isTotal);
+  const hasGap = rows.some((r) => payGap(r) !== null);
   const rowProps = (r: Row) => ({ 'data-total': isTotal(r) ? '' : undefined });
 
   return (
@@ -75,7 +95,7 @@ function ZoneSummaryPanel({ module, result }: ModulePanelProps) {
           rows={rows}
           rowKey={(r, i) => `${String(r.zone)}-${i}`}
           rowProps={rowProps}
-          columns={[zoneCol, numCol('gross', 'Bruto', 1), numCol('netRes', 'Neto res.', 1), numCol('netPay', 'Neto pay', 1), numCol('ntgPay', 'N/G pay', 2), numCol('noData', 'Sin dato', 1)]}
+          columns={[zoneCol, numCol('gross', 'Bruto', 1), numCol('netRes', 'Neto res.', 1), numCol('netPay', 'Neto pay', 1), numCol('ntgPay', 'N/G pay', 2), numCol('noData', 'Sin dato', 1), ...(hasGap ? [gapCol] : [])]}
         />
       </section>
 
@@ -98,6 +118,7 @@ function ZoneSummaryPanel({ module, result }: ModulePanelProps) {
           ]}
         />
       </section>
+      {hasGap && <p className="zsum-note">Sin dato pay: reservorio al que le falta Sw. No se cuenta como no pay; los promedios y el h·φ·Sh usan el resto.</p>}
       <p className="zsum-note">Sw ponderada por volumen poral. La tabla completa (reservorio, kh, h·φ) está en Resultados.</p>
     </div>
   );

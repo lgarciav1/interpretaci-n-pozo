@@ -6,11 +6,14 @@
  * `steps` umbrales de la grilla fija de la variable y UNA fila más con `current = 1`, evaluada exactamente en el
  * cutoff vigente del intervalo (en el Total, cada zona con el suyo). Esa fila coincide con el sumario y el
  * volumétrico sin depender de que el cutoff caiga sobre la grilla.
+ * Datos faltantes (D6): una zona sin ninguna muestra clasificada con sus cutoffs vigentes queda «sin dato» (nulos); el
+ * pay de una zona o del total es nulo si hay reservorio pero ninguna muestra de reservorio tiene Sw. `noDataPay` es el
+ * espesor de reservorio sin Sw (se suma lo conocido).
  * Definición PURA (la ejecuta el Web Worker).
  */
 import { defineModule, input, output, type TableCell } from '../../core/module';
 import { param } from '../../core/params';
-import type { Cutoffs } from '../../petro/cutoffs';
+import { netReservoirFlag, type Cutoffs } from '../../petro/cutoffs';
 import { cutoffSweep, sweepThresholds, type SweepCurves, type SweepGrid, type SweepVariable } from '../../petro/sensitivity';
 import { zoneInPlace } from '../../petro/volumetrics';
 import { SHARED_PARAMS } from '../sharedParams';
@@ -70,6 +73,7 @@ export default defineModule({
         { key: 'current', label: 'Cutoff vigente', unit: 'unitless' },
         { key: 'netRes', label: 'Neto reservorio', unit: 'm' },
         { key: 'netPay', label: 'Neto pay', unit: 'm' },
+        { key: 'noDataPay', label: 'Reservorio sin dato de pay', unit: 'm' },
         { key: 'hphiSh', label: 'h·φ·Sh pay', unit: 'm' },
         { key: 'ooip', label: 'Petróleo in situ', unit: 'm3' },
         { key: 'ogip', label: 'Gas in situ', unit: 'm3' },
@@ -87,7 +91,9 @@ export default defineModule({
     const sweep = (c: Cutoffs, v: SweepVariable, grid: SweepGrid, start: number, end: number): SweepCurves =>
       cutoffSweep(inputs.vsh, inputs.phi, inputs.sw, thickness, c, v, grid, [{ start, end }]);
 
-    const push = (variable: SweepVariable, zoneId: string, zone: string, threshold: number, current: boolean, v: Record<'netRes' | 'netPay' | 'hphiSh' | 'ooip' | 'ogip', number | null>) =>
+    type Vals = Record<'netRes' | 'netPay' | 'noDataPay' | 'hphiSh' | 'ooip' | 'ogip', number | null>;
+    const EMPTY: Vals = { netRes: null, netPay: null, noDataPay: null, hphiSh: null, ooip: null, ogip: null };
+    const push = (variable: SweepVariable, zoneId: string, zone: string, threshold: number, current: boolean, v: Vals) =>
       rows.push({
         variable,
         zoneId,
@@ -96,6 +102,7 @@ export default defineModule({
         current: current ? 1 : 0,
         netRes: v.netRes === null ? null : num(v.netRes),
         netPay: v.netPay === null ? null : num(v.netPay),
+        noDataPay: v.noDataPay === null ? null : num(v.noDataPay),
         hphiSh: v.hphiSh === null ? null : num(v.hphiSh),
         ooip: v.ooip === null ? null : num(v.ooip),
         ogip: v.ogip === null ? null : num(v.ogip),
@@ -104,87 +111,108 @@ export default defineModule({
     // Sin zonas (D6): una serie «Pozo completo» con los cutoffs globales; el volumen necesita zonas.
     if (zones.length === 0) {
       const c = cutoffsOf(params);
+      const vals = (s: SweepCurves, j: number): Vals => ({ netRes: s.netRes[j]!, netPay: s.netPay[j]!, noDataPay: s.noDataPay[j]!, hphiSh: s.hphiShPay[j]!, ooip: null, ogip: null });
       for (const variable of VARIABLES) {
         const grid = { ...SWEEP_GRIDS[variable], steps };
         const s = sweep(c, variable, grid, 0, n);
-        for (let j = 0; j < steps; j++) {
-          push(variable, '', 'Pozo completo', s.thresholds[j]!, false, { netRes: s.netRes[j]!, netPay: s.netPay[j]!, hphiSh: s.hphiShPay[j]!, ooip: null, ogip: null });
-        }
+        for (let j = 0; j < steps; j++) push(variable, '', 'Pozo completo', s.thresholds[j]!, false, vals(s, j));
         const cur = sweep(c, variable, exactGrid(c[CUTOFF_KEY[variable]]), 0, n);
-        push(variable, '', 'Pozo completo', c[CUTOFF_KEY[variable]], true, { netRes: cur.netRes[0]!, netPay: cur.netPay[0]!, hphiSh: cur.hphiShPay[0]!, ooip: null, ogip: null });
+        push(variable, '', 'Pozo completo', c[CUTOFF_KEY[variable]], true, vals(cur, 0));
       }
       return { sweep: { rows } };
     }
 
-    // Zonas: ¿hay alguna muestra clasificable (Vsh y φ con dato)? Si no, la zona queda «sin dato» (como el sumario).
-    const classifiable = zones.map((z) => {
-      for (let i = z.start; i < z.end; i++) if (!Number.isNaN(inputs.vsh[i]!) && !Number.isNaN(inputs.phi[i]!)) return true;
+    // Zonas: ¿hay alguna muestra clasificada (0 o 1) con los cutoffs vigentes de la zona? Si no, queda «sin dato».
+    const classified = zones.map((z) => {
+      const c = cutoffsOf(paramsFor(z.id));
+      for (let i = z.start; i < z.end; i++) {
+        if (!Number.isNaN(netReservoirFlag(inputs.vsh[i]!, inputs.phi[i]!, c.vshMax, c.phiMin))) return true;
+      }
       return false;
     });
-    const anyClassifiable = classifiable.some(Boolean);
+
+    /** Acumulador del total en un umbral: suma de zonas con las reglas del sumario (D6). */
+    interface Acc {
+      netRes: number;
+      netPay: number;
+      noDataPay: number;
+      hphi: number;
+      ooip: number;
+      ogip: number;
+      ooipN: number;
+      ogipN: number;
+      anyClassified: boolean;
+      anyUnknown: boolean; // alguna zona con reservorio sin Sw en todas sus muestras
+      anyKnown: boolean; // alguna zona con reservorio y pay conocido
+    }
+    const newAcc = (): Acc => ({ netRes: 0, netPay: 0, noDataPay: 0, hphi: 0, ooip: 0, ogip: 0, ooipN: 0, ogipN: 0, anyClassified: false, anyUnknown: false, anyKnown: false });
+    const addVolume = (a: Acc, vol: { ooip: number; ogip: number }) => {
+      if (Number.isFinite(vol.ooip)) {
+        a.ooip += vol.ooip;
+        a.ooipN++;
+      }
+      if (Number.isFinite(vol.ogip)) {
+        a.ogip += vol.ogip;
+        a.ogipN++;
+      }
+    };
+    const addZone = (a: Acc, netRes: number, netPay: number, noDataPay: number, hphi: number) => {
+      a.anyClassified = true;
+      a.netRes += netRes;
+      a.noDataPay += noDataPay;
+      if (Number.isNaN(netPay)) a.anyUnknown = true;
+      else {
+        a.netPay += netPay;
+        a.hphi += hphi;
+        if (netRes > 0) a.anyKnown = true;
+      }
+    };
+    const accVals = (a: Acc): Vals => {
+      if (!a.anyClassified) return { ...EMPTY, ooip: a.ooipN > 0 ? a.ooip : null, ogip: a.ogipN > 0 ? a.ogip : null };
+      const unknown = a.anyUnknown && !a.anyKnown;
+      return {
+        netRes: a.netRes,
+        netPay: unknown ? null : a.netPay,
+        noDataPay: a.noDataPay,
+        hphiSh: unknown ? null : a.hphi,
+        ooip: a.ooipN > 0 ? a.ooip : null,
+        ogip: a.ogipN > 0 ? a.ogip : null,
+      };
+    };
 
     for (const variable of VARIABLES) {
       const grid = { ...SWEEP_GRIDS[variable], steps };
-      const totNetRes = new Float64Array(steps);
-      const totNetPay = new Float64Array(steps);
-      const totHphi = new Float64Array(steps);
-      const totOoip = new Float64Array(steps);
-      const totOgip = new Float64Array(steps);
-      const totCur = { netRes: 0, netPay: 0, hphiSh: 0, ooip: 0, ogip: 0 };
+      const tot = Array.from({ length: steps }, newAcc);
+      const totCur = newAcc();
 
       zones.forEach((z, zi) => {
         const p = paramsFor(z.id);
         const c = cutoffsOf(p);
         const seal = z.kind === 'seal';
-        const volume = (hphiSh: number) => (seal ? { ooip: 0, ogip: 0 } : zoneInPlace(p.fluid, p.area * 1e6, hphiSh, p.bo, p.bg));
-        const s = sweep(c, variable, grid, z.start, z.end);
-        const cur = sweep(c, variable, exactGrid(c[CUTOFF_KEY[variable]]), z.start, z.end);
-        const ok = classifiable[zi]!;
-        for (let j = 0; j < steps; j++) {
+        const ok = classified[zi]!;
+        // zona sin clasificar: h·φ·Sh sin dato (el volumen es NaN, salvo el sello, que no aporta volumen)
+        const volume = (hphiSh: number) => (seal ? { ooip: 0, ogip: 0 } : zoneInPlace(p.fluid, p.area * 1e6, ok ? hphiSh : NaN, p.bo, p.bg));
+        const valsOf = (s: SweepCurves, j: number): Vals => {
           const vol = volume(s.hphiShPay[j]!);
-          totNetRes[j]! += s.netRes[j]!;
-          totNetPay[j]! += s.netPay[j]!;
-          totHphi[j]! += s.hphiShPay[j]!;
-          if (Number.isFinite(vol.ooip)) totOoip[j]! += vol.ooip;
-          if (Number.isFinite(vol.ogip)) totOgip[j]! += vol.ogip;
-          push(
-            variable,
-            z.id,
-            z.name,
-            s.thresholds[j]!,
-            false,
-            ok ? { netRes: s.netRes[j]!, netPay: s.netPay[j]!, hphiSh: s.hphiShPay[j]!, ooip: vol.ooip, ogip: vol.ogip } : { netRes: null, netPay: null, hphiSh: null, ooip: null, ogip: null },
-          );
+          return ok
+            ? { netRes: s.netRes[j]!, netPay: s.netPay[j]!, noDataPay: s.noDataPay[j]!, hphiSh: s.hphiShPay[j]!, ooip: vol.ooip, ogip: vol.ogip }
+            : { ...EMPTY, ooip: seal ? 0 : null, ogip: seal ? 0 : null };
+        };
+        const s = sweep(c, variable, grid, z.start, z.end);
+        for (let j = 0; j < steps; j++) {
+          addVolume(tot[j]!, volume(s.hphiShPay[j]!));
+          if (ok) addZone(tot[j]!, s.netRes[j]!, s.netPay[j]!, s.noDataPay[j]!, s.hphiShPay[j]!);
+          push(variable, z.id, z.name, s.thresholds[j]!, false, valsOf(s, j));
         }
-        const vc = volume(cur.hphiShPay[0]!);
-        totCur.netRes += cur.netRes[0]!;
-        totCur.netPay += cur.netPay[0]!;
-        totCur.hphiSh += cur.hphiShPay[0]!;
-        if (Number.isFinite(vc.ooip)) totCur.ooip += vc.ooip;
-        if (Number.isFinite(vc.ogip)) totCur.ogip += vc.ogip;
-        push(
-          variable,
-          z.id,
-          z.name,
-          c[CUTOFF_KEY[variable]],
-          true,
-          ok ? { netRes: cur.netRes[0]!, netPay: cur.netPay[0]!, hphiSh: cur.hphiShPay[0]!, ooip: vc.ooip, ogip: vc.ogip } : { netRes: null, netPay: null, hphiSh: null, ooip: null, ogip: null },
-        );
+        const cur = sweep(c, variable, exactGrid(c[CUTOFF_KEY[variable]]), z.start, z.end);
+        addVolume(totCur, volume(cur.hphiShPay[0]!));
+        if (ok) addZone(totCur, cur.netRes[0]!, cur.netPay[0]!, cur.noDataPay[0]!, cur.hphiShPay[0]!);
+        push(variable, z.id, z.name, c[CUTOFF_KEY[variable]], true, valsOf(cur, 0));
       });
 
-      const empty = { netRes: null, netPay: null, hphiSh: null, ooip: null, ogip: null };
       const thresholds = sweepThresholds(grid);
-      for (let j = 0; j < steps; j++) {
-        push(
-          variable,
-          '',
-          'Total',
-          thresholds[j]!,
-          false,
-          anyClassifiable ? { netRes: totNetRes[j]!, netPay: totNetPay[j]!, hphiSh: totHphi[j]!, ooip: totOoip[j]!, ogip: totOgip[j]! } : empty,
-        );
-      }
-      push(variable, '', 'Total', cutoffsOf(params)[CUTOFF_KEY[variable]], true, anyClassifiable ? totCur : empty);
+      for (let j = 0; j < steps; j++) push(variable, '', 'Total', thresholds[j]!, false, accVals(tot[j]!));
+      push(variable, '', 'Total', cutoffsOf(params)[CUTOFF_KEY[variable]], true, accVals(totCur));
     }
     return { sweep: { rows } };
   },

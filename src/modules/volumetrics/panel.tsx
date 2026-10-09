@@ -23,6 +23,16 @@ function VolumetricsPanel({ module, result, interpretation }: ModulePanelProps) 
   if (rows.length === 0) {
     return <EmptyState size="sm" icon="table" title="Todavía no hay volumen" description="El volumen necesita el h·φ·Sh del sumario por zona." />;
   }
+  // Reservorio sin Sw por zona (del sumario): el volumen usa solo el resto. El sello y las zonas sin faltante no muestran nada.
+  const summary = (result?.outputs.find((o) => o.port === 'ZONE_SUMMARY')?.value as TableValue | undefined)?.rows ?? [];
+  const gaps = summary
+    .filter((r) => !isTotal(r) && r.kind !== 'Sello' && (val(r.noDataPay) ?? 0) > 0)
+    .map((r) => {
+      const gap = val(r.noDataPay)!;
+      const res = val(r.netRes);
+      const unknown = val(r.netPay) === null;
+      return { zone: String(r.zone ?? ''), text: unknown ? 'sin Sw en todo el reservorio: sin dato' : `${fmt(gap, 1)} m de reservorio sin Sw${res ? ` (${Math.round((100 * gap) / res)} %)` : ''}` };
+    });
   const total = rows.find(isTotal);
   const zones = rows.filter((r) => !isTotal(r));
   const hasGas = zones.some((r) => r.fluid === 'Gas');
@@ -67,6 +77,15 @@ function VolumetricsPanel({ module, result, interpretation }: ModulePanelProps) 
           ...(hasGas ? [numCol('ogipSi', 'Gas (MMm³)', 2), numCol('ogipField', '(Bcf)', 2)] : []),
         ]}
       />
+      {gaps.length > 0 && (
+        <ul className="vol-gaps" aria-label="Reservorio sin dato de Sw">
+          {gaps.map((g) => (
+            <li key={g.zone}>
+              {g.zone}: {g.text}
+            </li>
+          ))}
+        </ul>
+      )}
       <p className="vol-note">Volúmenes a condiciones de superficie. Las zonas de tipo sello no aportan volumen.</p>
     </div>
   );

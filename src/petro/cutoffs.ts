@@ -4,9 +4,12 @@
  * Unidades: Vsh, φ y Sw en v/v (fracción, NO %). Sin dato (NaN) → NaN. Todas las comparaciones son INCLUSIVAS.
  *
  * Definiciones (docs/decisiones/0007-modulos-fase-6a.md, D6):
- *   Reservorio neto   NET_RES = 1 si Vsh ≤ Vsh_max  y  φ ≥ φ_min;  0 si no;  NaN si falta Vsh o φ.
+ *   Reservorio neto   NET_RES = 0 si alguna curva CONOCIDA no pasa su corte (Vsh > Vsh_max o φ < φ_min), aunque la otra
+ *                     falte (descarte seguro: Vsh 0,9 con φ NaN da 0). Si ninguna curva conocida la descarta:
+ *                     1 si Vsh ≤ Vsh_max y φ ≥ φ_min; NaN («sin dato») si falta Vsh o φ.
  *   Pay neto          NET_PAY = NaN si NET_RES es NaN;  0 si NET_RES = 0;
- *                     si NET_RES = 1: 1 si Sw ≤ Sw_max, 0 si no, NaN si falta Sw.
+ *                     si NET_RES = 1: 1 si Sw ≤ Sw_max, 0 si no, NaN si falta Sw (reservorio «sin dato de pay»:
+ *                     NO se cuenta en silencio como no pay; el sumario lo informa).
  *   Por construcción pay ⊆ reservorio (NET_PAY = 1 implica NET_RES = 1).
  *
  * Los cortes son decisiones del intérprete (no hay valores «de libro»); los valores usuales para una arenisca
@@ -28,15 +31,17 @@ export interface Cutoffs {
 }
 
 /**
- * Bandera de reservorio neto: 1 si vsh ≤ vshMax y phi ≥ phiMin; 0 si no; NaN si vsh o phi es NaN.
+ * Bandera de reservorio neto: 0 si alguna curva conocida no pasa su corte (aunque la otra sea NaN); 1 si ambas
+ * pasan (vsh ≤ vshMax y phi ≥ phiMin); NaN si ninguna conocida descarta la muestra y falta vsh o phi.
  * @param vsh    volumen de arcilla (v/v)
  * @param phi    porosidad efectiva (v/v)
  * @param vshMax corte de Vsh (v/v), inclusivo
  * @param phiMin corte de porosidad (v/v), inclusivo
  */
 export function netReservoirFlag(vsh: number, phi: number, vshMax: number, phiMin: number): number {
+  if (vsh > vshMax || phi < phiMin) return 0; // false si la curva es NaN
   if (Number.isNaN(vsh) || Number.isNaN(phi)) return NaN;
-  return vsh <= vshMax && phi >= phiMin ? 1 : 0;
+  return 1;
 }
 
 /**

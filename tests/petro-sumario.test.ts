@@ -28,6 +28,7 @@ describe('petro/summary: caso a mano de 8 muestras', () => {
   it('espesores: bruto 7, sin dato 2 (la muestra 4), neto reservorio 3,5, neto pay 2', () => {
     expect(s.gross).toBeCloseTo(7, 12);
     expect(s.noData).toBeCloseTo(2, 12);
+    expect(s.noDataPay).toBeCloseTo(0.5, 12); // la muestra 7: reservorio con Sw NaN
     expect(s.netRes).toBeCloseTo(3.5, 12); // 0,5+1+0,5+1+0,5
     expect(s.netPay).toBeCloseTo(2, 12); // 0,5+1+0,5
     expect(s.ntgRes).toBeCloseTo(0.5, 12);
@@ -109,5 +110,86 @@ describe('petro/summary: rangos y totales', () => {
     expect(e.ntgRes).toBeNaN();
     expect(e.ntgPay).toBeNaN();
     expect(summarizeRanges(input, []).gross).toBe(0);
+  });
+});
+
+// Regla 2 (Sw faltante en reservorio): se informa como «sin dato pay»; si falta TODO el Sw del reservorio, el pay es NaN.
+function flagsFor(vsh: number[], phi: number[], sw: number[]) {
+  const r = new Float64Array(vsh.length);
+  const p = new Float64Array(vsh.length);
+  netFlagsInto(vsh, phi, sw, r, p, { vshMax: 0.4, phiMin: 0.08, swMax: 0.6 });
+  return { netRes: r, netPay: p };
+}
+
+describe('petro/summary: Sw faltante (regla 2)', () => {
+  // 6 muestras de reservorio (h = 1, 1, 0,5, 0,5, 1, 1; vsh 0,1; φ 0,2; perm 10, 20, 30, 40, 50, 60)
+  const h = [1, 1, 0.5, 0.5, 1, 1];
+  const vsh = Array(6).fill(0.1);
+  const phi = Array(6).fill(0.2);
+  const perm = [10, 20, 30, 40, 50, 60];
+  const mk = (sw: number[]): SummaryInput => ({ thickness: h, ...flagsFor(vsh, phi, sw), phi, sw, vsh, perm });
+
+  it('Sw parcial: se suma lo conocido y el faltante queda en «sin dato pay»', () => {
+    // Sw: .3, NaN, .5, .9, NaN, .4 → pay = muestras 0, 2, 5 (h 1 + 0,5 + 1 = 2,5); sin Sw = muestras 1 y 4 (2 m); no pay = muestra 3
+    const s = summarizeRanges(mk([0.3, NaN, 0.5, 0.9, NaN, 0.4]), [{ start: 0, end: 6 }]);
+    expect(s.netRes).toBeCloseTo(5, 12);
+    expect(s.netPay).toBeCloseTo(2.5, 12);
+    expect(s.noDataPay).toBeCloseTo(2, 12);
+    expect(s.noData).toBe(0);
+    expect(s.ntgPay).toBeCloseTo(2.5 / 5, 12);
+    // h·φ·Sh = 0,2·(1·0,7 + 0,5·0,5 + 1·0,6) = 0,2·1,55 = 0,31
+    expect(s.hphiShPay).toBeCloseTo(0.31, 12);
+    expect(s.hphiPay).toBeCloseTo(0.2 * 2.5, 12);
+    expect(s.khPay).toBeCloseTo(10 + 15 + 60, 12); // 1·10 + 0,5·30 + 1·60
+    expect(s.swPay).toBeCloseTo((1 * 0.3 + 0.5 * 0.5 + 1 * 0.4) / 2.5, 12);
+    // el reservorio: la Sw media usa solo las muestras con Sw
+    expect(s.hphiShRes).toBeCloseTo(0.2 * (0.7 + 0.5 * 0.5 + 0.5 * 0.1 + 0.6), 12);
+  });
+
+  it('Sw totalmente NaN con reservorio: pay, h·φ·Sh y kh son NaN (no 0) y todo el reservorio es «sin dato pay»', () => {
+    const s = summarizeRanges(mk(Array(6).fill(NaN)), [{ start: 0, end: 6 }]);
+    expect(s.netRes).toBeCloseTo(5, 12);
+    expect(s.noDataPay).toBeCloseTo(5, 12);
+    expect(s.netPay).toBeNaN();
+    expect(s.ntgPay).toBeNaN();
+    expect(s.hphiPay).toBeNaN();
+    expect(s.hphiShPay).toBeNaN();
+    expect(s.khPay).toBeNaN();
+    expect(s.swPay).toBeNaN();
+    expect(s.hphiShRes).toBeNaN();
+    expect(s.phiRes).toBeCloseTo(0.2, 12); // lo que no depende de Sw se conserva
+    expect(s.ntgRes).toBeCloseTo(1, 12);
+  });
+
+  it('con Sw conocida pero todo alto: pay 0 (no NaN) y sin faltante', () => {
+    const s = summarizeRanges(mk(Array(6).fill(0.9)), [{ start: 0, end: 6 }]);
+    expect(s.netPay).toBe(0);
+    expect(s.noDataPay).toBe(0);
+    expect(s.hphiShPay).toBe(0);
+  });
+
+  it('sin reservorio: pay 0 y sin faltante, aunque el Sw sea NaN (la muestra se descarta por Vsh)', () => {
+    const sw = Array(6).fill(NaN);
+    const bad = Array(6).fill(0.9);
+    const input = { thickness: h, ...flagsFor(bad, phi, sw), phi, sw, vsh: bad };
+    const s = summarizeRanges(input, [{ start: 0, end: 6 }]);
+    expect(s.netRes).toBe(0);
+    expect(s.netPay).toBe(0);
+    expect(s.noDataPay).toBe(0);
+    expect(s.noData).toBe(0); // regla 1: descartadas, no «sin dato»
+  });
+
+  it('total: la zona sin Sw aporta 0 si otra tiene dato (se suma lo conocido); NaN si ninguna tiene', () => {
+    const sw = [NaN, NaN, NaN, 0.3, 0.3, 0.3];
+    const inp = mk(sw);
+    const a = { start: 0, end: 3 }; // reservorio 2,5 m, todo sin Sw
+    const b = { start: 3, end: 6 }; // reservorio 2,5 m, pay 2,5 m
+    expect(summarizeRanges(inp, [a]).netPay).toBeNaN();
+    const total = summarizeRanges(inp, [a, b]);
+    expect(total.netPay).toBeCloseTo(2.5, 12);
+    expect(total.noDataPay).toBeCloseTo(2.5, 12);
+    expect(total.hphiShPay).toBeCloseTo(0.2 * 0.7 * 2.5, 12);
+    const none = summarizeRanges(mk(Array(6).fill(NaN)), [a, b]);
+    expect(none.netPay).toBeNaN();
   });
 });

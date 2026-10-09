@@ -13,3 +13,4 @@
 .zsum-zone__kind { padding: 0 var(--space-1); border: 1px solid var(--color-border); border-radius: var(--radius-xs); color: var(--color-text-muted); font-size: var(--text-xs); }
 .zsum-note { color: var(--color-text-muted); font-size: var(--text-xs); }
 .zsum-block__unit { text-transform: none; letter-spacing: normal; font-weight: var(--weight-regular); }
+.zsum-gap { color: var(--color-warn-text); }

@@ -1,8 +1,10 @@
 /**
  * Módulo de sumario por zona — espesores netos, promedios y h·φ·Sh. Ver 0007, C21 y D3/D6.
  * Consume curvas (los promedios ponderados necesitan las muestras) y publica una tabla para leer y valores por zona
- * (neto pay y h·φ·Sh) que consume el volumétrico. Una zona sin muestras o sin ninguna muestra clasificable
- * (faltan Vsh o φ en todas) da NaN en los valores por zona, no 0: el volumétrico lo trata como «sin dato».
+ * (neto pay y h·φ·Sh) que consume el volumétrico. Datos faltantes (D6): una zona sin muestras o sin ninguna muestra
+ * clasificada (0 o 1) da NaN en los valores por zona, no 0; una zona con reservorio pero sin Sw en todo él también
+ * (el pay es «sin dato»). Si solo falta parte del Sw se suma lo conocido y el faltante queda en la columna
+ * «Sin dato pay»; si supera el 5 % del neto de reservorio de la zona, se avisa.
  * Definición PURA (la ejecuta el Web Worker).
  */
 import { defineModule, input, output, type TableCell, type ZoneScalarValue } from '../../core/module';
@@ -18,8 +20,11 @@ const KIND_LABEL: Record<ZoneKind, string> = {
 
 const num = (x: number): TableCell => (Number.isFinite(x) ? x : null);
 
-/** true si hay al menos una muestra clasificable (con Vsh y φ) en el intervalo. */
+/** true si hay al menos una muestra clasificada (NET_RES 0 o 1) en el intervalo. */
 const hasClassified = (s: IntervalSummary) => s.gross > 0 && s.noData < s.gross;
+
+/** Fracción del neto de reservorio sin dato de pay (falta Sw) a partir de la cual se avisa. */
+const PAY_GAP_WARN = 0.05;
 
 export default defineModule({
   id: 'zone-summary',
@@ -59,6 +64,7 @@ export default defineModule({
         { key: 'hphiPay', label: 'h·φ pay', unit: 'm' },
         { key: 'hphiShPay', label: 'h·φ·Sh pay', unit: 'm' },
         { key: 'noData', label: 'Sin dato', unit: 'm' },
+        { key: 'noDataPay', label: 'Sin dato pay', unit: 'm' },
       ],
     }),
     netPayH: output.zoneScalar('NET_PAY_H', { label: 'Neto pay', unit: 'm' }),
@@ -66,7 +72,7 @@ export default defineModule({
     netPayTotal: output.scalar('NET_PAY_TOTAL', { label: 'Neto pay total', unit: 'm' }),
     hphiShTotal: output.scalar('HPHISH_TOTAL', { label: 'h·φ·Sh total', unit: 'm' }),
   },
-  compute({ n, depth, thickness, inputs, zones }) {
+  compute({ n, depth, thickness, inputs, zones, warn }) {
     const data = {
       thickness,
       netRes: inputs.netRes,
@@ -103,6 +109,7 @@ export default defineModule({
       hphiPay: num(s.hphiPay),
       hphiShPay: num(s.hphiShPay),
       noData: num(s.noData),
+      noDataPay: num(s.noDataPay),
     });
 
     const rows: Record<string, TableCell>[] = [];
@@ -111,6 +118,16 @@ export default defineModule({
     for (const iv of intervals) {
       const s = summarizeRanges(data, [{ start: iv.start, end: iv.end }]);
       rows.push(row(iv.name, iv.kind ? KIND_LABEL[iv.kind] : null, iv.top, iv.base, s));
+      // El sello no aporta volumen: su faltante de Sw no se avisa.
+      if (iv.kind !== 'seal' && s.noDataPay > PAY_GAP_WARN * s.netRes) {
+        const where = zones.length > 0 ? `En la zona ${iv.name}` : 'En el pozo';
+        const pct = Math.round((100 * s.noDataPay) / s.netRes);
+        warn(
+          Number.isNaN(s.netPay)
+            ? `${where}, ningún tramo de reservorio tiene Sw: el pay y el h·φ·Sh quedan sin dato.`
+            : `${where}, al ${pct} % del reservorio neto (${s.noDataPay.toFixed(1)} m) le falta Sw: el pay se calcula solo con el resto.`,
+        );
+      }
       if (zones.length > 0) {
         const ok = hasClassified(s);
         netPayH[iv.id] = ok ? s.netPay : NaN;
@@ -146,6 +163,6 @@ export default defineModule({
       'Worthington, P. F. y Cosentino, L. (2005). The role of cut-offs in integrated reservoir studies. SPE Reservoir Evaluation & Engineering 8(4).',
     ],
     notes:
-      'Las muestras sin Vsh o porosidad no se pueden clasificar y se informan como «sin dato». El total se calcula desde las sumas de todas las zonas, no promediando promedios; las muestras fuera de toda zona no cuentan.',
+      'Las muestras sin Vsh o porosidad que ningún corte descarta no se pueden clasificar y se informan como «sin dato». El reservorio sin Sw cuenta en «sin dato pay»: no se cuenta como no pay; si toda la zona carece de Sw, el pay queda sin dato. El total se calcula desde las sumas de todas las zonas, no promediando promedios; las muestras fuera de toda zona no cuentan.',
   },
 });

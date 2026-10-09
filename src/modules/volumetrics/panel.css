@@ -10,3 +10,4 @@
 .vol-zone, .vol-fluid { white-space: nowrap; }
 .vol-fluid { color: var(--color-text-muted); }
 .vol-note { color: var(--color-text-muted); font-size: var(--text-xs); }
+.vol-gaps { margin: 0; padding: 0; list-style: none; color: var(--color-text-muted); font-size: var(--text-xs); }

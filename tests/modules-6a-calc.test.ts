@@ -5,11 +5,13 @@
  * y avisos. Ver docs/decisiones/0007-modulos-fase-6a.md.
  */
 import { describe, expect, it } from 'vitest';
-import { Engine, type EngineRunResult } from '../src/core/engine/engine';
+import { Engine, toEngineWell, type EngineRunResult } from '../src/core/engine/engine';
 import { emptyInterpretation, type Interpretation } from '../src/core/interpretation';
 import type { TableValue, ZoneScalarValue } from '../src/core/module';
 import type { Zone } from '../src/core/well';
 import { registry } from '../src/modules';
+import csvText from '../datos/pozo_tp_perfiles.csv?raw';
+import { readWellFile } from '../src/io';
 import { curve, well, zone } from './helpers';
 
 // --- pozo sintético: 30 muestras cada 0,5 m (1000–1014,5 m), tres zonas de 10 muestras -----------------------------
@@ -252,6 +254,10 @@ describe('C21 zone-summary (cuentas a mano; cutoffs por defecto 0,4 / 0,08 / 0,6
     const c = rows[2]!;
     expect(c['gross']).toBeCloseTo(5, 12);
     expect(c['noData']).toBeCloseTo(1, 12);
+    expect(c['noDataPay']).toBeCloseTo(0.5, 12); // i=26: reservorio sin Sw
+    expect(rows[0]!['noDataPay']).toBe(0);
+    expect(rows[1]!['noDataPay']).toBe(0);
+    expect(rows[3]!['noDataPay']).toBeCloseTo(0.5, 12);
     expect(c['netRes']).toBeCloseTo(2.5, 12);
     expect(c['netPay']).toBeCloseTo(2, 12);
     expect(c['ntgRes']).toBeCloseTo(0.5, 12);
@@ -558,5 +564,203 @@ describe('cadena completa con los módulos de este agente', () => {
     expect(r.sources['RW']).toEqual({ kind: 'module', moduleId: 'rw-sp' });
     expect(Number.isFinite(scalarOf(r, 'volumetrics:OOIP_TOTAL'))).toBe(true);
     expect(zoneScalarOf(r, 'volumetrics:OOIP')['b']).toBe(0); // zona sello
+  });
+});
+
+// ===============================================================================================================
+// Datos faltantes en los cutoffs (regla 1: descarte seguro; regla 2: Sw faltante en reservorio = «sin dato pay»).
+describe('datos faltantes: descarte seguro y «sin dato pay»', () => {
+  const withCurves = (over: { vsh?: number[]; phi?: number[]; sw?: number[] }) =>
+    well(
+      WELL.curves.map((c) =>
+        c.role === 'VSH' && over.vsh ? curve('VSH', 'VSH', over.vsh)
+        : c.role === 'PHIE' && over.phi ? curve('PHIE', 'PHIE', over.phi)
+        : c.role === 'SW' && over.sw ? curve('SW', 'SW', over.sw)
+        : c,
+      ),
+      N,
+      DEPTH0,
+      STEP,
+    );
+  const NAMES = ['cutoffs', 'zone-summary', 'volumetrics', 'cutoff-sensitivity'];
+  const chain = (w: ReturnType<typeof well>, partial: Partial<Interpretation> = {}, zones: Zone[] = ZONES) =>
+    run({ zones, compare: NAMES, ...partial }, w);
+
+  it('regla 1: Vsh 0,9 con φ NaN da NET_RES = 0 (antes NaN) y deja de contar como «sin dato»', () => {
+    // ZC i=25 tenía φ NaN con Vsh 0,2 (sin dato); con Vsh 0,9 la descarta Vsh. i=24: Vsh NaN con φ 0,02 → 0 por φ.
+    const vsh = VSH.map((v, i) => (i === 25 ? 0.9 : v));
+    const phi = PHIE.map((v, i) => (i === 24 ? 0.02 : v));
+    const r = chain(withCurves({ vsh, phi }));
+    const res = curveOf(r, 'cutoffs:NET_RES');
+    const pay = curveOf(r, 'cutoffs:NET_PAY');
+    expect(res[24]).toBe(0);
+    expect(res[25]).toBe(0);
+    expect(pay[24]).toBe(0);
+    expect(pay[25]).toBe(0);
+    const c = tableOf(r, 'zone-summary:ZONE_SUMMARY')[2]!;
+    expect(c['noData']).toBe(0);
+    expect(c['gross']).toBeCloseTo(5, 12);
+  });
+
+  it('regla 1: sigue siendo «sin dato» si ninguna curva conocida descarta (Vsh NaN con φ que pasa)', () => {
+    const r = chain(WELL);
+    expect(curveOf(r, 'cutoffs:NET_RES')[24]).toBeNaN(); // Vsh NaN, φ 0,25
+    expect(curveOf(r, 'cutoffs:NET_RES')[25]).toBeNaN(); // Vsh 0,2, φ NaN
+  });
+
+  it('regla 2: reservorio con Sw NaN da NET_PAY = NaN (i=26 en ZC) y no cuenta como no pay', () => {
+    const pay = curveOf(chain(WELL), 'cutoffs:NET_PAY');
+    expect(pay[26]).toBeNaN();
+    expect(pay[28]).toBe(0); // Vsh 0,8 > 0,4: no reservorio, 0
+  });
+
+  describe('zona con reservorio pero todo el Sw NaN (ZC)', () => {
+    const sw = SW.map((v, i) => (zoneOf(i) === 2 ? NaN : v));
+    const r = chain(withCurves({ sw }), { params: params({}, { [ZA]: { area: 2, bo: 1.25 } }) });
+    const rows = tableOf(r, 'zone-summary:ZONE_SUMMARY');
+
+    it('sumario: ZC tiene netPay, h·φ·Sh y kh en null (NaN), «sin dato pay» = todo el reservorio (2,5 m)', () => {
+      const c = rows[2]!;
+      expect(c['netRes']).toBeCloseTo(2.5, 12);
+      expect(c['noDataPay']).toBeCloseTo(2.5, 12);
+      expect(c['netPay']).toBeNull();
+      expect(c['ntgPay']).toBeNull();
+      expect(c['hphiShPay']).toBeNull();
+      expect(c['khPay']).toBeNull();
+      expect(c['phiRes']).toBeCloseTo(0.22, 12);
+    });
+
+    it('puertos: ZC es NaN; ZA y ZB siguen; los totales suman lo conocido', () => {
+      const h = zoneScalarOf(r, 'zone-summary:NET_PAY_H');
+      const hp = zoneScalarOf(r, 'zone-summary:HPHISH_PAY');
+      expect(h[ZC]).toBeNaN();
+      expect(hp[ZC]).toBeNaN();
+      expect(h[ZA]).toBeCloseTo(3, 12);
+      expect(scalarOf(r, 'zone-summary:NET_PAY_TOTAL')).toBeCloseTo(8, 12); // 3 + 5
+      expect(scalarOf(r, 'zone-summary:HPHISH_TOTAL')).toBeCloseTo(0.348 + 0.6, 12);
+      const total = rows[3]!;
+      expect(total['netPay']).toBeCloseTo(8, 12);
+      expect(total['noDataPay']).toBeCloseTo(2.5, 12);
+    });
+
+    it('volumétrico: el volumen de ZC es NaN (no 0), avisa y el total suma las demás zonas', () => {
+      expect(zoneScalarOf(r, 'volumetrics:OOIP')[ZC]).toBeNaN();
+      expect(zoneScalarOf(r, 'volumetrics:OOIP')[ZA]).toBeCloseTo(556800, 6);
+      expect(scalarOf(r, 'volumetrics:OOIP_TOTAL')).toBeCloseTo(556800, 6);
+      const vrow = tableOf(r, 'volumetrics:VOLUMETRICS')[2]!;
+      expect(vrow['hphiSh']).toBeNull();
+      expect(vrow['ooipSi']).toBeNull();
+      expect(warnings(r).some((m) => m.includes('zona ZC') && m.includes('h·φ·Sh'))).toBe(true);
+    });
+
+    it('sumario avisa que ZC no tiene Sw en el reservorio; ZA no avisa', () => {
+      const w = warnings(r);
+      expect(w.some((m) => m.includes('zona ZC') && m.includes('ningún tramo de reservorio tiene Sw'))).toBe(true);
+      expect(w.some((m) => m.includes('zona ZA') && m.includes('Sw'))).toBe(false);
+    });
+
+    it('sensibilidad: en el cutoff vigente coincide con el sumario (NaN ↔ nulo) por zona y en total', () => {
+      const rows2 = tableOf(r, 'cutoff-sensitivity:CUTOFF_SWEEP');
+      const h = zoneScalarOf(r, 'zone-summary:NET_PAY_H');
+      for (const variable of ['vsh', 'phi', 'sw']) {
+        for (const z of [ZA, ZB, ZC]) {
+          const cur = rows2.find((x) => x['variable'] === variable && x['zoneId'] === z && x['current'] === 1)!;
+          if (Number.isNaN(h[z]!)) expect(cur['netPay'], `${variable} ${z}`).toBeNull();
+          else expect(cur['netPay'] as number, `${variable} ${z}`).toBeCloseTo(h[z]!, 12);
+          expect(cur['noDataPay'] as number).toBeCloseTo(z === ZC ? 2.5 : 0, 12);
+        }
+        const tot = rows2.find((x) => x['variable'] === variable && x['zoneId'] === '' && x['current'] === 1)!;
+        expect(tot['netPay'] as number).toBeCloseTo(8, 12);
+        expect(tot['ooip'] as number).toBeCloseTo(scalarOf(r, 'volumetrics:OOIP_TOTAL'), 6);
+      }
+    });
+  });
+
+  describe('sin Sw en todo el pozo: el pay total es NaN', () => {
+    const r = chain(withCurves({ sw: SW.map(() => NaN) }));
+    it('NET_PAY_TOTAL y HPHISH_TOTAL son NaN; el reservorio sigue contado', () => {
+      expect(scalarOf(r, 'zone-summary:NET_PAY_TOTAL')).toBeNaN();
+      expect(scalarOf(r, 'zone-summary:HPHISH_TOTAL')).toBeNaN();
+      const t = tableOf(r, 'zone-summary:ZONE_SUMMARY')[3]!;
+      expect(t['netRes']).toBeCloseTo(11.5, 12);
+      expect(t['noDataPay']).toBeCloseTo(11.5, 12);
+      expect(t['netPay']).toBeNull();
+      const rows2 = tableOf(r, 'cutoff-sensitivity:CUTOFF_SWEEP');
+      const tot = rows2.find((x) => x['variable'] === 'vsh' && x['zoneId'] === '' && x['current'] === 1)!;
+      expect(tot['netPay']).toBeNull();
+      expect(tot['netRes']).toBeCloseTo(11.5, 12);
+    });
+  });
+
+  describe('aviso del sumario: solo si el faltante supera el 5 % del neto de reservorio de la zona', () => {
+    // una zona de 60 muestras (30 m) con reservorio en todas: 1 muestra sin Sw (0,5 m = 1,7 %) no avisa; 4 (6,7 %) sí
+    const M = 60;
+    const zx: Zone[] = [{ ...zone('zx', 1000, 1029.5), kind: 'reservoir' }];
+    const mk = (missing: number) =>
+      well(
+        [
+          curve('VSH', 'VSH', Array(M).fill(0.1)),
+          curve('PHIE', 'PHIE', Array(M).fill(0.2)),
+          curve('SW', 'SW', Array.from({ length: M }, (_, i) => (i < missing ? NaN : 0.3))),
+        ],
+        M,
+        DEPTH0,
+        STEP,
+      );
+    const gapWarnings = (missing: number) => warnings(run({ zones: zx, compare: NAMES }, mk(missing))).filter((m) => m.includes('Sw') && m.includes('ZX'));
+
+    it('1 muestra (1,7 %): sin aviso, pero la columna «sin dato pay» muestra 0,5 m', () => {
+      expect(gapWarnings(1)).toEqual([]);
+      const rowsX = tableOf(run({ zones: zx, compare: NAMES }, mk(1)), 'zone-summary:ZONE_SUMMARY');
+      expect(rowsX[0]!['noDataPay']).toBeCloseTo(0.5, 12);
+      expect(rowsX[0]!['netPay']).toBeCloseTo(29.5, 12);
+    });
+
+    it('3 muestras (5 %, no lo supera): sin aviso; 4 muestras (6,7 %): avisa con el porcentaje', () => {
+      expect(gapWarnings(3)).toEqual([]);
+      const w = gapWarnings(4);
+      expect(w).toHaveLength(1);
+      expect(w[0]).toContain('7 %');
+    });
+  });
+
+  it('el sello no avisa aunque le falte Sw (no aporta volumen)', () => {
+    const sw = SW.map((v, i) => (zoneOf(i) === 1 ? NaN : v));
+    const r = chain(withCurves({ sw }));
+    expect(warnings(r).some((m) => m.includes('zona ZB'))).toBe(false);
+    expect(zoneScalarOf(r, 'volumetrics:OOIP')[ZB]).toBe(0);
+  });
+});
+
+// ===============================================================================================================
+describe('«sin dato pay» en el pozo del TP (datos/pozo_tp_perfiles.csv)', () => {
+  // Hay 15 muestras sin Sw (φ = 0 en lutitas con Vsh = 1, de 0,1524 m cada una): en A–E con los cutoffs por defecto
+  // las descarta Vsh, así que no hay faltante de pay. Aflojando los cortes al máximo (Vsh ≤ 1, φ ≥ 0) pasan a
+  // reservorio sin Sw: 8 muestras en B, 3 en D y 4 en E (2,286 m en total).
+  const { well: tp, zones } = readWellFile(csvText, 'pozo_tp_perfiles.csv');
+  const run2 = (global: Record<string, number>) => {
+    const e = new Engine(registry);
+    e.setWell(toEngineWell(tp));
+    return e.run({ ...emptyInterpretation(zones), params: { global, zones: {} } });
+  };
+  const gapOf = (r: EngineRunResult) => Object.fromEntries(tableOf(r, 'zone-summary:ZONE_SUMMARY').map((x) => [x['zone'] as string, x['noDataPay'] as number]));
+
+  it('cutoffs por defecto: sin dato pay = 0 en todas las zonas y en el total', () => {
+    const g = gapOf(run2({}));
+    for (const k of ['A', 'B', 'C', 'D', 'E', 'Total']) expect(g[k], k).toBe(0);
+  });
+
+  it('cortes al máximo: B 8, D 3 y E 4 muestras sin Sw (0,1524 m); el pay sigue finito', () => {
+    const r = run2({ vshCutoff: 1, phiCutoff: 0 });
+    const g = gapOf(r);
+    expect(g['A']).toBe(0);
+    expect(g['C']).toBe(0);
+    expect(g['B']).toBeCloseTo(8 * 0.1524, 9);
+    expect(g['D']).toBeCloseTo(3 * 0.1524, 9);
+    expect(g['E']).toBeCloseTo(4 * 0.1524, 9);
+    expect(g['Total']).toBeCloseTo(15 * 0.1524, 9);
+    expect(Number.isFinite(scalarOf(r, 'zone-summary:NET_PAY_TOTAL'))).toBe(true);
+    // B: 1,22 m sobre 181,66 m de reservorio (0,7 %): bajo el umbral del 5 %, sin aviso de Sw
+    expect(warnings(r).some((m) => m.includes('le falta Sw'))).toBe(false);
   });
 });

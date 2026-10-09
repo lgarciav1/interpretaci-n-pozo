@@ -46,7 +46,7 @@ export default defineModule({
   },
   docs: {
     summary:
-      'Reservorio neto: Vsh no mayor que el máximo y porosidad no menor que el mínimo. Pay neto: reservorio neto con Sw no mayor que el máximo. Los cortes son inclusivos y pueden cambiar por zona; si falta un dato, la bandera queda sin dato.',
+      'Reservorio neto: Vsh no mayor que el máximo y porosidad no menor que el mínimo. Pay neto: reservorio neto con Sw no mayor que el máximo. Los cortes son inclusivos y pueden cambiar por zona. Si una curva conocida no pasa su corte, la muestra no es reservorio aunque falte otra; solo queda sin dato si ninguna la descarta y falta alguna. Un reservorio sin Sw queda sin dato de pay (no se cuenta como no pay).',
     equations: [
       { latex: 'NET_{res} = 1 \\iff V_{sh} \\le V_{sh,max}\\ \\wedge\\ \\phi_e \\ge \\phi_{min}', description: 'Si no, 0.' },
       { latex: 'NET_{pay} = 1 \\iff NET_{res} = 1\\ \\wedge\\ S_w \\le S_{w,max}', description: 'Si no, 0.' },

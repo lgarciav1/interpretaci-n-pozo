@@ -138,12 +138,14 @@ el cutoff actual (cambia el parámetro compartido → se recalculan banderas, su
   parámetros globales (solo para tablas; los `zoneScalar` quedan `{}` y el volumétrico avisa que hacen falta zonas).
 - **Total:** suma sobre las zonas (las muestras fuera de toda zona no cuentan). Los promedios del total se recalculan
   desde las sumas, no promediando promedios.
-- **Banderas:** `NET_RES = 1` si `Vsh ≤ vshCutoff` y `φ ≥ phiCutoff`; `0` si no; `NaN` si falta Vsh o φ.
-  `NET_PAY = NaN` si `NET_RES` es NaN; `0` si `NET_RES = 0`; si `NET_RES = 1`: `1` si `Sw ≤ swCutoff`, `0` si no,
-  `NaN` si falta Sw. Comparaciones inclusivas.
+- **Banderas:** `NET_RES = 0` si alguna curva **conocida** no pasa su corte (`Vsh > vshCutoff` o `φ < phiCutoff`), aunque
+  falte la otra (descarte seguro: Vsh 0,9 con φ NaN da 0); si ninguna conocida la descarta, `1` si ambas pasan y `NaN`
+  («sin dato») si falta alguna. `NET_PAY = NaN` si `NET_RES` es NaN; `0` si `NET_RES = 0`; si `NET_RES = 1`: `1` si
+  `Sw ≤ swCutoff`, `0` si no, `NaN` si falta Sw (reservorio «sin dato de pay»; no se cuenta en silencio como no pay,
+  el sumario lo informa en `noDataPay`). Comparaciones inclusivas. *(Reglas 1 y 2 de datos faltantes, ver Parte 6.)*
 - **Promedios:** φ̄ = Σhφ/Σh; **S̄w ponderada por volumen poral** = Σhφ·Sw / Σhφ (así h·φ̄·(1 − S̄w) = Σhφ(1 − Sw)
   exacto); V̄sh y k̄ = Σh·x/Σh; kh = Σh·k. Solo muestras con dato en la variable promediada. Neto cero → promedios NaN,
-  sumas 0.
+  sumas 0. Excepción: reservorio sin ningún Sw → el pay es NaN, no 0 (Parte 6).
 - **Zonas de tipo `seal`:** aparecen en el sumario, pero el volumétrico y la sensibilidad les asignan volumen 0.
 
 ---
@@ -367,7 +369,7 @@ Salida: `sw: output.curve('SW')`. Bucle por segmento con los parámetros de la z
     `base` Base m · `gross` Bruto m · `netRes` Neto reservorio m · `netPay` Neto pay m · `ntgRes` N/G reservorio v/v ·
     `ntgPay` N/G pay v/v · `phiRes` φ reservorio v/v · `swRes` Sw reservorio v/v · `phiPay` φ pay v/v · `swPay` Sw pay
     v/v · `vshPay` Vsh pay v/v · `kPay` k pay mD · `khPay` kh pay (unidad `unitless`, etiqueta «kh pay (mD·m)») ·
-    `hphiPay` h·φ pay m · `hphiShPay` h·φ·Sh pay m · `noData` Sin dato m. Celdas sin valor → `null`.
+    `hphiPay` h·φ pay m · `hphiShPay` h·φ·Sh pay m · `noData` Sin dato m · `noDataPay` Sin dato pay m. Celdas sin valor → `null`.
   - `netPayH: output.zoneScalar('NET_PAY_H', { label: 'Neto pay', unit: 'm' })`.
   - `hphiSh: output.zoneScalar('HPHISH_PAY', { label: 'h·φ·Sh pay', unit: 'm' })` (lo consume el volumétrico).
   - `netPayTotal: output.scalar('NET_PAY_TOTAL', { label: 'Neto pay total', unit: 'm' })`,
@@ -401,7 +403,7 @@ implícitas (cada firma dice en qué unidad recibe), comentario de cabecera con 
 ```ts
 export interface Cutoffs { vshMax: number; phiMin: number; swMax: number }
 
-/** 1 si vsh ≤ vshMax y phi ≥ phiMin; 0 si no; NaN si vsh o phi es NaN. */
+/** 0 si una curva conocida no pasa su corte (aunque la otra sea NaN); 1 si ambas pasan; NaN si falta alguna y ninguna conocida descarta. */
 export function netReservoirFlag(vsh: number, phi: number, vshMax: number, phiMin: number): number;
 /** NaN si netRes es NaN; 0 si netRes = 0; si netRes = 1: 1 si sw ≤ swMax, 0 si no, NaN si sw es NaN. */
 export function netPayFlag(netRes: number, sw: number, swMax: number): number;
@@ -423,7 +425,7 @@ export interface SummaryInput {
   vsh?: ArrayLike<number>; perm?: ArrayLike<number>;      // v/v, mD
 }
 export interface IntervalSummary {
-  gross: number; noData: number; netRes: number; netPay: number;      // m
+  gross: number; noData: number; noDataPay: number; netRes: number; netPay: number;   // m (noDataPay: reservorio sin Sw)
   ntgRes: number; ntgPay: number;                                      // v/v (NaN si gross = 0)
   phiRes: number; swRes: number; vshRes: number;                       // promedios sobre neto reservorio
   phiPay: number; swPay: number; vshPay: number; kPay: number;         // promedios sobre neto pay
@@ -544,7 +546,7 @@ casos de los tests). Cambios y precisiones de las firmas y fichas:
   pendiente (opcional).
 - **C12 (`rw-rwa`):** el modo `'well'` informa en `count` las muestras usadas en todo el pozo. Con VSH presente, las
   muestras con Vsh NaN se excluyen; sin VSH se usan todas.
-- **C19 (`cutoffs`):** sin cambios. Overlay de cortes: pendiente (opcional).
+- **C19 (`cutoffs`):** solo cambian las reglas de datos faltantes (ver abajo). Overlay de cortes: pendiente (opcional).
 - **C21 (`zone-summary`):** los valores por zona (`NET_PAY_H`, `HPHISH_PAY`) y los totales son **NaN (sin dato)** cuando
   la zona no tiene muestras o ninguna es clasificable (falta Vsh o φ en todas); con muestras clasificables y sin pay
   valen 0. La fila de la tabla conserva las sumas (0). El `top`/`base` del «Total» son el menor tope y la mayor base.
@@ -563,6 +565,32 @@ casos de los tests). Cambios y precisiones de las firmas y fichas:
 - **Orden de registro:** `phi-sonic-wyllie` (C4) va antes que `phi-sonic-raymer` (C5), así que Wyllie es la fuente por
   defecto de `PHIS` (regla N3). `rw-sp`, aunque no sea la fuente de `RW`, corre igual y en pozos sin curva SP informa
   `missing-input` como error (es el caso de «Abierto» sobre módulos que no pueden correr).
+
+### Reglas de datos faltantes en los cutoffs (aprobadas después de la primera entrega)
+
+1. **Descarte seguro (P1).** Si alguna curva conocida ya no pasa su corte, la muestra es no reservorio (`NET_RES = 0`)
+   aunque falte otra: Vsh 0,9 con φ NaN da 0. Solo es NaN cuando ninguna curva conocida la descarta y falta alguna.
+   Efecto: `noData` del sumario cuenta únicamente las muestras realmente sin clasificar.
+2. **Sw faltante en reservorio (P1, P2, P5).** `NET_RES = 1` con Sw NaN da `NET_PAY = NaN` («sin dato de pay»).
+   - `summarizeRanges` agrega `noDataPay` = Σh donde `netRes = 1` y `netPay` es NaN. Si hay reservorio y **ninguna**
+     muestra de reservorio tiene dato de pay, `netPay`, `ntgPay`, `hphiPay`, `hphiShPay` y `khPay` son NaN (no 0), y
+     `hphiShRes` también si ninguna tiene Sw. Si falta solo parte del Sw se suma lo conocido y el faltante queda en
+     `noDataPay`. Sin reservorio el pay es 0 (no hay nada que no se pueda decidir).
+   - `cutoffSweep` agrega `noDataPay` a `SweepCurves` y devuelve NaN en `netPay` y `hphiShPay` en los umbrales con
+     reservorio y sin ningún Sw: coincide con la fuerza bruta (`netFlagsInto` + reglas del sumario) y con el sumario.
+   - C21: columna nueva `noDataPay` («Sin dato pay», m) por zona y en el total; `NET_PAY_H`, `HPHISH_PAY` y los
+     escalares totales son NaN cuando el pay de la zona (o del total) es «sin dato»; el total suma lo conocido de las
+     demás zonas. `warn` si el faltante de una zona (que no sea sello) supera el 5 % de su neto de reservorio.
+   - C22: el volumen de una zona con h·φ·Sh NaN es NaN, avisa (salvo sello y fluido «Sin hidrocarburo») y el total suma
+     las demás zonas.
+   - C20: columna `noDataPay` en `CUTOFF_SWEEP`; zona «sin dato» = ninguna muestra clasificada (0 o 1) con sus cortes
+     vigentes; el Total es nulo en el pay solo si hay reservorio y ninguna zona con pay conocido (igual que el sumario
+     sobre la unión). Las zonas selladas sin clasificar conservan volumen 0.
+   - Paneles de sumario y volumétrico: «Sin dato pay» se muestra solo si hay faltante, en la zona que lo tiene (nunca
+     el sello), con una nota.
+   - Pozo del TP (15 muestras sin Sw, todas en lutitas con Vsh = 1 y φ = 0): con los cutoffs por defecto las descarta
+     Vsh, así que `noDataPay` es 0 en A–E. Con los cortes al máximo (Vsh ≤ 1, φ ≥ 0) quedan B 1,219 m, D 0,457 m y
+     E 0,610 m (2,286 m en total, 0,7 % del reservorio de B): bajo el umbral de aviso.
 
 ## Reparto sugerido
 

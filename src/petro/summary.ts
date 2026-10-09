@@ -6,7 +6,8 @@
  *
  * Definiciones (docs/decisiones/0007-modulos-fase-6a.md, D6). Sea hᵢ el espesor de la muestra i:
  *   Bruto             gross = Σ hᵢ                       (todas las muestras del intervalo)
- *   Sin dato          noData = Σ hᵢ donde netRes = NaN   (falta Vsh o φ: no se pudo clasificar)
+ *   Sin dato          noData = Σ hᵢ donde netRes = NaN   (ninguna curva conocida la descarta y falta Vsh o φ)
+ *   Sin dato de pay   noDataPay = Σ hᵢ donde netRes = 1 y netPay = NaN   (reservorio sin Sw)
  *   Neto reservorio   netRes = Σ hᵢ donde NET_RES = 1;   neto pay   netPay = Σ hᵢ donde NET_PAY = 1
  *   Neto/bruto        N/G = neto / bruto                  (NaN si bruto = 0)
  *   Porosidad media   φ̄ = Σ hᵢφᵢ / Σ hᵢ                  (sobre el neto)
@@ -16,7 +17,10 @@
  *   Acumulados        h·φ = Σ hᵢφᵢ;   h·φ·Sh = Σ hᵢφᵢ(1 − Swᵢ)    (m)
  * Cada promedio usa solo las muestras netas CON dato en las variables que intervienen. Con la ponderación por
  * volumen poral se cumple h·φ̄·(1 − S̄w) = h·φ·Sh cuando todas las muestras netas tienen φ y Sw (siempre en el pay).
- * Neto cero → promedios NaN y sumas 0. Varios rangos se acumulan (sumas) y los promedios se recalculan desde las
+ * Neto cero → promedios NaN y sumas 0. EXCEPCIÓN (Sw faltante): si el intervalo tiene reservorio y NINGUNA muestra de
+ * reservorio tiene dato de pay, el pay es «sin dato», no 0: netPay, ntgPay, khPay, hphiPay, hphiShPay (y hphiShRes,
+ * si ninguna tiene Sw) son NaN. Si solo parte del Sw falta, se suma lo conocido y el faltante queda en noDataPay.
+ * Varios rangos se acumulan (sumas) y los promedios se recalculan desde las
  * sumas, no promediando promedios; los rangos no deben solaparse.
  *
  * Referencias: Asquith y Krygowski (2004), "Basic Well Log Analysis", AAPG Methods in Exploration 16
@@ -41,7 +45,10 @@ export interface SummaryInput {
 export interface IntervalSummary {
   /** m */
   gross: number;
+  /** Espesor sin clasificar (netRes NaN). */
   noData: number;
+  /** Espesor de reservorio sin dato de pay (netRes = 1, netPay NaN: falta Sw). */
+  noDataPay: number;
   netRes: number;
   netPay: number;
   /** v/v (NaN si gross = 0) */
@@ -98,6 +105,10 @@ export function summarizeRanges(
   const { thickness, netRes, netPay, phi, sw, vsh, perm } = input;
   let gross = 0;
   let noData = 0;
+  let noDataPay = 0;
+  let nRes = 0; // muestras de reservorio
+  let nPayKnown = 0; // de ellas, con dato de pay (netPay 0 o 1)
+  let nResWithSw = 0; // de ellas, con φ y Sw
   const res = emptySums();
   const pay = emptySums();
 
@@ -137,17 +148,25 @@ export function summarizeRanges(
       const v = vsh ? vsh[i]! : NaN;
       const k = perm ? perm[i]! : NaN;
       add(res, h, p, w, v, k);
-      if (netPay[i] === 1) add(pay, h, p, w, v, k);
+      nRes++;
+      if (!Number.isNaN(p) && !Number.isNaN(w)) nResWithSw++;
+      const pf = netPay[i]!;
+      if (pf === 1) add(pay, h, p, w, v, k);
+      if (pf === 0 || pf === 1) nPayKnown++;
+      else noDataPay += h;
     }
   }
 
+  const payUnknown = nRes > 0 && nPayKnown === 0;
+  const unk = (x: number) => (payUnknown ? NaN : x);
   return {
     gross,
     noData,
+    noDataPay,
     netRes: res.h,
-    netPay: pay.h,
+    netPay: unk(pay.h),
     ntgRes: ratio(res.h, gross),
-    ntgPay: ratio(pay.h, gross),
+    ntgPay: unk(ratio(pay.h, gross)),
     phiRes: ratio(res.hPhi, res.hPhiForAvg),
     swRes: ratio(res.hPhiSw, res.hPhiWithSw),
     vshRes: vsh ? ratio(res.hVsh, res.hWithVsh) : NaN,
@@ -155,10 +174,10 @@ export function summarizeRanges(
     swPay: ratio(pay.hPhiSw, pay.hPhiWithSw),
     vshPay: vsh ? ratio(pay.hVsh, pay.hWithVsh) : NaN,
     kPay: perm ? ratio(pay.hK, pay.hWithK) : NaN,
-    khPay: perm ? pay.hK : NaN,
+    khPay: perm ? unk(pay.hK) : NaN,
     hphiRes: res.hPhi,
-    hphiShRes: res.hPhiSh,
-    hphiPay: pay.hPhi,
-    hphiShPay: pay.hPhiSh,
+    hphiShRes: nRes > 0 && nResWithSw === 0 ? NaN : res.hPhiSh,
+    hphiPay: unk(pay.hPhi),
+    hphiShPay: unk(pay.hPhiSh),
   };
 }

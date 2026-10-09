@@ -3,6 +3,11 @@
  *
  * Unidades: Vsh, φ y Sw en v/v, espesores en m. NaN = sin dato (la muestra no cuenta, igual que en `netFlagsInto`).
  *
+ * Datos faltantes (las mismas reglas que `netFlagsInto` y `summarizeRanges`): una muestra descartada por una curva
+ * conocida es no reservorio aunque falte otra (no suma a nada); una de reservorio sin Sw no suma al pay y su espesor
+ * va a `noDataPay`. Si en un umbral hay reservorio pero NINGUNA muestra de reservorio tiene Sw, el pay es «sin
+ * dato»: `netPay` y `hphiShPay` valen NaN en ese umbral (no 0).
+ *
  * Semántica: en cada umbral t_j la salida es EXACTAMENTE la que se obtiene sumando las banderas de
  * `netFlagsInto` con el cutoff de `variable` reemplazado por t_j (comparaciones inclusivas: Vsh ≤ t, φ ≥ t, Sw ≤ t):
  *   netRes_j    = Σ hᵢ        donde NET_RES(t_j) = 1
@@ -37,6 +42,8 @@ export interface SweepCurves {
   netPay: Float64Array;
   /** m, Σ h·φ·(1 − Sw) sobre el pay */
   hphiShPay: Float64Array;
+  /** m, reservorio sin dato de pay (falta Sw) */
+  noDataPay: Float64Array;
 }
 
 function checkGrid(grid: SweepGrid): void {
@@ -110,8 +117,14 @@ export function cutoffSweep(
   const binRes = new Float64Array(steps);
   const binPay = new Float64Array(steps);
   const binHphi = new Float64Array(steps);
-  // Para 'sw' el neto de reservorio no depende del umbral.
+  const binUnk = new Float64Array(steps); // reservorio sin Sw (m)
+  const binResN = new Float64Array(steps); // muestras de reservorio
+  const binKnownN = new Float64Array(steps); // de ellas, con Sw
+  // Para 'sw' el reservorio no depende del umbral.
   let constRes = 0;
+  let constUnk = 0;
+  let constResN = 0;
+  let constKnownN = 0;
 
   for (const { start, end } of ranges) {
     for (let i = start; i < end; i++) {
@@ -125,7 +138,12 @@ export function cutoffSweep(
       if (variable === 'sw') {
         if (!(v <= vshMax && p >= phiMin)) continue;
         constRes += h;
-        if (Number.isNaN(w)) continue; // NET_PAY = NaN
+        constResN++;
+        if (Number.isNaN(w)) {
+          constUnk += h; // NET_PAY = NaN
+          continue;
+        }
+        constKnownN++;
         const j = firstAtLeast(t, w, grid.min, dx); // pay desde j (Sw ≤ t_j)
         if (j < steps) {
           binPay[j]! += h;
@@ -136,18 +154,28 @@ export function cutoffSweep(
         const j = firstAtLeast(t, v, grid.min, dx); // reservorio desde j (Vsh ≤ t_j)
         if (j >= steps) continue;
         binRes[j]! += h;
-        if (!Number.isNaN(w) && w <= swMax) {
-          binPay[j]! += h;
-          binHphi[j]! += hphiSh;
+        binResN[j]!++;
+        if (Number.isNaN(w)) binUnk[j]! += h;
+        else {
+          binKnownN[j]!++;
+          if (w <= swMax) {
+            binPay[j]! += h;
+            binHphi[j]! += hphiSh;
+          }
         }
       } else {
         if (!(v <= vshMax)) continue;
         const j = lastAtMost(t, p, grid.min, dx); // reservorio hasta j (φ ≥ t_j)
         if (j < 0) continue;
         binRes[j]! += h;
-        if (!Number.isNaN(w) && w <= swMax) {
-          binPay[j]! += h;
-          binHphi[j]! += hphiSh;
+        binResN[j]!++;
+        if (Number.isNaN(w)) binUnk[j]! += h;
+        else {
+          binKnownN[j]!++;
+          if (w <= swMax) {
+            binPay[j]! += h;
+            binHphi[j]! += hphiSh;
+          }
         }
       }
     }
@@ -156,31 +184,29 @@ export function cutoffSweep(
   const netRes = new Float64Array(steps);
   const netPay = new Float64Array(steps);
   const hphiShPay = new Float64Array(steps);
-  if (variable === 'phi') {
-    // Sufijas: la muestra con último umbral j* cuenta en todos los j ≤ j*.
-    let r = 0;
-    let pa = 0;
-    let hp = 0;
-    for (let j = steps - 1; j >= 0; j--) {
-      r += binRes[j]!;
-      pa += binPay[j]!;
-      hp += binHphi[j]!;
-      netRes[j] = r;
-      netPay[j] = pa;
-      hphiShPay[j] = hp;
-    }
-  } else {
-    let r = 0;
-    let pa = 0;
-    let hp = 0;
-    for (let j = 0; j < steps; j++) {
-      r += binRes[j]!;
-      pa += binPay[j]!;
-      hp += binHphi[j]!;
-      netRes[j] = variable === 'sw' ? constRes : r;
-      netPay[j] = pa;
-      hphiShPay[j] = hp;
-    }
+  const noDataPay = new Float64Array(steps);
+  let r = 0;
+  let pa = 0;
+  let hp = 0;
+  let un = 0;
+  let rn = 0;
+  let kn = 0;
+  // φ: sufijas (la muestra con último umbral j* cuenta en todos los j ≤ j*); Vsh y Sw: prefijas.
+  for (let k = 0; k < steps; k++) {
+    const j = variable === 'phi' ? steps - 1 - k : k;
+    r += binRes[j]!;
+    pa += binPay[j]!;
+    hp += binHphi[j]!;
+    un += binUnk[j]!;
+    rn += binResN[j]!;
+    kn += binKnownN[j]!;
+    const resN = variable === 'sw' ? constResN : rn;
+    const knownN = variable === 'sw' ? constKnownN : kn;
+    const unknown = resN > 0 && knownN === 0;
+    netRes[j] = variable === 'sw' ? constRes : r;
+    netPay[j] = unknown ? NaN : pa;
+    hphiShPay[j] = unknown ? NaN : hp;
+    noDataPay[j] = variable === 'sw' ? constUnk : un;
   }
-  return { thresholds: t, netRes, netPay, hphiShPay };
+  return { thresholds: t, netRes, netPay, hphiShPay, noDataPay };
 }
