@@ -622,7 +622,9 @@ function quadrants(x: Float64Array, y: Float64Array, lx: CutoffLine, ly: CutoffL
   const n = x.length;
   const passX = lx.param ? CUTOFF_PASSES[lx.param] : null;
   const passY = ly.param ? CUTOFF_PASSES[ly.param] : null;
-  const names = (up: boolean, right: boolean) => `${xName} ${right ? '>' : '≤'} ${fmt(lx.value)} · ${yName} ${up ? '>' : '≤'} ${fmt(ly.value)}`;
+  // Mismo borde que el conteo: un mínimo (φ) es «≥ / <»; el resto, «> / ≤».
+  const op = (hi: boolean, pass: 'below' | 'above' | null) => (pass === 'above' ? (hi ? '≥' : '<') : hi ? '>' : '≤');
+  const names = (up: boolean, right: boolean) => `${xName} ${op(right, passX)} ${fmt(lx.value)} · ${yName} ${op(up, passY)} ${fmt(ly.value)}`;
   return [
     [true, false],
     [true, true],

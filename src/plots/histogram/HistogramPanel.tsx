@@ -243,9 +243,9 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff }: Histogr
                 },
                 { key: 'n', header: 'n', align: 'num', render: (r) => formatNumber(r.st.n, { digits: 0 }) },
                 { key: 'mean', header: geometric ? 'Media g.' : 'Media', title: geometric ? 'Media geométrica (escala log)' : 'Media aritmética', align: 'num', render: (r) => fmt(r.st.mean) },
-                { key: 'p10', header: 'P10', title: 'Percentil 10: el 10 % de las muestras queda por debajo', align: 'num', render: (r) => fmt(r.st.p10) },
-                { key: 'p50', header: 'P50', title: 'Mediana', align: 'num', render: (r) => fmt(r.st.p50) },
-                { key: 'p90', header: 'P90', title: 'Percentil 90', align: 'num', render: (r) => fmt(r.st.p90) },
+                { key: 'p10', header: 'Pctl 10', title: 'Percentil 10: el 10 % de las muestras queda por debajo (no es el P10 de reservas)', align: 'num', render: (r) => fmt(r.st.p10) },
+                { key: 'p50', header: 'Pctl 50', title: 'Mediana', align: 'num', render: (r) => fmt(r.st.p50) },
+                { key: 'p90', header: 'Pctl 90', title: 'Percentil 90: el 90 % de las muestras queda por debajo', align: 'num', render: (r) => fmt(r.st.p90) },
               ]}
             />
             {model && !model.empty && model.outside > 0 && <p className="plot-hint">{formatNumber(model.outside, { digits: 0 })} muestras fuera del rango graficado (percentiles 0,5–99,5).</p>}
