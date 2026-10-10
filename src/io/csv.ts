@@ -9,6 +9,8 @@ export interface CsvOptions {
   delimiter?: ',' | ';' | '\t';
   /** Fuerza el decimal (por defecto se detecta). */
   decimal?: '.' | ',';
+  /** false: la tabla no es un perfil y puede no tener columna de profundidad (ver `TableContext.requireDepth`). */
+  requireDepth?: boolean;
 }
 
 // Orden de preferencia ante empate: con decimal coma, la coma aparece tan seguido como el separador real.
@@ -126,5 +128,6 @@ export function parseCsv(text: string, sourceName: string, options: CsvOptions =
     sourceName,
     fieldSeparatorIsComma: delimiter === ',',
     ...(options.decimal ? { decimal: options.decimal } : {}),
+    ...(options.requireDepth === false ? { requireDepth: false } : {}),
   });
 }

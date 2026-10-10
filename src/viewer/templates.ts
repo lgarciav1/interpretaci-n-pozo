@@ -13,7 +13,7 @@
  */
 import type { StackSpec, TrackSpec } from '../core/display';
 import type { WorkspaceId } from '../core/workspaces';
-import type { ViewerOverlay } from './overlay';
+import { guard, type OverlayTrackContext, type ViewerOverlay } from './overlay';
 
 const RESISTIVITY_SCALE = { kind: 'log', min: 0.2, max: 2000 } as const;
 
@@ -144,26 +144,63 @@ export function layoutFor(workspace: WorkspaceId, custom: Readonly<Record<string
 /** Id de la pista propia de una superposición. */
 export const overlayTrackId = (overlayId: string): string => `ov:${overlayId}`;
 
+/** Contexto para resolver las pistas propias dinámicas: pozo activo y ajustes por superposición. */
+export interface OverlayTracksContext {
+  well: OverlayTrackContext['well'] | null;
+  settings?: Readonly<Record<string, Readonly<Record<string, string | number | boolean>>>>;
+}
+
+const scaleSpec = (sc: { kind: 'linear' | 'log'; min: number; max: number; reversed?: boolean }): NonNullable<TrackSpec['scale']> => ({
+  kind: sc.kind,
+  min: sc.min,
+  max: sc.max,
+  ...(sc.reversed !== undefined ? { reversed: sc.reversed } : {}),
+});
+
 /**
  * Suma a un juego de pistas las pistas propias de las superposiciones (`overlay.track`) que no estén ya, en el lugar
  * que piden (`after`), y quita las pistas 'overlay' cuya superposición no existe (un proyecto guardado con un módulo
- * que esta versión no tiene). Puro.
+ * que esta versión no tiene). Con `ctx`, las pistas con `track.resolve` toman su escala, unidad y título del pozo
+ * (si `resolve` devuelve null, la pista no se muestra). Puro.
  */
-export function withOverlayTracks(layout: readonly TrackSpec[], overlays: readonly ViewerOverlay[], workspace: string): TrackSpec[] {
+export function withOverlayTracks(layout: readonly TrackSpec[], overlays: readonly ViewerOverlay[], workspace: string, ctx?: OverlayTracksContext): TrackSpec[] {
   const ids = new Set(overlays.map((o) => o.id));
-  const out = layout.filter((t) => t.kind !== 'overlay' || (t.overlayId !== undefined && ids.has(t.overlayId)));
+  /** Estado dinámico por superposición (undefined = sin `resolve` o sin contexto; null = ocultar la pista). */
+  const states = new Map<string, ReturnType<NonNullable<NonNullable<ViewerOverlay['track']>['resolve']>> | undefined>();
+  for (const o of overlays) {
+    const r = o.track?.resolve;
+    if (!r || !ctx) continue;
+    const well = ctx.well;
+    const st = well ? guard(o.id, 'track.resolve', () => r({ well, settings: ctx.settings?.[o.id] ?? {} })) : null;
+    const ok = st === null || (st !== undefined && st.scale && st.scale.max > st.scale.min && (st.scale.kind !== 'log' || st.scale.min > 0));
+    states.set(o.id, ok ? st : undefined);
+  }
+  const out: TrackSpec[] = [];
+  for (const t of layout) {
+    if (t.kind !== 'overlay') {
+      out.push(t);
+      continue;
+    }
+    if (t.overlayId === undefined || !ids.has(t.overlayId)) continue;
+    const st = states.get(t.overlayId);
+    if (st === null) continue;
+    out.push(st ? { ...t, scale: scaleSpec(st.scale), ...(st.unit !== undefined ? { unit: st.unit } : {}), ...(st.title ? { title: st.title } : {}) } : t);
+  }
   for (const o of overlays) {
     const d = o.track;
     if (!d || (d.workspaces && !d.workspaces.includes(workspace))) continue;
-    if (out.some((t) => t.kind === 'overlay' && t.overlayId === o.id)) continue;
+    if (layout.some((t) => t.kind === 'overlay' && t.overlayId === o.id)) continue;
+    const st = states.get(o.id);
+    if (st === null) continue;
+    const unit = st?.unit ?? d.unit;
     const spec: TrackSpec = {
       id: overlayTrackId(o.id),
-      title: d.title,
+      title: st?.title ?? d.title,
       kind: 'overlay',
       overlayId: o.id,
       width: d.width ?? 1,
-      scale: { kind: d.scale.kind, min: d.scale.min, max: d.scale.max, ...(d.scale.reversed !== undefined ? { reversed: d.scale.reversed } : {}) },
-      ...(d.unit !== undefined ? { unit: d.unit } : {}),
+      scale: scaleSpec(st?.scale ?? d.scale),
+      ...(unit !== undefined ? { unit } : {}),
     };
     const at = d.after ? out.findIndex((t) => t.id === d.after) : -1;
     if (at >= 0) out.splice(at + 1, 0, spec);

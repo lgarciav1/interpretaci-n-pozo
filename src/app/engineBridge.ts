@@ -58,11 +58,14 @@ export function startEngineBridge(registry: Registry): EngineSupervisor {
   const sync = () => {
     const entry = selectActiveEntry(useProject.getState());
     if (!entry) return;
-    if (entry.well !== lastWell) {
+    // El motor solo lee id, profundidad y curvas: cargar o borrar un conjunto de puntos (presiones MDT) cambia el
+    // objeto pozo pero no pide sincronizar ni recalcular.
+    const w = entry.well;
+    if (!lastWell || w.id !== lastWell.id || w.depth !== lastWell.depth || w.curves !== lastWell.curves) {
       lastWell = entry.well;
       supervisor.syncWell(toEngineWell(entry.well));
       lastInterp = null; // pozo nuevo o curvas cambiadas: recalcular
-    }
+    } else lastWell = w;
     if (entry.interpretation !== lastInterp) {
       // Solo cambió algo que el motor no lee (tendencias): no hace falta calcular.
       const skip = lastInterp !== null && sameEngineInputs(lastInterp, entry.interpretation);

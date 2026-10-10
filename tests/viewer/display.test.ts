@@ -34,7 +34,7 @@ describe('configuración del visor en el proyecto (formato v3)', () => {
     const p = setCurveDisplay(setRoleDisplay(setTrackLayout(base(), 'geology', tracks), 'NPHI', { reversed: false }), demo.well.id, 'GR', { wrap: true });
     const text = await serializeProject(p, { codec: 'f64le-b64' });
     expect(JSON.parse(text).version).toBe(PROJECT_VERSION);
-    expect(PROJECT_VERSION).toBe(4);
+    expect(PROJECT_VERSION).toBe(5);
     const back = await deserializeProject(text);
     expect(back.display).toEqual(p.display);
     expect(back.wells[0]!.interpretation).toEqual(p.wells[0]!.interpretation);

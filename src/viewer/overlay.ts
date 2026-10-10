@@ -20,6 +20,7 @@
  * - pedir redibujo (`frame.invalidate()` durante una vista previa, o `subscribe` si lee un store propio).
  */
 import type { Interpretation } from '../core/interpretation';
+import type { Project } from '../core/state/project';
 import type { Well } from '../core/well';
 import type { QcReport } from '../io/qc';
 import type { ThemeTokens } from '../ui/tokens';
@@ -52,6 +53,13 @@ export interface ViewerData {
   interpretation: Readonly<Interpretation>;
   /** Curvas calculadas por el motor para este pozo (activas y alternativas). */
   computed: readonly ComputedCurve[];
+  /**
+   * La ÚNICA vía de escritura de una superposición de módulo: aplica una receta pura de `src/core/state/` con una
+   * etiqueta en español («Descartar punto MDT»), igual que `useProject.getState().commit` (se deshace con Ctrl+Z).
+   * Así un `src/modules/<id>/overlay.ts` cambia el proyecto sin importar los stores de la app. Ausente en tests o en un
+   * visor de solo lectura.
+   */
+  commit?(label: string, recipe: (p: Project) => Project): void;
 }
 
 export interface OverlayViewport {
@@ -76,6 +84,11 @@ export interface OverlayTrack {
   curves: readonly ResolvedCurve[];
   /** Escala de la grilla de la pista (en 'overlay', su escala propia). */
   scale: AxisScale | null;
+  /**
+   * Pistas 'overlay': unidad de su escala (id de `src/core/units.ts` si se puede convertir, p. ej. 'psi' o 'bar').
+   * Quien dibuja una serie en otra unidad la convierte antes de `xOf` (las tendencias lo hacen solas).
+   */
+  unit?: string;
   hasRole(role: string): boolean;
   /**
    * x relativa a la pista (0…width) de un valor con la escala de la curva de ese rol o clave (la calculada activa
@@ -166,12 +179,32 @@ export interface OverlayTarget {
   hit: OverlayHit & { key: string };
 }
 
+/** Lo que una pista propia puede leer para elegir su escala: el pozo activo y los ajustes guardados de la pista. */
+export interface OverlayTrackContext {
+  well: Readonly<Well>;
+  /** Ajustes de la pista que eligió el usuario (p. ej. `{ unit: 'bar' }`), guardados en `project.display.overlays[id]`. */
+  settings: Readonly<Record<string, string | number | boolean>>;
+}
+
+/** Escala, unidad y título de una pista propia resueltos para el pozo activo. */
+export interface OverlayTrackState {
+  scale: { kind: 'linear' | 'log'; min: number; max: number; reversed?: boolean };
+  unit?: string;
+  title?: string;
+}
+
 /** Pista propia de una superposición (p. ej. presión vs. profundidad). El visor la agrega a las pistas activas. */
 export interface OverlayTrackDecl {
   title: string;
-  /** Escala horizontal de la pista (grilla, extremos del encabezado, `xOf(null, v)`). */
+  /** Escala horizontal de la pista (grilla, extremos del encabezado, `xOf(null, v)`). Respaldo de `resolve`. */
   scale: { kind: 'linear' | 'log'; min: number; max: number; reversed?: boolean };
   unit?: string;
+  /**
+   * Escala automática según los datos del pozo y unidad elegida por el usuario (presiones MDT: rango de las
+   * presiones, psi/bar/kPa). null = la pista no se muestra (el pozo no tiene esos datos). Se llama al resolver las
+   * pistas (cuando cambian el pozo o la configuración del visor), no en cada cuadro.
+   */
+  resolve?(ctx: OverlayTrackContext): OverlayTrackState | null;
   /** Ancho relativo (por defecto 1). */
   width?: number;
   /** Se ubica después de esta pista (id); si falta o no existe, al final. */

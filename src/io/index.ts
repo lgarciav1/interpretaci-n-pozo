@@ -21,6 +21,18 @@ export type { Confidence, RoleSuggestion } from './mnemonics';
 export { listXlsxSheets, parseXlsx } from './xlsx';
 export { parseLas } from './las';
 export { parseCsv } from './csv';
+export {
+  buildPressureSet,
+  MOBILITY_UNIT,
+  normalizeColumnName,
+  PRESSURE_COLUMNS,
+  PRESSURE_FIELD_DIMENSION,
+  PRESSURE_FIELD_LABEL,
+  PRESSURE_SET_KIND,
+  PRESSURE_UNIT,
+  suggestPressureMapping,
+} from './pressures';
+export type { BuildPressureOptions, BuildPressureResult, PressureColumnMapping, PressureField } from './pressures';
 export { getCurveQc, PAD_ROLES, PHYSICAL_RANGES, QC_DEFAULTS, QC_FLAGS, runQc, unreliableMask } from './qc';
 export type {
   BoreholeInterval,
@@ -41,6 +53,7 @@ export type {
 /** Contenido de un archivo: bytes (lo que entrega `File.arrayBuffer()`) o texto ya decodificado. */
 export type FileInput = string | Uint8Array | ArrayBuffer;
 
+/** `requireDepth: false` para tablas que no son perfiles (presiones, plugs): ver `TableContext.requireDepth`. */
 export interface ParseOptions extends CsvOptions, XlsxOptions {
   /** Fuerza el formato (por defecto se detecta por contenido y extensión). */
   format?: SourceFormat;

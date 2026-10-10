@@ -52,6 +52,13 @@ export const seriesProviders: TrendSeriesProvider[] = [{
 - **Crossplot** (`xIsDepth: false`, p. ej. k vs. φ de plugs): `x` e `y` son las dos variables y `depth` permite
   filtrar por tramo o zona. El visor no la dibuja; el crossplot usa `trendGeometry` con sus dos ejes
   (`transpose: false`) y `evaluateTrend` igual que el visor. `selection.xMin`/`xMax` limitan el ajuste en x.
-- Para crear una tendencia sobre una serie que no es una curva del visor (botón «Gradiente» del panel MDT), el módulo
-  llama a una receta de `src/core/state/trends.ts` (`addTrend`) con su `SeriesRef`; la superposición la dibuja sola.
-- Contactos: `intersectTrends` (`src/petro/regression.ts`) entre dos tendencias de presión.
+- Para crear una tendencia sobre una serie que no es una curva del visor, el módulo arranca la herramienta con esa
+  serie: `startTrendTool({ kind: 'fit', series: { ref, label, name, color, extend, hint } })` (el arrastre vale en
+  cualquier pista y la tendencia nace con ese nombre y color; «Nuevo gradiente» del panel MDT), o la agrega ya hecha
+  con `addTrend` (`src/core/state/trends.ts`; ejemplo MDT).
+- Opciones de la serie para pistas angostas: `canvasLabel: 'gradient'` (etiqueta de una línea al costado del medio
+  del tramo: «0,453 psi/ft · 1,04 g/cm³») y `pickSamples: false` (los puntos los maneja el módulo: el visor no ofrece
+  excluirlos con un clic).
+- Pista propia en otra unidad que la serie (presión en psi, pista en bar): la capa convierte sola con `track.unit`.
+- Contactos: `intersectTrends` (`src/petro/regression.ts`) entre dos tendencias de presión (MDT: `findContacts` en
+  `src/modules/mdt/model.ts`).

@@ -1,24 +1,20 @@
 /**
- * PANELES DEL DOCK — la lista de pestañas de la franja inferior del centro. Agregar un panel (histograma,
- * crossplot en la fase 7) = una entrada más. `useBadge` es un hook opcional (contador junto al título).
+ * PANELES DEL DOCK — la lista de pestañas de la franja inferior del centro: los de la app (una entrada acá) y los que
+ * aporten los módulos en `src/modules/<id>/dock.tsx` (`dockPanels: DockPanelDef[]`, descubiertos solos; van antes de
+ * «Motor»). `useBadge` es un hook opcional (contador junto al título). Contrato: `src/ui/dockPanel.ts`.
  */
-import type { ComponentType, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import type { OutputRecord } from '../../core/engine/engine';
 import type { TableValue, ZoneScalarValue } from '../../core/module';
 import { convert, unitLabel, type UnitId } from '../../core/units';
 import { registry } from '../../modules';
-import { Badge, DataTable, EmptyState, Section, StatusDot, formatNumber, useFlash, type IconName, type Tone } from '../../ui';
+import { Badge, DataTable, EmptyState, Section, StatusDot, formatNumber, useFlash, type Tone } from '../../ui';
+import type { DockPanelDef } from '../../ui/dockPanel';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useResults } from '../store/results';
 import { TrendsPanel } from '../trends/TrendsPanel';
 
-export interface DockPanelDef {
-  id: string;
-  title: string;
-  icon: IconName;
-  component: ComponentType;
-  useBadge?: () => ReactNode;
-}
+export type { DockPanelDef } from '../../ui/dockPanel';
 
 function Flash({ value, children }: { value: unknown; children: ReactNode }) {
   const flash = useFlash(value);
@@ -224,7 +220,34 @@ function EnginePanel() {
   );
 }
 
-export const DOCK_PANELS: readonly DockPanelDef[] = [
+const found = import.meta.glob<{ dockPanels?: DockPanelDef[] }>('../../modules/*/dock.tsx', { eager: true });
+
+/** Paneles de los módulos (válidos y sin ids repetidos con los de la app ni entre sí). */
+export function collectDockPanels(files: Record<string, { dockPanels?: DockPanelDef[] }>, reserved: readonly string[]): DockPanelDef[] {
+  const ids = new Set(reserved);
+  const out: DockPanelDef[] = [];
+  for (const [path, mod] of Object.entries(files)) {
+    if (!Array.isArray(mod.dockPanels)) {
+      console.warn(`${path} no exporta 'dockPanels' (DockPanelDef[]); se ignora.`);
+      continue;
+    }
+    for (const p of mod.dockPanels) {
+      if (!p || typeof p.id !== 'string' || typeof p.title !== 'string' || typeof p.component !== 'function') {
+        console.warn(`${path}: panel del dock inválido (falta id, título o componente); se ignora.`);
+        continue;
+      }
+      if (ids.has(p.id)) {
+        console.warn(`${path}: el panel del dock '${p.id}' está repetido; se ignora.`);
+        continue;
+      }
+      ids.add(p.id);
+      out.push(p);
+    }
+  }
+  return out;
+}
+
+const APP_PANELS: readonly DockPanelDef[] = [
   {
     id: 'results',
     title: 'Resultados',
@@ -246,5 +269,7 @@ export const DOCK_PANELS: readonly DockPanelDef[] = [
     component: TrendsPanel,
     useBadge: () => useProject((s) => selectActiveEntry(s)?.interpretation.trends.length || null),
   },
-  { id: 'engine', title: 'Motor', icon: 'cpu', component: EnginePanel },
 ];
+const ENGINE_PANEL: DockPanelDef = { id: 'engine', title: 'Motor', icon: 'cpu', component: EnginePanel };
+
+export const DOCK_PANELS: readonly DockPanelDef[] = [...APP_PANELS, ...collectDockPanels(found, [...APP_PANELS, ENGINE_PANEL].map((p) => p.id)), ENGINE_PANEL];

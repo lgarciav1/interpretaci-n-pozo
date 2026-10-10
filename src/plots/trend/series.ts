@@ -75,6 +75,16 @@ export interface ResolvedSeries {
    * `overlayId` = la pista propia de esa superposición (`track.xOf(null, v)`). Sin `placement`, no va al visor.
    */
   placement?: { roleOrKey: string } | { overlayId: string };
+  /**
+   * Etiqueta en el visor: 'full' (ecuación; R² y gradiente; por defecto) o 'gradient' (una línea con el gradiente y,
+   * si es de presión, la densidad equivalente: pistas angostas con varias rectas, como la de presiones MDT).
+   */
+  canvasLabel?: 'full' | 'gradient';
+  /**
+   * false: el visor no ofrece excluir muestras con un clic ni las marca al hacer zoom: los puntos los maneja el
+   * módulo dueño de la serie (MDT: incluir o descartar una prueba vale para todos los ajustes). Por defecto, true.
+   */
+  pickSamples?: boolean;
 }
 
 export interface TrendSeriesProvider {

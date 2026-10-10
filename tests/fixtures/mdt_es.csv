@@ -1,0 +1,8 @@
+# Presiones MDT, corrida 1 (fixture chico para tests)
+Prueba;Profundidad MD (m);TVD (m);Presión de formación (psia);Movilidad (mD/cP);Presión hidrostática antes (psi);Presión hidrostática después (psi);Calidad;Comentario
+MDT-03;2510,0;2510,0;3595,2;120;4120,5;4120,1;Buena;
+MDT-01;2490,5;2490,5;3567,4;85,5;4088,0;4087,6;Buena;
+MDT-02;2500,0;2500,0;;0,01;4103,8;4103,9;Seca;sin flujo
+MDT-04;2525,0;2525,0;3650,0;0,3;4145,0;4144,8;Sobrecargada;
+MDT-05;;;3700,0;50;;;Buena;sin profundidad
+MDT-06;2540,0;2540,0;3638,9;210;4169,9;4169,5;Good;

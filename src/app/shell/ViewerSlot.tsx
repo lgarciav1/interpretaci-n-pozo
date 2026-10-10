@@ -99,7 +99,8 @@ export function ViewerSlot() {
   const tracks = useMemo(() => {
     if (!well) return [];
     return resolveTracks(
-      withOverlayTracks(layoutFor(workspace, display.layouts), OVERLAYS, workspace),
+      // Pistas propias con escala según los datos (presiones MDT) y los ajustes guardados (unidad).
+      withOverlayTracks(layoutFor(workspace, display.layouts), OVERLAYS, workspace, { well, ...(display.overlays ? { settings: display.overlays } : {}) }),
       { depth: well.depth.values, curves: well.curves, computed, catalog: registry.roles },
       { roles: display.roles, ...(display.curves[well.id] ? { curves: display.curves[well.id] } : {}) },
     );
@@ -116,8 +117,9 @@ export function ViewerSlot() {
       well,
       interpretation,
       computed,
+      commit,
     };
-  }, [well, interpretation, editingZoneId, qc, computed]);
+  }, [well, interpretation, editingZoneId, qc, computed, commit]);
 
   // Editor de escala: qué curva y dónde anclarlo (la curva se vuelve a buscar en cada render: llega al día).
   const [editing, setEditing] = useState<{ trackId: string; key: string } | null>(null);
@@ -281,7 +283,9 @@ export function ViewerSlot() {
           ) : trendTool ? (
             <>
               <Icon name={trendTool.kind === 'manual' ? 'pen' : 'trend'} size={14} />
-              {trendTool.kind === 'manual'
+              {trendTool.series?.hint
+                ? trendTool.series.hint
+                : trendTool.kind === 'manual'
                 ? 'Arrastrá sobre una curva de un punto a otro para dibujar la tendencia'
                 : trendTool.trendId
                   ? 'Arrastrá sobre el perfil para elegir el nuevo tramo del ajuste'

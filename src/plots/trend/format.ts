@@ -60,6 +60,18 @@ export function trendCanvasLabel(spec: TrendSpec, r: TrendResult, s: ResolvedSer
   return [eq, grad ? `${r2} · ${grad}` : r2];
 }
 
+/**
+ * Etiqueta de una línea para pistas angostas: gradiente primario y, si es de presión, la densidad equivalente
+ * («0,453 psi/ft · 1,04 g/cm³»). Segunda línea vacía (`drawTrendLabel` la dibuja de una sola línea).
+ */
+export function trendGradientLabel(spec: TrendSpec, r: TrendResult): [string, string] {
+  const g = primaryGradient(r);
+  if (!g) return [spec.name, ''];
+  const dens = r.gradients.find((x) => x.unit.startsWith('g/cm³'));
+  const d = dens && Number.isFinite(dens.value) ? ` · ${formatNumber(dens.value, { digits: 2 })} g/cm³` : '';
+  return [`${formatGradient(g)}${d}${spec.mode === 'manual' ? ' · a mano' : ''}`, ''];
+}
+
 /** Tooltip (varias líneas): nombre, ecuación, R² y n, gradientes. */
 export function trendTooltip(spec: TrendSpec, r: TrendResult, s: ResolvedSeries | null, hint?: string): string {
   const lines = [`${spec.name} · ${MODEL_LABEL[spec.model]}${spec.mode === 'manual' ? ' a mano' : ''}`];

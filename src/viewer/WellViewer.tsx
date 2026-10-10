@@ -25,6 +25,7 @@ import { overlayTracks, overlayViewport, stackFillColor, ViewerRenderer, type Fr
 import { scaleKey } from './scale';
 import type { HiddenCurve, ResolvedCurve, ResolvedTrack } from './resolve';
 import { stackHint, stackReadout } from './stack';
+import { unitLabel } from '../core/units';
 import {
   baseOf,
   clampViewport,
@@ -1018,7 +1019,7 @@ export function WellViewer(props: WellViewerProps) {
                   ) : t.kind === 'overlay' ? (
                     <div className="wv-head__scale num">
                       <span>{t.grid ? formatNumber(t.grid.reversed ? t.grid.max : t.grid.min, { significant: 3, grouping: false }) : ''}</span>
-                      {t.unit && <span className="wv-head__unit">{t.unit}</span>}
+                      {t.unit && <span className="wv-head__unit">{unitLabel(t.unit)}</span>}
                       <span>{t.grid ? formatNumber(t.grid.reversed ? t.grid.min : t.grid.max, { significant: 3, grouping: false }) : ''}</span>
                     </div>
                   ) : t.kind === 'stack' && t.stack ? (

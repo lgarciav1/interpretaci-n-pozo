@@ -128,6 +128,11 @@ export interface DisplaySettings {
   roles: Record<RoleId, CurveDisplayOverride>;
   /** Overrides por curva: pozo → id de curva → override. */
   curves: Record<string, Record<string, CurveDisplayOverride>>;
+  /**
+   * Ajustes de las pistas propias de superposiciones, por id de superposición (p. ej. `{ mdt: { unit: 'bar' } }`).
+   * Cada superposición interpreta sus claves (`OverlayTrackDecl.resolve`). Ausente = ninguno.
+   */
+  overlays?: Record<string, Record<string, string | number | boolean>>;
 }
 
 export function emptyDisplay(): DisplaySettings {
@@ -309,6 +314,19 @@ export function sanitizeDisplay(raw: unknown, warn: (message: string) => void = 
       const r = overrides(v, `Estilo de la curva del pozo '${wellId}'`);
       if (Object.keys(r).length) out.curves[wellId] = r;
     }
+  }
+  if (isObj(raw['overlays'])) {
+    const overlays: Record<string, Record<string, string | number | boolean>> = {};
+    for (const [id, v] of Object.entries(raw['overlays'])) {
+      if (!isObj(v)) {
+        warn(`Ajustes de la pista '${id}': no son un objeto; se descartan.`);
+        continue;
+      }
+      const clean: Record<string, string | number | boolean> = {};
+      for (const [k, x] of Object.entries(v)) if (typeof x === 'string' || typeof x === 'boolean' || isNum(x)) clean[k] = x;
+      if (Object.keys(clean).length) overlays[id] = clean;
+    }
+    if (Object.keys(overlays).length) out.overlays = overlays;
   }
   return out;
 }

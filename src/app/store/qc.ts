@@ -25,10 +25,13 @@ export function setWellQc(well: Well, report: QcReport): void {
   useQc.setState((s) => ({ entries: { ...s.entries, [well.id]: { well, report } } }));
 }
 
+/** El QC lee profundidad y curvas: un pozo que solo cambió sus conjuntos de puntos conserva el reporte. */
+const sameQcData = (a: Well, b: Well) => a === b || (a.depth === b.depth && a.curves === b.curves);
+
 /** Reporte vigente del pozo; si falta o es de una versión anterior del pozo, lo calcula sin bloquear el render. */
 export function useWellQc(well: Well | null): QcReport | null {
   const entry = useQc((s) => (well ? s.entries[well.id] : undefined));
-  const report = entry && entry.well === well ? entry.report : null;
+  const report = entry && well && sameQcData(entry.well, well) ? entry.report : null;
   useEffect(() => {
     if (!well || report) return;
     const t = setTimeout(() => setWellQc(well, computeQc(well)), 0);
