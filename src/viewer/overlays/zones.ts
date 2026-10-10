@@ -15,9 +15,10 @@ import { createZone, moveZoneEdge, nudgeZoneEdge, contactGap, type NewZoneInput,
 import type { Zone } from '../../core/well';
 import { contrastRatio, withAlpha } from '../../ui/color';
 import { formatNumber } from '../../ui/format';
-import { BASE_TOKENS, THEMES } from '../../ui/tokens';
+import { BASE_TOKENS, scalePx, THEMES } from '../../ui/tokens';
 import type { OverlayFrame, OverlayHit, OverlayHitFrame, OverlayPointer, OverlayTarget, OverlayTrack, ViewerOverlay, ViewerZone } from '../overlay';
 
+/** Medidas en px de Compacto: se multiplican por `frame.uiScale` (tamaño de interfaz; 1 en las figuras). */
 const STRIP = 14;
 const LABEL_H = 16;
 /** Distancia (px) a una línea de tope para agarrarla. */
@@ -84,9 +85,11 @@ function labelBox(z: ViewerZone, frame: OverlayHitFrame, track: OverlayTrack): {
   const yTop = vp.yOf(z.top);
   const yBase = vp.yOf(z.base);
   if (yBase < 0 || yTop > vp.height) return null;
+  const u = frame.uiScale ?? 1;
+  const h = scalePx(LABEL_H, u);
   const y = Math.max(yTop + 3, 3);
-  if (y + LABEL_H > yBase - 2) return null;
-  return { x: track.x + 4, y, w: 12 + z.name.length * 6.6, h: LABEL_H };
+  if (y + h > yBase - 2) return null;
+  return { x: track.x + 4, y, w: (12 + z.name.length * 6.6) * u, h };
 }
 
 const firstCurveTrack = (tracks: readonly OverlayTrack[]) => tracks.find((t) => t.kind !== 'depth') ?? null;
@@ -110,20 +113,21 @@ function zoneRange(z: ViewerZone): string {
 const toViewer = (z: Zone): ViewerZone => ({ id: z.id, name: z.name, top: z.top, base: z.base, color: z.color });
 
 /** Pastilla con texto (profundidad durante un arrastre, tramo nuevo). */
-function pill(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, bg: string, ink: string, maxX: number): void {
-  ctx.font = `${BASE_TOKENS.weight.semibold} ${BASE_TOKENS.text.xs}px ${BASE_TOKENS.font.sans}`;
-  const w = ctx.measureText(text).width + 14;
-  const h = 20;
+function pill(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, bg: string, ink: string, maxX: number, u: number): void {
+  ctx.font = `${BASE_TOKENS.weight.semibold} ${scalePx(BASE_TOKENS.text.xs, u)}px ${BASE_TOKENS.font.sans}`;
+  const pad = scalePx(7, u);
+  const w = ctx.measureText(text).width + 2 * pad;
+  const h = scalePx(20, u);
   const bx = Math.min(x, maxX - w - 4);
   const by = y - h / 2;
   ctx.fillStyle = bg;
   ctx.beginPath();
-  ctx.roundRect(bx, by, w, h, 10);
+  ctx.roundRect(bx, by, w, h, h / 2);
   ctx.fill();
   ctx.fillStyle = ink;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  ctx.fillText(text, bx + 7, by + h / 2 + 0.5);
+  ctx.fillText(text, bx + pad, by + h / 2 + 0.5);
 }
 
 export function createZonesOverlay(opts: ZonesOverlayOptions = {}): ViewerOverlay[] {
@@ -140,8 +144,10 @@ export function createZonesOverlay(opts: ZonesOverlayOptions = {}): ViewerOverla
     label: 'Zonas (bandas)',
     layer: 'under',
     order: -10,
-    draw({ ctx, viewport: vp, tracks, data, theme }) {
+    draw({ ctx, viewport: vp, tracks, data, theme, uiScale }) {
       const alpha = theme.viewer.zoneAlpha;
+      const u = uiScale ?? 1;
+      const strip = scalePx(STRIP, u);
       for (const z of shown(data)) {
         const y0 = vp.yOf(z.top);
         const y1 = vp.yOf(z.base);
@@ -150,7 +156,7 @@ export function createZonesOverlay(opts: ZonesOverlayOptions = {}): ViewerOverla
         for (const t of tracks) {
           if (t.kind === 'depth') {
             ctx.fillStyle = withAlpha(z.color, selected ? 0.95 : 0.7);
-            ctx.fillRect(t.x, y0, STRIP, y1 - y0);
+            ctx.fillRect(t.x, y0, strip, y1 - y0);
             continue;
           }
           // Sutiles: la zona se lee por la franja y los topes; la banda solo da contexto.
@@ -161,12 +167,12 @@ export function createZonesOverlay(opts: ZonesOverlayOptions = {}): ViewerOverla
         const depthTrack = tracks.find((t) => t.kind === 'depth');
         const vis0 = Math.max(0, y0);
         const vis1 = Math.min(vp.height, y1);
-        if (depthTrack && vis1 - vis0 > 18 + z.name.length * 7) {
+        if (depthTrack && vis1 - vis0 > (18 + z.name.length * 7) * u) {
           ctx.save();
-          ctx.translate(depthTrack.x + STRIP / 2, (vis0 + vis1) / 2);
+          ctx.translate(depthTrack.x + strip / 2, (vis0 + vis1) / 2);
           ctx.rotate(-Math.PI / 2);
           ctx.fillStyle = readableOn(z.color);
-          ctx.font = `${BASE_TOKENS.weight.semibold} 10px ${BASE_TOKENS.font.sans}`;
+          ctx.font = `${BASE_TOKENS.weight.semibold} ${scalePx(10, u)}px ${BASE_TOKENS.font.sans}`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(z.name, 0, 0.5);
@@ -320,7 +326,7 @@ export function createZonesOverlay(opts: ZonesOverlayOptions = {}): ViewerOverla
           ctx.stroke();
         }
         ctx.fillStyle = readableOn(z.color);
-        ctx.font = `${BASE_TOKENS.weight.semibold} ${BASE_TOKENS.text.xs}px ${BASE_TOKENS.font.sans}`;
+        ctx.font = `${BASE_TOKENS.weight.semibold} ${scalePx(BASE_TOKENS.text.xs, frame.uiScale ?? 1)}px ${BASE_TOKENS.font.sans}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(z.name, box.x + box.w / 2, box.y + box.h / 2 + 0.5);
@@ -353,7 +359,8 @@ export function createZonesOverlay(opts: ZonesOverlayOptions = {}): ViewerOverla
               ctx.fill();
               ctx.stroke();
             }
-            if (pt && b.label) pill(ctx, b.label, pt.x + 8, y - 16 < 10 ? y + 16 : y - 16, accent, theme.color.textOnAccent, width);
+            const off = scalePx(16, frame.uiScale ?? 1);
+            if (pt && b.label) pill(ctx, b.label, pt.x + 8, y - off < 10 ? y + off : y - off, accent, theme.color.textOnAccent, width, frame.uiScale ?? 1);
           }
         }
       }
@@ -376,7 +383,7 @@ export function createZonesOverlay(opts: ZonesOverlayOptions = {}): ViewerOverla
         ctx.stroke();
         ctx.setLineDash([]);
         const text = draft.error ?? `${draft.created?.name ?? 'Zona nueva'} · ${zoneRange({ top: draft.top, base: draft.base } as ViewerZone)} · ${formatNumber(draft.base - draft.top, { digits: 1 })} m`;
-        if (pt) pill(ctx, text, pt.x + 8, Math.min(vp.height - 14, Math.max(14, (y0 + y1) / 2)), draft.error ? theme.color.error : accent, theme.color.textOnAccent, width);
+        if (pt) pill(ctx, text, pt.x + 8, Math.min(vp.height - 14, Math.max(14, (y0 + y1) / 2)), draft.error ? theme.color.error : accent, theme.color.textOnAccent, width, frame.uiScale ?? 1);
       }
     },
     hit(frame, p: OverlayPointer) {
@@ -385,7 +392,7 @@ export function createZonesOverlay(opts: ZonesOverlayOptions = {}): ViewerOverla
       if (edit) {
         // Bordes primero: a ±EDGE_HIT_PX de la línea se agarra el borde (en cualquier pista).
         let best: ZoneBoundary | null = null;
-        let bestD = EDGE_HIT_PX + 0.01;
+        let bestD = EDGE_HIT_PX * (frame.uiScale ?? 1) + 0.01;
         for (const b of boundaries(frame)) {
           const d = Math.abs(frame.viewport.yOf(b.depth) - p.y);
           if (d < bestD) {

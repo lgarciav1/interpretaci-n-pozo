@@ -17,7 +17,7 @@ import type { SeriesRef, TrendPoint, TrendSelection, TrendSpec } from '../../cor
 import { evalTrend, type TrendModel } from '../../petro/regression';
 import { ensureContrast, withAlpha } from '../../ui/color';
 import { formatNumber } from '../../ui/format';
-import { BASE_TOKENS, type ThemeName, type ThemeTokens } from '../../ui/tokens';
+import { BASE_TOKENS, scalePx, type ThemeName, type ThemeTokens } from '../../ui/tokens';
 import type { OverlayFrame, OverlayHit, OverlayHitFrame, OverlayPointer, OverlayTarget, OverlayTrack, ViewerData, ViewerOverlay } from '../../viewer/overlay';
 import { evaluateTrend, excludedIndices, type TrendPreview, type TrendResult } from './compute';
 import { distanceToPolylines, drawTrend, drawTrendLabel, trendGeometry, type TrendGeometry, type TrendMapping } from './draw';
@@ -130,14 +130,17 @@ interface Placed {
 
 const m1 = (d: number) => `${formatNumber(d, { digits: 1 })} m`;
 
-/** Manija más cercana al puntero (a menos de HANDLE_HIT_PX; la de la seleccionada gana los empates). */
-function nearestHandle(placed: readonly Placed[], p: OverlayPointer, selected: string | null): { pl: Placed; i: number } | null {
+/**
+ * Manija más cercana al puntero (a menos de HANDLE_HIT_PX × `u`, el factor del tamaño de interfaz; la de la
+ * seleccionada gana los empates).
+ */
+function nearestHandle(placed: readonly Placed[], p: OverlayPointer, selected: string | null, u = 1): { pl: Placed; i: number } | null {
   let best: { pl: Placed; i: number; d: number } | null = null;
   for (const pl of placed) {
     pl.geom?.handles.forEach((h, i) => {
       if (!h) return;
       const d = Math.hypot(h[0] - p.x, h[1] - p.y) - (pl.spec.id === selected ? 1.5 : 0);
-      if (d <= HANDLE_HIT_PX && (!best || d < best.d)) best = { pl, i, d };
+      if (d <= HANDLE_HIT_PX * u && (!best || d < best.d)) best = { pl, i, d };
     });
   }
   return best;
@@ -503,10 +506,11 @@ export function createTrendsOverlays(opts: TrendsOverlayOptions): ViewerOverlay[
     const vp = frame.viewport;
     const [x0, x1] = pl.result.span;
     if (p.depth < x0 - 1e-9 || p.depth > x1 + 1e-9) return null;
-    const a = Math.max(lowerBound(s.x, vp.depthOf(p.y - SAMPLE_HIT_PX)), lowerBound(s.x, x0));
-    const b = Math.min(upperBound(s.x, vp.depthOf(p.y + SAMPLE_HIT_PX)), upperBound(s.x, x1));
+    const tol = SAMPLE_HIT_PX * (frame.uiScale ?? 1);
+    const a = Math.max(lowerBound(s.x, vp.depthOf(p.y - tol)), lowerBound(s.x, x0));
+    const b = Math.min(upperBound(s.x, vp.depthOf(p.y + tol)), upperBound(s.x, x1));
     let best = -1;
-    let bestD = SAMPLE_HIT_PX + 0.01;
+    let bestD = tol + 0.01;
     // Curvas densas: a lo sumo ~2000 muestras por consulta (12 px de alto con escala muy comprimida).
     const step = Math.max(1, Math.floor((b - a) / 2000));
     for (let i = a; i < b; i += step) {
@@ -571,8 +575,9 @@ export function createTrendsOverlays(opts: TrendsOverlayOptions): ViewerOverlay[
       const placed = [...layout(frame)];
       const width = frame.tracks.reduce((mx, t) => Math.max(mx, t.x + t.width), 0);
       const labels: { x: number; y: number; w: number; h: number }[] = [];
-      const font = `${BASE_TOKENS.weight.medium} ${BASE_TOKENS.text.xs}px ${BASE_TOKENS.font.sans}`;
-      const fontStrong = `${BASE_TOKENS.weight.semibold} ${BASE_TOKENS.text.xs}px ${BASE_TOKENS.font.sans}`;
+      const u = frame.uiScale ?? 1;
+      const font = `${BASE_TOKENS.weight.medium} ${scalePx(BASE_TOKENS.text.xs, u)}px ${BASE_TOKENS.font.sans}`;
+      const fontStrong = `${BASE_TOKENS.weight.semibold} ${scalePx(BASE_TOKENS.text.xs, u)}px ${BASE_TOKENS.font.sans}`;
       // Las manijas de series con `pickSamples: false` responden desde `trends-lines`: también son de esta capa.
       const active = frame.active && (frame.active.overlayId === TRENDS_OVERLAY_ID || frame.active.overlayId === TRENDS_LINES_ID) ? frame.active.key : null;
       // La seleccionada y la que se arrastra, al final (encima).
@@ -612,6 +617,7 @@ export function createTrendsOverlays(opts: TrendsOverlayOptions): ViewerOverlay[
             muted: theme.color.textMuted,
             font,
             fontStrong,
+            ui: u,
           }, labels, compact ? 'beside' : 'above'),
         );
       }
@@ -623,15 +629,17 @@ export function createTrendsOverlays(opts: TrendsOverlayOptions): ViewerOverlay[
           ctx.save();
           ctx.font = font;
           const text = 'Tramo sin datos suficientes para ajustar';
-          const w = ctx.measureText(text).width + 16;
+          const pad = scalePx(8, u);
+          const ph = scalePx(20, u);
+          const w = ctx.measureText(text).width + 2 * pad;
           const x = Math.min(width - w - 4, pl.track.x + 6);
           ctx.fillStyle = theme.color.error;
           ctx.beginPath();
-          ctx.roundRect(x, y - 10, w, 20, 10);
+          ctx.roundRect(x, y - ph / 2, w, ph, ph / 2);
           ctx.fill();
           ctx.fillStyle = theme.color.textOnAccent;
           ctx.textBaseline = 'middle';
-          ctx.fillText(text, x + 8, y + 0.5);
+          ctx.fillText(text, x + pad, y + 0.5);
           ctx.restore();
         }
       }
@@ -645,7 +653,7 @@ export function createTrendsOverlays(opts: TrendsOverlayOptions): ViewerOverlay[
       const selected = edit?.selected() ?? null;
       // 1) Manijas (la seleccionada primero). Las de series cuyos puntos maneja otra superposición van en `lines`,
       // con menos prioridad que esos puntos.
-      const bestH = nearestHandle(placed.filter((pl) => pl.series.pickSamples !== false), p, selected);
+      const bestH = nearestHandle(placed.filter((pl) => pl.series.pickSamples !== false), p, selected, frame.uiScale ?? 1);
       if (bestH && edit) return handleHit(bestH.pl, bestH.pl.handles[bestH.i]!);
       // 2) Muestras del tramo de la seleccionada (excluir / incluir).
       const sel = placed.find((pl) => pl.spec.id === selected);
@@ -677,13 +685,13 @@ export function createTrendsOverlays(opts: TrendsOverlayOptions): ViewerOverlay[
       if (edit?.blocked?.() || edit?.tool()) return null;
       const placed = layout(frame);
       const selected = edit?.selected() ?? null;
-      const owned = nearestHandle(placed.filter((pl) => pl.series.pickSamples === false), p, selected);
+      const owned = nearestHandle(placed.filter((pl) => pl.series.pickSamples === false), p, selected, frame.uiScale ?? 1);
       if (owned && edit) return handleHit(owned.pl, owned.pl.handles[owned.i]!);
       let bestL: { pl: Placed; d: number } | null = null;
       for (const pl of placed) {
         if (!pl.geom || p.track?.id !== pl.track.id) continue;
         const d = distanceToPolylines([...pl.geom.solid, ...pl.geom.dashed], p.x, p.y);
-        if (d <= LINE_HIT_PX && (!bestL || d < bestL.d)) bestL = { pl, d };
+        if (d <= LINE_HIT_PX * (frame.uiScale ?? 1) && (!bestL || d < bestL.d)) bestL = { pl, d };
       }
       if (!bestL) return null;
       const pl = (bestL as { pl: Placed }).pl;

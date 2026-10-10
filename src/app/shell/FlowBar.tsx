@@ -16,6 +16,7 @@ export function FlowBar() {
         items={states.map((s) => ({
           id: s.def.id,
           label: s.def.label,
+          ...(s.def.short ? { shortLabel: s.def.short } : {}),
           status: s.status,
           hint: (
             <>

@@ -1,8 +1,14 @@
 /**
  * Barra de pasos del flujo guiado. Genérica: recibe los pasos con su estado ya evaluado (la lógica vive en
  * src/app/flow/flow.ts). Cada paso es un botón; flechas ←/→ recorren los pasos, Enter elige.
+ *
+ * Si no entra en el ancho (ventana angosta, tamaño de interfaz grande), se compacta por etapas en vez de cortar el
+ * último paso: `full` → `tight` (conectores cortos) → `short` (abreviaturas, si el paso tiene) → `done` (los pasos
+ * resueltos quedan solo con su marca) → `markers` (solo los círculos). El paso activo conserva siempre su rótulo, y el
+ * nombre de cada paso sigue en su `aria-label` y en el tooltip.
  */
-import { useRef, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, type ReactNode } from 'react';
+import { subscribeUiScale } from '../uiScale';
 import './stepper.css';
 import { Icon } from './Icon';
 import { Tooltip } from './Tooltip';
@@ -12,6 +18,8 @@ export type StepperStatus = 'done' | 'partial' | 'todo' | 'skipped' | 'empty' | 
 export interface StepperItem {
   id: string;
   label: string;
+  /** Abreviatura que se usa si los rótulos no entran (p. ej. «Sat.» por «Saturación»). */
+  shortLabel?: string;
   status: StepperStatus;
   /** Texto del tooltip (estado y qué hacer). */
   hint?: ReactNode;
@@ -49,11 +57,54 @@ function Marker({ status, index }: { status: StepperStatus; index: number }) {
   }
 }
 
+/** Etapas de compactación, de la más holgada a la más apretada. */
+export const STEPPER_FITS = ['full', 'tight', 'short', 'done', 'markers'] as const;
+
+/**
+ * Elige la primera etapa en la que la lista entra en el ancho de la barra. Mide con el DOM (un reflujo por etapa, solo
+ * al cambiar el ancho, los pasos o el tamaño de interfaz).
+ */
+function fitStepper(nav: HTMLElement, list: HTMLElement): void {
+  for (const fit of STEPPER_FITS) {
+    nav.dataset['fit'] = fit;
+    if (list.scrollWidth <= nav.clientWidth + 0.5) return;
+  }
+}
+
 export function Stepper({ items, activeId, suggestedId, onSelect, ...aria }: StepperProps) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const navRef = useRef<HTMLElement>(null);
+  const listRef = useRef<HTMLOListElement>(null);
+  // Clave de lo que cambia el ancho natural: rótulos, estados y paso activo.
+  const shape = items.map((s) => `${s.label}|${s.status}`).join('/') + `#${activeId ?? ''}`;
+  useLayoutEffect(() => {
+    const nav = navRef.current;
+    const list = listRef.current;
+    if (!nav || !list) return;
+    const fit = () => fitStepper(nav, list);
+    fit();
+    let lastWidth = nav.clientWidth;
+    const ro = new ResizeObserver(() => {
+      if (nav.clientWidth === lastWidth) return;
+      lastWidth = nav.clientWidth;
+      fit();
+    });
+    ro.observe(nav);
+    // El tamaño de interfaz cambia el ancho del texto sin cambiar el de la barra: medir de nuevo en el próximo cuadro.
+    let frame = 0;
+    const off = subscribeUiScale(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(fit);
+    });
+    return () => {
+      ro.disconnect();
+      off();
+      cancelAnimationFrame(frame);
+    };
+  }, [shape]);
   return (
-    <nav className="ui-stepper" aria-label={aria['aria-label'] ?? 'Pasos'}>
-      <ol className="ui-stepper__list">
+    <nav ref={navRef} className="ui-stepper" aria-label={aria['aria-label'] ?? 'Pasos'} data-fit="full">
+      <ol ref={listRef} className="ui-stepper__list">
         {items.map((s, i) => {
           const active = s.id === activeId;
           const prevDone = i > 0 && (items[i - 1]!.status === 'done' || items[i - 1]!.status === 'skipped');
@@ -80,7 +131,14 @@ export function Stepper({ items, activeId, suggestedId, onSelect, ...aria }: Ste
                   <span className="ui-step__marker" aria-hidden="true">
                     <Marker status={s.status} index={i} />
                   </span>
-                  <span className="ui-step__label">{s.label}</span>
+                  {s.shortLabel ? (
+                    <span className="ui-step__label ui-step__label--abbr">
+                      <span className="ui-step__full">{s.label}</span>
+                      <span className="ui-step__short">{s.shortLabel}</span>
+                    </span>
+                  ) : (
+                    <span className="ui-step__label">{s.label}</span>
+                  )}
                 </button>
               </Tooltip>
             </li>

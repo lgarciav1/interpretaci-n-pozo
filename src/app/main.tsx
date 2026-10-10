@@ -1,6 +1,6 @@
 /**
- * Arranque: instala los tokens de diseño y el tema, valida el registro de módulos, carga el pozo de demostración,
- * inicia el motor y monta la interfaz. Si el registro es inválido se muestra el error completo (con todos los
+ * Arranque: instala los tokens de diseño, el tema y el tamaño de interfaz, valida el registro de módulos, carga el pozo
+ * de demostración, inicia el motor y monta la interfaz. Si el registro es inválido se muestra el error completo (con todos los
  * problemas) en vez de una pantalla vacía.
  *
  * `#ui` en la URL abre la página de muestra del sistema de diseño (revisión visual).
@@ -9,11 +9,13 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { initTheme } from '../ui/theme';
 import { installTokens } from '../ui/tokens';
+import { initUiScale } from '../ui/uiScale';
 import '../ui/styles/base.css';
 import './styles.css';
 
 installTokens();
 initTheme();
+initUiScale();
 
 const root = createRoot(document.getElementById('root')!);
 

@@ -4,8 +4,8 @@ Webapp 100 % en el navegador (TypeScript + React + Vite) que se entrega como un 
 Las decisiones con sus alternativas descartadas están en [`decisiones/`](decisiones/): núcleo y contrato de módulos
 (0001), lectura de datos (0002), control de calidad (0003), sistema de diseño, armazón y flujo guiado (0004), visor
 multipista (0005), deshacer y rehacer (0006), catálogo de módulos de la fase 6a con sus cambios de núcleo (0007),
-tendencias y gradientes (0008), presiones MDT con los conjuntos de puntos del pozo (0009) y datos de corona con
-puesta en profundidad y modelo k–φ (0010).
+tendencias y gradientes (0008), presiones MDT con los conjuntos de puntos del pozo (0009), datos de corona con
+puesta en profundidad y modelo k–φ (0010), exportación de datos (0011) y de figuras (0012) y tamaño de interfaz (0013).
 Este documento resume cómo encajan las piezas y cómo agregar un módulo.
 
 ## Ideas centrales
@@ -289,6 +289,11 @@ Decisión y catálogo completo: [`docs/decisiones/0007-modulos-fase-6a.md`](deci
   módulo; las salidas en comparación (`active: false`) se marcan como "alternativa" en resultados.
 - **Tema y canvas**: el visor lee colores con `curveStyle()` y `getThemeTokens().viewer`, y redibuja con
   `subscribeTheme()` (o `useCanvas`).
+- **Tamaño de interfaz** (0013): Compacto / Normal (por defecto) / Grande, preferencia en `localStorage`. Escala por
+  tokens y `--ui-scale` (no con `zoom`); el canvas recibe el factor como parámetro (`useCanvas`, `FrameInput.uiScale`,
+  `OverlayFrame.uiScale`, `drawXYScene(…, ui)`) y las figuras exportadas dibujan siempre con 1. Las medidas del armazón
+  se guardan en px de Compacto, con tope automático por ventana hasta que el usuario arrastra un separador. Barra
+  superior, de pasos y del visor se compactan por etapas (consultas de contenedor en `em`, abreviaturas de pasos).
 
 ## Visor (fase 4)
 

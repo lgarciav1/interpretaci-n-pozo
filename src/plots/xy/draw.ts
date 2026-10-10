@@ -5,25 +5,30 @@
  */
 import { evalTrend, type TrendCoefficients } from '../../petro/regression';
 import { withAlpha } from '../../ui/color';
-import { BASE_TOKENS, type ThemeTokens } from '../../ui/tokens';
+import { BASE_TOKENS, scalePx, type ThemeTokens } from '../../ui/tokens';
 import { drawTrend, drawTrendLabel, trendGeometry } from '../trend/draw';
 import { axisTicks, type XYAxis, type XYMapping } from './axes';
 import type { XYGuide, XYLineLayer, XYPointLayer, XYTrendLayer } from './layers';
 
-const font = (size: number, weight: number = BASE_TOKENS.weight.regular) => `${weight} ${size}px ${BASE_TOKENS.font.sans}`;
+/** `ui`: factor del tamaño de interfaz (1 en las figuras exportadas). */
+const font = (size: number, weight: number = BASE_TOKENS.weight.regular, ui = 1) => `${weight} ${scalePx(size, ui)}px ${BASE_TOKENS.font.sans}`;
 
 /** Título de un eje con su unidad: «Porosidad φ (v/v)». */
 export const axisTitle = (a: XYAxis) => (a.unit ? `${a.label} (${a.unit})` : a.label);
 
-/** Fondo, grilla, ticks, rótulos y títulos de los ejes. */
-export function drawFrame(ctx: CanvasRenderingContext2D, m: XYMapping, xAxis: XYAxis, yAxis: XYAxis, theme: ThemeTokens, compact = false): void {
+/**
+ * Fondo, grilla, ticks, rótulos y títulos de los ejes. `ui`: factor del tamaño de interfaz para el texto y sus
+ * separaciones (en pantalla; las figuras exportadas usan 1).
+ */
+export function drawFrame(ctx: CanvasRenderingContext2D, m: XYMapping, xAxis: XYAxis, yAxis: XYAxis, theme: ThemeTokens, compact = false, ui = 1): void {
   const r = m.rect;
   const v = theme.viewer;
+  const px = (n: number) => scalePx(n, ui);
   ctx.save();
   ctx.fillStyle = v.trackBg;
   ctx.fillRect(r.x, r.y, r.width, r.height);
-  const xt = axisTicks(xAxis, r.width, compact ? 44 : 60);
-  const yt = axisTicks(yAxis, r.height, compact ? 22 : 34);
+  const xt = axisTicks(xAxis, r.width, px(compact ? 44 : 60));
+  const yt = axisTicks(yAxis, r.height, px(compact ? 22 : 34));
   // Grilla: menores y después mayores.
   for (const major of [false, true]) {
     ctx.strokeStyle = major ? v.gridMajor : v.gridMinor;
@@ -47,7 +52,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, m: XYMapping, xAxis: XY
   ctx.strokeRect(Math.round(r.x) + 0.5, Math.round(r.y) + 0.5, Math.round(r.width) - 1, Math.round(r.height) - 1);
   // Rótulos de los ticks.
   ctx.fillStyle = v.axisText;
-  ctx.font = font(compact ? 10 : BASE_TOKENS.text.xs);
+  ctx.font = font(compact ? 10 : BASE_TOKENS.text.xs, BASE_TOKENS.weight.regular, ui);
   ctx.textBaseline = 'top';
   ctx.textAlign = 'center';
   let lastRight = -Infinity;
@@ -56,8 +61,8 @@ export function drawFrame(ctx: CanvasRenderingContext2D, m: XYMapping, xAxis: XY
     const x = r.x + t.f * r.width;
     const w = ctx.measureText(t.label).width;
     const cx = Math.min(r.x + r.width - w / 2, Math.max(r.x + w / 2, x));
-    if (cx - w / 2 < lastRight + 6) continue;
-    ctx.fillText(t.label, cx, r.y + r.height + 4);
+    if (cx - w / 2 < lastRight + px(6)) continue;
+    ctx.fillText(t.label, cx, r.y + r.height + px(4));
     lastRight = cx + w / 2;
   }
   ctx.textAlign = 'right';
@@ -65,20 +70,20 @@ export function drawFrame(ctx: CanvasRenderingContext2D, m: XYMapping, xAxis: XY
   let lastTop = Infinity;
   for (const t of yt) {
     if (!t.label) continue;
-    const y = Math.min(r.y + r.height - 5, Math.max(r.y + 5, r.y + (1 - t.f) * r.height));
-    if (y > lastTop - 11) continue;
-    ctx.fillText(t.label, r.x - 5, y);
+    const y = Math.min(r.y + r.height - px(5), Math.max(r.y + px(5), r.y + (1 - t.f) * r.height));
+    if (y > lastTop - px(11)) continue;
+    ctx.fillText(t.label, r.x - px(5), y);
     lastTop = y;
   }
   // Títulos.
   ctx.fillStyle = theme.color.textMuted;
-  ctx.font = font(compact ? 10 : BASE_TOKENS.text.xs, BASE_TOKENS.weight.medium);
+  ctx.font = font(compact ? 10 : BASE_TOKENS.text.xs, BASE_TOKENS.weight.medium, ui);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'bottom';
-  if (!compact) ctx.fillText(axisTitle(xAxis), r.x + r.width / 2, r.y + r.height + 38);
+  if (!compact) ctx.fillText(axisTitle(xAxis), r.x + r.width / 2, r.y + r.height + px(38));
   if (!compact) {
     ctx.save();
-    ctx.translate(14, r.y + r.height / 2);
+    ctx.translate(px(14), r.y + r.height / 2);
     ctx.rotate(-Math.PI / 2);
     ctx.textBaseline = 'middle';
     ctx.fillText(axisTitle(yAxis), 0, 0);
@@ -150,6 +155,8 @@ export interface TrendLayerStyle {
   dim?: boolean;
   /** Dónde va la etiqueta: arriba a la izquierda del área (por defecto) o junto al tramo. */
   labelAt?: 'corner' | 'line';
+  /** Factor del tamaño de interfaz para la etiqueta (por defecto 1, el de las figuras exportadas). */
+  ui?: number;
 }
 
 /**
@@ -167,6 +174,7 @@ export function drawXYTrend(
   avoid: { x: number; y: number; w: number; h: number }[] = [],
 ): { x: number; y: number; w: number; h: number } | null {
   const r = m.rect;
+  const ui = style.ui ?? 1;
   const geom = trendGeometry({
     coeffs,
     span,
@@ -188,8 +196,8 @@ export function drawXYTrend(
   if (style.labelAt === 'line') {
     const xMid = (span[0] + span[1]) / 2;
     anchor = geom.anchor ?? (Number.isFinite(m.x(xMid)) ? [m.x(xMid), m.y(evalTrend(coeffs, xMid))] : null);
-    if (anchor) anchor = [Math.max(r.x + 4, Math.min(anchor[0], r.x + r.width * 0.45)), Math.max(r.y + 40, Math.min(anchor[1], r.y + r.height))];
-  } else anchor = [r.x - 4, r.y + 46];
+    if (anchor) anchor = [Math.max(r.x + 4, Math.min(anchor[0], r.x + r.width * 0.45)), Math.max(r.y + scalePx(40, ui), Math.min(anchor[1], r.y + r.height))];
+  } else anchor = [r.x - 4, r.y + scalePx(46, ui)];
   if (!anchor) return null;
   return drawTrendLabel(
     ctx,
@@ -202,8 +210,9 @@ export function drawXYTrend(
       border: style.emphasis ? withAlpha(style.color, 0.7) : theme.color.border,
       ink: theme.color.text,
       muted: theme.color.textMuted,
-      font: font(BASE_TOKENS.text.xs, BASE_TOKENS.weight.medium),
-      fontStrong: font(BASE_TOKENS.text.xs, BASE_TOKENS.weight.semibold),
+      font: font(BASE_TOKENS.text.xs, BASE_TOKENS.weight.medium, ui),
+      fontStrong: font(BASE_TOKENS.text.xs, BASE_TOKENS.weight.semibold, ui),
+      ui,
     },
     avoid,
   );
@@ -219,11 +228,12 @@ export interface XYScene {
 /**
  * Todo lo que se ve de un gráfico x–y, sin lo interactivo (anillo del puntero, rectángulo de selección): marco, guías,
  * líneas, puntos y tendencias con su etiqueta. Lo usan `XYPlot` en pantalla y la exportación de figuras (PNG/SVG/PDF),
- * así lo exportado es lo que se ve.
+ * así lo exportado es lo que se ve. `ui` (factor del tamaño de interfaz) solo agranda el texto en pantalla: las figuras
+ * pasan 1 y salen iguales con cualquier tamaño.
  */
-export function drawXYScene(ctx: CanvasRenderingContext2D, m: XYMapping, xAxis: XYAxis, yAxis: XYAxis, scene: XYScene, theme: ThemeTokens, compact = false): void {
+export function drawXYScene(ctx: CanvasRenderingContext2D, m: XYMapping, xAxis: XYAxis, yAxis: XYAxis, scene: XYScene, theme: ThemeTokens, compact = false, ui = 1): void {
   const { points = [], lines = [], trends = [], guides = [] } = scene;
-  drawFrame(ctx, m, xAxis, yAxis, theme, compact);
+  drawFrame(ctx, m, xAxis, yAxis, theme, compact, ui);
   const r = m.rect;
   ctx.save();
   ctx.beginPath();
@@ -280,7 +290,7 @@ export function drawXYScene(ctx: CanvasRenderingContext2D, m: XYMapping, xAxis: 
   ctx.restore();
   const boxes: { x: number; y: number; w: number; h: number }[] = [];
   for (const t of trends) {
-    const b = drawXYTrend(ctx, m, xAxis, t.coeffs, t.span, { color: t.color, extend: t.extend, label: t.label, emphasis: t.emphasis }, theme, boxes);
+    const b = drawXYTrend(ctx, m, xAxis, t.coeffs, t.span, { color: t.color, extend: t.extend, label: t.label, emphasis: t.emphasis, ui }, theme, boxes);
     if (b) boxes.push(b);
   }
 }

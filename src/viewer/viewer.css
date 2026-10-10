@@ -9,12 +9,24 @@
   align-items: center;
   gap: var(--space-3);
   flex: none;
-  min-height: 38px;
+  min-height: calc(38px * var(--ui-scale));
   padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
   border-bottom: 1px solid var(--color-border-subtle);
   background: var(--color-surface);
+  container: wvbar / inline-size;
 }
-.wv-toolbar__start { display: flex; align-items: center; gap: var(--space-2); flex: 1; min-width: 0; color: var(--color-text-muted); font-size: var(--text-sm); }
+.wv-toolbar__start { display: flex; align-items: center; gap: var(--space-2); flex: 1; min-width: 0; overflow: hidden; color: var(--color-text-muted); font-size: var(--text-sm); }
+.wv-toolbar__start > .wv-chip, .wv-toolbar__start > .ui-chip { flex: none; }
+/*
+ * Barra angosta (visor estrecho o tamaño de interfaz grande): los botones de herramientas quedan en ícono (conservan
+ * nombre y `title`) y después se oculta la escala 1:N. Umbrales en em (siguen al tamaño del texto): en Compacto la
+ * barra completa pide ~660 px (51 em) y con las herramientas en ícono ~520 px (40 em).
+ */
+@container wvbar (max-width: 51em) {
+  .wv-toolbar__end > .ui-btn { position: relative; --btn-px: var(--space-1-5); }
+  .wv-toolbar__end > .ui-btn .ui-btn__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+@container wvbar (max-width: 40em) { .wv-toolbar__scale { display: none; } }
 .wv-toolbar__end { display: flex; align-items: center; gap: var(--space-2-5); flex: none; }
 .wv-toolbar__range { color: var(--color-text); font-size: var(--text-sm); font-weight: var(--weight-medium); white-space: nowrap; }
 .wv-toolbar__scale {
@@ -43,7 +55,7 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  min-height: 52px;
+  min-height: calc(52px * var(--ui-scale));
   padding: var(--space-1-5) var(--space-2) var(--space-1);
   border-right: 1px solid var(--viewer-track-border);
 }
@@ -53,7 +65,8 @@
  * todo el ancho (sin cortar el valor). Sin cursor vuelven los extremos. La línea de cada curva queda siempre.
  */
 .wv-head--curves { container-type: inline-size; }
-@container (max-width: 168px) {
+/* En em (relativo al texto del encabezado): el umbral sigue al tamaño de interfaz. 12.9em = 168 px en Compacto. */
+@container (max-width: 12.9em) {
   .wv[data-reading] .ui-curve-legend--inline .ui-curve-legend__lo,
   .wv[data-reading] .ui-curve-legend--inline .ui-curve-legend__hi { display: none; }
   .wv[data-reading] .ui-curve-legend--inline .ui-curve-legend__mid { grid-column: 1 / -1; grid-row: 1; }
@@ -82,7 +95,7 @@
 .wv-head__hint { color: var(--color-text-subtle); font-size: var(--text-xs); line-height: var(--leading-tight); }
 .wv-head--flags { padding-inline: var(--space-1-5); }
 /* Pista propia de una superposición: extremos de su escala y unidad. */
-.wv-head__scale { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-1); margin-top: auto; color: var(--color-text-subtle); font-size: 10px; }
+.wv-head__scale { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-1); margin-top: auto; color: var(--color-text-subtle); font-size: calc(10px * var(--ui-scale)); }
 .wv-head__unit { color: var(--color-text-muted); font-size: var(--text-xs); }
 .wv-head--flags .ui-curve-legend__scale { display: none; }
 
@@ -104,7 +117,7 @@
 .wv-tip {
   position: absolute;
   z-index: var(--z-tooltip);
-  max-width: 320px;
+  max-width: calc(320px * var(--ui-scale));
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
   background: var(--color-surface-inverse);
@@ -131,7 +144,7 @@
   font-size: var(--text-xs);
   white-space: nowrap;
 }
-.wv-chip__dot { width: 8px; height: 8px; flex: none; border-radius: 50%; }
+.wv-chip__dot { width: calc(8px * var(--ui-scale)); height: calc(8px * var(--ui-scale)); flex: none; border-radius: 50%; }
 .wv-well-name { overflow: hidden; color: var(--color-text); font-weight: var(--weight-semibold); text-overflow: ellipsis; white-space: nowrap; }
 
 /* Encabezado de curva clicable: abre el editor de escala y color */
@@ -152,15 +165,15 @@
   align-items: center;
   gap: var(--space-1);
   min-width: 0;
-  height: 18px;
-  margin: 3px calc(var(--space-1) * -1) 0;
+  height: calc(18px * var(--ui-scale));
+  margin: calc(3px * var(--ui-scale)) calc(var(--space-1) * -1) 0;
   padding: 0 var(--space-1);
   border: 0;
   border-radius: var(--radius-xs);
   background: none;
   color: var(--color-text-subtle);
   font: inherit;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-scale));
   cursor: pointer;
 }
 .wv-head__overflow:hover { background: var(--color-surface-hover); color: var(--color-text); }
@@ -168,7 +181,7 @@
 .wv-head__overflow-names { flex: 1; min-width: 0; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
 .wv-head__overflow-count {
   flex: none;
-  padding: 0 5px;
+  padding: 0 calc(5px * var(--ui-scale));
   border-radius: var(--radius-full);
   background: var(--color-surface-active);
   color: var(--color-text-muted);
@@ -179,13 +192,13 @@
 .wv-overflow .wv-legend { margin: 0; padding: 2px var(--space-1); }
 
 /* Leyendas sin extremos (escala común): misma altura y nombre centrado sobre el trazo, como las demás. */
-.wv-head .ui-curve-legend--noscale .ui-curve-legend__mid { align-items: flex-start; justify-content: center; height: 21px; }
+.wv-head .ui-curve-legend--noscale .ui-curve-legend__mid { align-items: flex-start; justify-content: center; height: calc(21px * var(--ui-scale)); }
 
 /* Escala común de una pista (todas sus curvas en la misma escala) */
-.wv-head__shared { display: flex; align-items: center; justify-content: space-between; gap: var(--space-1); height: 14px; margin-top: 2px; color: var(--color-text-subtle); font-size: 10px; }
+.wv-head__shared { display: flex; align-items: center; justify-content: space-between; gap: var(--space-1); height: calc(14px * var(--ui-scale)); margin-top: 2px; color: var(--color-text-subtle); font-size: calc(10px * var(--ui-scale)); }
 .wv-head__shared::before { content: ''; order: 1; flex: 1; height: 1px; background: var(--color-border); }
 .wv-head__shared span:last-child { order: 3; }
-.wv-head__shared-tag { order: 2; padding: 0 4px; border-radius: 3px; background: var(--color-surface-active); color: var(--color-text-muted); font-weight: var(--weight-semibold); text-transform: uppercase; letter-spacing: 0.04em; }
+.wv-head__shared-tag { order: 2; padding: 0 calc(4px * var(--ui-scale)); border-radius: 3px; background: var(--color-surface-active); color: var(--color-text-muted); font-weight: var(--weight-semibold); text-transform: uppercase; letter-spacing: 0.04em; }
 
 /* Curvas ocultas (en el título de la pista) */
 .wv-head__hidden {
@@ -193,14 +206,14 @@
   align-items: center;
   gap: 2px;
   flex: none;
-  height: 16px;
-  padding: 0 4px;
+  height: calc(16px * var(--ui-scale));
+  padding: 0 calc(4px * var(--ui-scale));
   border: 0;
   border-radius: var(--radius-xs);
   background: var(--color-surface-active);
   color: var(--color-text-muted);
   font: inherit;
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-scale));
   cursor: pointer;
 }
 .wv-head__hidden:hover { color: var(--color-text); }
@@ -208,8 +221,8 @@
 
 /* Pista volumétrica: leyenda con lectura del cursor */
 .wv-head__stack { display: flex; flex-direction: column; justify-content: flex-end; gap: 2px; flex: 1; min-width: 0; }
-.wv-stack-item { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; align-items: center; gap: var(--space-1-5); min-width: 0; height: 16px; font-size: var(--text-xs); }
-.wv-stack-item__swatch { width: 10px; height: 10px; border-radius: 2px; box-shadow: inset 0 0 0 1px var(--color-border); }
+.wv-stack-item { display: grid; grid-template-columns: calc(10px * var(--ui-scale)) minmax(0, 1fr) auto; align-items: center; gap: var(--space-1-5); min-width: 0; height: calc(16px * var(--ui-scale)); font-size: var(--text-xs); }
+.wv-stack-item__swatch { width: calc(10px * var(--ui-scale)); height: calc(10px * var(--ui-scale)); border-radius: 2px; box-shadow: inset 0 0 0 1px var(--color-border); }
 .wv-stack-item__label { overflow: hidden; color: var(--color-text-muted); text-overflow: ellipsis; white-space: nowrap; }
 .wv-stack-item__value { color: var(--color-text); font-weight: var(--weight-semibold); }
 .wv-head__stack .wv-head__hint { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -223,7 +236,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  max-width: calc(100% - 32px);
+  max-width: calc(100% - calc(32px * var(--ui-scale)));
   padding: var(--space-1) var(--space-2-5);
   border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-full);
@@ -238,7 +251,7 @@
 }
 @keyframes wv-notice-in { from { opacity: 0; transform: translate(-50%, -4px); } }
 .wv-notice kbd {
-  padding: 0 5px;
+  padding: 0 calc(5px * var(--ui-scale));
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xs);
   background: var(--color-surface-subtle);
@@ -255,7 +268,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  height: 22px;
+  height: calc(22px * var(--ui-scale));
   margin-top: -11px;
   padding: 0 var(--space-2);
   border: 0;
@@ -274,11 +287,11 @@
 
 /* Encabezado de pozo (franja bajo la barra) */
 .wv-header { flex: none; border-bottom: 1px solid var(--color-border-subtle); background: var(--color-surface-subtle); }
-.wv-header__row { display: flex; align-items: center; gap: var(--space-4); min-height: 30px; padding: 0 var(--space-2) 0 var(--space-3); }
+.wv-header__row { display: flex; align-items: center; gap: var(--space-4); min-height: calc(30px * var(--ui-scale)); padding: 0 var(--space-2) 0 var(--space-3); }
 .wv-header__facts { display: flex; align-items: center; gap: var(--space-4); min-width: 0; margin: 0; overflow: hidden; }
 .wv-header__facts--end { flex: none; margin-left: auto; }
 .wv-header__fact { display: flex; align-items: baseline; gap: var(--space-1-5); min-width: 0; font-size: var(--text-xs); white-space: nowrap; }
-.wv-header__fact dt { color: var(--color-text-subtle); font-weight: var(--weight-medium); letter-spacing: var(--tracking-wide); text-transform: uppercase; font-size: 10px; }
+.wv-header__fact dt { color: var(--color-text-subtle); font-weight: var(--weight-medium); letter-spacing: var(--tracking-wide); text-transform: uppercase; font-size: calc(10px * var(--ui-scale)); }
 .wv-header__fact dd { margin: 0; overflow: hidden; color: var(--color-text); font-weight: var(--weight-medium); text-overflow: ellipsis; }
 .wv-header__fact--empty dd { color: var(--color-text-muted); font-weight: var(--weight-regular); }
 .wv-header__sub { color: var(--color-text-subtle); font-weight: var(--weight-regular); }
@@ -286,9 +299,9 @@
 .wv-header__zone {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  height: 18px;
-  padding: 0 5px 0 4px;
+  gap: calc(3px * var(--ui-scale));
+  height: calc(18px * var(--ui-scale));
+  padding: 0 calc(5px * var(--ui-scale)) 0 calc(4px * var(--ui-scale));
   border: 0;
   border-radius: var(--radius-full);
   background: none;
@@ -299,13 +312,13 @@
 }
 .wv-header__zone:hover { background: var(--color-surface-hover); }
 .wv-header__zone:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 0; }
-.wv-header__zone-dot { width: 7px; height: 7px; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--color-border); }
+.wv-header__zone-dot { width: calc(7px * var(--ui-scale)); height: calc(7px * var(--ui-scale)); border-radius: 50%; box-shadow: inset 0 0 0 1px var(--color-border); }
 .wv-header__more {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
   flex: none;
-  height: 22px;
+  height: calc(22px * var(--ui-scale));
   padding: 0 var(--space-1-5) 0 var(--space-2);
   border: 0;
   border-radius: var(--radius-sm);
@@ -319,9 +332,9 @@
 .wv-header__more:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 0; }
 .wv-header__all {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(calc(200px * var(--ui-scale)), 1fr));
   gap: var(--space-1) var(--space-4);
-  max-height: 132px;
+  max-height: calc(132px * var(--ui-scale));
   margin: 0;
   padding: var(--space-1) var(--space-3) var(--space-2-5);
   overflow-y: auto;
@@ -336,7 +349,7 @@
   align-items: center;
   gap: var(--space-1);
   min-width: 0;
-  height: 26px;
+  height: calc(26px * var(--ui-scale));
   margin-left: calc(var(--space-1) * -1);
   padding: 0 var(--space-1-5);
   border: 0;
@@ -352,7 +365,7 @@
 .wv-well-toggle[aria-expanded='false'] svg { transform: rotate(-90deg); }
 
 /* Minimapa */
-.wv-mini { display: flex; flex-direction: column; flex: none; width: 42px; border-left: 1px solid var(--viewer-track-border); background: var(--color-surface); }
+.wv-mini { display: flex; flex-direction: column; flex: none; width: calc(42px * var(--ui-scale)); border-left: 1px solid var(--viewer-track-border); background: var(--color-surface); }
 .wv-mini__head {
   display: flex;
   flex-direction: column;
@@ -360,13 +373,13 @@
   justify-content: flex-end;
   gap: 2px;
   flex: none;
-  min-height: 52px;
+  min-height: calc(52px * var(--ui-scale));
   padding-bottom: var(--space-1-5);
   border-bottom: 1px solid var(--viewer-track-border);
   box-sizing: border-box;
 }
-.wv-mini__title { color: var(--color-text-subtle); font-size: 10px; font-weight: var(--weight-semibold); letter-spacing: var(--tracking-wide); text-transform: uppercase; }
-.wv-mini__curve { font-size: 10px; font-weight: var(--weight-semibold); }
+.wv-mini__title { color: var(--color-text-subtle); font-size: calc(10px * var(--ui-scale)); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-wide); text-transform: uppercase; }
+.wv-mini__curve { font-size: calc(10px * var(--ui-scale)); font-weight: var(--weight-semibold); }
 .wv-mini__body { position: relative; flex: 1; min-height: 0; overflow: hidden; touch-action: none; cursor: pointer; }
 .wv-mini__body:focus { outline: none; }
 .wv-mini__body:focus-visible { box-shadow: inset 0 0 0 2px var(--color-focus); }

@@ -49,7 +49,7 @@ function synthetic() {
 
 const DATA = synthetic();
 
-function drawTracks(ctx: CanvasRenderingContext2D, { width, height }: { width: number; height: number }, t: ThemeTokens) {
+function drawTracks(ctx: CanvasRenderingContext2D, { width, height }: { width: number; height: number }, t: ThemeTokens, ui: number) {
   const theme = t.name;
   const v = t.viewer;
   const depthW = 34;
@@ -110,7 +110,7 @@ function drawTracks(ctx: CanvasRenderingContext2D, { width, height }: { width: n
 
   // Profundidad
   ctx.fillStyle = v.axisText;
-  ctx.font = `10px ${BASE_TOKENS.font.sans}`;
+  ctx.font = `${Math.round(10 * ui)}px ${BASE_TOKENS.font.sans}`;
   ctx.textAlign = 'center';
   for (let k = 1; k < 10; k += 2) ctx.fillText(String(2400 + k * 10), trackW + depthW / 2, (k / 10) * height + 3);
 

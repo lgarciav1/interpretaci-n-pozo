@@ -16,6 +16,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { useCanvas } from '../../ui/canvas';
 import { withAlpha } from '../../ui/color';
+import { getUiScaleFactor, scaledCss } from '../../ui/uiScale';
 import { dataRectFromPx, nearestPoint, plotRectFor, validAxis, xyMapping, type DataRect, type XYAxis, type XYMapping } from './axes';
 import { drawXYScene } from './draw';
 import { registerXYFigure } from './figures';
@@ -31,7 +32,7 @@ export interface XYPlotProps {
   lines?: readonly XYLineLayer[];
   trends?: readonly XYTrendLayer[];
   guides?: readonly XYGuide[];
-  /** Alto en px (el ancho es el del contenedor). */
+  /** Alto en px de Compacto (escala con el tamaño de interfaz; el ancho es el del contenedor). */
   height: number;
   /** Versión chica: sin títulos de ejes, rótulos más chicos. */
   compact?: boolean;
@@ -82,11 +83,11 @@ export function XYPlot(props: XYPlotProps) {
   }, [figureId, figureTitle, ok, xAxis, yAxis, points, lines, trends, guides]);
 
   const canvasRef = useCanvas(
-    (ctx, size, theme) => {
-      const m = xyMapping(xAxis, yAxis, plotRectFor(size.width, size.height, compact));
+    (ctx, size, theme, ui) => {
+      const m = xyMapping(xAxis, yAxis, plotRectFor(size.width, size.height, compact, ui));
       mapRef.current = m;
       if (!ok) return;
-      drawXYScene(ctx, m, xAxis, yAxis, { points, lines, trends, guides }, theme, compact);
+      drawXYScene(ctx, m, xAxis, yAxis, { points, lines, trends, guides }, theme, compact, ui);
       // Punto bajo el puntero o con el foco del teclado: anillo.
       for (const h of [hover, focus]) {
         const l = h && points[h.layer];
@@ -123,7 +124,7 @@ export function XYPlot(props: XYPlotProps) {
       if (!l.interactive) return;
       const xs = Array.from({ length: Math.min(l.x.length, l.y.length) }, (_, i) => m.x(l.x[i]!));
       const ys = Array.from(xs, (_, i) => m.y(l.y[i]!));
-      const i = nearestPoint(xs, ys, px, py, 8);
+      const i = nearestPoint(xs, ys, px, py, 8 * getUiScaleFactor());
       if (i < 0) return;
       const d = Math.hypot(xs[i]! - px, ys[i]! - py);
       if (d < bestD) {
@@ -210,7 +211,7 @@ export function XYPlot(props: XYPlotProps) {
   const hasData = points.some((l) => l.x.length > 0) || lines.length > 0 || trends.length > 0;
 
   return (
-    <div className={`xy-plot${props.className ? ` ${props.className}` : ''}`} style={{ height }} data-testid={props['data-testid']}>
+    <div className={`xy-plot${props.className ? ` ${props.className}` : ''}`} style={{ height: scaledCss(height) }} data-testid={props['data-testid']}>
       <canvas
         ref={canvasRef}
         className="xy-plot__canvas"

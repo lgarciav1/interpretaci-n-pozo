@@ -6,6 +6,7 @@
  */
 import { useEffect, useRef, type CSSProperties, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import './overlay.css';
+import { scaledCss } from '../uiScale';
 import { focusableIn, Portal, useAnchoredPosition, useOutsidePointerDown, type Align, type Placement } from './layer';
 
 export interface PopoverProps {
@@ -68,7 +69,7 @@ export function Popover({ open, anchorRef, onClose, label, placement = 'bottom',
     }
   };
 
-  const style: CSSProperties = { top: pos.top, left: pos.left, width };
+  const style: CSSProperties = { top: pos.top, left: pos.left, width: scaledCss(width) };
   return (
     <Portal>
       <div

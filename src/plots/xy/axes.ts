@@ -6,6 +6,7 @@
  * Es la base del crossplot k–φ de la corona (6b-3) y del crossplot libre y el histograma de la fase 7: no sabe nada
  * de plugs ni de curvas.
  */
+import { scalePx } from '../../ui/tokens';
 import { formatNumber } from '../../ui/format';
 
 export type AxisKind = 'linear' | 'log';
@@ -197,11 +198,12 @@ export function niceRange(series: readonly ArrayLike<number>[], kind: AxisKind, 
 // ── área de dibujo ───────────────────────────────────────────────────────────────────────────────────────────
 
 /** Márgenes del área de dibujo: lugar para los rótulos de ticks y los títulos de los ejes. */
-export function plotRectFor(width: number, height: number, compact = false): PlotRect {
-  const left = compact ? 34 : 56;
-  const bottom = compact ? 24 : 40;
-  const top = compact ? 6 : 10;
-  const right = compact ? 8 : 14;
+export function plotRectFor(width: number, height: number, compact = false, uiScale = 1): PlotRect {
+  // Márgenes para rótulos y títulos: siguen al tamaño de interfaz en pantalla (las figuras usan 1).
+  const left = scalePx(compact ? 34 : 56, uiScale);
+  const bottom = scalePx(compact ? 24 : 40, uiScale);
+  const top = scalePx(compact ? 6 : 10, uiScale);
+  const right = scalePx(compact ? 8 : 14, uiScale);
   return { x: left, y: top, width: Math.max(10, width - left - right), height: Math.max(10, height - top - bottom) };
 }
 

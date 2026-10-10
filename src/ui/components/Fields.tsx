@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState, type CSSProperties, type InputHTMLA
 import { formatParamValue, parseDecimal } from '../format';
 import { clamp, positionToValue, stepValue, valueToPosition, type NumericScale } from '../scale';
 import './fields.css';
+import { scaledCss } from '../uiScale';
 import { Icon, type IconName } from './Icon';
 import { Tooltip } from './Tooltip';
 import { useFlash } from './useFlash';
@@ -132,7 +133,7 @@ export interface NumberFieldProps extends NumericScale {
   name?: string;
   'aria-label'?: string;
   'aria-labelledby'?: string;
-  /** Ancho del campo (px o CSS). */
+  /** Ancho del campo (px en Compacto, escala con el tamaño de interfaz; o CSS). */
   width?: CSSProperties['width'];
   /** Formato del valor (por defecto según el paso, con coma decimal). */
   format?: (v: number) => string;
@@ -164,7 +165,7 @@ export function NumberField({ value, onChange, unit, disabled, size = 'md', widt
   return (
     <span
       className={['ui-input', 'ui-input--number', `ui-input--${size}`, invalid && 'is-invalid', disabled && 'is-disabled'].filter(Boolean).join(' ')}
-      style={width !== undefined ? { width } : undefined}
+      style={width !== undefined ? { width: scaledCss(width) } : undefined}
     >
       <input
         type="text"

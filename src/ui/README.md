@@ -23,6 +23,9 @@ Importar siempre desde el índice: `import { Button, Slider, curveStyle } from '
 7. **Movimiento sobrio**: duraciones `--dur-*` y curvas `--ease-*`. Con movimiento reducido valen 0. Para
    destacar un valor que cambió, `useFlash(valor)` + clase `ui-flash`.
 8. **Textos en español; identificadores en inglés.**
+9. **Tamaño de interfaz** (abajo): las medidas sueltas que deben crecer con el nivel van como
+   `calc(18px * var(--ui-scale))` en CSS o `scaledCss(18)` en un `style`; los rótulos de canvas, con el factor que
+   recibe el dibujo. Bordes de 1–2 px, radios y sombras no escalan. Un test falla si un `font-size` está en px fijos.
 
 ## Tokens (`tokens.ts`)
 
@@ -37,6 +40,7 @@ Importar siempre desde el índice: `import { Button, Slider, curveStyle } from '
 | Capas | `--z-raised/sticky/dock/resizer/popover/tooltip/modal/toast` | | nunca números sueltos |
 | Movimiento | `--dur-instant/fast/base/slow/flash`, `--ease-standard/enter/exit` | `prefersReducedMotion()` | |
 | Medidas | `--size-control-sm/md/lg`, `--size-topbar`, `--size-flowbar`, `--size-sidebar-left/right`, `--size-dock` | | |
+| Tamaño de interfaz | `--ui-scale` (1 · 1,125 · 1,25) y texto, espaciado y medidas por nivel en `:root[data-ui-scale]` | `UI_SCALES`, `scaledTokens(nivel)`, `scalePx(px, factor)`, `canvasFont(px, peso, factor)` | `BASE_TOKENS` = Compacto |
 
 ## Tema (`theme.ts`)
 
@@ -46,12 +50,29 @@ Importar siempre desde el índice: `import { Button, Slider, curveStyle } from '
 - Canvas: `subscribeTheme(redibujar)` + `getThemeTokens()`, o directamente `useCanvas` (abajo).
 - Un subárbol puede fijar tema con `data-theme="dark"` (la página de muestra lo usa para mostrar ambos).
 
+## Tamaño de interfaz (`uiScale.ts`)
+
+Decisión: [`docs/decisiones/0013-tamano-de-interfaz.md`](../../docs/decisiones/0013-tamano-de-interfaz.md).
+
+- Niveles Compacto (la densidad original), **Normal** (por defecto) y Grande. `initUiScale()` al arrancar (ya lo hace
+  `main.tsx`); `setUiScale('compact' | 'normal' | 'large')`; selector `UiScaleToggle` (barra superior, junto al tema).
+  La preferencia vive en `localStorage['pozo.ui.scale']`, nunca en el proyecto.
+- CSS: los tokens de texto, espaciado y medidas ya cambian con el nivel. Una medida suelta que deba crecer:
+  `calc(18px * var(--ui-scale))`. Un umbral de consulta de contenedor que deba seguir al texto, en `em`.
+- Props en px (íconos, `Spinner`, `Popover width`, `DataTable maxHeight`, `NumberField width`, `XYPlot height`): son px
+  de Compacto y el componente los escala. En un `style` propio: `scaledCss(n)`.
+- React: `useUiScale()`, `useUiScaleFactor()`. Canvas: el 4.º argumento de `useCanvas`, o `getUiScaleFactor()` +
+  `subscribeUiScale(redibujar)`. Superposiciones del visor: `frame.uiScale`.
+- **Lo que se exporta como figura dibuja con factor 1**: no leer `getUiScaleFactor()` dentro de funciones de dibujo
+  compartidas con la exportación; recibir el factor como parámetro (por defecto 1).
+
 ## Canvas (`canvas.ts`)
 
 ```tsx
-const ref = useCanvas((ctx, { width, height }, theme) => {
+const ref = useCanvas((ctx, { width, height }, theme, ui) => {
   ctx.fillStyle = theme.viewer.trackBg;
   ctx.fillRect(0, 0, width, height);
+  ctx.font = canvasFont(BASE_TOKENS.text.xs, 400, ui); // rótulos que siguen al tamaño de interfaz
   const s = curveStyle('GR', theme.name, registry.roles);
   ctx.strokeStyle = s.color; ctx.lineWidth = s.width; ctx.setLineDash(s.dash);
   // …
@@ -59,7 +80,7 @@ const ref = useCanvas((ctx, { width, height }, theme) => {
 return <canvas ref={ref} style={{ width: '100%', height: 300 }} />;
 ```
 
-Escala por `devicePixelRatio`, redibuja al cambiar el tamaño (ResizeObserver) y el tema. Ejemplo completo:
+Escala por `devicePixelRatio`, redibuja al cambiar el tamaño (ResizeObserver), el tema y el tamaño de interfaz. Ejemplo completo:
 `showcase/SampleLog.tsx` (GR con relleno, resistividades en log, densidad–neutrón con cruce).
 
 ## Paleta de curvas (`curves.ts`)
@@ -104,15 +125,16 @@ Escala por `devicePixelRatio`, redibuja al cambiar el tamaño (ResizeObserver) y
 | `Section` | Bloque con encabezado en versalitas, `meta`, acciones; `collapsible`. |
 | `DataTable` | Tabla con cabecera fija (`maxHeight`), columnas `align: 'num'` (derecha + tabulares), filas seleccionables. |
 | `ResizeHandle` | Separador redimensionable accesible (arrastre, flechas, Enter para colapsar). |
-| `Stepper` | Barra de pasos navegable (flujo guiado): estados done / partial / todo / skipped / empty / locked, paso activo y sugerido. |
+| `Stepper` | Barra de pasos navegable (flujo guiado): estados done / partial / todo / skipped / empty / locked, paso activo y sugerido. Si no entra, se compacta sola (conectores cortos → `shortLabel` → resueltos sin rótulo → solo marcas). |
 | `WizardSteps` | Pasos de un asistente dentro de un diálogo (solo informa, no navega): número, check en los completos, actual resaltado. |
 | `FileDrop` | Zona para soltar o elegir un archivo (arrastre, clic, Enter/Espacio); `accept`, `disabled`, `inputTestId`. |
 | `ThemeToggle` | Sistema / claro / oscuro. |
+| `UiScaleToggle` | Tamaño de interfaz: compacto / normal / grande. |
 | `CurveLegend`, `CurveSwatch` | Encabezado de curva (nombre en su color, rango, log, unidad, muestra del trazo); `tag` agrega una etiqueta («alternativa»). |
 | `Icon`, `BrandMark` | Íconos SVG propios (`ICON_NAMES`); para agregar uno, una entrada en `ICONS`. |
 
-Puro y testeado (`tests/ui/`): `tokens.ts`, `color.ts`, `curves.ts`, `format.ts`, `scale.ts`, `computePosition` de
-`components/layer.tsx`.
+Puro y testeado (`tests/ui/`): `tokens.ts` (incluidos los niveles de tamaño), `uiScale.ts`, `color.ts`, `curves.ts`,
+`format.ts`, `scale.ts`, `computePosition` de `components/layer.tsx`.
 
 ## Clases heredadas
 

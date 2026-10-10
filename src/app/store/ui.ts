@@ -6,12 +6,24 @@ import { create } from 'zustand';
 import type { WorkspaceId } from '../../core/workspaces';
 import { BASE_TOKENS } from '../../ui/tokens';
 
+/**
+ * Medidas del armazón en px del nivel Compacto: se muestran × el factor del tamaño de interfaz
+ * (docs/decisiones/0013-tamano-de-interfaz.md).
+ */
 export interface ShellLayout {
   leftWidth: number;
   rightWidth: number;
   leftCollapsed: boolean;
   rightCollapsed: boolean;
   dockHeight: number;
+  /**
+   * Medida automática (hasta que el usuario arrastra ese separador): la guardada × factor, pero sin pasar de una
+   * fracción de la ventana (`AUTO_CAP`). Así, con letra Normal o Grande en una notebook, los laterales y el dock no
+   * se comen el perfil. Al arrastrar, pasa a ser exactamente la elegida.
+   */
+  leftAuto: boolean;
+  rightAuto: boolean;
+  dockAuto: boolean;
   dockCollapsed: boolean;
   /** Franja de encabezado de pozo en el visor. */
   wellHeader: boolean;
@@ -23,6 +35,33 @@ export const LAYOUT_LIMITS = {
   dock: { min: 120, max: 640 },
 } as const;
 
+/** Tope de las medidas automáticas, en % del ancho (laterales) o del alto (dock) de la ventana. */
+export const AUTO_CAP = { left: 24, right: 26, dock: 28 } as const;
+
+export type ShellPart = keyof typeof AUTO_CAP;
+
+const PART_KEYS = {
+  left: { size: 'leftWidth', auto: 'leftAuto' },
+  right: { size: 'rightWidth', auto: 'rightAuto' },
+  dock: { size: 'dockHeight', auto: 'dockAuto' },
+} as const;
+
+/** Puro: medida en px de pantalla de una parte del armazón para un factor de interfaz y una ventana. */
+export function shellSize(part: ShellPart, layout: ShellLayout, factor: number, viewport: { width: number; height: number }): number {
+  const k = PART_KEYS[part];
+  const px = layout[k.size] * factor;
+  if (!layout[k.auto]) return px;
+  const cap = ((part === 'dock' ? viewport.height : viewport.width) * AUTO_CAP[part]) / 100;
+  return Math.min(px, cap);
+}
+
+/** La misma medida como valor CSS (sigue a `--ui-scale` y a la ventana sin JavaScript). */
+export function shellSizeCss(part: ShellPart, layout: ShellLayout): string {
+  const k = PART_KEYS[part];
+  const px = `calc(${layout[k.size]}px * var(--ui-scale, 1))`;
+  return layout[k.auto] ? `min(${px}, ${AUTO_CAP[part]}${part === 'dock' ? 'vh' : 'vw'})` : px;
+}
+
 const LAYOUT_KEY = 'pozo.ui.layout';
 
 const DEFAULT_LAYOUT: ShellLayout = {
@@ -31,6 +70,9 @@ const DEFAULT_LAYOUT: ShellLayout = {
   leftCollapsed: false,
   rightCollapsed: false,
   dockHeight: BASE_TOKENS.size.dock,
+  leftAuto: true,
+  rightAuto: true,
+  dockAuto: true,
   dockCollapsed: false,
   wellHeader: true,
 };
@@ -44,6 +86,10 @@ function loadLayout(): ShellLayout {
       leftWidth: num(raw.leftWidth, DEFAULT_LAYOUT.leftWidth, LAYOUT_LIMITS.left),
       rightWidth: num(raw.rightWidth, DEFAULT_LAYOUT.rightWidth, LAYOUT_LIMITS.right),
       dockHeight: num(raw.dockHeight, DEFAULT_LAYOUT.dockHeight, LAYOUT_LIMITS.dock),
+      // Medidas guardadas antes de existir estos campos: automática si es la de fábrica.
+      leftAuto: typeof raw.leftAuto === 'boolean' ? raw.leftAuto : raw.leftWidth === undefined || raw.leftWidth === DEFAULT_LAYOUT.leftWidth,
+      rightAuto: typeof raw.rightAuto === 'boolean' ? raw.rightAuto : raw.rightWidth === undefined || raw.rightWidth === DEFAULT_LAYOUT.rightWidth,
+      dockAuto: typeof raw.dockAuto === 'boolean' ? raw.dockAuto : raw.dockHeight === undefined || raw.dockHeight === DEFAULT_LAYOUT.dockHeight,
       leftCollapsed: raw.leftCollapsed === true,
       rightCollapsed: raw.rightCollapsed === true,
       dockCollapsed: raw.dockCollapsed === true,

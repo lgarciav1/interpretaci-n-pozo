@@ -12,7 +12,7 @@
 import { mix, withAlpha } from '../ui/color';
 import { FILL_PALETTE, fillColor, type FillId } from '../ui/curves';
 import { formatNumber } from '../ui/format';
-import { BASE_TOKENS, type ThemeTokens } from '../ui/tokens';
+import { BASE_TOKENS, scalePx, type ThemeTokens } from '../ui/tokens';
 import { blockSummary, decimateWithBounds, DECIMATE_THRESHOLD, ensureRowBuffers, ROW_DATA, ROW_GAP, rowBounds, visibleRange, type RowBuffers } from './decimate';
 import { fillBetween } from './fills';
 import type { TrackBox } from './layout';
@@ -45,11 +45,18 @@ export interface FrameInput {
   active?: { overlayId: string; key: string } | null;
   /** Textos de ayuda por rol para el estado vacío de las pilas («VSH (paso Arcilla)»). */
   stackHints?: Readonly<Record<string, string>>;
+  /**
+   * Factor del tamaño de interfaz (docs/decisiones/0013): agranda rótulos de profundidad, notas y el rótulo del cursor
+   * en pantalla. Ausente = 1 (las figuras exportadas no lo pasan: salen iguales con cualquier tamaño).
+   */
+  uiScale?: number;
 }
 
 const FONT = BASE_TOKENS.font.sans;
 const TEXT_XS = BASE_TOKENS.text.xs;
 const FLAG_COLUMN = 18;
+/** Fuente de los rótulos del visor al factor dado (con factor 1, la misma cadena de siempre). */
+const labelFont = (ui: number, weight?: number) => `${weight !== undefined ? `${weight} ` : ''}${scalePx(TEXT_XS, ui)}px ${FONT}`;
 
 const crisp = (v: number) => Math.round(v) + 0.5;
 /** Clave de buffers: la misma curva puede estar en dos pistas con escalas distintas. */
@@ -355,7 +362,8 @@ export class ViewerRenderer {
   /** Mensaje centrado en una pista sin datos (varias líneas si no entra). */
   private drawEmptyNote(ctx: CanvasRenderingContext2D, box: TrackBox, f: FrameInput, text: string): void {
     const h = f.viewport.height;
-    ctx.font = `${TEXT_XS}px ${FONT}`;
+    const ui = f.uiScale ?? 1;
+    ctx.font = labelFont(ui);
     ctx.fillStyle = f.theme.viewer.axisText;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -370,7 +378,7 @@ export class ViewerRenderer {
       } else line = next;
     }
     if (line) lines.push(line);
-    const lh = TEXT_XS + 5;
+    const lh = scalePx(TEXT_XS + 5, ui);
     const y0 = h / 2 - ((lines.length - 1) * lh) / 2;
     lines.forEach((l, i) => ctx.fillText(l, box.x + box.width / 2, y0 + i * lh));
   }
@@ -435,14 +443,16 @@ export class ViewerRenderer {
       ctx.lineTo(right, y);
     }
     ctx.stroke();
+    const ui = f.uiScale ?? 1;
     ctx.fillStyle = v.depthText;
-    ctx.font = `${BASE_TOKENS.weight.medium} ${TEXT_XS}px ${FONT}`;
+    ctx.font = labelFont(ui, BASE_TOKENS.weight.medium);
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
+    const edge = scalePx(7, ui);
     for (const d of ticks.major) {
       const y = yOf(f.viewport, d);
-      if (y < 7 || y > h - 7) continue;
-      ctx.fillText(formatNumber(d, { digits: ticks.decimals, grouping: false }), right - 11, y);
+      if (y < edge || y > h - edge) continue;
+      ctx.fillText(formatNumber(d, { digits: ticks.decimals, grouping: false }), right - scalePx(11, ui), y);
     }
   }
 
@@ -471,6 +481,7 @@ export class ViewerRenderer {
       data: f.data,
       invalidate: f.invalidate ?? (() => {}),
       active: f.active ?? null,
+      uiScale: f.uiScale ?? 1,
     };
     const runOverlays = (layer: 'under' | 'over') => {
       for (const o of [...f.overlays].filter((o) => o.layer === layer).sort((a, b) => (a.order ?? 0) - (b.order ?? 0))) {
@@ -495,7 +506,7 @@ export class ViewerRenderer {
         this.drawStack(ctx, t, b, f, s);
       } else if (t.curves.length === 0) {
         ctx.fillStyle = v.axisText;
-        ctx.font = `${TEXT_XS}px ${FONT}`;
+        ctx.font = labelFont(f.uiScale ?? 1);
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('Sin curvas', b.x + b.width / 2, h / 2);
@@ -600,10 +611,11 @@ export class ViewerRenderer {
     const di = f.tracks.findIndex((t) => t.kind === 'depth');
     const box = di >= 0 ? f.boxes[di]! : { x: 0, width: 72 };
     const label = formatDepth(depth);
-    ctx.font = `${BASE_TOKENS.weight.semibold} ${TEXT_XS}px ${FONT}`;
+    const ui = f.uiScale ?? 1;
+    ctx.font = labelFont(ui, BASE_TOKENS.weight.semibold);
     const tw = ctx.measureText(label).width;
-    const bw = Math.min(box.width - 6, tw + 12);
-    const bh = 18;
+    const bw = Math.min(box.width - 6, tw + scalePx(12, ui));
+    const bh = scalePx(18, ui);
     const bx = box.x + (box.width - bw) / 2;
     const by = Math.min(h - bh - 1, Math.max(1, y - bh / 2));
     ctx.fillStyle = v.cursorLabelBg;

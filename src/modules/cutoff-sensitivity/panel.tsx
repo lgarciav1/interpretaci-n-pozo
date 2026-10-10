@@ -21,8 +21,10 @@ import {
   fillColor,
   formatNumber,
   formatParamValue,
+  scalePx,
   stepValue,
   useResolvedTheme,
+  useUiScaleFactor,
   withAlpha,
   type ThemeTokens,
 } from '../../ui';
@@ -122,11 +124,15 @@ interface ChartProps {
   onCommit(value: number): void;
 }
 
-const PAD = { l: 34, t: 22, b: 20 };
-const HANDLE_HIT = 8;
+/** Márgenes del gráfico en px de Compacto (escalan con el tamaño de interfaz). */
+const PAD_BASE = { l: 34, t: 22, b: 20 };
+const HANDLE_HIT_BASE = 8;
 
 function SweepChart({ def, spec, grid, current, cutoff, volume, volumeUnit, overrides, scopeLabel, onCommit }: ChartProps) {
   const themeName = useResolvedTheme();
+  const ui = useUiScaleFactor();
+  const PAD = { l: scalePx(PAD_BASE.l, ui), t: scalePx(PAD_BASE.t, ui), b: scalePx(PAD_BASE.b, ui) };
+  const HANDLE_HIT = scalePx(HANDLE_HIT_BASE, ui);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [drag, setDragState] = useState<number | null>(null);
   // El valor en arrastre también en un ref: `pointerup` y `lostpointercapture` llegan juntos y no deben confirmar dos veces.
@@ -144,7 +150,7 @@ function SweepChart({ def, spec, grid, current, cutoff, volume, volumeUnit, over
   const varColor = curveStyle(def.role, themeName).color;
   const at = readAt(grid, drag === null ? current : undefined, shown, volume);
 
-  const padR = vol ? 42 : 10;
+  const padR = scalePx(vol ? 42 : 10, ui);
   const layout = (width: number, height: number) => {
     const w = Math.max(1, width - PAD.l - padR);
     const h = Math.max(1, height - PAD.t - PAD.b);
@@ -161,7 +167,7 @@ function SweepChart({ def, spec, grid, current, cutoff, volume, volumeUnit, over
       const pay = fillColor('netPay', theme.name).color;
       const hc = fillColor('hydrocarbon', theme.name).color;
       const color = curveStyle(def.role, theme.name).color;
-      const font = `${BASE_TOKENS.text.xs}px ${BASE_TOKENS.font.sans}`;
+      const font = `${scalePx(BASE_TOKENS.text.xs, ui)}px ${BASE_TOKENS.font.sans}`;
       const y0 = PAD.t + h;
 
       // Escalas verticales «lindas» (1-2-5).
@@ -194,13 +200,13 @@ function SweepChart({ def, spec, grid, current, cutoff, volume, volumeUnit, over
         ctx.stroke();
         ctx.fillStyle = v.axisText;
         ctx.textAlign = 'right';
-        ctx.fillText(formatNumber(m, { significant: 3 }), PAD.l - 6, y);
+        ctx.fillText(formatNumber(m, { significant: 3 }), PAD.l - scalePx(6, ui), y);
       }
       if (vol) {
         ctx.textAlign = 'left';
         for (let m = 0; m <= av.max + 1e-9; m += av.step) {
           ctx.fillStyle = v.axisText;
-          ctx.fillText(formatNumber(+m.toPrecision(12), { significant: 3 }), PAD.l + w + 6, y0 - (m / av.max) * h);
+          ctx.fillText(formatNumber(+m.toPrecision(12), { significant: 3 }), PAD.l + w + scalePx(6, ui), y0 - (m / av.max) * h);
         }
       }
       ctx.textBaseline = 'top';
@@ -214,7 +220,7 @@ function SweepChart({ def, spec, grid, current, cutoff, volume, volumeUnit, over
         ctx.stroke();
         ctx.fillStyle = v.axisText;
         ctx.textAlign = t === min ? 'left' : t === max ? 'right' : 'center';
-        ctx.fillText(formatNumber(t, { digits: t === 0 || t === 1 ? 0 : def.variable === 'phi' ? 1 : 2 }), t === min ? xx - 0.5 : t === max ? xx + 0.5 : xx, y0 + 5);
+        ctx.fillText(formatNumber(t, { digits: t === 0 || t === 1 ? 0 : def.variable === 'phi' ? 1 : 2 }), t === min ? xx - 0.5 : t === max ? xx + 0.5 : xx, y0 + scalePx(5, ui));
       }
 
       // Neto pay: área + línea.
@@ -276,19 +282,20 @@ function SweepChart({ def, spec, grid, current, cutoff, volume, volumeUnit, over
       if (volume) dot(ctx, xc, yVol(at.volume), hc, v.trackBg, 4);
 
       const label = formatParamValue(shown, spec);
-      ctx.font = `${BASE_TOKENS.weight.semibold} ${BASE_TOKENS.text.xs}px ${BASE_TOKENS.font.sans}`;
-      const tw = ctx.measureText(label).width + 12;
+      ctx.font = `${BASE_TOKENS.weight.semibold} ${scalePx(BASE_TOKENS.text.xs, ui)}px ${BASE_TOKENS.font.sans}`;
+      const tw = ctx.measureText(label).width + scalePx(12, ui);
+      const th = scalePx(17, ui);
       const hx = clamp(xc - tw / 2, 1, width - tw - 1);
       const onColor = contrastRatio(theme.color.textOnAccent, color) >= contrastRatio(theme.color.textInverse, color) ? theme.color.textOnAccent : theme.color.textInverse;
       ctx.fillStyle = color;
-      roundRect(ctx, hx, 2, tw, 17, BASE_TOKENS.radius.xs);
+      roundRect(ctx, hx, 2, tw, th, BASE_TOKENS.radius.xs);
       ctx.fill();
       ctx.fillStyle = onColor;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(label, hx + tw / 2, 2 + 17 / 2 + 0.5);
+      ctx.fillText(label, hx + tw / 2, 2 + th / 2 + 0.5);
     },
-    [grid, current, shown, drag, hover, volume, volumeUnit, maxPay, maxVol, spec, def],
+    [grid, current, shown, drag, hover, volume, volumeUnit, maxPay, maxVol, spec, def, ui],
   );
 
   const pointerT = (e: PointerEvent<HTMLCanvasElement>) => {
@@ -302,7 +309,7 @@ function SweepChart({ def, spec, grid, current, cutoff, volume, volumeUnit, over
   const onPointerDown = (e: PointerEvent<HTMLCanvasElement>) => {
     if (e.button !== 0) return;
     const p = pointerT(e);
-    const onHandle = p.py <= PAD.t && Math.abs(p.px - p.xc) <= 28;
+    const onHandle = p.py <= PAD.t && Math.abs(p.px - p.xc) <= scalePx(28, ui);
     if (Math.abs(p.px - p.xc) > HANDLE_HIT && !onHandle) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     setDrag(snap(p.t));
@@ -315,7 +322,7 @@ function SweepChart({ def, spec, grid, current, cutoff, volume, volumeUnit, over
       setDrag(snap(p.t));
       return;
     }
-    setNearLine(Math.abs(p.px - p.xc) <= HANDLE_HIT || (p.py <= PAD.t && Math.abs(p.px - p.xc) <= 28));
+    setNearLine(Math.abs(p.px - p.xc) <= HANDLE_HIT || (p.py <= PAD.t && Math.abs(p.px - p.xc) <= scalePx(28, ui)));
     const rect = e.currentTarget.getBoundingClientRect();
     const L = layout(rect.width, rect.height);
     const inside = p.px >= PAD.l && p.px <= PAD.l + L.w && p.py >= PAD.t && p.py <= PAD.t + L.h;

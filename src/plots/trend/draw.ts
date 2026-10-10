@@ -244,6 +244,8 @@ export interface LabelStyle {
   muted: string;
   font: string;
   fontStrong: string;
+  /** Factor del tamaño de interfaz para la caja y sus márgenes (por defecto 1; las figuras usan 1). */
+  ui?: number;
 }
 
 /**
@@ -261,13 +263,16 @@ export function drawTrendLabel(
   placement: 'above' | 'beside' = 'above',
 ): { x: number; y: number; w: number; h: number } {
   ctx.save();
+  const u = style.ui ?? 1;
+  // Medidas en px de Compacto × factor (sin redondear con factor 1: idéntico a antes en las figuras).
+  const k = (n: number) => (u === 1 ? n : n * u);
   ctx.font = style.fontStrong;
   const w1 = ctx.measureText(lines[0]).width;
   ctx.font = style.font;
   const w2 = ctx.measureText(lines[1]).width;
   const single = lines[1] === '';
-  const w = Math.ceil(Math.max(w1, single ? 0 : w2)) + 18;
-  const h = single ? 20 : 34;
+  const w = Math.ceil(Math.max(w1, single ? 0 : w2)) + k(18);
+  const h = Math.round(single ? k(20) : k(34));
   let x = Math.min(bounds.x1 - w - 4, anchor[0] + 10);
   x = Math.max(bounds.x0 + 4, x);
   let y = placement === 'beside' ? anchor[1] - h / 2 : anchor[1] - h - 8;
@@ -294,11 +299,11 @@ export function drawTrendLabel(
   ctx.textBaseline = 'middle';
   ctx.fillStyle = style.ink;
   ctx.font = style.fontStrong;
-  ctx.fillText(lines[0], x + 12, single ? y + 10.5 : y + 11);
+  ctx.fillText(lines[0], x + k(12), single ? y + h / 2 + 0.5 : y + k(11));
   if (!single) {
     ctx.fillStyle = style.muted;
     ctx.font = style.font;
-    ctx.fillText(lines[1], x + 12, y + 24.5);
+    ctx.fillText(lines[1], x + k(12), y + k(24.5));
   }
   ctx.restore();
   return { x, y, w, h };

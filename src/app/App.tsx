@@ -7,8 +7,8 @@
  * suscripción al store (useShellVars) y cada separador lee solo su propio valor. El visor (fase 4) se entera del
  * cambio de tamaño por su ResizeObserver.
  */
-import { useLayoutEffect, useRef, type RefObject } from 'react';
-import { IconButton, ResizeHandle, Toaster } from '../ui';
+import { useLayoutEffect, useRef, useSyncExternalStore, type RefObject } from 'react';
+import { IconButton, ResizeHandle, Toaster, useUiScaleFactor } from '../ui';
 import { LoadWellDialog } from './components/LoadWellDialog';
 import { WellPanel } from './components/WellPanel';
 import { QcReportDialog, SnapshotsDialog } from './shell/Dialogs';
@@ -18,7 +18,7 @@ import { ExportDialog } from './export/ExportDialog';
 import { Inspector } from './shell/Inspector';
 import { TopBar } from './shell/TopBar';
 import { ViewerSlot } from './shell/ViewerSlot';
-import { LAYOUT_LIMITS, useUi, type ShellLayout } from './store/ui';
+import { LAYOUT_LIMITS, shellSize, shellSizeCss, useUi, type ShellLayout, type ShellPart } from './store/ui';
 import './shell/shell.css';
 
 function useShellVars(ref: RefObject<HTMLDivElement | null>): void {
@@ -26,9 +26,10 @@ function useShellVars(ref: RefObject<HTMLDivElement | null>): void {
     const apply = (l: ShellLayout) => {
       const el = ref.current;
       if (!el) return;
-      el.style.setProperty('--shell-left', `${l.leftWidth}px`);
-      el.style.setProperty('--shell-right', `${l.rightWidth}px`);
-      el.style.setProperty('--shell-dock', `${l.dockHeight}px`);
+      // Las medidas se guardan en px de Compacto: el CSS las lleva al tamaño de interfaz actual (y a la ventana).
+      el.style.setProperty('--shell-left', shellSizeCss('left', l));
+      el.style.setProperty('--shell-right', shellSizeCss('right', l));
+      el.style.setProperty('--shell-dock', shellSizeCss('dock', l));
     };
     apply(useUi.getState().layout);
     return useUi.subscribe((s, prev) => {
@@ -37,28 +38,43 @@ function useShellVars(ref: RefObject<HTMLDivElement | null>): void {
   }, [ref]);
 }
 
-type HandleKind = 'left' | 'right' | 'dock';
+const subscribeResize = (fn: () => void) => {
+  window.addEventListener('resize', fn);
+  return () => window.removeEventListener('resize', fn);
+};
+/** Ventana como texto estable (useSyncExternalStore compara por identidad). */
+const windowKey = () => `${window.innerWidth}x${window.innerHeight}`;
 
-const HANDLES: Record<HandleKind, { key: 'leftWidth' | 'rightWidth' | 'dockHeight'; collapse: 'leftCollapsed' | 'rightCollapsed' | 'dockCollapsed'; label: string; invert: boolean }> = {
-  left: { key: 'leftWidth', collapse: 'leftCollapsed', label: 'Ancho de la columna del pozo', invert: false },
-  right: { key: 'rightWidth', collapse: 'rightCollapsed', label: 'Ancho del panel del paso', invert: true },
-  dock: { key: 'dockHeight', collapse: 'dockCollapsed', label: 'Alto de los paneles', invert: true },
+type HandleKind = ShellPart;
+
+const HANDLES: Record<HandleKind, { key: 'leftWidth' | 'rightWidth' | 'dockHeight'; auto: 'leftAuto' | 'rightAuto' | 'dockAuto'; collapse: 'leftCollapsed' | 'rightCollapsed' | 'dockCollapsed'; label: string; invert: boolean }> = {
+  left: { key: 'leftWidth', auto: 'leftAuto', collapse: 'leftCollapsed', label: 'Ancho de la columna del pozo', invert: false },
+  right: { key: 'rightWidth', auto: 'rightAuto', collapse: 'rightCollapsed', label: 'Ancho del panel del paso', invert: true },
+  dock: { key: 'dockHeight', auto: 'dockAuto', collapse: 'dockCollapsed', label: 'Alto de los paneles', invert: true },
 };
 
-/** Separador que solo se re-renderiza a sí mismo al arrastrar. */
+/**
+ * Separador que solo se re-renderiza a sí mismo al arrastrar. El store guarda px de Compacto; el separador trabaja en
+ * px de pantalla (× factor del tamaño de interfaz), así cambiar el tamaño agranda los paneles en proporción.
+ */
 function ShellHandle({ kind }: { kind: HandleKind }) {
   const h = HANDLES[kind];
   const value = useUi((s) => s.layout[h.key]);
+  const auto = useUi((s) => s.layout[h.auto]);
   const setLayout = useUi((s) => s.setLayout);
+  const f = useUiScaleFactor();
+  // Medida automática: el separador parte de lo que se ve (con el tope por ventana).
+  const [vw, vh] = useSyncExternalStore(subscribeResize, windowKey, windowKey).split('x').map(Number) as [number, number];
+  const shown = shellSize(kind, { ...useUi.getState().layout, [h.key]: value, [h.auto]: auto }, f, { width: vw, height: vh });
   return (
     <ResizeHandle
       orientation={kind === 'dock' ? 'horizontal' : 'vertical'}
       label={h.label}
-      value={value}
-      min={LAYOUT_LIMITS[kind].min}
-      max={LAYOUT_LIMITS[kind].max}
+      value={Math.round(shown)}
+      min={Math.round(LAYOUT_LIMITS[kind].min * f)}
+      max={Math.round(LAYOUT_LIMITS[kind].max * f)}
       invert={h.invert}
-      onChange={(v) => setLayout({ [h.key]: v })}
+      onChange={(v) => setLayout({ [h.key]: Math.round((v / f) * 10) / 10, [h.auto]: false })}
       onToggle={() => setLayout({ [h.collapse]: true })}
     />
   );

@@ -68,6 +68,59 @@ const BASE_UNITS: Record<keyof typeof BASE_TOKENS, string> = {
 };
 
 // ---------------------------------------------------------------------------------------------------------------
+// Tamaño de interfaz (docs/decisiones/0013-tamano-de-interfaz.md)
+
+/**
+ * Niveles del tamaño de interfaz. `BASE_TOKENS` es el nivel Compacto (factor 1, la densidad original de la app); los
+ * otros multiplican texto, espaciado y medidas por su factor. Radios, bordes, capas y movimiento no escalan.
+ * Las figuras exportadas usan siempre `BASE_TOKENS` (factor 1): no dependen de este nivel.
+ */
+export type UiScale = 'compact' | 'normal' | 'large';
+
+export interface UiScaleDef {
+  id: UiScale;
+  /** Rótulo en la interfaz. */
+  label: string;
+  /** Multiplicador de texto, espaciado y medidas (Compacto = 1). */
+  factor: number;
+}
+
+export const UI_SCALES: readonly UiScaleDef[] = [
+  { id: 'compact', label: 'Compacto', factor: 1 },
+  { id: 'normal', label: 'Normal', factor: 1.125 },
+  { id: 'large', label: 'Grande', factor: 1.25 },
+];
+
+/** Factor de un nivel (1 si no se conoce). */
+export function uiScaleFactor(scale: UiScale): number {
+  return UI_SCALES.find((s) => s.id === scale)?.factor ?? 1;
+}
+
+/** Una medida de Compacto (px) llevada a un factor, redondeada a px enteros (texto y bordes nítidos). */
+export function scalePx(px: number, factor: number): number {
+  return px === 0 || factor === 1 ? px : Math.round(px * factor);
+}
+
+/** Grupos de `BASE_TOKENS` que cambian con el tamaño de interfaz. */
+export const SCALED_GROUPS = ['text', 'space', 'size'] as const;
+type ScaledGroup = (typeof SCALED_GROUPS)[number];
+
+/** Texto, espaciado y medidas de un nivel (en px), con las mismas claves que `BASE_TOKENS`. Puro. */
+export function scaledTokens(scale: UiScale): { [G in ScaledGroup]: { [K in keyof (typeof BASE_TOKENS)[G]]: number } } {
+  const f = uiScaleFactor(scale);
+  const map = <T extends Record<string, number>>(o: T) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, scalePx(v, f)])) as { [K in keyof T]: number };
+  return { text: map(BASE_TOKENS.text), space: map(BASE_TOKENS.space), size: map(BASE_TOKENS.size) };
+}
+
+/**
+ * Fuente para canvas a un factor: `canvasFont(BASE_TOKENS.text.xs, 600, f)` → '600 12px "Segoe UI…"'. Con factor 1
+ * (figuras exportadas) da exactamente la misma cadena que antes de existir el tamaño de interfaz.
+ */
+export function canvasFont(px: number, weight: number = BASE_TOKENS.weight.regular, factor = 1): string {
+  return `${weight} ${scalePx(px, factor)}px ${BASE_TOKENS.font.sans}`;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // Temas
 
 export type ThemeName = 'light' | 'dark';
@@ -319,6 +372,17 @@ function baseDeclarations(): string[] {
       out.push(`${cssVarName(group, key)}: ${v};`);
     }
   }
+  // Factor del tamaño de interfaz, para medidas sueltas del CSS que deben escalar: calc(18px * var(--ui-scale)).
+  out.push('--ui-scale: 1;');
+  return out;
+}
+
+/** Variables que cambian en un nivel de tamaño de interfaz (sobre `:root[data-ui-scale="…"]`). */
+function scaleDeclarations(scale: UiScale): string[] {
+  const t = scaledTokens(scale);
+  const out: string[] = [];
+  for (const group of SCALED_GROUPS) for (const [key, value] of Object.entries(t[group])) out.push(`${cssVarName(group, key)}: ${value === 0 ? '0' : `${value}px`};`);
+  out.push(`--ui-scale: ${uiScaleFactor(scale)};`);
   return out;
 }
 
@@ -341,8 +405,9 @@ export function definedCssVars(): Set<string> {
 }
 
 /**
- * CSS completo de los tokens: base en `:root`, tema claro por defecto y en `[data-theme="light"]`, oscuro en
- * `[data-theme="dark"]` (en `<html>` o en cualquier subárbol), y duraciones en 0 con movimiento reducido.
+ * CSS completo de los tokens: base en `:root` (nivel Compacto), tema claro por defecto y en `[data-theme="light"]`,
+ * oscuro en `[data-theme="dark"]` (en `<html>` o en cualquier subárbol), un bloque por nivel de tamaño de interfaz en
+ * `:root[data-ui-scale="…"]` y duraciones en 0 con movimiento reducido.
  */
 export function tokensToCss(): string {
   const block = (sel: string, decls: string[]) => `${sel} {\n  ${decls.join('\n  ')}\n}`;
@@ -351,6 +416,7 @@ export function tokensToCss(): string {
     block(':root', baseDeclarations()),
     block(':root, [data-theme="light"]', themeDeclarations(light)),
     block('[data-theme="dark"]', themeDeclarations(dark)),
+    ...UI_SCALES.filter((s) => s.factor !== 1).map((s) => block(`:root[data-ui-scale="${s.id}"]`, scaleDeclarations(s.id))),
     `@media (prefers-reduced-motion: reduce) {\n${block(':root', zeroDurations)}\n}`,
   ].join('\n\n');
 }

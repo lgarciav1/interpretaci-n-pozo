@@ -1,7 +1,11 @@
-/** Barra superior: marca, proyecto y pozo, espacio de trabajo, estado del motor y acciones agrupadas. */
+/**
+ * Barra superior: marca, proyecto y pozo, espacio de trabajo, estado del motor, acciones agrupadas y preferencias
+ * (tamaño de interfaz y tema). Si no entra (ventana angosta o tamaño Grande), se compacta por etapas con consultas de
+ * contenedor en `em` (shell.css): el umbral sigue al tamaño del texto.
+ */
 import { useRef } from 'react';
 import { WORKSPACES, type WorkspaceId } from '../../core/workspaces';
-import { BrandMark, Button, Icon, IconButton, Menu, SegmentedControl, Spinner, StatusDot, ThemeToggle, Tooltip, formatNumber } from '../../ui';
+import { BrandMark, Button, Icon, IconButton, Menu, SegmentedControl, Spinner, StatusDot, ThemeToggle, Tooltip, UiScaleToggle, formatNumber } from '../../ui';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useResults } from '../store/results';
 import { useUi } from '../store/ui';
@@ -28,7 +32,7 @@ function EngineStatus() {
         }}
       >
         {busy ? <Spinner size={12} /> : <StatusDot tone={error ? 'error' : 'ok'} label={error ? 'Con error' : 'Listo'} />}
-        <span className="num">{label}</span>
+        <span className="num shell-engine__label">{label}</span>
       </button>
     </Tooltip>
   );
@@ -83,34 +87,36 @@ export function TopBar() {
         <Icon name="chevron-right" size={14} className="shell-context__sep" />
         <span className="shell-context__well" title="Pozo activo">
           <Icon name="well" size={14} />
-          {entry?.well.name ?? 'Sin pozo'}
+          <span className="shell-context__well-name">{entry?.well.name ?? 'Sin pozo'}</span>
         </span>
       </nav>
-      <SegmentedControl<WorkspaceId>
-        aria-label="Espacio de trabajo"
-        value={workspace}
-        onChange={(w) => setUi({ workspace: w, activeModuleId: null, activeStepId: null })}
-        options={WORKSPACES.map((w) => ({ value: w.id, label: w.label, icon: WORKSPACE_ICON[w.id] }))}
-      />
+      <div className="shell-workspace">
+        <SegmentedControl<WorkspaceId>
+          aria-label="Espacio de trabajo"
+          value={workspace}
+          onChange={(w) => setUi({ workspace: w, activeModuleId: null, activeStepId: null })}
+          options={WORKSPACES.map((w) => ({ value: w.id, label: w.label, icon: WORKSPACE_ICON[w.id] }))}
+        />
+      </div>
       <span className="shell-spacer" />
       <EngineStatus />
       <HistoryButtons />
       <span className="shell-topbar__divider" aria-hidden="true" />
       <div className="shell-actions">
-        <Button variant="primary" icon="upload" onClick={() => setUi({ loadDialog: {} })}>
+        <Button variant="primary" icon="upload" title="Cargar pozo" onClick={() => setUi({ loadDialog: {} })}>
           Cargar pozo
         </Button>
-        <Button icon="bookmark" onClick={() => setUi({ snapshotsOpen: true })} disabled={!entry}>
+        <Button icon="bookmark" title="Snapshots" onClick={() => setUi({ snapshotsOpen: true })} disabled={!entry}>
           Snapshots
           {snapshotCount > 0 && <span className="shell-count num">{snapshotCount}</span>}
         </Button>
-        <Button icon="download" onClick={() => setUi({ exportOpen: true })} disabled={!entry} data-testid="export-open">
+        <Button icon="download" title="Exportar" onClick={() => setUi({ exportOpen: true })} disabled={!entry} data-testid="export-open">
           Exportar
         </Button>
         <Menu
           aria-label="Proyecto"
           trigger={(p) => (
-            <Button {...p} icon="folder" iconRight="chevron-down">
+            <Button {...p} icon="folder" iconRight="chevron-down" title="Proyecto">
               Proyecto
             </Button>
           )}
@@ -132,7 +138,10 @@ export function TopBar() {
         />
       </div>
       <span className="shell-topbar__divider" aria-hidden="true" />
-      <ThemeToggle />
+      <div className="shell-prefs">
+        <UiScaleToggle />
+        <ThemeToggle />
+      </div>
     </header>
   );
 }

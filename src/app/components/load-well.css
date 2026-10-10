@@ -16,7 +16,7 @@
 .lw-tp__title { font-weight: var(--weight-semibold); }
 
 .lw-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3) var(--space-5); }
-.lw-name { width: 280px; }
+.lw-name { width: calc(280px * var(--ui-scale)); }
 .lw-file { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1-5); margin: 0 0 var(--space-1-5); color: var(--color-text-muted); }
 
 .lw-section.ui-section { padding: 0; border: 0; }
@@ -24,7 +24,7 @@
 
 .lw-none { color: var(--color-text-subtle); }
 .lw-colname { font-weight: var(--weight-medium); }
-.lw-id { width: 110px; }
+.lw-id { width: calc(110px * var(--ui-scale)); }
 .lw-help-head { cursor: help; text-decoration: underline dotted; text-underline-offset: 3px; }
 .lw-mapping .ui-table tr[data-ignored] td { color: var(--color-text-subtle); }
 .lw-mapping .ui-table tr[data-ignored] .lw-colname { font-weight: var(--weight-regular); }

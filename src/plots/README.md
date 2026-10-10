@@ -60,7 +60,10 @@ import { XYPlot } from '../../plots/xy/XYPlot';
   que caen fuera del rango salen del área y el dibujo los recorta.
 - **Escalas y mapeo**: `xyMapping(xAxis, yAxis, rect)` devuelve `x(v)`, `y(v)` (y crece hacia arriba) y las inversas
   `xInv`, `yInv`; es la misma función que usan la grilla, los puntos y las tendencias. `plotRectFor(ancho, alto,
-  compact?)` reserva el lugar de los rótulos y los títulos.
+  compact?, ui?)` reserva el lugar de los rótulos y los títulos.
+- **Tamaño de interfaz** (docs/decisiones/0013): `XYPlot` pasa el factor (`ui`) a `plotRectFor` y `drawXYScene`, que
+  agrandan rótulos, títulos, márgenes y la etiqueta de tendencias (no los puntos). `height` es px de Compacto. La figura
+  exportada llama sin factor (1): sale igual con cualquier nivel.
 - **Capas**: `points` (`XYPointLayer`: `color` fijo o por punto —color por una tercera curva o por capa—, `variant`
   lleno/vacío/tachado, `cloud` para una nube tenue de miles de puntos no interactiva, `interactive` y `label` para el
   tooltip y el teclado), `lines` (`XYLineLayer`: cortan en los NaN), `guides` (`XYGuide`: línea vertical u horizontal con

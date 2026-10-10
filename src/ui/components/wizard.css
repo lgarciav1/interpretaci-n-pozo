@@ -1,15 +1,15 @@
 /* Pasos de un asistente */
 .ui-wizard { display: flex; align-items: center; gap: var(--space-2); margin: 0; padding: 0; list-style: none; min-width: 0; }
 .ui-wizard__step { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--color-text-muted); white-space: nowrap; }
-.ui-wizard__line { width: 20px; height: 1px; background: var(--color-border-strong); }
+.ui-wizard__line { width: calc(20px * var(--ui-scale)); height: 1px; background: var(--color-border-strong); }
 .ui-wizard__step.is-done .ui-wizard__line,
 .ui-wizard__step.is-current .ui-wizard__line { background: var(--color-ok-border); }
 .ui-wizard__marker {
   display: inline-grid;
   place-items: center;
   flex: none;
-  width: 20px;
-  height: 20px;
+  width: calc(20px * var(--ui-scale));
+  height: calc(20px * var(--ui-scale));
   border: 1.5px solid var(--color-border-strong);
   border-radius: 50%;
   background: var(--color-surface);

@@ -52,6 +52,10 @@ const ICONS = {
       <path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4" />
     </>
   ),
+  /** Tamaño de interfaz: una «A» chica, mediana y grande. */
+  'text-size-sm': <path d="M8.75 16.5L12 8.25l3.25 8.25M9.9 13.6h4.2" />,
+  'text-size-md': <path d="M7.5 18L12 6.75 16.5 18M9.1 14.1h5.8" />,
+  'text-size-lg': <path d="M6 19.5L12 4.5l6 15M8.2 14.6h7.6" />,
   moon: <path d="M19.5 14.5A8 8 0 019.5 4.5a8 8 0 1010 10z" />,
   monitor: (
     <>
@@ -284,7 +288,7 @@ export const ICON_NAMES = Object.keys(ICONS) as IconName[];
 
 export interface IconProps {
   name: IconName;
-  /** Tamaño en px (por defecto 16). */
+  /** Tamaño en px en el nivel Compacto (por defecto 16): escala con el tamaño de interfaz (`--ui-scale`). */
   size?: number;
   strokeWidth?: number;
   className?: string;
@@ -292,6 +296,9 @@ export interface IconProps {
   /** Si se da, el ícono es significativo (role="img"); si no, es decorativo (aria-hidden). */
   label?: string;
 }
+
+/** Lado de un ícono que sigue el tamaño de interfaz (`size` es la medida en Compacto). */
+const scaledSide = (size: number) => `calc(${size}px * var(--ui-scale, 1))`;
 
 export function Icon({ name, size = 16, strokeWidth = 1.75, className, style, label }: IconProps) {
   return (
@@ -305,7 +312,7 @@ export function Icon({ name, size = 16, strokeWidth = 1.75, className, style, la
       strokeWidth={strokeWidth}
       strokeLinecap="round"
       strokeLinejoin="round"
-      style={style}
+      style={{ width: scaledSide(size), height: scaledSide(size), ...style }}
       {...(label ? { role: 'img', 'aria-label': label } : { 'aria-hidden': true, focusable: false })}
     >
       {ICONS[name]}
@@ -316,7 +323,7 @@ export function Icon({ name, size = 16, strokeWidth = 1.75, className, style, la
 /** Marca de la app: traza de perfil dentro de un cuadrado redondeado. */
 export function BrandMark({ size = 22 }: { size?: number }) {
   return (
-    <svg className="ui-brand-mark" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <svg className="ui-brand-mark" width={size} height={size} style={{ width: scaledSide(size), height: scaledSide(size) }} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <rect x="1" y="1" width="22" height="22" rx="6" fill="var(--color-accent)" />
       <path d="M6.5 6.5h11M6.5 12h11M6.5 17.5h11" stroke="rgba(255,255,255,0.22)" strokeWidth="1.2" />
       <path d="M9 4.5l3.2 2.8-2.4 2.6 4.6 2.4-3.6 2.6 2.4 2.4-2.2 2.2" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />

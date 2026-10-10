@@ -1,13 +1,13 @@
 /* Campo con etiqueta */
 .ui-field { display: flex; flex-direction: column; gap: var(--space-1-5); min-width: 0; }
 .ui-field.is-disabled { opacity: 0.55; }
-.ui-field__head { display: flex; align-items: center; gap: var(--space-1); min-height: 18px; }
+.ui-field__head { display: flex; align-items: center; gap: var(--space-1); min-height: calc(18px * var(--ui-scale)); }
 .ui-field__label { font-weight: var(--weight-medium); color: var(--color-text); }
 .ui-field__help {
   display: grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
+  width: calc(18px * var(--ui-scale));
+  height: calc(18px * var(--ui-scale));
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -76,7 +76,7 @@
   width: 100%;
   min-width: 0;
   height: 100%;
-  padding: 0 calc(var(--space-2) + 18px) 0 var(--space-2);
+  padding: 0 calc(var(--space-2) + calc(18px * var(--ui-scale))) 0 var(--space-2);
   border: 0;
   outline: 0;
   background: transparent;
@@ -97,20 +97,20 @@
 
 /* Slider */
 .ui-slider {
-  --track: 4px;
-  --thumb: 14px;
+  --track: calc(4px * var(--ui-scale));
+  --thumb: calc(14px * var(--ui-scale));
   position: relative;
   display: flex;
   align-items: center;
   flex: 1;
-  min-width: 80px;
-  height: 22px;
+  min-width: calc(80px * var(--ui-scale));
+  height: calc(22px * var(--ui-scale));
 }
 .ui-slider input[type='range'] {
   appearance: none;
   -webkit-appearance: none;
   width: 100%;
-  height: 22px;
+  height: calc(22px * var(--ui-scale));
   margin: 0;
   background: transparent;
   cursor: pointer;
@@ -140,8 +140,8 @@
   transition: transform var(--dur-fast) var(--ease-standard), box-shadow var(--dur-fast) var(--ease-standard);
 }
 .ui-slider input[type='range']::-moz-range-thumb {
-  width: calc(var(--thumb) - 4px);
-  height: calc(var(--thumb) - 4px);
+  width: calc(var(--thumb) - calc(4px * var(--ui-scale)));
+  height: calc(var(--thumb) - calc(4px * var(--ui-scale)));
   border: 2px solid var(--color-accent);
   border-radius: 50%;
   background: var(--color-surface);
@@ -156,7 +156,7 @@
   position: absolute;
   top: 50%;
   width: 2px;
-  height: 10px;
+  height: calc(10px * var(--ui-scale));
   margin-left: -1px;
   transform: translateY(-50%);
   border-radius: 1px;

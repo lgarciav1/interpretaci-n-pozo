@@ -20,7 +20,7 @@ import { pointNumbers, pointTexts, shiftedDepth, type PointSet } from '../../cor
 import { conversionCoefficients, unitLabel } from '../../core/units';
 import { contrastRatio, ensureContrast, withAlpha } from '../../ui/color';
 import { formatNumber } from '../../ui/format';
-import { BASE_TOKENS, type ThemeTokens } from '../../ui/tokens';
+import { BASE_TOKENS, scalePx, type ThemeTokens } from '../../ui/tokens';
 import type { OverlayFrame, OverlayHit, OverlayHitFrame, OverlayTarget, OverlayTrack, OverlayTrackState, ViewerOverlay } from '../../viewer/overlay';
 import {
   CONTACT_LABEL,
@@ -122,9 +122,11 @@ const pressureTrack = (frame: OverlayHitFrame): OverlayTrack | undefined => fram
 const depthTrack = (frame: OverlayHitFrame): OverlayTrack | undefined => frame.tracks.find((t) => t.kind === 'depth');
 
 /** Pastilla de un contacto: a la izquierda de la pista (de profundidad), centrada en la línea. */
-function contactPillBox(c: FluidContact, t: OverlayTrack, y: number): { x: number; y: number; w: number; h: number } {
-  const w = 8 + CONTACT_LABEL[c.kind].short.length * 7.5;
-  return { x: t.x + 3, y: Math.round(y) - 8, w, h: 16 };
+/** `u`: factor del tamaño de interfaz (1 en las figuras exportadas). */
+function contactPillBox(c: FluidContact, t: OverlayTrack, y: number, u = 1): { x: number; y: number; w: number; h: number } {
+  const w = (8 + CONTACT_LABEL[c.kind].short.length * 7.5) * u;
+  const h = scalePx(16, u);
+  return { x: t.x + 3, y: Math.round(y) - h / 2, w, h };
 }
 
 /** Puntos ubicados en px para este cuadro (caché por pista, datos y viewport). */
@@ -300,7 +302,7 @@ const main: ViewerOverlay = {
     const dt = depthTrack(frame);
     if (dt && p.track?.id === dt.id) {
       for (const c of visibleContacts(an)) {
-        const b = contactPillBox(c, dt, frame.viewport.yOf(c.depth!));
+        const b = contactPillBox(c, dt, frame.viewport.yOf(c.depth!), frame.uiScale ?? 1);
         if (p.x >= b.x - 2 && p.x <= b.x + b.w + 2 && p.y >= b.y - 2 && p.y <= b.y + b.h + 2) {
           return { label: contactTooltip(c, unitOfTrack), cursor: 'default', range: { top: c.depth! - 25, base: c.depth! + 25 } };
         }
@@ -309,7 +311,7 @@ const main: ViewerOverlay = {
     }
     if (p.track?.id !== t.id) return null;
     let best: DrawnPoint | null = null;
-    let bestD = POINT_HIT_PX;
+    let bestD = POINT_HIT_PX * (frame.uiScale ?? 1);
     for (const d of placePoints(frame, an)) {
       const dist = Math.hypot(d.x - p.x, d.y - p.y);
       if (dist <= bestD) {
@@ -414,7 +416,8 @@ const points: ViewerOverlay = {
     // nacen justo en los extremos de cada tramo).
     const dt = depthTrack(frame);
     ctx.save();
-    ctx.font = `${BASE_TOKENS.weight.bold} ${BASE_TOKENS.text.xs}px ${BASE_TOKENS.font.sans}`;
+    const u = frame.uiScale ?? 1;
+    ctx.font = `${BASE_TOKENS.weight.bold} ${scalePx(BASE_TOKENS.text.xs, u)}px ${BASE_TOKENS.font.sans}`;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
     const [ua, ub] = conversionCoefficients('psi', (t.unit as DisplayUnit | undefined) ?? 'psi');
@@ -437,7 +440,7 @@ const points: ViewerOverlay = {
         ctx.stroke();
         ctx.fill();
       }
-      const box = contactPillBox(c, dt ?? t, y);
+      const box = contactPillBox(c, dt ?? t, y, u);
       ctx.fillStyle = color;
       ctx.beginPath();
       ctx.roundRect(box.x, box.y, box.w, box.h, box.h / 2);

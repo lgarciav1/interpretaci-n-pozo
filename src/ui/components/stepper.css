@@ -2,7 +2,7 @@
 .ui-stepper__list { display: flex; align-items: center; margin: 0; padding: 0; list-style: none; }
 .ui-step { display: flex; align-items: center; flex: none; }
 .ui-step__line {
-  width: 22px;
+  width: calc(22px * var(--ui-scale));
   height: 1.5px;
   margin: 0 2px;
   border-radius: 1px;
@@ -15,7 +15,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  height: 32px;
+  height: calc(32px * var(--ui-scale));
   padding: 0 var(--space-2-5) 0 var(--space-1-5);
   border: 1px solid transparent;
   border-radius: var(--radius-full);
@@ -33,8 +33,8 @@
 .ui-step__marker {
   display: grid;
   place-items: center;
-  width: 20px;
-  height: 20px;
+  width: calc(20px * var(--ui-scale));
+  height: calc(20px * var(--ui-scale));
   border-radius: 50%;
   border: 1.5px solid var(--color-border-strong);
   background: var(--color-surface);
@@ -74,3 +74,17 @@
   border-color: var(--color-accent);
   color: var(--color-accent-text);
 }
+
+/*
+ * Compactación por ancho (Stepper.tsx elige la etapa midiendo): conectores cortos, abreviaturas, pasos resueltos solo
+ * con su marca y, al final, solo los círculos. El paso activo conserva su rótulo; el nombre sigue en aria-label.
+ */
+.ui-step__short { display: none; }
+.ui-stepper:not([data-fit='full']) .ui-step__line { width: calc(10px * var(--ui-scale)); margin: 0 1px; }
+.ui-stepper:not([data-fit='full']) .ui-step__button { gap: var(--space-1-5); padding-right: var(--space-2); }
+.ui-stepper:is([data-fit='short'], [data-fit='done'], [data-fit='markers']) .ui-step__label--abbr .ui-step__full { display: none; }
+.ui-stepper:is([data-fit='short'], [data-fit='done'], [data-fit='markers']) .ui-step__label--abbr .ui-step__short { display: inline; }
+.ui-stepper[data-fit='done'] .ui-step:is(.ui-step--done, .ui-step--skipped):not(.is-active) .ui-step__label,
+.ui-stepper[data-fit='markers'] .ui-step:not(.is-active) .ui-step__label { display: none; }
+.ui-stepper[data-fit='done'] .ui-step:is(.ui-step--done, .ui-step--skipped):not(.is-active) .ui-step__button,
+.ui-stepper[data-fit='markers'] .ui-step:not(.is-active) .ui-step__button { padding-inline: var(--space-1-5); }

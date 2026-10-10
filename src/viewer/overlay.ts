@@ -113,6 +113,12 @@ export interface OverlayFrame {
    * superposiciones de otro `overlayId` lo ignoran.
    */
   active?: { overlayId: string; key: string } | null;
+  /**
+   * Factor del tamaño de interfaz (1 = Compacto; docs/decisiones/0013). Multiplicar por él los rótulos, sus cajas y las
+   * tolerancias de puntero (`scalePx(BASE_TOKENS.text.xs, frame.uiScale ?? 1)`), nunca posiciones de datos. Ausente o
+   * 1 en las figuras exportadas, que no dependen del tamaño elegido.
+   */
+  uiScale?: number;
 }
 
 /** Lo mismo que OverlayFrame, sin contexto de dibujo (para `hit`). */

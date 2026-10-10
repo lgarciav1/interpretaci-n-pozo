@@ -12,10 +12,10 @@
  * `onEditCurve` (el visor solo dice qué curva y dónde anclarlo).
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { CurveLegend, formatNumber, getResolvedTheme, Icon, IconButton, Menu, Popover, prefersReducedMotion, useResolvedTheme } from '../ui';
+import { CurveLegend, formatNumber, getResolvedTheme, getUiScaleFactor, Icon, IconButton, Menu, Popover, prefersReducedMotion, useResolvedTheme, useUiScaleFactor } from '../ui';
 import { THEMES } from '../ui/tokens';
 import { LOAD_ANIMATION_MS, revealAt } from './animation';
-import { layoutTracks, trackAt } from './layout';
+import { layoutTracks, MIN_TRACK_WIDTH, trackAt } from './layout';
 import { PointerGestures, type HitResult } from './interaction';
 import { Minimap, type MinimapHandle } from './Minimap';
 import { pickMinimapCurve } from './minimap';
@@ -103,6 +103,8 @@ interface Target {
 export function WellViewer(props: WellViewerProps) {
   const { tracks, wellKey, label, toolbarStart, toolbarEnd, header, notice, onEditCurve, onShowCurve } = props;
   const theme = useResolvedTheme();
+  /** Tamaño de interfaz: anchos fijos y mínimos de pista, rótulos del canvas (las figuras exportadas usan 1). */
+  const ui = useUiScaleFactor();
   const propsRef = useRef(props);
   propsRef.current = props;
 
@@ -121,7 +123,10 @@ export function WellViewer(props: WellViewerProps) {
   const targetEls = useRef(new Map<string, HTMLButtonElement>());
 
   const [size, setSize] = useState({ width: 0, height: 0, heads: 0 });
-  const layout = useMemo(() => layoutTracks(tracks.map((t) => ({ width: t.width, ...(t.fixed !== undefined ? { fixed: t.fixed } : {}) })), size.width), [tracks, size.width]);
+  const layout = useMemo(
+    () => layoutTracks(tracks.map((t) => ({ width: t.width, ...(t.fixed !== undefined ? { fixed: Math.round(t.fixed * ui) } : {}) })), size.width, Math.round(MIN_TRACK_WIDTH * ui)),
+    [tracks, size.width, ui],
+  );
   const layoutRef = useRef(layout);
   layoutRef.current = layout;
 
@@ -164,6 +169,7 @@ export function WellViewer(props: WellViewerProps) {
       ...(reveal.current ? { reveal: reveal.current.value } : {}),
       active: gestures.current?.activeKey ?? null,
       ...(p.stackHints ? { stackHints: p.stackHints } : {}),
+      uiScale: getUiScaleFactor(),
     };
   }, []);
   const invalidateRef = useRef<(what: 'base' | 'cursor') => void>(() => {});
@@ -370,8 +376,8 @@ export function WellViewer(props: WellViewerProps) {
     invalidate('base');
   }, [wellKey, size.height, invalidate, startReveal]);
 
-  // Cambios de pistas, datos, tema o ancho → redibujar.
-  useEffect(() => invalidate('base'), [tracks, props.data, props.overlays, theme, layout, invalidate]);
+  // Cambios de pistas, datos, tema, tamaño de interfaz o ancho → redibujar.
+  useEffect(() => invalidate('base'), [tracks, props.data, props.overlays, theme, ui, layout, invalidate]);
 
   // Cambio de devicePixelRatio (ventana a otro monitor, zoom del navegador): el ResizeObserver no se entera.
   useEffect(() => {
@@ -456,7 +462,7 @@ export function WellViewer(props: WellViewerProps) {
     const f = frameInput();
     if (!f) return null;
     const tracksO = overlayTracks(f.tracks, f.boxes);
-    return { f, tracksO, frame: { theme: f.theme, viewport: overlayViewport(f.viewport), tracks: tracksO, data: f.data, invalidate: () => invalidate('base'), active: f.active ?? null } };
+    return { f, tracksO, frame: { theme: f.theme, viewport: overlayViewport(f.viewport), tracks: tracksO, data: f.data, invalidate: () => invalidate('base'), active: f.active ?? null, uiScale: f.uiScale ?? 1 } };
   }, [frameInput, invalidate]);
 
   const overlayPointer = useCallback(
@@ -1111,7 +1117,7 @@ export function WellViewer(props: WellViewerProps) {
         )}
       </div>
       {overflowTrack && (
-        <Popover open anchorRef={overflowAnchor} onClose={() => setOverflow(null)} label={`Curvas de ${overflowTrack.title}`} width={Math.max(220, layout.boxes[tracks.indexOf(overflowTrack)]?.width ?? 220)}>
+        <Popover open anchorRef={overflowAnchor} onClose={() => setOverflow(null)} label={`Curvas de ${overflowTrack.title}`} width={Math.max(220, (layout.boxes[tracks.indexOf(overflowTrack)]?.width ?? 220) / ui)}>
           <div className="wv-overflow">
             <div className="wv-overflow__title">{overflowTrack.title}</div>
             {[...overflowTrack.curves].reverse().map((c) => legend(overflowTrack, c, 'pop'))}
