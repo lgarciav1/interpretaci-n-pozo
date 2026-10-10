@@ -1,0 +1,105 @@
+/**
+ * Exportar datos del pozo: arma las columnas y el sumario desde el proyecto y el último resultado del motor, escribe el
+ * archivo (src/io/export, puro) y lo descarga con el mismo patrón que `saveProject`. Sin React.
+ *
+ * Estructura para sumar después la exportación de figuras: cada tipo de exportación es una entrada de
+ * `EXPORT_KINDS` (hoy solo `data`) y tiene su propia función de armado; el diálogo elige el tipo.
+ */
+import type { ClientResult } from '../../core/engine/client';
+import type { Well, Zone } from '../../core/well';
+import {
+  buildExportColumns,
+  buildExportFile,
+  countAlternatives,
+  extractSummary,
+  type DepthUnit,
+  type ExportColumn,
+  type ExportFile,
+  type ExportFormat,
+  type ExportSummary,
+  type SummaryColumn,
+} from '../../io/export';
+import { registry } from '../../modules';
+import { toast } from '../../ui';
+import { selectActiveEntry, useProject } from '../store/project';
+import { useResults } from '../store/results';
+
+export const EXPORT_KINDS = [{ id: 'data', label: 'Datos del pozo' }] as const;
+
+/** Columnas del sumario por zona declaradas por el módulo `zone-summary`. */
+function summaryColumns(): readonly SummaryColumn[] {
+  const spec = Object.values(registry.get('zone-summary')?.outputs ?? {}).find((o) => o.kind === 'table');
+  return spec && spec.kind === 'table' ? spec.columns : [];
+}
+
+export interface ExportSources {
+  columns: ExportColumn[];
+  alternatives: number;
+  summary: ExportSummary | null;
+}
+
+/** Lo que se puede exportar del pozo activo con el resultado vigente (el resultado de otro pozo no se usa). */
+export function exportSources(well: Well, result: ClientResult | null, includeAlternatives: boolean): ExportSources {
+  const outputs = result && result.wellId === well.id ? result.outputs : null;
+  const moduleName = (id: string) => registry.get(id)?.name ?? id;
+  return {
+    columns: buildExportColumns(well, outputs, { includeAlternatives, moduleName }),
+    alternatives: countAlternatives(well, outputs),
+    summary: extractSummary(outputs, summaryColumns()),
+  };
+}
+
+export interface DataExportRequest {
+  format: ExportFormat;
+  /** Ids de `ExportSources.columns`. */
+  selection: readonly string[];
+  zoneId: string | null;
+  depthUnit: DepthUnit;
+  nullValue: number | null;
+  includeAlternatives: boolean;
+  includeSummary: boolean;
+}
+
+/** Archivo de la exportación pedida (sin descargarlo: lo usan el diálogo y los tests). */
+export function buildDataExport(well: Well, zones: readonly Zone[], result: ClientResult | null, req: DataExportRequest): { file: ExportFile; samples: number } {
+  const src = exportSources(well, result, req.includeAlternatives);
+  const zone = req.zoneId ? zones.find((z) => z.id === req.zoneId) : undefined;
+  if (req.zoneId && !zone) throw new Error('La zona elegida ya no existe.');
+  const file = buildExportFile(req.format, zone ? `${well.name}_${zone.name}` : well.name, {
+    wellName: well.name,
+    header: well.header,
+    depth: well.depth.values,
+    columns: src.columns,
+    zones: zones.map((z) => ({ name: z.name, top: z.top, base: z.base, kind: z.kind })),
+    ...(req.includeSummary && src.summary ? { summary: src.summary } : {}),
+    selection: req.selection,
+    ...(zone ? { range: { top: zone.top, base: zone.base } } : {}),
+    depthUnit: req.depthUnit,
+    nullValue: req.nullValue,
+  });
+  const samples = zone ? well.depth.values.filter((d) => d >= zone.top && d <= zone.base).length : well.depth.values.length;
+  return { file, samples };
+}
+
+export function downloadFile(file: ExportFile): void {
+  const url = URL.createObjectURL(new Blob([file.bytes as BlobPart], { type: file.mime }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = file.name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export function exportData(req: DataExportRequest): boolean {
+  const entry = selectActiveEntry(useProject.getState());
+  if (!entry) return false;
+  try {
+    const { file, samples } = buildDataExport(entry.well, entry.interpretation.zones, useResults.getState().result, req);
+    downloadFile(file);
+    toast({ title: 'Datos exportados', description: `${file.name} · ${samples.toLocaleString('es-AR')} muestras · ${(file.bytes.length / 1024).toLocaleString('es-AR', { maximumFractionDigits: 0 })} kB`, tone: 'ok' });
+    return true;
+  } catch (err) {
+    toast({ title: 'No se pudo exportar', description: err instanceof Error ? err.message : String(err), tone: 'error' });
+    return false;
+  }
+}

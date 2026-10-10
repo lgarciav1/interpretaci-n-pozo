@@ -104,6 +104,9 @@ export function TopBar() {
           Snapshots
           {snapshotCount > 0 && <span className="shell-count num">{snapshotCount}</span>}
         </Button>
+        <Button icon="download" onClick={() => setUi({ exportOpen: true })} disabled={!entry} data-testid="export-open">
+          Exportar
+        </Button>
         <Menu
           aria-label="Proyecto"
           trigger={(p) => (
