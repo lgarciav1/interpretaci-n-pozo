@@ -99,6 +99,8 @@ export function pearson(x: ArrayLike<number>, y: ArrayLike<number>): { r: number
   let sxx = 0;
   let syy = 0;
   let sxy = 0;
+  let sa = 0;
+  let sb = 0;
   for (let i = 0; i < len; i++) {
     const a = x[i]!;
     const b = y[i]!;
@@ -108,8 +110,12 @@ export function pearson(x: ArrayLike<number>, y: ArrayLike<number>): { r: number
     sxx += da * da;
     syy += db * db;
     sxy += da * db;
+    sa += a * a;
+    sb += b * b;
   }
-  if (!(sxx > 0) || !(syy > 0)) return { r: NaN, n };
+  // Varianza nula con tolerancia relativa: una serie constante deja ~1e-33 por redondeo de la media, no cero exacto, y
+  // daría un r de ruido (±1e-16) en vez de NaN.
+  if (!(sxx > 1e-20 * sa) || !(syy > 1e-20 * sb)) return { r: NaN, n };
   return { r: Math.max(-1, Math.min(1, sxy / Math.sqrt(sxx * syy))), n };
 }
 
