@@ -5,6 +5,9 @@
   height: 100%;
   min-width: 1024px;
   background: var(--color-bg);
+  /* Red de seguridad: nada absoluto de adentro alarga la página (el documento no debe desplazarse en vertical). */
+  position: relative;
+  overflow-y: clip;
 }
 .shell-spacer { flex: 1; }
 
