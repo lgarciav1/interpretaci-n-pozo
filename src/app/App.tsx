@@ -14,6 +14,7 @@ import { WellPanel } from './components/WellPanel';
 import { QcReportDialog, SnapshotsDialog } from './shell/Dialogs';
 import { Dock } from './shell/Dock';
 import { FlowBar } from './shell/FlowBar';
+import { ExportDialog } from './export/ExportDialog';
 import { Inspector } from './shell/Inspector';
 import { TopBar } from './shell/TopBar';
 import { ViewerSlot } from './shell/ViewerSlot';
@@ -125,6 +126,7 @@ export function App() {
 
       {loadDialog && <LoadWellDialog onClose={() => setUi({ loadDialog: null })} {...(loadDialog.source ? { initialSource: loadDialog.source } : {})} />}
       <SnapshotsDialog />
+      <ExportDialog />
       <QcReportDialog />
       <Toaster />
     </div>

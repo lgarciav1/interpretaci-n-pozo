@@ -68,6 +68,8 @@ export interface UiStore {
   /** Asistente de carga abierto (con `tp` arranca leyendo los datos del TP). */
   loadDialog: null | { source?: 'tp' };
   snapshotsOpen: boolean;
+  /** Diálogo «Exportar» abierto. */
+  exportOpen: boolean;
   qcReportOpen: boolean;
   layout: ShellLayout;
   set(patch: Partial<Omit<UiStore, 'set' | 'setLayout' | 'layout'>>): void;
@@ -83,6 +85,7 @@ export const useUi = create<UiStore>()((set) => ({
   zoneMarking: false,
   loadDialog: null,
   snapshotsOpen: false,
+  exportOpen: false,
   qcReportOpen: false,
   layout: loadLayout(),
   set: (patch) => set(patch),

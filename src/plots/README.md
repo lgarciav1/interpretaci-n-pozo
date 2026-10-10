@@ -28,7 +28,9 @@ sabe nada de plugs ni de curvas.
 | Archivo | Qué hace |
 |---|---|
 | `axes.ts` | puro: `XYAxis`, `axisFraction` / `fractionValue` (dato ↔ fracción, lineal, log e invertido), `xyMapping` (dato ↔ px), `axisTicks` (1-2-5 o décadas), `niceRange`, `plotRectFor`, `nearestPoint`, `dataRectFromPx`, `pointsInRect` |
-| `draw.ts` | canvas sin React: `drawFrame` (marco, grilla, rótulos, títulos), `drawPoint`, `drawDataLine`, `drawXYTrend` (capa de tendencias de `trend/`) |
+| `draw.ts` | canvas sin React: `drawFrame` (marco, grilla, rótulos, títulos), `drawPoint`, `drawDataLine`, `drawXYTrend` (capa de tendencias de `trend/`) y `drawXYScene` (todo lo que se ve, sin lo interactivo; lo usan `XYPlot` y las figuras) |
+| `layers.ts` | tipos de capa (`XYPointLayer`, `XYLineLayer`, `XYTrendLayer`, `XYGuide`), con `name` opcional para la leyenda |
+| `figure.ts`, `figures.ts` | figura de publicación (título, leyenda con ecuación y R², barra de color, créditos) y registro de los gráficos exportables |
 | `XYPlot.tsx` | componente: capas, tooltip, clic, selección por rectángulo y teclado |
 | `xy.css` | estilos del contenedor y del tooltip |
 
@@ -72,6 +74,18 @@ import { XYPlot } from '../../plots/xy/XYPlot';
   al arrastrar un rectángulo (en datos; con ejes log e invertidos; `pointsInRect` da los índices adentro) y teclado
   (←/→ recorren los puntos en orden de x, Enter = clic, Esc suelta). Sin `onSelectRect` arrastrar no hace nada.
 - Para dibujar fuera de React (otro canvas, exportar a imagen) se usan `axes.ts` y `draw.ts` directamente.
+
+### Exportar como figura (fase 6c-2)
+
+Decisión: [`docs/decisiones/0012-exportacion-de-figuras.md`](../../docs/decisiones/0012-exportacion-de-figuras.md). Pasando
+`figureId` y `figureTitle` a `<XYPlot>`, el gráfico se publica en `figures.ts` mientras está montado y aparece en
+«Exportar → Figuras → Crossplot con leyenda» (PNG, SVG, PDF) tal como se ve; no hay que tocar el diálogo. Para que la
+leyenda lo nombre, dar `name` a las capas (`points`, `lines`, `trends`). `drawXYFigure` agrega título, leyenda (series,
+tendencias con ecuación y R², barra de color opcional `XYColorKey`) y créditos; siempre con tema claro.
+
+```tsx
+<XYPlot figureId="crossplot-libre" figureTitle="Crossplot libre" points={[{ id: 'p', name: 'Perfil', … }]} … />
+```
 
 ### Agregar un proveedor de series (MDT, crossplot, plugs de corona…)
 

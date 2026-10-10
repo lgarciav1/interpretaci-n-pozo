@@ -496,11 +496,12 @@ function KPhiSection({ set, well, interp }: { set: PointSet; well: Well; interp:
 
   const idsWithData = useMemo(() => (phi && k ? set.pointIds.map((_, i) => i).filter((i) => Number.isFinite(phi[i]!) && Number.isFinite(k[i]!)) : []), [set, phi, k]);
   const points: XYPointLayer[] = [];
-  if (cloud && showLog) points.push({ id: 'log', x: cloud.x, y: cloud.y, color: theme.color.textMuted, cloud: true });
+  if (cloud && showLog) points.push({ id: 'log', name: 'Perfil (PHIE–PERM)', x: cloud.x, y: cloud.y, color: theme.color.textMuted, cloud: true });
   if (phi && k) {
     const z = shiftedDepth(set, dec);
     points.push({
       id: 'plugs',
+      name: 'Plugs de corona',
       x: Float64Array.from(idsWithData, (i) => phi[i]!),
       y: Float64Array.from(idsWithData, (i) => k[i]!),
       color: (j) => ensureContrast(runColor(set, runs?.[idsWithData[j]!], theme.name), theme.viewer.trackBg, 3),
@@ -530,6 +531,7 @@ function KPhiSection({ set, well, interp }: { set: PointSet; well: Well; interp:
     .filter((t) => t.spec.visible && t.result?.coeffs && t.result.span)
     .map((t) => ({
       id: t.spec.id,
+      name: t.spec.name,
       coeffs: t.result!.coeffs!,
       span: t.result!.span!,
       color: trendColor(t.spec, t.index, theme),
@@ -566,6 +568,8 @@ function KPhiSection({ set, well, interp }: { set: PointSet; well: Well; interp:
         {phi && k ? (
           <XYPlot
             height={250}
+            figureId="core-kphi"
+            figureTitle="Crossplot k–φ de los plugs"
             className="core-xplot"
             data-testid="core-kphi-plot"
             ariaLabel="Crossplot de permeabilidad contra porosidad de los plugs, con el modelo k–φ"

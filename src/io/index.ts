@@ -111,3 +111,4 @@ export function readWellFile(input: FileInput, fileName: string, options: ReadOp
   const table = parseTable(input, fileName, options);
   return buildWell(table, undefined, options);
 }
+export * from './export';

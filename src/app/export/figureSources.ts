@@ -1,0 +1,119 @@
+/**
+ * Lo que la app le da a la exportación de figuras: el contexto del pozo activo (pistas, curvas calculadas, zonas, sumario,
+ * superposiciones en modo figura) y el motor de raster del navegador (canvas fuera de pantalla). Conecta los stores con
+ * `figureRender.ts`, que no los conoce. docs/decisiones/0012-exportacion-de-figuras.md.
+ */
+import type { Well } from '../../core/well';
+import { rgbaToRgb } from '../../io/export/figures/pdf';
+import type { TextMeasure } from '../../io/export/figures/svg';
+import { registry } from '../../modules';
+import { createTrendsOverlays } from '../../plots/trend/overlay';
+import { listXYFigures } from '../../plots/xy/figures';
+import type { ViewerFigureContext } from '../../viewer/figureInput';
+import type { ViewerData, ViewerOverlay } from '../../viewer/overlay';
+import { createQcOverlay } from '../../viewer/overlays/qc';
+import { createZonesOverlay } from '../../viewer/overlays/zones';
+import { resolveTracks } from '../../viewer/resolve';
+import { layoutFor, STACK_ROLE_HINTS, withOverlayTracks } from '../../viewer/templates';
+import { computedCurves } from '../computed';
+import { moduleOverlays } from '../viewerOverlays';
+import { selectActiveEntry, useProject } from '../store/project';
+import { computeQc, useQc } from '../store/qc';
+import { useResults } from '../store/results';
+import { useUi } from '../store/ui';
+import { resolveSeries } from '../trends/providers';
+import { exportSources } from './exportActions';
+import type { FigureEnv, RasterBackend } from './figureRender';
+
+/**
+ * Superposiciones de la figura: zonas (sin edición), calidad, tendencias SIN manijas y las de los módulos (presiones
+ * MDT, corona). Instancias propias: no comparten estado de arrastre ni selección con las del visor en pantalla.
+ */
+const FIGURE_BUILTIN: ViewerOverlay[] = [...createZonesOverlay({}), createQcOverlay(), ...createTrendsOverlays({ resolve: resolveSeries, presentation: true })];
+const FIGURE_OVERLAYS: ViewerOverlay[] = [...FIGURE_BUILTIN, ...moduleOverlays(FIGURE_BUILTIN.map((o) => o.id))];
+
+/** Pistas del espacio de trabajo activo, resueltas como en pantalla (con los overrides del usuario). */
+export function figureTracks(well: Well) {
+  const { project } = useProject.getState();
+  const display = project.display;
+  const workspace = useUi.getState().workspace;
+  const computed = computedCurves(useResults.getState().result, well);
+  return resolveTracks(
+    withOverlayTracks(layoutFor(workspace, display.layouts), FIGURE_OVERLAYS, workspace, { well, ...(display.overlays ? { settings: display.overlays } : {}) }),
+    { depth: well.depth.values, curves: well.curves, computed, catalog: registry.roles },
+    { roles: display.roles, ...(display.curves[well.id] ? { curves: display.curves[well.id] } : {}) },
+  );
+}
+
+/** Contexto del pozo activo para dibujar su perfil; null sin pozo. */
+export function viewerFigureContext(measure: TextMeasure): ViewerFigureContext | null {
+  const entry = selectActiveEntry(useProject.getState());
+  if (!entry) return null;
+  const { well, interpretation } = entry;
+  const result = useResults.getState().result;
+  const computed = computedCurves(result, well);
+  const zones = interpretation.zones.map((z) => ({ id: z.id, name: z.name, top: z.top, base: z.base, color: z.color }));
+  const stored = useQc.getState().entries[well.id];
+  const qc = stored && stored.well.depth === well.depth && stored.well.curves === well.curves ? stored.report : computeQc(well);
+  const data: ViewerData = { wellId: well.id, depth: well.depth.values, zones, selectedZoneId: null, qc, well, interpretation, computed };
+  return {
+    well,
+    tracks: figureTracks(well),
+    depth: well.depth.values,
+    data,
+    overlays: FIGURE_OVERLAYS,
+    zones,
+    summary: exportSources(well, result, false).summary,
+    stackHints: STACK_ROLE_HINTS,
+    date: new Date(),
+    measure,
+  };
+}
+
+// ── motor de raster del navegador ──────────────────────────────────────────────────────────────────────────────
+
+/** Lienzo fuera de pantalla: nunca el de la pantalla. */
+function paint(width: number, height: number, scale: number, draw: (ctx: CanvasRenderingContext2D) => void): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(width * scale));
+  canvas.height = Math.max(1, Math.round(height * scale));
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('El navegador no pudo crear la imagen (poca memoria): bajá la resolución o exportá SVG.');
+  ctx.setTransform(canvas.width / width, 0, 0, canvas.height / height, 0, 0);
+  draw(ctx);
+  return canvas;
+}
+
+export function createCanvasBackend(): RasterBackend {
+  let scratch: CanvasRenderingContext2D | null = null;
+  const measure: TextMeasure = (font, text) => {
+    scratch ??= document.createElement('canvas').getContext('2d');
+    if (!scratch) return text.length * 6;
+    scratch.font = font;
+    return scratch.measureText(text).width;
+  };
+  return {
+    measure,
+    async png(width, height, scale, draw) {
+      const canvas = paint(width, height, scale, draw);
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+      canvas.width = canvas.height = 0;
+      if (!blob) throw new Error('El navegador no pudo codificar el PNG (imagen demasiado grande): bajá la resolución o exportá SVG.');
+      return new Uint8Array(await blob.arrayBuffer());
+    },
+    async rgb(width, height, scale, draw) {
+      const canvas = paint(width, height, scale, draw);
+      const ctx = canvas.getContext('2d')!;
+      const w = canvas.width;
+      const h = canvas.height;
+      const rgb = rgbaToRgb(ctx.getImageData(0, 0, w, h).data, w, h);
+      canvas.width = canvas.height = 0;
+      return { width: w, height: h, rgb };
+    },
+  };
+}
+
+/** Entorno de exportación con el estado actual de la app. */
+export function figureEnv(raster: RasterBackend = createCanvasBackend()): FigureEnv {
+  return { viewer: viewerFigureContext(raster.measure), xy: listXYFigures(), raster, date: new Date() };
+}

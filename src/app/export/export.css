@@ -1,0 +1,22 @@
+/* Diálogo de exportación. Solo tokens del sistema de diseño. */
+.exp { display: flex; flex-direction: column; gap: var(--space-4); }
+.exp-row { display: grid; grid-template-columns: minmax(0, 1.4fr) auto minmax(0, 1fr); gap: var(--space-3); align-items: start; }
+.exp-group { display: flex; flex-direction: column; gap: var(--space-2); }
+.exp-group__head { display: flex; align-items: center; justify-content: space-between; }
+.exp-group__actions { display: inline-flex; gap: var(--space-1); }
+.exp-curves {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: var(--space-1-5) var(--space-3);
+  max-height: 150px;
+  overflow: auto;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-subtle);
+}
+.exp-empty { margin: 0; color: var(--color-text-muted); font-size: var(--text-sm); }
+.exp-count { margin-right: auto; color: var(--color-text-muted); font-size: var(--text-sm); }
+.exp-row--2 { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+.exp-row--4 { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+.exp-kind { margin-bottom: var(--space-1); }
