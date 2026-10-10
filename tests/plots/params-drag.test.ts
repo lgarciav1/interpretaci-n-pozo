@@ -5,14 +5,16 @@
  * misma recta), alcance, claves de almacenamiento, acotado al rango y agrupado de deshacer por gesto.
  */
 import { describe, expect, it } from 'vitest';
-import { Engine } from '../../src/core/engine/engine';
+import { syntheticWell } from '../../src/app/demo/syntheticWell';
+import { Engine, toEngineWell } from '../../src/core/engine/engine';
 import { emptyInterpretation } from '../../src/core/interpretation';
 import { emptyParamState } from '../../src/core/params';
 import { cancelGroup, emptyHistory, GROUP_MS, recordChange } from '../../src/core/state/history';
 import { createProject } from '../../src/core/state/project';
 import { registry } from '../../src/modules';
 import { densityPorosity, neutronPorosity } from '../../src/petro/porosity';
-import { arpsResistivityC } from '../../src/petro/temperature';
+import { arpsResistivityC, arpsResistivityF, celsiusToFahrenheit } from '../../src/petro/temperature';
+import { medianAt } from '../../src/plots/crossplot/crossplot';
 import {
   matrixParamsOf,
   matrixPointOf,
@@ -317,5 +319,71 @@ describe('deshacer por gesto (un Ctrl+Z por arrastre)', () => {
     expect(c.history.past[0]!.label).toBe('Mover zona');
     expect(cancelGroup(h, 'otro')).toBeNull();
     expect(cancelGroup(c.history, 'g3')).toBeNull();
+  });
+});
+
+describe('revisión numérica independiente (fase 7b)', () => {
+  it('las claves de PLOT_PARAMS llegan al motor: PHID, PHIN, IGR, RW y SW coinciden con el cálculo a mano', () => {
+    const demo = syntheticWell();
+    const engine = new Engine(registry, { checkInputs: true });
+    engine.setWell(toEngineWell(demo.well));
+    const global = {
+      [PLOT_PARAMS.rhoMa.storage]: 2.71,
+      [PLOT_PARAMS.matrixOffset.storage]: 0.03,
+      [PLOT_PARAMS.grClean.storage]: 45,
+      [PLOT_PARAMS.grShale.storage]: 130,
+      [PLOT_PARAMS.m.storage]: 2.3,
+      [PLOT_PARAMS.a.storage]: 0.9,
+      [PLOT_PARAMS.n.storage]: 2.2,
+      [PLOT_PARAMS.rwRef.storage]: 0.08,
+    };
+    const r = engine.run({ ...emptyInterpretation(demo.zones), params: { global, zones: {} } });
+    const out = (k: string) => r.outputs.find((o) => o.key === k)!.value as Float64Array;
+    const cur = (role: string) => demo.well.curves.find((q) => q.role === role)!.data;
+    const clip = (v: number) => Math.min(0.5, Math.max(0, v));
+    let swChecked = 0;
+    for (let i = 0; i < demo.well.depth.values.length; i += 37) {
+      const rhob = cur('RHOB')[i]!;
+      const nphi = cur('NPHI')[i]!;
+      const gr = cur('GR')[i]!;
+      if (Number.isFinite(rhob)) expect(out('phi-density:PHID')[i]).toBeCloseTo(clip((2.71 - rhob) / (2.71 - 1)), 12);
+      if (Number.isFinite(nphi)) expect(out('phi-neutron:PHIN')[i]).toBeCloseTo(clip(nphi + 0.03), 12);
+      expect(out('igr:IGR')[i]).toBeCloseTo(Math.min(1, Math.max(0, (gr - 45) / (130 - 45))), 12);
+      // Arps con la constante exacta (21,5389 °C = 6,77 °F).
+      const t = out('temp-gradient:TEMP')[i]!;
+      const rw = (0.08 * (24 + 21.5389)) / (t + 21.5389);
+      expect(out('rw-manual:RW')[i]).toBeCloseTo(rw, 6);
+      const phie = out('phie-vsh:PHIE')[i]!;
+      const sw = out('sw-archie:SW')[i]!;
+      if (Number.isFinite(sw) && phie > 0) {
+        expect(sw).toBeCloseTo(Math.min(1, ((0.9 * out('rw-manual:RW')[i]!) / (phie ** 2.3 * cur('RT')[i]!)) ** (1 / 2.2)), 10);
+        swChecked++;
+      }
+    }
+    expect(swChecked).toBeGreaterThan(50);
+  });
+
+  it('Arps en °C es la forma de °F (6,77) y, a 21,5, difiere < 0,1 %; en el pozo de demostración da 262 °C y 0,00803 ohm·m', () => {
+    expect(arpsResistivityC(0.05, 24, 262)).toBeCloseTo(arpsResistivityF(0.05, celsiusToFahrenheit(24), celsiusToFahrenheit(262)), 14);
+    const rounded = (0.05 * (24 + 21.5)) / (262 + 21.5);
+    expect(Math.abs(rounded / arpsResistivityC(0.05, 24, 262) - 1)).toBeLessThan(1e-3);
+    // Ejemplo de carta (Gen-9): 0,05 ohm·m a 75 °F llevada a 200 °F ≈ 0,0198 ohm·m.
+    expect(arpsResistivityF(0.05, 75, 200)).toBeCloseTo(0.01977, 4);
+    // Demo: TEMP = 20 °C + 0,03 °C/m · z (temp-gradient por defecto) sobre 7633–8518 m; mediana de los puntos graficables del Pickett.
+    const demo = syntheticWell();
+    const engine = new Engine(registry, { checkInputs: true });
+    engine.setWell(toEngineWell(demo.well));
+    const r = engine.run(emptyInterpretation(demo.zones));
+    const out = (k: string) => r.outputs.find((o) => o.key === k)!.value as Float64Array;
+    const temp = out('temp-gradient:TEMP');
+    const phie = out('phie-vsh:PHIE');
+    const rt = demo.well.curves.find((q) => q.role === 'RT')!.data;
+    const idx = Int32Array.from(Array.from({ length: temp.length }, (_, i) => i).filter((i) => phie[i]! > 0 && rt[i]! > 0));
+    const tRep = representativeTemperature(temp, idx);
+    expect(temp[0]).toBeCloseTo(20 + 0.03 * demo.well.depth.values[0]!, 9);
+    expect(tRep).toBeGreaterThan(260);
+    expect(tRep).toBeLessThan(264);
+    expect(rwAtFormation(0.05, 24, tRep, true)).toBeCloseTo(0.00803, 5);
+    expect(medianAt(out('rw-manual:RW'), idx)).toBeCloseTo(rwAtFormation(0.05, 24, tRep, true), 9);
   });
 });
