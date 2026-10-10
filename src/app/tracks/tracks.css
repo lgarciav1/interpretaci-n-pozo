@@ -132,10 +132,6 @@
 .tb-preview--depth { background: var(--viewer-track-bg-alt); color: var(--viewer-axis-text); }
 .tb-preview--stack { flex-direction: row; gap: 0; padding: 2px; }
 .tb-preview--stack i { flex: 1; }
-.tb-preview--stack i:nth-child(1) { flex: 0.8; background: #8b6b4a; }
-.tb-preview--stack i:nth-child(2) { flex: 1.4; background: #e8d6a0; }
-.tb-preview--stack i:nth-child(3) { flex: 0.6; background: #6fa8dc; }
-.tb-preview--stack i:nth-child(4) { flex: 0.6; background: #e06666; }
 
 /* Curvas */
 .tb-swatch { display: block; flex: none; width: calc(24px * var(--ui-scale)); height: calc(10px * var(--ui-scale)); overflow: visible; }

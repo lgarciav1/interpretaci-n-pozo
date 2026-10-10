@@ -8,7 +8,7 @@ import type { TrackSpec } from '../../core/display';
 import type { Well } from '../../core/well';
 import type { WorkspaceId } from '../../core/workspaces';
 import { registry } from '../../modules';
-import { Button, curveStyle, formatNumber, Icon, IconButton, Menu, TextField, useResolvedTheme, type MenuEntry, type ThemeName } from '../../ui';
+import { Button, curveStyle, FILL_PALETTE, formatNumber, Icon, IconButton, Menu, TextField, useResolvedTheme, type MenuEntry, type ThemeName } from '../../ui';
 import { buildTrackCatalog, filterCatalog, type CatalogCurve, type CatalogGroup, type CatalogOverlayTrack, type CatalogTrack } from '../../viewer/catalog';
 import { guard, type ViewerOverlay } from '../../viewer/overlay';
 import type { ComputedCurve } from '../../viewer/resolve';
@@ -81,7 +81,17 @@ function Swatch({ color, dash, width, band }: { color: string; dash: readonly nu
 /** Miniatura de una herramienta: el trazo de cada curva, como un encabezado de pista en chico. */
 function ToolPreview({ track, theme }: { track: TrackSpec | CatalogTrack['track']; theme: ThemeName }) {
   if (track.kind === 'depth') return <span className="tb-preview tb-preview--depth" aria-hidden="true">m</span>;
-  if (track.kind === 'stack') return <span className="tb-preview tb-preview--stack" aria-hidden="true"><i /><i /><i /><i /></span>;
+  if (track.kind === 'stack') {
+    // Colores de la columna volumétrica (paleta de rellenos del tema).
+    const parts = [['shale', 0.8], ['sand', 1.4], ['water', 0.6], ['hydrocarbon', 0.6]] as const;
+    return (
+      <span className="tb-preview tb-preview--stack" aria-hidden="true">
+        {parts.map(([id, flex]) => (
+          <i key={id} style={{ flex, background: FILL_PALETTE[id][theme] }} />
+        ))}
+      </span>
+    );
+  }
   if (track.kind === 'overlay') return <span className="tb-preview tb-preview--overlay" aria-hidden="true"><Icon name="scatter" size={14} /></span>;
   const roles = (track.curves ?? []).map((c) => ('role' in c.select ? c.select.role : null)).filter((r): r is string => !!r).slice(-4).reverse();
   if (!roles.length) return <span className="tb-preview tb-preview--collect" aria-hidden="true"><Icon name={track.kind === 'flags' ? 'filter' : 'sigma'} size={14} /></span>;
