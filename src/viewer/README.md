@@ -24,6 +24,7 @@ Lo monta `src/app/shell/ViewerSlot.tsx`, que conecta los stores; el componente n
 | `animation.ts` | animación de carga (duración, curva de los tokens) | no |
 | `minimap.ts`, `wellHeader.ts` | geometría del minimapa y campos del encabezado de pozo | no |
 | `render.ts` | dibujo en canvas 2D (base y cursor; pilas; frente de la animación) | no |
+| `figure.ts`, `figureInput.ts` | figura de publicación del perfil (marco, encabezados de pista, zonas, sumario, créditos) y armado del pedido | no |
 | `WellViewer.tsx`, `viewer.css` | componente: encabezados (editables), dos canvas, interacción, elementos del teclado, accesibilidad | sí |
 | `Minimap.tsx`, `WellHeader.tsx` | minimapa navegable y encabezado de pozo | sí |
 
@@ -154,6 +155,27 @@ export const overlays: ViewerOverlay[] = [
 - El tooltip (`hit.label`) admite varias líneas con `\n`.
 - Probado en `tests/viewer/interaction.test.ts` (plug arrastrable, tramo, borde, Escape, teclado) y
   `tests/viewer/review.test.ts` (pista propia).
+
+## Exportar como figura (fase 6c-2)
+
+Decisión: [`docs/decisiones/0012-exportacion-de-figuras.md`](../../docs/decisiones/0012-exportacion-de-figuras.md).
+`drawViewerFigure(ctx, input)` dibuja el perfil con el MISMO `ViewerRenderer.drawBase` de la pantalla sobre cualquier
+contexto 2D: un canvas fuera de pantalla (PNG, PDF) o el grabador SVG (`src/io/export/figures/svg.ts`, que exige
+`withSvgPath2D` porque el dibujo hace `new Path2D()`). Siempre tema claro, sin cursor, sin `reveal` y sin manijas
+(las superposiciones de tendencias aceptan `presentation: true`). `buildViewerFigure(pedido, contexto)` arma el
+`ViewerFigureInput` (tramo, escala 1:N → px/m a 96 ppp, pistas sin las vacías, título, créditos); `layoutViewerFigure`
+da el tamaño antes de dibujar. Para que una superposición propia se vea bien en una figura: dibujar solo con `frame` (sin
+estado de puntero), y no depender de `frame.active`.
+
+```ts
+const input = buildViewerFigure(request, context);              // request: plantilla, tramo, escala, ancho, pistas
+const layout = layoutViewerFigure(input);
+const svg = new SvgContext2D({ width: layout.width, height: layout.height, measure });
+withSvgPath2D(() => drawViewerFigure(svg.asCanvas(), input, layout));
+const text = svg.toSvg('#ffffff');
+```
+
+Tests: `tests/figures/`.
 
 ## Interacción y accesibilidad
 

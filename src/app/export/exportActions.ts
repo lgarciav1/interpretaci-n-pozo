@@ -2,8 +2,8 @@
  * Exportar datos del pozo: arma las columnas y el sumario desde el proyecto y el último resultado del motor, escribe el
  * archivo (src/io/export, puro) y lo descarga con el mismo patrón que `saveProject`. Sin React.
  *
- * Estructura para sumar después la exportación de figuras: cada tipo de exportación es una entrada de
- * `EXPORT_KINDS` (hoy solo `data`) y tiene su propia función de armado; el diálogo elige el tipo.
+ * Cada tipo de exportación es una entrada de `EXPORT_KINDS` con su propia función de armado: `data` (este archivo) y
+ * `figure` (`figureActions.ts`, fase 6c-2). El diálogo elige el tipo.
  */
 import type { ClientResult } from '../../core/engine/client';
 import type { Well, Zone } from '../../core/well';
@@ -24,7 +24,11 @@ import { toast } from '../../ui';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useResults } from '../store/results';
 
-export const EXPORT_KINDS = [{ id: 'data', label: 'Datos del pozo' }] as const;
+export const EXPORT_KINDS = [
+  { id: 'data', label: 'Datos del pozo' },
+  { id: 'figure', label: 'Figuras' },
+] as const;
+export type ExportKind = (typeof EXPORT_KINDS)[number]['id'];
 
 /** Columnas del sumario por zona declaradas por el módulo `zone-summary`. */
 function summaryColumns(): readonly SummaryColumn[] {

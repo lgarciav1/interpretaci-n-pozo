@@ -107,6 +107,8 @@ export interface TrendsOverlayOptions {
   /** Serie de una tendencia con los datos del visor (null si ya no existe). */
   resolve(data: ViewerData, ref: SeriesRef): ResolvedSeries | null;
   edit?: TrendsEditOptions;
+  /** Modo figura (exportar): sin manijas de edición. Las líneas, bandas y etiquetas se dibujan igual. */
+  presentation?: boolean;
   /** Estado propio (herramienta, selección): avisa cuándo redibujar. */
   subscribe?(invalidate: () => void): () => void;
 }
@@ -257,7 +259,7 @@ export function createTrendsOverlays(opts: TrendsOverlayOptions): ViewerOverlay[
         visible: [vp.top - pad, vp.base + pad],
         extend: spec.extend,
         mapping,
-        handles,
+        handles: opts.presentation ? [] : handles,
       });
       // Manijas siempre agarrables: dentro de la caja de la pista aunque el valor quede fuera de escala.
       geom.handles = geom.handles.map((h) => (h ? [Math.max(where.track.x + 4, Math.min(where.track.x + where.track.width - 4, h[0])), h[1]] : h));

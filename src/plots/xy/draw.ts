@@ -8,6 +8,7 @@ import { withAlpha } from '../../ui/color';
 import { BASE_TOKENS, type ThemeTokens } from '../../ui/tokens';
 import { drawTrend, drawTrendLabel, trendGeometry } from '../trend/draw';
 import { axisTicks, type XYAxis, type XYMapping } from './axes';
+import type { XYGuide, XYLineLayer, XYPointLayer, XYTrendLayer } from './layers';
 
 const font = (size: number, weight: number = BASE_TOKENS.weight.regular) => `${weight} ${size}px ${BASE_TOKENS.font.sans}`;
 
@@ -206,4 +207,80 @@ export function drawXYTrend(
     },
     avoid,
   );
+}
+
+export interface XYScene {
+  points?: readonly XYPointLayer[];
+  lines?: readonly XYLineLayer[];
+  trends?: readonly XYTrendLayer[];
+  guides?: readonly XYGuide[];
+}
+
+/**
+ * Todo lo que se ve de un gráfico x–y, sin lo interactivo (anillo del puntero, rectángulo de selección): marco, guías,
+ * líneas, puntos y tendencias con su etiqueta. Lo usan `XYPlot` en pantalla y la exportación de figuras (PNG/SVG/PDF),
+ * así lo exportado es lo que se ve.
+ */
+export function drawXYScene(ctx: CanvasRenderingContext2D, m: XYMapping, xAxis: XYAxis, yAxis: XYAxis, scene: XYScene, theme: ThemeTokens, compact = false): void {
+  const { points = [], lines = [], trends = [], guides = [] } = scene;
+  drawFrame(ctx, m, xAxis, yAxis, theme, compact);
+  const r = m.rect;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(r.x, r.y, r.width, r.height);
+  ctx.clip();
+  for (const g of guides) {
+    ctx.save();
+    ctx.strokeStyle = g.color;
+    ctx.lineWidth = g.width ?? 1.25;
+    ctx.setLineDash(g.dash ?? [4, 3]);
+    ctx.beginPath();
+    if (g.axis === 'x') {
+      const px = Math.round(m.x(g.value)) + 0.5;
+      ctx.moveTo(px, r.y);
+      ctx.lineTo(px, r.y + r.height);
+    } else {
+      const py = Math.round(m.y(g.value)) + 0.5;
+      ctx.moveTo(r.x, py);
+      ctx.lineTo(r.x + r.width, py);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+  for (const l of lines) drawDataLine(ctx, m, l.x, l.y, l.color, l.width, l.dash);
+  const halo = theme.viewer.trackBg;
+  for (const l of points) {
+    const n = Math.min(l.x.length, l.y.length);
+    if (l.cloud) {
+      const c = typeof l.color === 'string' ? l.color : null;
+      ctx.fillStyle = withAlpha(c ?? theme.color.textMuted, theme.name === 'dark' ? 0.28 : 0.22);
+      const s = l.radius ?? 1.6;
+      for (let i = 0; i < n; i++) {
+        const px = m.x(l.x[i]!);
+        const py = m.y(l.y[i]!);
+        if (!Number.isFinite(px) || !Number.isFinite(py)) continue;
+        if (c === null) ctx.fillStyle = withAlpha((l.color as (i: number) => string)(i), 0.25);
+        ctx.fillRect(px - s / 2, py - s / 2, s, s);
+      }
+      continue;
+    }
+    // Vacíos (descartados) primero: los llenos quedan encima.
+    for (const pass of [false, true]) {
+      for (let i = 0; i < n; i++) {
+        const variant = l.variant?.(i) ?? 'filled';
+        if ((variant === 'filled') !== pass) continue;
+        const px = m.x(l.x[i]!);
+        const py = m.y(l.y[i]!);
+        if (!Number.isFinite(px) || !Number.isFinite(py)) continue;
+        const color = typeof l.color === 'string' ? l.color : l.color(i);
+        drawPoint(ctx, px, py, l.radius ?? 4, variant === 'filled' ? color : withAlpha(color, 0.85), variant, halo);
+      }
+    }
+  }
+  ctx.restore();
+  const boxes: { x: number; y: number; w: number; h: number }[] = [];
+  for (const t of trends) {
+    const b = drawXYTrend(ctx, m, xAxis, t.coeffs, t.span, { color: t.color, extend: t.extend, label: t.label, emphasis: t.emphasis }, theme, boxes);
+    if (b) boxes.push(b);
+  }
 }

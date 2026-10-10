@@ -46,7 +46,7 @@ faltantes.
 
 ## Pendiente
 
-- Exportar figuras (visor, crossplot, histograma).
+- Exportar figuras (visor, crossplot, histograma): hecho en la fase 6c-2, ver `0012-exportacion-de-figuras.md`.
 - Sumario del tramo elegido (hoy es el del pozo entero) y en pies.
 - Puntos de presión y plugs (conjuntos de puntos) y tendencias.
 - Probado con nuestros lectores; no con Excel, LibreOffice ni programas de perfiles de terceros.

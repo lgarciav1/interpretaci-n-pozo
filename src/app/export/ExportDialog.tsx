@@ -1,11 +1,16 @@
-/** Diálogo «Exportar»: formato, curvas, tramo, unidad de profundidad y nulos. Los datos salen de `exportActions`. */
+/**
+ * Diálogo «Exportar»: dos secciones. «Datos del pozo» (formato, curvas, tramo, unidad de profundidad y nulos; salen de
+ * `exportActions`) y «Figuras» (PNG, SVG y PDF del perfil y de los gráficos; `FiguresPanel` y `figureActions`).
+ */
 import { useMemo, useState } from 'react';
 import { Button, Callout, Checkbox, Dialog, Field, SegmentedControl, Select } from '../../ui';
 import { FORMAT_LABEL, type DepthUnit, type ExportFormat } from '../../io/export';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useResults } from '../store/results';
 import { useUi } from '../store/ui';
-import { exportData, exportSources } from './exportActions';
+import { exportData, exportSources, EXPORT_KINDS, type ExportKind } from './exportActions';
+import { exportFigure } from './figureActions';
+import { FiguresPanel, useFigureForm } from './FiguresPanel';
 import './export.css';
 
 const NULL_OPTIONS = [
@@ -32,6 +37,9 @@ export function ExportDialog() {
   const [depthUnit, setDepthUnit] = useState<DepthUnit>('m');
   const [nulls, setNulls] = useState('default');
   const [summary, setSummary] = useState(true);
+  const [kind, setKind] = useState<ExportKind>('data');
+  const [busy, setBusy] = useState(false);
+  const figure = useFigureForm(open && kind === 'figure');
 
   const sources = useMemo(() => (open && entry ? exportSources(entry.well, result, alternatives) : null), [open, entry, result, alternatives]);
   if (!open || !entry || !sources) return null;
@@ -81,12 +89,12 @@ export function ExportDialog() {
       open
       onClose={close}
       size="lg"
-      title="Exportar datos"
-      description="Curvas medidas y calculadas del pozo activo, y el sumario por zona."
+      title="Exportar"
+      description={kind === 'data' ? 'Curvas medidas y calculadas del pozo activo, y el sumario por zona.' : 'Figuras listas para el informe: el perfil y los gráficos, siempre con el tema claro de impresión.'}
       footer={
         <>
           <span className="exp-count num">
-            {selected.length} {selected.length === 1 ? 'curva' : 'curvas'}
+            {kind === 'data' ? `${selected.length} ${selected.length === 1 ? 'curva' : 'curvas'}` : busy ? 'Generando la figura…' : ''}
           </span>
           <Button variant="ghost" onClick={close}>
             Cancelar
@@ -94,7 +102,15 @@ export function ExportDialog() {
           <Button
             variant="primary"
             icon="download"
-            onClick={() => {
+            disabled={kind === 'figure' && (busy || !figure.canExport)}
+            onClick={async () => {
+              if (kind === 'figure') {
+                setBusy(true);
+                const ok = await exportFigure(figure.options);
+                setBusy(false);
+                if (ok) close();
+                return;
+              }
               const ok = exportData({
                 format,
                 selection: selected.map((c) => c.id),
@@ -112,6 +128,12 @@ export function ExportDialog() {
         </>
       }
     >
+      <div className="exp-kind">
+        <SegmentedControl<ExportKind> aria-label="Qué exportar" value={kind} onChange={setKind} options={EXPORT_KINDS.map((k) => ({ value: k.id, label: k.label }))} />
+      </div>
+      {kind === 'figure' ? (
+        <FiguresPanel form={figure} />
+      ) : (
       <div className="exp">
         <Field label="Formato" hint={FORMAT_HINT[format]}>
           <SegmentedControl<ExportFormat>
@@ -166,6 +188,7 @@ export function ExportDialog() {
           <Callout tone="info">Se descarga un .zip con el archivo de curvas y el sumario en CSV.</Callout>
         )}
       </div>
+      )}
     </Dialog>
   );
 }
