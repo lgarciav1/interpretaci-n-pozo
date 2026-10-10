@@ -216,3 +216,38 @@ describe('io/core: filas y archivos con problemas', () => {
     expect(() => buildCoreSet(t, m, { id: 'c' })).toThrow(/no sirve para permeabilidad/);
   });
 });
+
+describe('io/core: unidad pegada al nombre (sin paréntesis)', () => {
+  const colsOf = (csv: string) => Object.fromEntries(suggestCoreMapping(read(csv)).map((m) => [m.name, m]));
+
+  it('«Depth ft» → profundidad en pies (no en metros) y conversión a m', () => {
+    expect(colsOf('Depth ft,PHI\n8000,0.1\n8001,0.1\n')['Depth ft']).toMatchObject({ field: 'depth', unit: 'ft' });
+    const t = read('Depth ft,PHI\n8000,0.1\n8001,0.1\n');
+    expect(buildCoreSet(t, suggestCoreMapping(t), { id: 'c' }).set.depth[0]).toBeCloseTo(2438.4, 9);
+  });
+
+  it('«DEPTH_FT» con guion bajo: misma lectura', () => {
+    expect(colsOf('DEPTH_FT,PHI\n8000,0.1\n')['DEPTH_FT']).toMatchObject({ field: 'depth', unit: 'ft' });
+  });
+
+  it('«Perm mD»: el token MD no le gana a PERM; la columna es k en mD', () => {
+    expect(colsOf('DEPTH,PHI,Perm mD\n2500,0.1,5\n')['Perm mD']).toMatchObject({ field: 'k', unit: 'mD' });
+  });
+
+  it('«PHI %»: unidad % y conversión a v/v (1,2 % → 0,012)', () => {
+    // Valores ≤ 1,5: sin la unidad, la heurística los dejaría en v/v; con «%» deben pasar a fracción.
+    const c = colsOf('DEPTH,PHI %\n2500,1.2\n2501,0.8\n');
+    expect(c['PHI %']).toMatchObject({ field: 'phi', unit: '%' });
+    const v = num('DEPTH,PHI %\n2500,1.2\n2501,0.8\n', 'phi');
+    expect(v[0]).toBeCloseTo(0.012, 9);
+    expect(v[1]).toBeCloseTo(0.008, 9);
+  });
+
+  it('«K/mD»: k en mD; el MD de la unidad no es profundidad', () => {
+    expect(colsOf('DEPTH,K/mD,PHI\n2500,5,0.1\n')['K/mD']).toMatchObject({ field: 'k', unit: 'mD' });
+  });
+
+  it('«MD» sola sigue siendo profundidad medida', () => {
+    expect(colsOf('MD,PHI,K\n2500,0.1,5\n')['MD']).toMatchObject({ field: 'depth', unit: 'm' });
+  });
+});

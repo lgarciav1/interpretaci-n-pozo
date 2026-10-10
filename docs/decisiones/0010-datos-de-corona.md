@@ -59,10 +59,10 @@ crossplot k–φ sin atar la fase 7 (crossplot libre, histograma) a decisiones d
   columna está en %.
 - Filas sin profundidad: se descartan con aviso. Sin φ ni k, o sin profundidad: error en español. Ids de plug: los de
   la columna o `P01…`; repetidos entre coronas se antepone la corona (`C1-A`), repetidos dentro de una: numerados.
-- Limitación conocida: la unidad se lee solo entre paréntesis (`Profundidad (ft)`, `Perm (mD)`). Una unidad pegada al
-  nombre sin paréntesis no se reconoce: `Depth ft` se lee en metros, sin aviso, y en `Perm mD` el token `MD` (profundidad
-  medida) le gana a `PERM`, con lo que la columna queda sin asignar. El asistente deja corregir el mapeo y la unidad a
-  mano; la vista previa muestra los valores convertidos.
+- Unidades en el encabezado: entre paréntesis (`Profundidad (ft)`) o pegadas al nombre como último token
+  (`Depth ft`, `DEPTH_FT`, `Perm mD`, `K/mD`), con el helper `splitUnitSuffix` de `src/io/pressures.ts` que comparten
+  plugs y MDT. Un token de unidad no se toma como nombre de columna (`Perm mD` es permeabilidad); `MD` sola sigue siendo
+  profundidad medida. El asistente deja corregir el mapeo y la unidad a mano.
 
 ## D3. Sugerencia de desplazamiento por correlación de Pearson con barrido
 

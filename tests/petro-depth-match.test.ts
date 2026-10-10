@@ -177,3 +177,16 @@ describe('suggestDepthShift', () => {
     expect(r.best).toBeNull();
   });
 });
+
+describe('caso chico a mano (verificado con python3)', () => {
+  it('plugs z = 1…5 con sin(z); perfil sin(p − 0,5) cada 0,1 m → desplazamiento +0,5 (archivo + s), r = 1', () => {
+    const pd = Float64Array.from({ length: 71 }, (_, i) => i * 0.1);
+    const pv = Float64Array.from(pd, (p) => Math.sin(p - 0.5));
+    const z = Float64Array.of(1, 2, 3, 4, 5);
+    const c = Float64Array.from(z, (v) => Math.sin(v));
+    const r = suggestDepthShift(z, c, pd, pv);
+    expect(r.best).toBeCloseTo(0.5, 9);
+    expect(r.r).toBeCloseTo(1, 9);
+    expect(r.atEdge).toBe(false);
+  });
+});

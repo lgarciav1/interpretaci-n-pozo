@@ -18,7 +18,7 @@
 import { createPointSet, RUN_COLUMN, type PointColumn, type PointSet } from '../core/pointSets';
 import { convertArray, getUnit, parseUnit, unitLabel, type DimensionId, type UnitId } from '../core/units';
 import type { Confidence } from './mnemonics';
-import { normalizeColumnName } from './pressures';
+import { normalizeColumnName, splitUnitSuffix, unitTextOf } from './pressures';
 import type { RawColumn, RawTable } from './table';
 
 export type CoreField = 'depth' | 'phi' | 'k' | 'rhog' | 'run' | 'plug' | 'description' | 'ignore';
@@ -70,7 +70,7 @@ const RANK: Record<Confidence, number> = { high: 3, medium: 2, low: 1, none: 0 }
 
 /** Campo por el nombre (y confianza), o null si el nombre no dice nada. */
 function fieldByName(name: string): { field: CoreField; confidence: Confidence } | null {
-  const n = normalizeColumnName(name);
+  const n = normalizeColumnName(splitUnitSuffix(name).name);
   const t = new Set(n.split(/[_/]+/).filter(Boolean));
   const has = (...w: string[]) => w.some((x) => t.has(x));
   const starts = (...w: string[]) => w.some((x) => n.startsWith(x));
@@ -128,7 +128,7 @@ export function suggestCoreMapping(table: RawTable): CoreColumnMapping[] {
       }
     }
     if (field === 'ignore' && col.kind === 'numeric') {
-      const u = parseUnit(col.unit.trim());
+      const u = parseUnit(unitTextOf(col));
       const dim = u ? getUnit(u)?.dimension : undefined;
       if (dim === 'permeability') {
         field = 'k';
@@ -149,18 +149,19 @@ export function suggestCoreMapping(table: RawTable): CoreColumnMapping[] {
   const out: CoreColumnMapping[] = table.columns.map((col, i) => {
     const c = candidates[i]!;
     const field = c.field !== 'ignore' && winner.get(c.field) === i ? c.field : 'ignore';
-    return { column: i, name: col.name, rawUnit: col.unit, kind: col.kind, field, unit: unitFor(field, col.unit, col), confidence: field === 'ignore' ? 'none' : c.confidence };
+    return { column: i, name: col.name, rawUnit: col.unit, kind: col.kind, field, unit: unitFor(field, unitTextOf(col), col), confidence: field === 'ignore' ? 'none' : c.confidence };
   });
   if (!winner.has('depth')) {
     const k = table.depthColumn >= 0 && out[table.depthColumn]?.field === 'ignore' ? table.depthColumn : out.findIndex((m) => m.field === 'ignore' && m.kind === 'numeric');
-    if (k >= 0) out[k] = { ...out[k]!, field: 'depth', unit: unitFor('depth', out[k]!.rawUnit, table.columns[k]), confidence: 'low' };
+    if (k >= 0) out[k] = { ...out[k]!, field: 'depth', unit: unitFor('depth', unitTextOf(table.columns[k]!), table.columns[k]), confidence: 'low' };
   }
   return out;
 }
 
 /** Unidad sugerida al elegir un campo a mano en el asistente. */
 export function coreFieldUnit(field: CoreField, table: RawTable, column: number): UnitId | null {
-  return unitFor(field, table.columns[column]?.unit ?? '', table.columns[column]);
+  const col = table.columns[column];
+  return unitFor(field, col ? unitTextOf(col) : '', col);
 }
 
 export interface BuildCoreOptions {

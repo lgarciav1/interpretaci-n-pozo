@@ -8,7 +8,7 @@
  * (`src/modules/<id>/dock.tsx`).
  */
 import { useMemo, useState, type ReactNode } from 'react';
-import { pointNumbers, pointTexts, type PointSet } from '../../core/pointSets';
+import { pointNumbers, pointTexts, shiftedDepth, type PointSet } from '../../core/pointSets';
 import { removePointSet, setPointDecision, setPointSetSetting } from '../../core/state/pointSets';
 import { activeWellEntry, makeId, setOverlaySetting } from '../../core/state/project';
 import { removeTrend } from '../../core/state/trends';
@@ -361,7 +361,7 @@ function PointsTable({ set, analysis, unit, selected, onSelect }: { set: PointSe
         selectedKey={selected}
         onRowClick={(r) => {
           onSelect(r.id === selected ? null : r.id);
-          const z = set.depth[r.i]!;
+          const z = shiftedDepth(set, interp?.pointSets[set.id])[r.i]!;
           useTrendsUi.getState().requestRange(z - 30, z + 30);
         }}
         rowProps={(r) => ({ 'data-excluded': st[r.i]!.included ? undefined : '' })}
