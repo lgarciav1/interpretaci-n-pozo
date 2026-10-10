@@ -105,6 +105,7 @@ function xyDrawable(o: FigureOptions, env: FigureEnv, pdf: boolean): { drawable:
     source: src,
     parts: pdf ? { ...template.parts, title: false, credits: false } : template.parts,
     title: src.title,
+    ...(src.colorKey ? { colorKey: src.colorKey } : {}),
     credits,
     margin: pdf ? 0 : margin,
     width: natural.width,

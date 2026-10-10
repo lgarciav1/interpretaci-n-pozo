@@ -95,9 +95,15 @@ export function niceStep(raw: number): number {
 
 const decimalsOf = (step: number) => (step >= 1 ? 0 : Math.min(10, Math.ceil(-Math.log10(step) - 1e-9)));
 
+const SUPERSCRIPT: Record<string, string> = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+const superscript = (n: number) => String(n).replace(/[-0-9]/g, (c) => SUPERSCRIPT[c]!);
+
 /** Rótulo de un valor de eje (coma decimal, separador de miles, signo menos tipográfico). */
 export function formatTick(v: number, a: XYAxis, step?: number): string {
   if (a.kind === 'log') {
+    // Potencias de 10 muy chicas o muy grandes: «10⁻⁵» en vez de «0,00001» (el rótulo no entra en el margen).
+    const e = Math.log10(v);
+    if (Math.abs(e - Math.round(e)) < 1e-9 && (e <= -4 || e >= 6)) return `10${superscript(Math.round(e))}`;
     const d = v >= 1 ? 0 : Math.min(10, Math.ceil(-Math.log10(v) - 1e-9));
     return formatNumber(v, { digits: d }).replace(/^-/, '−');
   }
@@ -198,12 +204,13 @@ export function niceRange(series: readonly ArrayLike<number>[], kind: AxisKind, 
 // ── área de dibujo ───────────────────────────────────────────────────────────────────────────────────────────
 
 /** Márgenes del área de dibujo: lugar para los rótulos de ticks y los títulos de los ejes. */
-export function plotRectFor(width: number, height: number, compact = false, uiScale = 1): PlotRect {
-  // Márgenes para rótulos y títulos: siguen al tamaño de interfaz en pantalla (las figuras usan 1).
+export function plotRectFor(width: number, height: number, compact = false, uiScale = 1, rightAxis = false): PlotRect {
+  // Márgenes para rótulos y títulos: siguen al tamaño de interfaz en pantalla (las figuras usan 1). Con eje derecho
+  // (`rightAxis`: la acumulada de un histograma) se reserva el lugar de sus rótulos y su título.
   const left = scalePx(compact ? 34 : 56, uiScale);
   const bottom = scalePx(compact ? 24 : 40, uiScale);
   const top = scalePx(compact ? 6 : 10, uiScale);
-  const right = scalePx(compact ? 8 : 14, uiScale);
+  const right = scalePx(rightAxis ? (compact ? 30 : 50) : compact ? 8 : 14, uiScale);
   return { x: left, y: top, width: Math.max(10, width - left - right), height: Math.max(10, height - top - bottom) };
 }
 

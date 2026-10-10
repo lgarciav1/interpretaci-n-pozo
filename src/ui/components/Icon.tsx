@@ -14,6 +14,10 @@ const ICONS = {
   'chevron-left': <path d="M15 6l-6 6 6 6" />,
   'chevron-right': <path d="M9 6l6 6-6 6" />,
   'arrow-right': <path d="M5 12h14M13 6l6 6-6 6" />,
+  /** Intercambiar (ejes de un crossplot). */
+  swap: <path d="M8 19V5M4.5 8.5L8 5l3.5 3.5M16 5v14M12.5 15.5L16 19l3.5-3.5" />,
+  /** Invertir el sentido de una escala. */
+  reverse: <path d="M4 12h16M7.5 8.5L4 12l3.5 3.5M16.5 8.5L20 12l-3.5 3.5" />,
   upload: (
     <>
       <path d="M12 15V4M7.5 8.5L12 4l4.5 4.5" />

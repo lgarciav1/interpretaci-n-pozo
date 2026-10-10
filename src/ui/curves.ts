@@ -12,7 +12,7 @@
  * Puro: sin DOM.
  */
 import { defaultRoleCatalog, type RoleCatalog, type RoleId } from '../core/roles';
-import { ensureContrast } from './color';
+import { ensureContrast, mix } from './color';
 import { THEMES, type ThemeName } from './tokens';
 
 export type LineStyle = 'solid' | 'dashed' | 'dotted' | 'dashdot';
@@ -151,6 +151,25 @@ export const ZONE_PALETTE: readonly string[] = [
 ];
 
 export const zoneColor = (index: number): string => ZONE_PALETTE[((index % ZONE_PALETTE.length) + ZONE_PALETTE.length) % ZONE_PALETTE.length]!;
+
+/**
+ * Rampa secuencial para colorear puntos por una tercera curva (crossplot libre): viridis (Smith y van der Walt, 2015),
+ * perceptualmente uniforme, legible en escala de grises y para daltonismo. En oscuro arranca más clara para que los
+ * valores bajos no se pierdan contra el fondo de la pista.
+ */
+export const SEQUENTIAL_PALETTE: Readonly<Record<ThemeName, readonly string[]>> = {
+  light: ['#440154', '#482878', '#3e4989', '#31688e', '#26828e', '#1f9e89', '#35b779', '#6ece58', '#b5de2b', '#fde725'],
+  dark: ['#5b3a8e', '#4f4f9c', '#3e64a0', '#31789e', '#268c97', '#1fa187', '#35b779', '#6ece58', '#b5de2b', '#fde725'],
+};
+
+/** Color de la rampa en t ∈ [0, 1] (interpolación lineal entre paradas; fuera de rango se acota). */
+export function rampColor(t: number, stops: readonly string[]): string {
+  if (stops.length === 0) return '#808080';
+  const u = Math.min(1, Math.max(0, Number.isFinite(t) ? t : 0)) * (stops.length - 1);
+  const k = Math.min(stops.length - 2, Math.floor(u));
+  if (stops.length === 1) return stops[0]!;
+  return mix(stops[k]!, stops[k + 1]!, u - k);
+}
 
 /** Paleta categórica para curvas sin rol (o roles sin color): estable por id. */
 export const CATEGORICAL: Readonly<Record<ThemeName, readonly string[]>> = {

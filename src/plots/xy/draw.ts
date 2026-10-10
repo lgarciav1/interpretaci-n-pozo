@@ -7,8 +7,8 @@ import { evalTrend, type TrendCoefficients } from '../../petro/regression';
 import { withAlpha } from '../../ui/color';
 import { BASE_TOKENS, scalePx, type ThemeTokens } from '../../ui/tokens';
 import { drawTrend, drawTrendLabel, trendGeometry } from '../trend/draw';
-import { axisTicks, type XYAxis, type XYMapping } from './axes';
-import type { XYGuide, XYLineLayer, XYPointLayer, XYTrendLayer } from './layers';
+import { axisTicks, xyMapping, type XYAxis, type XYMapping } from './axes';
+import type { XYBarLayer, XYGuide, XYLineLayer, XYPointLayer, XYTrendLayer } from './layers';
 
 /** `ui`: factor del tamaño de interfaz (1 en las figuras exportadas). */
 const font = (size: number, weight: number = BASE_TOKENS.weight.regular, ui = 1) => `${weight} ${scalePx(size, ui)}px ${BASE_TOKENS.font.sans}`;
@@ -20,7 +20,7 @@ export const axisTitle = (a: XYAxis) => (a.unit ? `${a.label} (${a.unit})` : a.l
  * Fondo, grilla, ticks, rótulos y títulos de los ejes. `ui`: factor del tamaño de interfaz para el texto y sus
  * separaciones (en pantalla; las figuras exportadas usan 1).
  */
-export function drawFrame(ctx: CanvasRenderingContext2D, m: XYMapping, xAxis: XYAxis, yAxis: XYAxis, theme: ThemeTokens, compact = false, ui = 1): void {
+export function drawFrame(ctx: CanvasRenderingContext2D, m: XYMapping, xAxis: XYAxis, yAxis: XYAxis, theme: ThemeTokens, compact = false, ui = 1, y2?: XYAxis): void {
   const r = m.rect;
   const v = theme.viewer;
   const px = (n: number) => scalePx(n, ui);
@@ -75,6 +75,18 @@ export function drawFrame(ctx: CanvasRenderingContext2D, m: XYMapping, xAxis: XY
     ctx.fillText(t.label, r.x - px(5), y);
     lastTop = y;
   }
+  // Eje derecho (acumulada): rótulos sin grilla propia.
+  if (y2) {
+    ctx.textAlign = 'left';
+    let last2 = Infinity;
+    for (const t of axisTicks(y2, r.height, px(compact ? 22 : 34))) {
+      if (!t.label) continue;
+      const y = Math.min(r.y + r.height - px(5), Math.max(r.y + px(5), r.y + (1 - t.f) * r.height));
+      if (y > last2 - px(11)) continue;
+      ctx.fillText(t.label, r.x + r.width + px(5), y);
+      last2 = y;
+    }
+  }
   // Títulos.
   ctx.fillStyle = theme.color.textMuted;
   ctx.font = font(compact ? 10 : BASE_TOKENS.text.xs, BASE_TOKENS.weight.medium, ui);
@@ -88,6 +100,14 @@ export function drawFrame(ctx: CanvasRenderingContext2D, m: XYMapping, xAxis: XY
     ctx.textBaseline = 'middle';
     ctx.fillText(axisTitle(yAxis), 0, 0);
     ctx.restore();
+    if (y2) {
+      ctx.save();
+      ctx.translate(r.x + r.width + px(42), r.y + r.height / 2);
+      ctx.rotate(Math.PI / 2);
+      ctx.textBaseline = 'middle';
+      ctx.fillText(axisTitle(y2), 0, 0);
+      ctx.restore();
+    }
   }
   ctx.restore();
 }
@@ -223,22 +243,220 @@ export interface XYScene {
   lines?: readonly XYLineLayer[];
   trends?: readonly XYTrendLayer[];
   guides?: readonly XYGuide[];
+  bars?: readonly XYBarLayer[];
+  /** Eje derecho para las líneas con `y2` (acumulada del histograma). */
+  y2?: XYAxis;
+}
+
+/** Barras de un histograma: relleno translúcido y contorno escalonado (o solo el contorno). */
+export function drawBars(ctx: CanvasRenderingContext2D, m: XYMapping, l: XYBarLayer): void {
+  const n = Math.min(l.values.length, l.edges.length - 1);
+  const y0 = m.rect.y + m.rect.height;
+  ctx.save();
+  if (!l.outlineOnly) {
+    ctx.fillStyle = withAlpha(l.color, l.fillAlpha ?? 0.35);
+    for (let j = 0; j < n; j++) {
+      const v = l.values[j]!;
+      if (!(v > 0)) continue;
+      const xa = m.x(l.edges[j]!);
+      const xb = m.x(l.edges[j + 1]!);
+      const y = m.y(v);
+      if (![xa, xb, y].every(Number.isFinite)) continue;
+      // 1 px de aire entre barras vecinas si hay lugar.
+      const gap = Math.abs(xb - xa) > 6 ? 0.5 : 0;
+      ctx.fillRect(Math.min(xa, xb) + gap, y, Math.abs(xb - xa) - 2 * gap, y0 - y);
+    }
+  }
+  // Contorno escalonado.
+  ctx.strokeStyle = l.color;
+  ctx.lineWidth = l.outlineOnly ? 1.75 : 1.25;
+  ctx.lineJoin = 'miter';
+  ctx.beginPath();
+  let pen = false;
+  for (let j = 0; j < n; j++) {
+    const xa = m.x(l.edges[j]!);
+    const xb = m.x(l.edges[j + 1]!);
+    const v = l.values[j]!;
+    const y = Number.isFinite(v) ? m.y(Math.max(0, v)) : y0;
+    if (!Number.isFinite(xa) || !Number.isFinite(xb)) {
+      pen = false;
+      continue;
+    }
+    if (!pen) ctx.moveTo(xa, y0);
+    ctx.lineTo(xa, y);
+    ctx.lineTo(xb, y);
+    pen = true;
+    if (j === n - 1) ctx.lineTo(xb, y0);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Nube densa: puntos sin halo agrupados por color (un trazado por color). */
+function drawDensePoints(ctx: CanvasRenderingContext2D, m: XYMapping, l: XYPointLayer, theme: ThemeTokens): void {
+  const n = Math.min(l.x.length, l.y.length);
+  const r = l.radius ?? 2.2;
+  const groups = new Map<string, number[]>();
+  const fixed = typeof l.color === 'string' ? l.color : null;
+  for (let i = 0; i < n; i++) {
+    const px = m.x(l.x[i]!);
+    const py = m.y(l.y[i]!);
+    if (!Number.isFinite(px) || !Number.isFinite(py)) continue;
+    const c = fixed ?? (l.color as (i: number) => string)(i);
+    let g = groups.get(c);
+    if (!g) groups.set(c, (g = []));
+    g.push(px, py);
+  }
+  ctx.save();
+  ctx.globalAlpha = l.alpha ?? (theme.name === 'dark' ? 0.8 : 0.72);
+  for (const [c, g] of groups) {
+    ctx.fillStyle = c;
+    ctx.beginPath();
+    for (let k = 0; k < g.length; k += 2) {
+      ctx.moveTo(g[k]! + r, g[k + 1]!);
+      ctx.arc(g[k]!, g[k + 1]!, r, 0, 2 * Math.PI);
+    }
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/** Caja de un rótulo de guía en px (para el puntero y para esquivar otros rótulos). */
+export interface GuideLabelBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
 }
 
 /**
- * Todo lo que se ve de un gráfico x–y, sin lo interactivo (anillo del puntero, rectángulo de selección): marco, guías,
- * líneas, puntos y tendencias con su etiqueta. Lo usan `XYPlot` en pantalla y la exportación de figuras (PNG/SVG/PDF),
- * así lo exportado es lo que se ve. `ui` (factor del tamaño de interfaz) solo agranda el texto en pantalla: las figuras
- * pasan 1 y salen iguales con cualquier tamaño.
+ * Rótulo de una guía en una etiqueta: en una vertical, arriba del área, del lado con más lugar; en una horizontal, a
+ * la derecha, encima de la línea. Devuelve la caja dibujada.
  */
-export function drawXYScene(ctx: CanvasRenderingContext2D, m: XYMapping, xAxis: XYAxis, yAxis: XYAxis, scene: XYScene, theme: ThemeTokens, compact = false, ui = 1): void {
-  const { points = [], lines = [], trends = [], guides = [] } = scene;
-  drawFrame(ctx, m, xAxis, yAxis, theme, compact, ui);
+export function drawGuideLabel(ctx: CanvasRenderingContext2D, m: XYMapping, g: XYGuide, theme: ThemeTokens, ui = 1, row = 0): GuideLabelBox | null {
+  if (!g.label) return null;
   const r = m.rect;
+  const px = (n: number) => scalePx(n, ui);
+  const lines = g.detail ? [g.label, g.detail] : [g.label];
+  ctx.save();
+  ctx.font = font(BASE_TOKENS.text.xs, BASE_TOKENS.weight.semibold, ui);
+  const w0 = ctx.measureText(lines[0]!).width;
+  ctx.font = font(BASE_TOKENS.text.xs, BASE_TOKENS.weight.regular, ui);
+  const w1 = lines[1] ? ctx.measureText(lines[1]).width : 0;
+  const lh = px(14);
+  const w = Math.max(w0, w1) + px(12);
+  const h = lines.length * lh + px(4);
+  let x: number;
+  let y: number;
+  if (g.axis === 'x') {
+    const lx = m.x(g.value);
+    if (!Number.isFinite(lx)) return (ctx.restore(), null);
+    const right = lx + px(6) + w <= r.x + r.width;
+    x = right ? lx + px(6) : lx - px(6) - w;
+    x = Math.max(r.x + 2, Math.min(x, r.x + r.width - w - 2));
+    y = r.y + px(6) + row * (h + px(4));
+  } else {
+    const ly = m.y(g.value);
+    if (!Number.isFinite(ly)) return (ctx.restore(), null);
+    x = r.x + r.width - w - px(6) - row * (w + px(4));
+    y = ly - h - px(4) >= r.y ? ly - h - px(4) : ly + px(4);
+  }
+  ctx.fillStyle = withAlpha(theme.color.surfaceRaised, 0.94);
+  ctx.strokeStyle = withAlpha(g.color, 0.65);
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(x + 0.5, y + 0.5, w - 1, h - 1, px(4));
+  ctx.fill();
+  ctx.stroke();
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = theme.color.text;
+  ctx.font = font(BASE_TOKENS.text.xs, BASE_TOKENS.weight.semibold, ui);
+  ctx.fillText(lines[0]!, x + px(6), y + px(2) + lh / 2);
+  if (lines[1]) {
+    ctx.fillStyle = theme.color.textMuted;
+    ctx.font = font(BASE_TOKENS.text.xs, BASE_TOKENS.weight.regular, ui);
+    ctx.fillText(lines[1], x + px(6), y + px(2) + lh * 1.5);
+  }
+  ctx.restore();
+  return { x, y, w, h };
+}
+
+/**
+ * Extremo visible de una polilínea en px: recorre los tramos desde el comienzo (o el final) y devuelve el primer punto
+ * del tramo que entra en el área, recortado al borde (Liang–Barsky). null si no se ve.
+ */
+export function visibleEnd(m: XYMapping, x: ArrayLike<number>, y: ArrayLike<number>, at: 'start' | 'end'): [number, number] | null {
+  const r = m.rect;
+  const n = Math.min(x.length, y.length);
+  const pts: [number, number][] = [];
+  for (let i = 0; i < n; i++) pts.push([m.x(x[i]!), m.y(y[i]!)]);
+  if (at === 'end') pts.reverse();
+  for (let k = 0; k < pts.length - 1; k++) {
+    const [x0, y0] = pts[k]!;
+    const [x1, y1] = pts[k + 1]!;
+    if (![x0, y0, x1, y1].every(Number.isFinite)) continue;
+    const dx = x1 - x0;
+    const dy = y1 - y0;
+    let t0 = 0;
+    let t1 = 1;
+    const clip = (p: number, q: number) => {
+      if (p === 0) return q >= 0;
+      const t = q / p;
+      if (p < 0) {
+        if (t > t1) return false;
+        if (t > t0) t0 = t;
+      } else {
+        if (t < t0) return false;
+        if (t < t1) t1 = t;
+      }
+      return true;
+    };
+    if (clip(-dx, x0 - r.x) && clip(dx, r.x + r.width - x0) && clip(-dy, y0 - r.y) && clip(dy, r.y + r.height - y0) && t0 <= t1) return [x0 + t0 * dx, y0 + t0 * dy];
+  }
+  if (pts.length === 1) {
+    const [a, b] = pts[0]!;
+    if (a >= r.x && a <= r.x + r.width && b >= r.y && b <= r.y + r.height) return [a, b];
+  }
+  return null;
+}
+
+/** Rótulo de una línea guía de plantilla junto a un extremo visible («Sw 50 %», «Arenisca»), sobre el fondo de la pista. */
+function drawLineLabel(ctx: CanvasRenderingContext2D, m: XYMapping, l: XYLineLayer, theme: ThemeTokens, ui: number): void {
+  if (!l.label) return;
+  const p = visibleEnd(m, l.x, l.y, l.labelAt ?? 'end');
+  if (!p) return;
+  const r = m.rect;
+  ctx.save();
+  ctx.font = font(10, BASE_TOKENS.weight.semibold, ui);
+  const w = ctx.measureText(l.label).width;
+  const pad = scalePx(5, ui);
+  const h = scalePx(7, ui);
+  // Del lado de adentro del área, un poco por encima de la línea.
+  const x = p[0] + pad + w > r.x + r.width ? Math.max(r.x + 2, p[0] - pad - w) : p[0] + pad;
+  const y = Math.max(r.y + h, Math.min(p[1] - h, r.y + r.height - h));
+  // Fondo del color de la pista (no `strokeText`: el grabador SVG de las figuras no lo implementa).
+  ctx.fillStyle = withAlpha(theme.viewer.trackBg, 0.85);
+  ctx.beginPath();
+  ctx.roundRect(x - 2, y - h + 1, w + 4, 2 * h - 2, 3);
+  ctx.fill();
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = l.color;
+  ctx.fillText(l.label, x, y);
+  ctx.restore();
+}
+
+export function drawXYScene(ctx: CanvasRenderingContext2D, m: XYMapping, xAxis: XYAxis, yAxis: XYAxis, scene: XYScene, theme: ThemeTokens, compact = false, ui = 1): void {
+  const { points = [], lines = [], trends = [], guides = [], bars = [], y2 } = scene;
+  drawFrame(ctx, m, xAxis, yAxis, theme, compact, ui, y2);
+  const r = m.rect;
+  const m2 = y2 ? xyMapping(xAxis, y2, r) : m;
   ctx.save();
   ctx.beginPath();
   ctx.rect(r.x, r.y, r.width, r.height);
   ctx.clip();
+  for (const b of bars) drawBars(ctx, m, b);
   for (const g of guides) {
     ctx.save();
     ctx.strokeStyle = g.color;
@@ -257,10 +475,14 @@ export function drawXYScene(ctx: CanvasRenderingContext2D, m: XYMapping, xAxis: 
     ctx.stroke();
     ctx.restore();
   }
-  for (const l of lines) drawDataLine(ctx, m, l.x, l.y, l.color, l.width, l.dash);
+  for (const l of lines) drawDataLine(ctx, l.y2 ? m2 : m, l.x, l.y, l.color, l.width, l.dash);
   const halo = theme.viewer.trackBg;
   for (const l of points) {
     const n = Math.min(l.x.length, l.y.length);
+    if (l.dense) {
+      drawDensePoints(ctx, m, l, theme);
+      continue;
+    }
     if (l.cloud) {
       const c = typeof l.color === 'string' ? l.color : null;
       ctx.fillStyle = withAlpha(c ?? theme.color.textMuted, theme.name === 'dark' ? 0.28 : 0.22);
@@ -288,7 +510,16 @@ export function drawXYScene(ctx: CanvasRenderingContext2D, m: XYMapping, xAxis: 
     }
   }
   ctx.restore();
+  for (const l of lines) drawLineLabel(ctx, l.y2 ? m2 : m, l, theme, ui);
   const boxes: { x: number; y: number; w: number; h: number }[] = [];
+  // Rótulos de las guías (cutoffs): las verticales se apilan en renglones, las horizontales se corren a la izquierda.
+  let xRow = 0;
+  let yRow = 0;
+  for (const g of guides) {
+    if (!g.label) continue;
+    const b = drawGuideLabel(ctx, m, g, theme, ui, g.axis === 'x' ? xRow++ : yRow++);
+    if (b) boxes.push(b);
+  }
   for (const t of trends) {
     const b = drawXYTrend(ctx, m, xAxis, t.coeffs, t.span, { color: t.color, extend: t.extend, label: t.label, emphasis: t.emphasis, ui }, theme, boxes);
     if (b) boxes.push(b);

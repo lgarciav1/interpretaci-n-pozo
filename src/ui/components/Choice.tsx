@@ -148,6 +148,7 @@ export function Tabs({ value, onChange, items, idBase, size = 'md', ...aria }: T
             tabIndex={selected ? 0 : -1}
             disabled={t.disabled}
             className="ui-tabs__tab"
+            title={typeof t.label === 'string' ? t.label : undefined}
             onClick={() => onChange(t.id)}
             onKeyDown={(e) => {
               const k = rovingKey(e, i, items.length);
@@ -159,7 +160,7 @@ export function Tabs({ value, onChange, items, idBase, size = 'md', ...aria }: T
             }}
           >
             {t.icon && <Icon name={t.icon} size={15} />}
-            <span>{t.label}</span>
+            <span className="ui-tabs__label">{t.label}</span>
             {t.badge !== undefined && t.badge !== null && <span className="ui-tabs__badge">{t.badge}</span>}
           </button>
         );

@@ -18,7 +18,7 @@ export {
   type ThemeName,
   type ThemePreference,
 } from './theme';
-export { CURVE_PALETTE, CURVE_SWATCHES, FILL_PALETTE, ZONE_PALETTE, curveStyle, dashPattern, fillColor, zoneColor, categoricalColor, type CurveStyle, type FillId, type LineStyle } from './curves';
+export { CURVE_PALETTE, CURVE_SWATCHES, FILL_PALETTE, SEQUENTIAL_PALETTE, ZONE_PALETTE, curveStyle, rampColor, dashPattern, fillColor, zoneColor, categoricalColor, type CurveStyle, type FillId, type LineStyle } from './curves';
 export { contrastRatio, ensureContrast, mix, withAlpha } from './color';
 export { decimalsForStep, formatNumber, formatParamValue, parseDecimal } from './format';
 export { positionToValue, stepValue, valueToPosition } from './scale';

@@ -5,7 +5,8 @@
  * Un crossplot o un histograma nuevo se vuelve exportable pasando `figureId` y `figureTitle`: no hay que tocar nada más.
  */
 import type { XYAxis } from './axes';
-import type { XYGuide, XYLineLayer, XYPointLayer, XYTrendLayer } from './layers';
+import type { XYColorKey } from './figure';
+import type { XYBarLayer, XYGuide, XYLineLayer, XYPointLayer, XYTrendLayer } from './layers';
 
 export interface XYFigureSource {
   id: string;
@@ -16,6 +17,12 @@ export interface XYFigureSource {
   lines: readonly XYLineLayer[];
   trends: readonly XYTrendLayer[];
   guides: readonly XYGuide[];
+  /** Barras (histograma). */
+  bars?: readonly XYBarLayer[];
+  /** Eje derecho (acumulada del histograma). */
+  y2?: XYAxis;
+  /** Barra de color por una tercera curva (crossplot libre). */
+  colorKey?: XYColorKey;
 }
 
 const sources = new Map<string, XYFigureSource>();

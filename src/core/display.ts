@@ -5,6 +5,7 @@
  * Es JSON puro (sin typed arrays) y vive fuera de `Interpretation`: cambiarla no recalcula el motor ni entra en
  * los snapshots. Las plantillas de fábrica están en `src/viewer/templates.ts` (el núcleo no importa del visor).
  */
+import { sanitizePlots, type WellPlots } from './plots';
 import type { RoleId } from './roles';
 import type { DimensionId } from './units';
 
@@ -133,6 +134,11 @@ export interface DisplaySettings {
    * Cada superposición interpreta sus claves (`OverlayTrackDecl.resolve`). Ausente = ninguno.
    */
   overlays?: Record<string, Record<string, string | number | boolean>>;
+  /**
+   * Configuración del histograma y del crossplot libre del dock, por pozo (docs/decisiones/0014). Ausente = valores
+   * por defecto (proyectos guardados antes de la fase 7a).
+   */
+  plots?: Record<string, WellPlots>;
 }
 
 export function emptyDisplay(): DisplaySettings {
@@ -328,5 +334,7 @@ export function sanitizeDisplay(raw: unknown, warn: (message: string) => void = 
     }
     if (Object.keys(overlays).length) out.overlays = overlays;
   }
+  const plots = sanitizePlots(raw['plots'], warn);
+  if (plots) out.plots = plots;
   return out;
 }

@@ -45,3 +45,34 @@
 .xy-plot__tip.is-left {
   transform: translate(calc(-100% - 12px), -50%);
 }
+.xy-plot__top {
+  position: absolute;
+  inset: 0;
+}
+/* Manija de una guía arrastrable (cutoff): se llega con Tab, flechas la mueven, Supr la quita. */
+.xy-plot__grip {
+  position: absolute;
+  z-index: var(--z-raised);
+  width: calc(12px * var(--ui-scale));
+  height: calc(12px * var(--ui-scale));
+  border: 2px solid var(--color-surface-raised);
+  border-radius: var(--radius-full);
+  background: var(--grip, var(--color-accent));
+  box-shadow: var(--shadow-xs);
+  cursor: ew-resize;
+  outline: none;
+  touch-action: none;
+}
+.xy-plot__grip.is-x {
+  transform: translate(-50%, -50%);
+}
+.xy-plot__grip.is-y {
+  transform: translate(-50%, -50%);
+  cursor: ns-resize;
+}
+.xy-plot__grip:hover {
+  transform: translate(-50%, -50%) scale(1.15);
+}
+.xy-plot__grip:focus-visible {
+  box-shadow: 0 0 0 2px var(--color-focus);
+}

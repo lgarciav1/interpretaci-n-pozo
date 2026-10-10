@@ -180,7 +180,19 @@
   box-shadow: var(--shadow-xs);
 }
 .shell-dock.is-collapsed { height: auto; margin-top: var(--space-2-5); }
-.shell-dock__bar { display: flex; align-items: center; flex: none; padding: 0 var(--space-2) 0 var(--space-2); border-bottom: 1px solid var(--color-border-subtle); }
+.shell-dock__bar { display: flex; align-items: center; flex: none; padding: 0 var(--space-2) 0 var(--space-2); border-bottom: 1px solid var(--color-border-subtle); container-type: inline-size; }
+/* Dock angosto (muchas pestañas): las no elegidas quedan solo con ícono (y su insignia); el nombre sigue siendo el
+   nombre accesible y aparece al pasar el mouse. Umbral en em: sigue al tamaño de interfaz. */
+@container (max-width: 74em) {
+  .shell-dock__bar .ui-tabs__tab[aria-selected='false'] .ui-tabs__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
 .shell-dock.is-collapsed .shell-dock__bar { border-bottom: 0; }
 .shell-dock__body { flex: 1; min-height: 0; overflow: auto; }
 .shell-dock__panel { min-height: 100%; }
