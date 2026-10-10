@@ -32,7 +32,10 @@ export interface RawTable {
   /** Metadatos del archivo (LAS: secciones ~W y ~P). */
   header: Record<string, HeaderEntry>;
   columns: RawColumn[];
-  /** Índice de la columna de profundidad dentro de `columns`. */
+  /**
+   * Índice de la columna de profundidad dentro de `columns`. −1 solo si se leyó con `requireDepth: false` y ninguna
+   * columna numérica se llama como una profundidad (tablas de presiones, plugs: el asistente la elige).
+   */
   depthColumn: number;
   rowCount: number;
   /** Número de fila/línea (desde 1) de cada muestra en el archivo, para mensajes de error. */
@@ -130,6 +133,11 @@ export interface TableContext {
   decimal?: '.' | ',';
   sheets?: string[];
   sheet?: string;
+  /**
+   * false: la tabla no es un perfil (presiones MDT, plugs): no se exige que la primera columna sea la profundidad y,
+   * si ninguna numérica se llama como una, `depthColumn` queda en −1 sin aviso.
+   */
+  requireDepth?: boolean;
 }
 
 /**
@@ -238,7 +246,9 @@ export function tableFromRows(allRows: string[][], allRowNumbers: number[], ctx:
   }
 
   let depthColumn = columns.findIndex((col) => isDepthName(col.name));
-  if (depthColumn < 0) {
+  if (ctx.requireDepth === false) {
+    if (depthColumn >= 0 && columns[depthColumn]!.kind !== 'numeric') depthColumn = -1;
+  } else if (depthColumn < 0) {
     depthColumn = 0;
     if (columns[0]!.kind === 'numeric') {
       warnings.push(
@@ -246,7 +256,7 @@ export function tableFromRows(allRows: string[][], allRowNumbers: number[], ctx:
       );
     }
   }
-  if (columns[depthColumn]!.kind !== 'numeric') {
+  if (ctx.requireDepth !== false && columns[depthColumn]!.kind !== 'numeric') {
     throw new Error(
       `No se encontró una columna de profundidad numérica: la columna '${columns[depthColumn]!.name}' tiene texto. ` +
         'La primera columna del archivo debe ser la profundidad.',

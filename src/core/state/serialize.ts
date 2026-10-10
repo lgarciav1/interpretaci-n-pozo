@@ -10,6 +10,7 @@
  */
 import { emptyDisplay, sanitizeDisplay, type DisplaySettings } from '../display';
 import type { Interpretation } from '../interpretation';
+import { createPointSet, isNumericColumn, sanitizePointSetDecisions, type PointColumn, type PointSet } from '../pointSets';
 import { sanitizeTrends } from '../trends';
 import { createWell, type Curve, type Well } from '../well';
 import { emptyProgress, type FlowProgress, type Project, type Snapshot } from './project';
@@ -21,8 +22,10 @@ export const PROJECT_FORMAT = 'pozo-proyecto';
  * - v2 (fase 3): `progress` por pozo (marcas del flujo guiado). Migración: v1 → progreso vacío.
  * - v3 (fase 4): `display` del proyecto (pistas propias y overrides del visor). Migración: v2 → `display` vacío.
  * - v4 (fase 6b-1): `interpretation.trends` (líneas de tendencia) en cada pozo y snapshot. Migración: v3 → `[]`.
+ * - v5 (fase 6b-2): `well.pointSets` (presiones MDT, plugs de corona) e `interpretation.pointSets` (decisiones sobre
+ *   sus puntos) en cada pozo y snapshot. Migración: v4 → `[]` y `{}`.
  */
-export const PROJECT_VERSION = 4;
+export const PROJECT_VERSION = 5;
 
 export type ArrayCodec = 'f64le-b64' | 'f64le-deflate-b64' | 'f64le-shuffle-deflate-b64';
 /** 'auto' = la variante comprimida más chica para cada array. */
@@ -38,9 +41,18 @@ interface SavedCurve extends Omit<Curve, 'data'> {
   data: EncodedArray;
 }
 
-interface SavedWell extends Omit<Well, 'depth' | 'curves'> {
+/** Columna de un conjunto de puntos: numérica (array codificado, con unidad) o de texto (lista de strings). */
+type SavedPointColumn = { label: string; unit: string; values: EncodedArray } | { label: string; text: string[] };
+
+interface SavedPointSet extends Omit<PointSet, 'depth' | 'columns'> {
+  depth: EncodedArray;
+  columns: Record<string, SavedPointColumn>;
+}
+
+interface SavedWell extends Omit<Well, 'depth' | 'curves' | 'pointSets'> {
   depth: { unit: 'm'; sourceUnit?: string; values: EncodedArray };
   curves: SavedCurve[];
+  pointSets: SavedPointSet[];
 }
 
 export interface ProjectFile {
@@ -168,6 +180,7 @@ export async function serializeProject(project: Project, opts: { codec?: CodecCh
           values: await encodeArray(well.depth.values, codec),
         },
         curves: await Promise.all(well.curves.map(async (c) => ({ ...c, data: await encodeArray(c.data, codec) }))),
+        pointSets: await Promise.all(well.pointSets.map((ps) => encodePointSet(ps, codec))),
       };
       return { well: saved, interpretation, progress };
     }),
@@ -179,6 +192,45 @@ export async function serializeProject(project: Project, opts: { codec?: CodecCh
     project: { name: project.name, activeWellId: project.activeWellId, wells, snapshots: project.snapshots, display: project.display },
   };
   return JSON.stringify(file);
+}
+
+async function encodePointSet(ps: PointSet, codec: CodecChoice): Promise<SavedPointSet> {
+  const columns: Record<string, SavedPointColumn> = {};
+  for (const [key, c] of Object.entries(ps.columns)) {
+    columns[key] = isNumericColumn(c) ? { label: c.label, unit: c.unit, values: await encodeArray(c.values, codec) } : { label: c.label, text: [...c.values] };
+  }
+  return { ...ps, pointIds: [...ps.pointIds], depth: await encodeArray(ps.depth, codec), columns };
+}
+
+/** Conjunto guardado → `PointSet` validado; null (con aviso) si está roto: no tira abajo el proyecto. */
+async function decodePointSet(raw: SavedPointSet, where: string, warn: (m: string) => void): Promise<PointSet | null> {
+  const label = `${where}, conjunto de puntos '${raw?.name ?? raw?.id ?? '?'}'`;
+  try {
+    if (!raw || typeof raw !== 'object' || !raw.depth || !Array.isArray(raw.pointIds)) throw new Error('le faltan la profundidad o los ids');
+    const columns: Record<string, PointColumn> = {};
+    for (const [key, c] of Object.entries(raw.columns ?? {})) {
+      if (c && 'values' in c && c.values && typeof c.values === 'object' && 'codec' in c.values) {
+        columns[key] = { label: String(c.label ?? key), unit: String(c.unit ?? 'unitless'), values: await decodeArray(c.values) };
+      } else if (c && 'text' in c && Array.isArray(c.text)) {
+        columns[key] = { label: String(c.label ?? key), values: c.text.map((v) => (typeof v === 'string' ? v : String(v ?? ''))) };
+      } else {
+        warn(`${label}: la columna '${key}' es inválida; se descarta.`);
+      }
+    }
+    return createPointSet({
+      id: raw.id,
+      kind: raw.kind,
+      name: raw.name,
+      ...(typeof raw.source === 'string' ? { source: raw.source } : {}),
+      ...(raw.synthetic === true ? { synthetic: true } : {}),
+      depth: await decodeArray(raw.depth),
+      pointIds: raw.pointIds,
+      columns,
+    });
+  } catch (err) {
+    warn(`${label}: ${err instanceof Error ? err.message : String(err)}; se descarta.`);
+    return null;
+  }
 }
 
 /** Migra archivos de versiones anteriores a la actual, de a una versión por vez. */
@@ -208,6 +260,19 @@ function migrate(file: ProjectFile): ProjectFile {
       },
     };
   }
+  if (f.version < 5) {
+    // v4 → v5: sin conjuntos de puntos en los pozos ni decisiones sobre ellos.
+    const withPoints = (i: Interpretation): Interpretation => ({ ...i, pointSets: {} });
+    f = {
+      ...f,
+      version: 5,
+      project: {
+        ...f.project,
+        wells: (f.project.wells ?? []).map((w) => ({ ...w, well: { ...w.well, pointSets: [] }, interpretation: withPoints(w.interpretation) })),
+        snapshots: (f.project.snapshots ?? []).map((s) => ({ ...s, interpretation: withPoints(s.interpretation) })),
+      },
+    };
+  }
   return f;
 }
 
@@ -229,12 +294,28 @@ export async function deserializeProject(text: string, opts: DeserializeOptions 
   }
   const { project } = migrate(file);
   const warn = opts.onWarning ?? ((m: string) => console.warn(`Proyecto: ${m}`));
-  /** Tendencias validadas al abrir: lo inválido se descarta con aviso (como `display`). */
-  const cleanInterp = (i: Interpretation, where: string): Interpretation => ({ ...i, trends: sanitizeTrends(i.trends, where, warn) });
+  /** Tendencias y decisiones sobre puntos validadas al abrir: lo inválido se descarta con aviso (como `display`). */
+  const cleanInterp = (i: Interpretation, where: string): Interpretation => ({
+    ...i,
+    trends: sanitizeTrends(i.trends, where, warn),
+    pointSets: sanitizePointSetDecisions(i.pointSets, where, warn),
+  });
   const wells = await Promise.all(
     project.wells.map(async ({ well, interpretation, progress }) => {
       const depth = await decodeArray(well.depth.values);
       const curves: Curve[] = await Promise.all(well.curves.map(async (c) => ({ ...c, data: await decodeArray(c.data) })));
+      const where = `Pozo '${well.name}'`;
+      const decoded = await Promise.all((Array.isArray(well.pointSets) ? well.pointSets : []).map((ps) => decodePointSet(ps, where, warn)));
+      const ids = new Set<string>();
+      const pointSets = decoded.filter((ps): ps is PointSet => {
+        if (!ps) return false;
+        if (ids.has(ps.id)) {
+          warn(`${where}: el conjunto de puntos '${ps.id}' está repetido; se descarta el segundo.`);
+          return false;
+        }
+        ids.add(ps.id);
+        return true;
+      });
       const restored = createWell({
         id: well.id,
         name: well.name,
@@ -242,8 +323,9 @@ export async function deserializeProject(text: string, opts: DeserializeOptions 
         depth,
         ...(well.depth.sourceUnit ? { depthSourceUnit: well.depth.sourceUnit } : {}),
         curves,
+        pointSets,
       });
-      return { well: restored, interpretation: cleanInterp(interpretation, `Pozo '${well.name}'`), progress: progress ?? emptyProgress() };
+      return { well: restored, interpretation: cleanInterp(interpretation, where), progress: progress ?? emptyProgress() };
     }),
   );
   return {

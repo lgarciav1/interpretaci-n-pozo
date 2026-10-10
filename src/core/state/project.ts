@@ -97,6 +97,14 @@ function mapWell(project: Project, wellId: string, fn: (e: WellEntry) => WellEnt
   return { ...project, wells };
 }
 
+/** Aplica `fn` al pozo (datos) de una entrada. Si devuelve el mismo pozo, el proyecto no cambia. */
+export function updateWell(project: Project, wellId: string, fn: (w: Well) => Well): Project {
+  return mapWell(project, wellId, (e) => {
+    const well = fn(e.well);
+    return well === e.well ? e : { ...e, well };
+  });
+}
+
 export function updateInterpretation(
   project: Project,
   wellId: string,
@@ -282,4 +290,18 @@ export function setCurveDisplay(project: Project, wellId: string, curveId: strin
   if (Object.keys(forWell).length) curves[wellId] = forWell;
   else delete curves[wellId];
   return { ...project, display: { ...project.display, curves } };
+}
+
+/** Ajuste de la pista propia de una superposición (p. ej. unidad de la pista de presión). `undefined` lo quita. */
+export function setOverlaySetting(project: Project, overlayId: string, key: string, value: string | number | boolean | undefined): Project {
+  const prev = project.display.overlays?.[overlayId] ?? {};
+  if (prev[key] === value) return project;
+  const next = { ...prev };
+  if (value === undefined) delete next[key];
+  else next[key] = value;
+  const overlays = { ...project.display.overlays };
+  if (Object.keys(next).length) overlays[overlayId] = next;
+  else delete overlays[overlayId];
+  const { overlays: _old, ...rest } = project.display;
+  return { ...project, display: Object.keys(overlays).length ? { ...rest, overlays } : rest };
 }

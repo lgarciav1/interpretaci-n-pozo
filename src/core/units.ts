@@ -23,6 +23,7 @@ export type DimensionId =
   | 'volume'
   | 'volumeRatio'
   | 'temperatureGradient'
+  | 'mobility'
   | 'dimensionless';
 
 export type KnownUnitId =
@@ -52,6 +53,8 @@ export type KnownUnitId =
   | 'MPa'
   | 'psi'
   | 'bar'
+  | 'kgf/cm2'
+  | 'mD/cP'
   | 'm2'
   | 'km2'
   | 'ha'
@@ -120,6 +123,10 @@ const BUILTIN_UNITS: UnitDef[] = [
   { id: 'MPa', label: 'MPa', dimension: 'pressure', factor: 1000 },
   { id: 'psi', label: 'psi', dimension: 'pressure', factor: 6.894757293168361 },
   { id: 'bar', label: 'bar', dimension: 'pressure', factor: 100 },
+  // kg/cm² (kilogramo fuerza): unidad habitual en informes de pozos argentinos. 1 kgf/cm² = 98,0665 kPa.
+  { id: 'kgf/cm2', label: 'kg/cm²', dimension: 'pressure', factor: 98.0665 },
+  // Movilidad k/µ de un ensayo de formación (MDT/RFT), base: mD/cP.
+  { id: 'mD/cP', label: 'mD/cP', dimension: 'mobility', factor: 1 },
   // Área (base: m²)
   { id: 'm2', label: 'm²', dimension: 'area', factor: 1 },
   { id: 'km2', label: 'km²', dimension: 'area', factor: 1e6 },
@@ -171,6 +178,9 @@ const BUILTIN_ALIASES: Record<string, UnitId> = {
   'WT%': 'wt%',
   MD: 'mD', D: 'D',
   KPA: 'kPa', MPA: 'MPa', PSI: 'psi', BAR: 'bar',
+  // Presión absoluta o manométrica: los gradientes y contactos no dependen del cero (solo hay que no mezclarlas).
+  PSIA: 'psi', PSIG: 'psi', BARA: 'bar', BARG: 'bar', 'KG/CM2': 'kgf/cm2', 'KGF/CM2': 'kgf/cm2', 'KG/CM²': 'kgf/cm2', 'KGF/CM²': 'kgf/cm2',
+  'MD/CP': 'mD/cP', 'MD/CPS': 'mD/cP',
   M2: 'm2', KM2: 'km2', HA: 'ha', ACRE: 'acre', ACRES: 'acre',
   M3: 'm3', BBL: 'bbl', FT3: 'ft3',
   '': 'unitless', '-': 'unitless', UNITLESS: 'unitless', NONE: 'unitless',

@@ -71,8 +71,9 @@ Una pista es un `TrackSpec` (`src/core/display.ts`, JSON puro que se guarda en e
 ## Superposiciones (para módulos)
 
 Un módulo dibuja sobre el perfil con `src/modules/<id>/overlay.ts` (se descubre solo; el worker no lo importa).
-Ejemplo: presiones MDT en una **pista propia**, con puntos **arrastrables** en profundidad y presión, vista previa
-en vivo, Escape para cancelar y ↑/↓ para ajustar el punto activo.
+Ejemplo ilustrativo de puntos **arrastrables** en una **pista propia**, con vista previa en vivo, Escape para cancelar
+y ↑/↓ para ajustar el punto activo. La implementación real de presiones MDT (puntos que se incluyen o descartan con un
+clic, escala automática, contactos que cruzan todas las pistas) está en `src/modules/mdt/overlay.ts`.
 
 ```ts
 import type { ViewerOverlay } from '../../viewer/overlay';
@@ -134,7 +135,15 @@ export const overlays: ViewerOverlay[] = [
 - **Elegir un tramo** (tendencias, histograma por tramo): en modo selección, `hit` devuelve un `drag` en cualquier
   punto; `move(p, start)` recibe los dos extremos (`start.depth`, `p.depth`).
 - `frame.data` trae profundidad, zonas, zona seleccionada, QC y, en solo lectura, el pozo, la interpretación y las
-  curvas calculadas activos. Para cambiar el proyecto, una receta por `useProject.getState().commit(...)`.
+  curvas calculadas activos. Para cambiar el proyecto, una receta pura por `frame.data.commit(etiqueta, receta)` (la
+  misma vía que `useProject.getState().commit`, sin importar los stores; se deshace con Ctrl+Z).
+- **Pista propia dinámica** (6b-2): `track.resolve({ well, settings })` devuelve escala, unidad y título según los
+  datos del pozo y los ajustes que eligió el usuario (`project.display.overlays[id]`, p. ej. `{ unit: 'bar' }`);
+  null oculta la pista (el pozo no tiene esos datos). `track.scale` queda de respaldo. `tracks[i].unit` dice la unidad
+  de la escala: quien dibuja datos en otra unidad los convierte (las tendencias lo hacen solas).
+- **Prioridad del puntero**: primero la capa 'over' y, dentro de cada capa, el `order` más alto. Con tendencias y
+  MDT: herramienta «elegir tramo» y manijas (`trends`, 20) > puntos MDT (`mdt`, 10) > líneas de tendencia
+  (`trends-lines`, 5). Así un punto sobre su gradiente responde al punto y la herramienta nunca queda tapada.
 - Cualquier error de una superposición queda aislado (`guard`) y se registra en la consola. Los ids son únicos.
 - **Teclado** (fase 4b): `targets(frame)` devuelve `{ depth, hit }` por elemento (con `hit.key`). El visor crea un
   botón accesible por cada uno: Tab los recorre, al enfocarlo queda activo (↑/↓ → `nudge`, Enter → `activate`) y

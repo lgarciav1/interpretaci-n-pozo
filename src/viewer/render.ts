@@ -76,6 +76,7 @@ export function overlayTracks(tracks: readonly ResolvedTrack[], boxes: readonly 
       kind: t.kind,
       title: t.title,
       ...(t.overlayId ? { overlayId: t.overlayId } : {}),
+      ...(t.unit !== undefined ? { unit: t.unit } : {}),
       x: box.x,
       width: box.width,
       curves: t.curves,

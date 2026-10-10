@@ -117,6 +117,8 @@ export interface TrendGeometry {
   handles: ([number, number] | null)[];
   /** Ancla para la etiqueta: el primer punto visible del tramo sólido (null si no se ve). */
   anchor: [number, number] | null;
+  /** Punto medio (en x de datos) del tramo sólido visible, en px: ancla de las etiquetas «al costado». */
+  middle: [number, number] | null;
 }
 
 export function trendGeometry(g: TrendGeometryInput): TrendGeometry {
@@ -137,6 +139,7 @@ export function trendGeometry(g: TrendGeometryInput): TrendGeometry {
     dashed,
     handles: g.handles.map((h) => projectPoint(g.mapping, h.x, h.y)),
     anchor: first ? [first[0]!, first[1]!] : null,
+    middle: a < b ? projectPoint(g.mapping, (a + b) / 2, evalTrend(g.coeffs, (a + b) / 2)) : null,
   };
 }
 
@@ -254,18 +257,21 @@ export function drawTrendLabel(
   bounds: { x0: number; x1: number; y0: number; y1: number },
   style: LabelStyle,
   avoid: readonly { x: number; y: number; w: number; h: number }[] = [],
+  /** 'above': arriba a la derecha del ancla (por defecto); 'beside': a la derecha, centrada en el ancla. */
+  placement: 'above' | 'beside' = 'above',
 ): { x: number; y: number; w: number; h: number } {
   ctx.save();
   ctx.font = style.fontStrong;
   const w1 = ctx.measureText(lines[0]).width;
   ctx.font = style.font;
   const w2 = ctx.measureText(lines[1]).width;
-  const w = Math.ceil(Math.max(w1, w2)) + 18;
-  const h = 34;
+  const single = lines[1] === '';
+  const w = Math.ceil(Math.max(w1, single ? 0 : w2)) + 18;
+  const h = single ? 20 : 34;
   let x = Math.min(bounds.x1 - w - 4, anchor[0] + 10);
   x = Math.max(bounds.x0 + 4, x);
-  let y = anchor[1] - h - 8;
-  if (y < bounds.y0 + 4) y = anchor[1] + 10;
+  let y = placement === 'beside' ? anchor[1] - h / 2 : anchor[1] - h - 8;
+  if (placement === 'above' && y < bounds.y0 + 4) y = anchor[1] + 10;
   y = Math.min(bounds.y1 - h - 4, Math.max(bounds.y0 + 4, y));
   // Si choca con otra etiqueta, se corre hacia abajo.
   for (let k = 0; k < 10; k++) {
@@ -288,10 +294,12 @@ export function drawTrendLabel(
   ctx.textBaseline = 'middle';
   ctx.fillStyle = style.ink;
   ctx.font = style.fontStrong;
-  ctx.fillText(lines[0], x + 12, y + 11);
-  ctx.fillStyle = style.muted;
-  ctx.font = style.font;
-  ctx.fillText(lines[1], x + 12, y + 24.5);
+  ctx.fillText(lines[0], x + 12, single ? y + 10.5 : y + 11);
+  if (!single) {
+    ctx.fillStyle = style.muted;
+    ctx.font = style.font;
+    ctx.fillText(lines[1], x + 12, y + 24.5);
+  }
   ctx.restore();
   return { x, y, w, h };
 }

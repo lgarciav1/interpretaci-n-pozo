@@ -8,6 +8,7 @@
  *   El motor detecta cambios por identidad del array (no compara contenido).
  * - `unit` es la unidad en la que están los datos de la curva; el motor convierte a la unidad canónica del rol.
  */
+import type { PointSet } from './pointSets';
 import type { RoleId } from './roles';
 import type { UnitId } from './units';
 
@@ -53,6 +54,11 @@ export interface Well {
   depth: DepthIndex;
   /** Solo curvas medidas o importadas. Las calculadas son resultados del motor y no se guardan acá. */
   curves: Curve[];
+  /**
+   * Mediciones puntuales en profundidad (presiones MDT, plugs de corona): ver `pointSets.ts`. El motor no las lee
+   * (cambiarlas no recalcula nada); las usan superposiciones, proveedores de series y paneles de módulos.
+   */
+  pointSets: PointSet[];
 }
 
 export type ZoneKind = 'formation' | 'reservoir' | 'seal' | 'other';
@@ -98,6 +104,7 @@ export interface CreateWellInput {
   depth: Float64Array;
   depthSourceUnit?: UnitId;
   curves: Curve[];
+  pointSets?: PointSet[];
 }
 
 /** Crea un pozo validando que todas las curvas estén alineadas con la profundidad y que los ids sean únicos. */
@@ -114,7 +121,12 @@ export function createWell(input: CreateWellInput): Well {
       );
     }
   }
-  return { id: input.id, name: input.name, header: input.header ?? {}, depth, curves: input.curves };
+  const setIds = new Set<string>();
+  for (const s of input.pointSets ?? []) {
+    if (setIds.has(s.id)) throw new Error(`Hay dos conjuntos de puntos con el id '${s.id}'.`);
+    setIds.add(s.id);
+  }
+  return { id: input.id, name: input.name, header: input.header ?? {}, depth, curves: input.curves, pointSets: input.pointSets ?? [] };
 }
 
 /** Espesor representado por cada muestra (m): mitad del intervalo a cada lado. */

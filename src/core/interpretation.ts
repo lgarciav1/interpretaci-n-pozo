@@ -3,6 +3,7 @@
  * Es JSON puro (sin typed arrays): se guarda en el proyecto, en los snapshots y se manda al worker en cada cambio.
  */
 import { emptyParamState, type ParamState } from './params';
+import type { PointSetDecisions } from './pointSets';
 import type { TrendSpec } from './trends';
 import type { Zone } from './well';
 
@@ -27,10 +28,16 @@ export interface Interpretation {
    * los módulos no las incluye y `sameEngineInputs` evita pedir un cálculo cuando solo cambiaron ellas.
    */
   trends: TrendSpec[];
+  /**
+   * Decisiones del usuario sobre los conjuntos de puntos del pozo (`Well.pointSets`), por id de conjunto: puntos
+   * descartados o incluidos a mano, etiquetas (fluido), puesta en profundidad, ajustes del módulo. Docs: 0009.
+   * Como las tendencias, el motor no las lee (`sameEngineInputs` no las compara).
+   */
+  pointSets: Record<string, PointSetDecisions>;
 }
 
 export function emptyInterpretation(zones: Zone[] = []): Interpretation {
-  return { zones, params: emptyParamState(), sources: {}, compare: [], disabled: [], trends: [] };
+  return { zones, params: emptyParamState(), sources: {}, compare: [], disabled: [], trends: [], pointSets: {} };
 }
 
 /**

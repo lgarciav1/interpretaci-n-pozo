@@ -9,7 +9,7 @@ import type { TrendPatch } from '../../src/core/state/trends';
 import { emptyInterpretation } from '../../src/core/interpretation';
 import { defaultRoleCatalog } from '../../src/core/roles';
 import { createWell, type Curve } from '../../src/core/well';
-import { createTrendsOverlays, TRENDS_OVERLAY_ID, type NewTrendInput, type TrendTool } from '../../src/plots/trend/overlay';
+import { createTrendsOverlays, TRENDS_LINES_ID, TRENDS_OVERLAY_ID, type NewTrendInput, type TrendTool } from '../../src/plots/trend/overlay';
 import { curveSeriesProvider } from '../../src/plots/trend/series';
 import { THEMES } from '../../src/ui/tokens';
 import { PointerGestures, type GestureHost, type HitResult, type Point } from '../../src/viewer/interaction';
@@ -92,8 +92,9 @@ function setup() {
     setViewport: (v) => (state.vp = v),
     pointerAt,
     hitAt: (p): HitResult | null => {
-      // Como WellViewer: las 'over' primero.
-      for (const o of [...overlays].reverse()) {
+      // Como WellViewer: las 'over' primero y, dentro de cada capa, la de mayor orden primero.
+      const ordered = [...overlays].sort((a, b) => (a.layer === b.layer ? (b.order ?? 0) - (a.order ?? 0) : a.layer === 'over' ? -1 : 1));
+      for (const o of ordered) {
         const hit = o.hit?.(frame(), pointerAt(p));
         if (hit) return { overlayId: o.id, hit };
       }
@@ -102,7 +103,9 @@ function setup() {
     requestTick: () => {},
   };
   const over = overlays.find((o) => o.id === TRENDS_OVERLAY_ID)!;
-  return { app, state, gestures: new PointerGestures(host), frame, over, pointerAt };
+  // La línea (seleccionar, tooltip) responde en una superposición aparte, con menos prioridad que otras.
+  const lines = overlays.find((o) => o.id === TRENDS_LINES_ID)!;
+  return { app, state, gestures: new PointerGestures(host), frame, over, lines, pointerAt };
 }
 
 const t0 = overlayTracks(tracks, boxes)[0]!;
@@ -230,7 +233,8 @@ describe('manijas, teclado y muestras', () => {
     s.state.vp = showRange(viewportLimits(depth, 400, 0.5), 400, 1190, 1210) as Viewport;
     s.app.trends = [fitTrend()];
     const onLine = onCurve(s.state.vp, 1200.25); // entre dos muestras: la más cercana está a 5 px
-    let hit = s.over.hit!(s.frame(), s.pointerAt({ x: onLine.x, y: onLine.y }));
+    expect(s.over.hit!(s.frame(), s.pointerAt({ x: onLine.x, y: onLine.y }))).toBeNull();
+    let hit = s.lines.hit!(s.frame(), s.pointerAt({ x: onLine.x, y: onLine.y }));
     expect(hit?.label).toMatch(/DT = /);
     hit!.activate!();
     expect(s.app.selected).toBe('t1');
@@ -248,7 +252,7 @@ describe('manijas, teclado y muestras', () => {
 
   it('el tooltip muestra ecuación, R², n y el gradiente en unidades de campo', () => {
     s.app.trends = [fitTrend()];
-    const hit = s.over.hit!(s.frame(), s.pointerAt(onCurve(s.state.vp, 1200)));
+    const hit = s.lines.hit!(s.frame(), s.pointerAt(onCurve(s.state.vp, 1200)));
     expect(hit?.label).toMatch(/DT = −0,1·z \+ 200/);
     expect(hit?.label).toMatch(/R² 1,000 · n 201/);
     expect(hit?.label).toMatch(/Gradiente: −0,1 µs\/ft por m/);
@@ -258,6 +262,7 @@ describe('manijas, teclado y muestras', () => {
   it('una tendencia oculta o de una curva que no existe no se dibuja ni responde', () => {
     s.app.trends = [{ ...fitTrend(), visible: false }, { ...fitTrend(), id: 't2', series: { provider: 'curve', key: 'm:NADA' } }];
     expect(s.over.hit!(s.frame(), s.pointerAt(onCurve(s.state.vp, 1250)))).toBeNull();
+    expect(s.lines.hit!(s.frame(), s.pointerAt(onCurve(s.state.vp, 1250)))).toBeNull();
     expect(s.over.targets!(s.frame())).toEqual([]);
   });
 });

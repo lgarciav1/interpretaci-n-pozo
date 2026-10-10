@@ -37,20 +37,21 @@ export function createTrend(input: NewTrendInput): TrendSpec | null {
   if (!entry) return null;
   const spec: TrendSpec = {
     id: makeId('tend'),
-    name: nextTrendName(entry.interpretation.trends, `${input.seriesLabel} · ${input.mode === 'manual' ? 'a mano' : 'tendencia'}`),
+    name: nextTrendName(entry.interpretation.trends, input.name ?? `${input.seriesLabel} · ${input.mode === 'manual' ? 'a mano' : 'tendencia'}`),
+    ...(input.color ? { color: input.color } : {}),
     visible: true,
     series: input.series,
     model: input.model,
     mode: input.mode,
     selection: input.selection,
     ...(input.manual ? { manual: input.manual } : {}),
-    extend: input.mode === 'manual',
+    extend: input.extend ?? input.mode === 'manual',
   };
   commitTrends(input.mode === 'manual' ? 'Dibujar tendencia a mano' : 'Agregar tendencia', (p, w) => addTrend(p, w, spec));
   useTrendsUi.getState().set({ selectedId: spec.id });
   // El panel muestra la ecuación y los gradientes: se abre (sin robar el foco).
   const ui = useUi.getState();
-  if (ui.dockTab !== 'trends' || ui.layout.dockCollapsed) {
+  if (input.openPanel !== false && (ui.dockTab !== 'trends' || ui.layout.dockCollapsed)) {
     ui.set({ dockTab: 'trends' });
     if (ui.layout.dockCollapsed) ui.setLayout({ dockCollapsed: false });
   }

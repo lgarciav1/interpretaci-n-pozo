@@ -12,6 +12,7 @@
  * - Tooltip con ecuación, R², n y gradientes; clic selecciona; doble clic muestra el tramo.
  */
 import type { TrendPatch } from '../../core/state/trends';
+import { conversionCoefficients, isKnownUnit, sameDimension } from '../../core/units';
 import type { SeriesRef, TrendPoint, TrendSelection, TrendSpec } from '../../core/trends';
 import { evalTrend, type TrendModel } from '../../petro/regression';
 import { ensureContrast, withAlpha } from '../../ui/color';
@@ -20,11 +21,16 @@ import { BASE_TOKENS, type ThemeName, type ThemeTokens } from '../../ui/tokens';
 import type { OverlayFrame, OverlayHit, OverlayHitFrame, OverlayPointer, OverlayTarget, OverlayTrack, ViewerData, ViewerOverlay } from '../../viewer/overlay';
 import { evaluateTrend, excludedIndices, type TrendPreview, type TrendResult } from './compute';
 import { distanceToPolylines, drawTrend, drawTrendLabel, trendGeometry, type TrendGeometry, type TrendMapping } from './draw';
-import { trendCanvasLabel, trendTooltip } from './format';
+import { trendCanvasLabel, trendGradientLabel, trendTooltip } from './format';
 import { CURVE_PROVIDER_ID, curveSeriesKey, lowerBound, upperBound, type ResolvedSeries } from './series';
 
 export const TRENDS_OVERLAY_ID = 'trends';
 export const TRENDS_BANDS_ID = 'trends-bands';
+/**
+ * `hit` sobre las líneas (seleccionar, tooltip), con MENOS prioridad que los elementos de otras superposiciones
+ * (puntos MDT, plugs): un punto sobre su gradiente responde al punto, no a la línea.
+ */
+export const TRENDS_LINES_ID = 'trends-lines';
 /** Distancia (px) para agarrar una manija, tocar la línea o una muestra. */
 export const HANDLE_HIT_PX = 8;
 export const LINE_HIT_PX = 5;
@@ -51,11 +57,23 @@ export interface TrendTool {
   trendId?: string;
   /** Modelo para una tendencia nueva (por defecto lineal). */
   model?: TrendModel;
+  /**
+   * Tendencia nueva sobre ESTA serie en vez de la curva más cercana al puntero (p. ej. «Nuevo gradiente» del panel
+   * MDT, sobre la serie de presiones): el arrastre vale en cualquier pista; `name` y `color` van a la tendencia.
+   */
+  series?: { ref: SeriesRef; label: string; name?: string; color?: string; hint?: string; extend?: boolean };
 }
 
 export interface NewTrendInput {
   series: SeriesRef;
   seriesLabel: string;
+  /** Nombre y color propios (si faltan, la app los elige). */
+  name?: string;
+  color?: string;
+  /** false: no abrir el panel «Tendencias» (la creó otro panel que ya muestra el resultado, p. ej. MDT). */
+  openPanel?: boolean;
+  /** Dibujar la extensión (por defecto, solo a mano). Gradientes MDT: sí, para ver dónde se cortan. */
+  extend?: boolean;
   mode: 'fit' | 'manual';
   model: TrendModel;
   selection: TrendSelection;
@@ -110,13 +128,54 @@ interface Placed {
 
 const m1 = (d: number) => `${formatNumber(d, { digits: 1 })} m`;
 
+/** Manija más cercana al puntero (a menos de HANDLE_HIT_PX; la de la seleccionada gana los empates). */
+function nearestHandle(placed: readonly Placed[], p: OverlayPointer, selected: string | null): { pl: Placed; i: number } | null {
+  let best: { pl: Placed; i: number; d: number } | null = null;
+  for (const pl of placed) {
+    pl.geom?.handles.forEach((h, i) => {
+      if (!h) return;
+      const d = Math.hypot(h[0] - p.x, h[1] - p.y) - (pl.spec.id === selected ? 1.5 : 0);
+      if (d <= HANDLE_HIT_PX && (!best || d < best.d)) best = { pl, i, d };
+    });
+  }
+  return best;
+}
+
+/** Vistas de pista que convierten de la unidad de la serie a la de la pista (caché por pista y unidades). */
+const convertedTracks = new WeakMap<OverlayTrack, Map<string, OverlayTrack>>();
+
+/**
+ * Pista propia en otra unidad que la serie (presiones en psi en una pista en bar): una vista de la pista cuyos
+ * `xOf`/`valueOf` reciben y devuelven valores en la unidad de la SERIE. Sin conversión posible, la misma pista.
+ */
+function inSeriesUnit(t: OverlayTrack, seriesUnit: string): OverlayTrack {
+  const tu = t.unit;
+  if (!tu || tu === seriesUnit || !isKnownUnit(tu) || !isKnownUnit(seriesUnit) || !sameDimension(tu, seriesUnit)) return t;
+  let byUnit = convertedTracks.get(t);
+  if (!byUnit) convertedTracks.set(t, (byUnit = new Map()));
+  let v = byUnit.get(seriesUnit);
+  if (!v) {
+    const [a, b] = conversionCoefficients(seriesUnit, tu);
+    v = {
+      ...t,
+      xOf: (k, value) => t.xOf(k, value * a + b),
+      valueOf: (k, x) => {
+        const r = t.valueOf(k, x);
+        return r === null ? null : (r - b) / a;
+      },
+    };
+    byUnit.set(seriesUnit, v);
+  }
+  return v;
+}
+
 /** Pista de una serie según su `placement`. */
 function findTrack(tracks: readonly OverlayTrack[], s: ResolvedSeries): { track: OverlayTrack; key: string | null } | null {
   const pl = s.placement;
   if (!pl) return null;
   if ('overlayId' in pl) {
     const t = tracks.find((tr) => tr.overlayId === pl.overlayId);
-    return t ? { track: t, key: null } : null;
+    return t ? { track: inSeriesUnit(t, s.yUnit), key: null } : null;
   }
   const k = pl.roleOrKey;
   const t =
@@ -256,14 +315,15 @@ export function createTrendsOverlays(opts: TrendsOverlayOptions): ViewerOverlay[
       seriesLabel = series.label;
       base = existing;
     } else {
-      const near = nearestCurve(frame, p);
+      const near = tool.series ?? nearestCurve(frame, p);
       if (!near) return null;
       series = opts.resolve(frame.data, near.ref);
       if (!series) return null;
       seriesLabel = near.label;
       base = {
         id: '__nueva__',
-        name: near.label,
+        name: tool.series?.name ?? near.label,
+        ...(tool.series?.color ? { color: tool.series.color } : {}),
         visible: true,
         series: near.ref,
         model: tool.model ?? 'linear',
@@ -326,7 +386,18 @@ export function createTrendsOverlays(opts: TrendsOverlayOptions): ViewerOverlay[
             const patch: TrendPatch = manualMode ? { mode: 'manual', manual: b.change.manual!, selection: b.change.selection! } : { mode: 'fit', manual: undefined, selection: b.change.selection! };
             edit.update(existing.id, patch, manualMode ? 'Dibujar la tendencia a mano' : 'Mover tramo de la tendencia');
           } else {
-            edit.create({ series: base.series, seriesLabel, mode: manualMode ? 'manual' : 'fit', model: base.model, selection: b.change.selection!, ...(manualMode ? { manual: b.change.manual! } : {}) });
+            edit.create({
+              series: base.series,
+              seriesLabel,
+              mode: manualMode ? 'manual' : 'fit',
+              model: base.model,
+              selection: b.change.selection!,
+              ...(manualMode ? { manual: b.change.manual! } : {}),
+              ...(tool.series?.name ? { name: tool.series.name } : {}),
+              ...(tool.series?.color ? { color: tool.series.color } : {}),
+              ...(tool.series ? { openPanel: false } : {}),
+              ...(tool.series?.extend !== undefined ? { extend: tool.series.extend } : {}),
+            });
           }
           edit.finishTool();
         },
@@ -425,7 +496,7 @@ export function createTrendsOverlays(opts: TrendsOverlayOptions): ViewerOverlay[
   // ── muestras (excluir / incluir) ───────────────────────────────────────────────────────────────────────────
 
   const sampleHit = (frame: OverlayHitFrame, pl: Placed, p: OverlayPointer): OverlayHit | null => {
-    if (!edit || pl.spec.mode !== 'fit' || p.track?.id !== pl.track.id || !pl.result.span) return null;
+    if (!edit || pl.spec.mode !== 'fit' || p.track?.id !== pl.track.id || !pl.result.span || pl.series.pickSamples === false) return null;
     const s = pl.series;
     const vp = frame.viewport;
     const [x0, x1] = pl.result.span;
@@ -523,10 +594,14 @@ export function createTrendsOverlays(opts: TrendsOverlayOptions): ViewerOverlay[
       // la esquivan).
       for (const pl of placed) for (const h of pl.geom?.handles ?? []) if (h) labels.push({ x: h[0] - 7, y: h[1] - 7, w: 14, h: 14 });
       for (const pl of [...placed].reverse()) {
-        if (!pl.geom?.anchor || !pl.result.coeffs) continue;
+        // Etiqueta de una línea (pistas angostas): al costado del medio del tramo, lejos de los extremos (donde se
+        // cruzan los gradientes de una pista de presiones).
+        const compact = pl.series.canvasLabel === 'gradient';
+        const anchor = compact ? (pl.geom?.middle ?? pl.geom?.anchor) : pl.geom?.anchor;
+        if (!anchor || !pl.result.coeffs) continue;
         const hot = isHot(pl);
         labels.push(
-          drawTrendLabel(ctx, trendCanvasLabel(pl.spec, pl.result, pl.series), pl.geom.anchor, { x0: 0, x1: width, y0: 0, y1: vp.height }, {
+          drawTrendLabel(ctx, compact ? trendGradientLabel(pl.spec, pl.result) : trendCanvasLabel(pl.spec, pl.result, pl.series), anchor, { x0: 0, x1: width, y0: 0, y1: vp.height }, {
             color: pl.color,
             bg: withAlpha(theme.color.surfaceRaised, hot ? 0.97 : 0.9),
             border: hot ? withAlpha(pl.color, 0.7) : theme.color.border,
@@ -534,7 +609,7 @@ export function createTrendsOverlays(opts: TrendsOverlayOptions): ViewerOverlay[
             muted: theme.color.textMuted,
             font,
             fontStrong,
-          }, labels),
+          }, labels, compact ? 'beside' : 'above'),
         );
       }
       // Vista previa sin ajuste posible: aviso junto al puntero del tramo.
@@ -565,41 +640,18 @@ export function createTrendsOverlays(opts: TrendsOverlayOptions): ViewerOverlay[
       if (tool) return toolHit(frame, p, tool);
       const placed = layout(frame);
       const selected = edit?.selected() ?? null;
-      // 1) Manijas (la seleccionada primero).
-      let bestH: { pl: Placed; i: number; d: number } | null = null;
-      for (const pl of placed) {
-        pl.geom?.handles.forEach((h, i) => {
-          if (!h) return;
-          const d = Math.hypot(h[0] - p.x, h[1] - p.y) - (pl.spec.id === selected ? 1.5 : 0);
-          if (d <= HANDLE_HIT_PX && (!bestH || d < bestH.d)) bestH = { pl, i, d };
-        });
-      }
-      if (bestH && edit) {
-        const { pl, i } = bestH as { pl: Placed; i: number };
-        return handleHit(pl, pl.handles[i]!);
-      }
+      // 1) Manijas (la seleccionada primero). Las de series cuyos puntos maneja otra superposición van en `lines`,
+      // con menos prioridad que esos puntos.
+      const bestH = nearestHandle(placed.filter((pl) => pl.series.pickSamples !== false), p, selected);
+      if (bestH && edit) return handleHit(bestH.pl, bestH.pl.handles[bestH.i]!);
       // 2) Muestras del tramo de la seleccionada (excluir / incluir).
       const sel = placed.find((pl) => pl.spec.id === selected);
       if (sel) {
         const h = sampleHit(frame, sel, p);
         if (h) return h;
       }
-      // 3) La línea.
-      let bestL: { pl: Placed; d: number } | null = null;
-      for (const pl of placed) {
-        if (!pl.geom || p.track?.id !== pl.track.id) continue;
-        const d = distanceToPolylines([...pl.geom.solid, ...pl.geom.dashed], p.x, p.y);
-        if (d <= LINE_HIT_PX && (!bestL || d < bestL.d)) bestL = { pl, d };
-      }
-      if (!bestL) return null;
-      const pl = (bestL as { pl: Placed }).pl;
-      const isSel = pl.spec.id === selected;
-      return {
-        label: trendTooltip(pl.spec, pl.result, pl.series, isSel ? 'Clic en una muestra del tramo: excluirla o incluirla · doble clic: ver el tramo' : 'Clic: seleccionar · doble clic: ver el tramo'),
-        cursor: 'pointer',
-        ...(edit ? { activate: () => edit.select(isSel ? null : pl.spec.id), doubleClick: () => edit.select(pl.spec.id) } : {}),
-        ...(pl.result.span ? { range: { top: pl.result.span[0], base: pl.result.span[1] } } : {}),
-      };
+      // 3) La línea: en `lines`, con menos prioridad que los elementos de otras superposiciones.
+      return null;
     },
     targets(frame): OverlayTarget[] {
       frameRef = frame;
@@ -610,7 +662,43 @@ export function createTrendsOverlays(opts: TrendsOverlayOptions): ViewerOverlay[
     },
     ...(opts.subscribe ? { subscribe: opts.subscribe } : {}),
   };
-  return [bands, over];
+
+  const lines: ViewerOverlay = {
+    id: TRENDS_LINES_ID,
+    label: 'Tendencias (líneas)',
+    layer: 'over',
+    order: 5,
+    draw() {},
+    hit(frame, p) {
+      frameRef = frame;
+      if (edit?.blocked?.() || edit?.tool()) return null;
+      const placed = layout(frame);
+      const selected = edit?.selected() ?? null;
+      const owned = nearestHandle(placed.filter((pl) => pl.series.pickSamples === false), p, selected);
+      if (owned && edit) return handleHit(owned.pl, owned.pl.handles[owned.i]!);
+      let bestL: { pl: Placed; d: number } | null = null;
+      for (const pl of placed) {
+        if (!pl.geom || p.track?.id !== pl.track.id) continue;
+        const d = distanceToPolylines([...pl.geom.solid, ...pl.geom.dashed], p.x, p.y);
+        if (d <= LINE_HIT_PX && (!bestL || d < bestL.d)) bestL = { pl, d };
+      }
+      if (!bestL) return null;
+      const pl = (bestL as { pl: Placed }).pl;
+      const isSel = pl.spec.id === selected;
+      const hint = isSel
+        ? pl.series.pickSamples === false
+          ? 'Clic: deseleccionar · doble clic: ver el tramo'
+          : 'Clic en una muestra del tramo: excluirla o incluirla · doble clic: ver el tramo'
+        : 'Clic: seleccionar · doble clic: ver el tramo';
+      return {
+        label: trendTooltip(pl.spec, pl.result, pl.series, hint),
+        cursor: 'pointer',
+        ...(edit ? { activate: () => edit.select(isSel ? null : pl.spec.id), doubleClick: () => edit.select(pl.spec.id) } : {}),
+        ...(pl.result.span ? { range: { top: pl.result.span[0], base: pl.result.span[1] } } : {}),
+      };
+    },
+  };
+  return [bands, over, lines];
 }
 
 /** × sobre las muestras excluidas; con zoom (≥ 5 px por muestra), puntos sobre las muestras del tramo seleccionado. */
@@ -627,7 +715,7 @@ function drawSamples(ctx: CanvasRenderingContext2D, frame: OverlayFrame, pl: Pla
   };
   const a = lowerBound(s.x, Math.max(vp.top, span ? span[0] : vp.top));
   const b = upperBound(s.x, Math.min(vp.base, span ? span[1] : vp.base));
-  if (hot && span && pl.spec.mode === 'fit' && b - a > 1 && b - a < 2000) {
+  if (hot && span && pl.spec.mode === 'fit' && pl.series.pickSamples !== false && b - a > 1 && b - a < 2000) {
     const gap = (vp.yOf(s.x[b - 1]!) - vp.yOf(s.x[a]!)) / (b - a - 1);
     if (gap >= 5) {
       ctx.fillStyle = withAlpha(pl.color, 0.55);

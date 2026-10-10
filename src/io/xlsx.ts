@@ -9,6 +9,8 @@ import { tableFromRows, type RawTable } from './table';
 export interface XlsxOptions {
   /** Nombre o posición (desde 0) de la hoja. Por defecto, la primera que tenga datos. */
   sheet?: string | number;
+  /** false: la tabla no es un perfil y puede no tener columna de profundidad (ver `TableContext.requireDepth`). */
+  requireDepth?: boolean;
 }
 
 interface SheetRef {
@@ -185,7 +187,7 @@ export function parseXlsx(bytes: Uint8Array, sourceName: string, options: XlsxOp
     const data = files[s.path];
     if (!data) throw new Error(`La hoja '${s.name}' no se encontró dentro del archivo (${s.path}).`);
     const { rows, rowNumbers } = readSheetRows(strFromU8(data), shared);
-    return tableFromRows(rows, rowNumbers, { format: 'xlsx', sourceName, sheets: sheetNames, sheet: s.name });
+    return tableFromRows(rows, rowNumbers, { format: 'xlsx', sourceName, sheets: sheetNames, sheet: s.name, ...(options.requireDepth === false ? { requireDepth: false } : {}) });
   };
 
   const wanted = options.sheet;

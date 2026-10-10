@@ -147,7 +147,7 @@ describe('formato v4', () => {
   it('guarda y abre las tendencias tal cual', async () => {
     const p = addTrend(base(), W, spec({ selection: { top: 7700, base: 7800, excluded: ['7701.2'] }, color: '#e8590c' }));
     const back = await deserializeProject(await serializeProject(p, { codec: 'f64le-b64' }));
-    expect(PROJECT_VERSION).toBe(4);
+    expect(PROJECT_VERSION).toBe(5);
     expect(trends(back)).toEqual(trends(p));
   });
 
