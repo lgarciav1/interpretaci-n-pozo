@@ -21,6 +21,8 @@ Lo monta `src/app/shell/ViewerSlot.tsx`, que conecta los stores; el componente n
 | `overlays/zones.ts`, `overlays/qc.ts` | superposiciones incorporadas: zonas (con edición de topes, marcar zona y teclado) y calidad del pozo | no |
 | `stack.ts` | pila de componentes que cierra a 1 (pista volumétrica, mineralogía): capas, leyenda, faltantes | no |
 | `curveEdit.ts` | validación y alcance del editor de escalas y colores | no |
+| `catalog.ts` | catálogo para armar pistas: herramientas (pistas de fábrica), curvas por grupo con estilo y rellenos propios, pistas especiales, búsqueda | no |
+| `layoutEdit.tsx`, `layoutEdit.css` | modo «Armar pistas»: destinos del arrastre (`data-drop-*`, `dropTargetAt`), borde de ancho | sí |
 | `animation.ts` | animación de carga (duración, curva de los tokens) | no |
 | `minimap.ts`, `wellHeader.ts` | geometría del minimapa y campos del encabezado de pozo | no |
 | `render.ts` | dibujo en canvas 2D (base y cursor; pilas; frente de la animación) | no |
@@ -69,7 +71,24 @@ Una pista es un `TrackSpec` (`src/core/display.ts`, JSON puro que se guarda en e
 - Overrides del usuario: `Project.display.roles[rol]` y `Project.display.curves[pozo][curva]` (escala, rango,
   inversión, color, trazo, respaldo, ocultar). Precedencia: curva → rol → plantilla → paleta.
 
+## Pistas armables (fase 7b)
+
+Decisión: [`docs/decisiones/0016-pistas-armables.md`](../../docs/decisiones/0016-pistas-armables.md). Con la prop
+`layoutEdit` el visor entra en modo edición; sin ella se comporta como siempre.
+
+- Encabezados: manija con menú (mover, ancho, renombrar, quitar; Alt+←/→, Alt+Mayús+←/→, Supr), filas de curva
+  arrastrables con su menú (subir, bajar, mover a otra pista o a una nueva, quitar; Alt+flechas) y borde derecho para
+  el ancho (vista previa mientras se arrastra, se guarda al soltar; ←/→ con el foco). Se ven todas las filas (sin
+  «+N») y las pistas `hideWhenEmpty` vacías (`resolveTracks(…, { keepEmpty: true })` → `latent`).
+- Mientras la app avisa que hay un arrastre (`layoutEdit.drag`), `DropLayer` pinta columnas (agregar a la pista,
+  rayadas si no la aceptan) y espacios entre pistas (pista nueva). Arrastrando una pista, la columna entera lleva al
+  espacio más cercano. El visor no conoce el catálogo: la app lee el destino con `dropTargetAt` y decide.
+- Anchos: con pistas que no entran (desplazamiento horizontal), `layoutTracks(…, { weightedMin: true })` da a una
+  pista de ancho k > 1 un mínimo de k × el mínimo, así ensanchar se sigue viendo. Las figuras no usan la opción.
+- Pistas ocultas (`hidden`, las de superposición quitadas) no se resuelven ni se vuelven a agregar.
+
 ## Superposiciones (para módulos)
+
 
 Un módulo dibuja sobre el perfil con `src/modules/<id>/overlay.ts` (se descubre solo; el worker no lo importa).
 Ejemplo ilustrativo de puntos **arrastrables** en una **pista propia**, con vista previa en vivo, Escape para cancelar

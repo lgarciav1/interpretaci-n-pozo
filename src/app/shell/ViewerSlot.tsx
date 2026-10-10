@@ -11,15 +11,12 @@
  * - Publica el cursor y el tramo visible en `useViewer` para otros paneles.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { activeWellEntry, applyZoneEdit, makeId, setCurveDisplay, setRoleDisplay } from '../../core/state/project';
-import { defaultZoneName } from '../../core/state/zones';
+import { setCurveDisplay, setRoleDisplay } from '../../core/state/project';
 import type { Well } from '../../core/well';
 import { registry } from '../../modules';
-import { Button, Chip, EmptyState, Icon, toast, zoneColor } from '../../ui';
+import { Button, Chip, EmptyState, getResolvedTheme, Icon } from '../../ui';
 import { patchOverride } from '../../viewer/curveEdit';
 import type { ViewerData, ViewerZone } from '../../viewer/overlay';
-import { createQcOverlay } from '../../viewer/overlays/qc';
-import { createZonesOverlay } from '../../viewer/overlays/zones';
 import { resolveTracks, type HiddenCurve, type ResolvedTrack } from '../../viewer/resolve';
 import { layoutFor, STACK_ROLE_HINTS, withOverlayTracks } from '../../viewer/templates';
 import { WellHeader } from '../../viewer/WellHeader';
@@ -30,40 +27,16 @@ import { useResults } from '../store/results';
 import { useUi } from '../store/ui';
 import { useViewer } from '../store/viewer';
 import { computedCurves } from '../computed';
-import { moduleOverlays } from '../viewerOverlays';
-import { startTrendTool, stopTrendTool, TREND_OVERLAYS } from '../trends/actions';
+import { startTrendTool, stopTrendTool } from '../trends/actions';
 import { useTrendsUi } from '../trends/store';
 import { CurveEditor } from './CurveEditor';
-
-const activeWell = () => activeWellEntry(useProject.getState().project);
-
-const BUILTIN_OVERLAYS = [
-  ...createZonesOverlay({
-    onSelect: (id) => useUi.getState().set({ editingZoneId: id }),
-    edit: {
-      current: () => {
-        const e = activeWell();
-        return e ? { zones: e.interpretation.zones, depth: e.well.depth.values } : null;
-      },
-      marking: () => useUi.getState().zoneMarking,
-      commit: (zones, label, clone) => {
-        const e = activeWell();
-        if (e) useProject.getState().commit(label, (p) => applyZoneEdit(p, e.well.id, zones, clone ?? null));
-      },
-      newZone: (zones) => ({ id: makeId('zona'), lowerId: makeId('zona'), name: defaultZoneName(zones), color: zoneColor(zones.length) }),
-      created: (z) => {
-        useUi.getState().set({ zoneMarking: false, editingZoneId: z.id });
-        toast({ tone: 'ok', title: `Zona «${z.name}» creada`, description: 'Cambiale el nombre, el color o el tipo en el panel Zonas.' });
-      },
-      error: (message) => toast({ tone: 'warn', title: 'No se marcó la zona', description: message }),
-    },
-  }),
-  createQcOverlay(),
-  // Tendencias y gradientes (docs/decisiones/0008): bandas del tramo debajo de las curvas, líneas encima.
-  ...TREND_OVERLAYS,
-];
-/** Incorporadas + las de los módulos (con ids que no choquen con las incorporadas). */
-const OVERLAYS = [...BUILTIN_OVERLAYS, ...moduleOverlays(BUILTIN_OVERLAYS.map((o) => o.id))];
+import { OVERLAYS } from './viewerOverlayList';
+import { acceptsPayload, createLayoutEditor } from '../tracks/actions';
+import { beginDrag, dragInfo, setDropHandler, useLayoutDrag } from '../tracks/dnd';
+import { useTrackUi } from '../tracks/store';
+import { RenameDialogs, SaveTemplateDialog, TemplateMenu } from '../tracks/Templates';
+import type { ViewerLayoutEditing } from '../../viewer/layoutEdit';
+import { TRACK_WIDTH_STEP } from '../../core/state/tracks';
 
 const onCursorChange = (cursorDepth: number | null) => useViewer.setState({ cursorDepth });
 const onViewportChange = (visible: { top: number; base: number }) => useViewer.setState({ visible });
@@ -91,6 +64,9 @@ export function ViewerSlot() {
   const trendTool = useTrendsUi((s) => s.tool);
   const trendRange = useTrendsUi((s) => s.showRange);
   const result = useResults((s) => s.result);
+  const building = useUi((s) => s.trackBuilder);
+  const dragPayload = useLayoutDrag((s) => s.payload);
+  const dragTarget = useLayoutDrag((s) => s.target);
   const well = entry?.well ?? null;
   const qc = useWellQc(well);
   const interpretation = entry?.interpretation;
@@ -103,8 +79,58 @@ export function ViewerSlot() {
       withOverlayTracks(layoutFor(workspace, display.layouts), OVERLAYS, workspace, { well, ...(display.overlays ? { settings: display.overlays } : {}) }),
       { depth: well.depth.values, curves: well.curves, computed, catalog: registry.roles },
       { roles: display.roles, ...(display.curves[well.id] ? { curves: display.curves[well.id] } : {}) },
+      // Armando pistas se ven también las que se ocultan vacías (para moverlas o quitarlas).
+      { keepEmpty: building },
     );
-  }, [well, computed, workspace, display]);
+  }, [well, computed, workspace, display, building]);
+
+  // «Armar pistas» (docs/decisiones/0016): acciones sobre las pistas que se ven, publicadas para el panel.
+  const editor = useMemo(() => (well ? createLayoutEditor({ workspace, overlays: OVERLAYS, displayed: tracks }) : null), [well, workspace, tracks]);
+  useEffect(() => {
+    useTrackUi.getState().set({ editor });
+    setDropHandler(editor ? (payload, target) => editor.drop(payload, target) : null);
+  }, [editor]);
+  useEffect(() => () => useTrackUi.getState().set({ editor: null }), []);
+  const layoutEdit = useMemo<ViewerLayoutEditing | null>(() => {
+    if (!building || !editor) return null;
+    const ghostColor = (c: { styles: Readonly<Record<"light" | "dark", { color: string }>> }) => c.styles[getResolvedTheme()].color;
+    return {
+      drag: dragInfo(dragPayload),
+      target: dragTarget,
+      accepts: (t) => acceptsPayload(dragPayload, t),
+      onTrackPointerDown: (e, t) => beginDrag(e, { kind: 'track', trackId: t.id, title: t.title }, { label: t.title, detail: 'Mover pista' }),
+      onCurvePointerDown: (e, t, c) => beginDrag(e, { kind: 'curve', trackId: t.id, curveKey: c.key, name: c.name, flag: c.kind === 'band' }, { label: c.name, color: ghostColor(c), detail: `desde ${t.title}` }),
+      trackMenu: (t) => editor.trackMenu(t, (tt) => useTrackUi.getState().set({ renaming: { trackId: tt.id, title: tt.title } })),
+      curveMenu: (t, c) => editor.curveMenu(t, c),
+      onTrackKeyDown: (e, t) => {
+        if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+          e.preventDefault();
+          const dir = e.key === 'ArrowLeft' ? -1 : 1;
+          if (e.shiftKey) {
+            if (t.fixed === undefined) editor.resize(t, dir > 0 ? t.width * TRACK_WIDTH_STEP : t.width / TRACK_WIDTH_STEP);
+          } else editor.moveTrackBy(t, dir);
+        } else if (e.key === 'Delete' || e.key === 'Backspace') {
+          e.preventDefault();
+          editor.removeTrack(t);
+        }
+      },
+      onCurveKeyDown: (e, t, c) => {
+        if (!e.altKey) return;
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          editor.moveCurveBy(t, c, e.key === 'ArrowUp' ? 1 : -1);
+        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+          e.preventDefault();
+          editor.moveCurveSideways(t, c, e.key === 'ArrowLeft' ? -1 : 1);
+        }
+      },
+      onResize: (t, w) => editor.resize(t, w),
+    };
+  }, [building, editor, dragPayload, dragTarget]);
+  // Sin pozo no hay nada que armar.
+  useEffect(() => {
+    if (!well && building) setUi({ trackBuilder: false });
+  }, [well, building, setUi]);
 
   const data = useMemo<ViewerData | null>(() => {
     if (!well || !interpretation) return null;
@@ -168,6 +194,17 @@ export function ViewerSlot() {
   useEffect(() => {
     if (marking) stopTrendTool();
   }, [marking]);
+  // Escape termina de armar pistas (si no hay un arrastre, un menú o un diálogo que lo usen antes).
+  useEffect(() => {
+    if (!building) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || useLayoutDrag.getState().payload) return;
+      if (document.querySelector('[role="dialog"]') || (e.target instanceof HTMLInputElement && e.target.value)) return;
+      useUi.getState().set({ trackBuilder: false });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [building]);
 
   if (!entry || !well || !data) {
     return (
@@ -238,6 +275,17 @@ export function ViewerSlot() {
 
   const toolbarEnd = (
     <>
+      <TemplateMenu workspace={workspace} overlays={OVERLAYS} />
+      <Button
+        size="sm"
+        variant={building ? 'primary' : 'ghost'}
+        icon="tracks"
+        aria-pressed={building}
+        title={building ? 'Terminar de armar pistas (Esc)' : 'Armar pistas: agregar curvas y herramientas desde un catálogo, mover, quitar y cambiar anchos'}
+        onClick={() => setUi({ trackBuilder: !building })}
+      >
+        Pistas
+      </Button>
       <Button
         size="sm"
         variant={trendTool ? 'primary' : 'ghost'}
@@ -262,7 +310,7 @@ export function ViewerSlot() {
   );
 
   return (
-    <div className={`shell-viewer${marking || trendTool ? ' is-marking' : ''}`} aria-label="Visor multipista">
+    <div className={`shell-viewer${marking || trendTool ? ' is-marking' : ''}${building ? ' is-building' : ''}`} aria-label="Visor multipista">
       <WellViewer
         wellKey={depthKey(well)}
         depth={well.depth.values}
@@ -314,13 +362,22 @@ export function ViewerSlot() {
             useTrendsUi.getState().set({ selectedId: null });
             return true;
           }
+          if (useUi.getState().trackBuilder) {
+            setUi({ trackBuilder: false });
+            return true;
+          }
           return false;
         }}
         onCursorChange={onCursorChange}
         onViewportChange={onViewportChange}
         onDragChange={onDragChange}
+        layoutEdit={layoutEdit}
       />
       {editing && editingCurve && <CurveEditor key={`${editing.trackId}|${editing.key}`} wellId={well.id} curve={editingCurve} anchorRef={anchorRef} onClose={() => setEditing(null)} />}
+      <SaveTemplateDialog workspace={workspace} overlays={OVERLAYS} />
+      <RenameDialogs editor={editor} />
+      <div id="tb-live" className="ui-visually-hidden" aria-live="polite" />
     </div>
+
   );
 }

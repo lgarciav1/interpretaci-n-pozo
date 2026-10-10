@@ -3,7 +3,7 @@
 Webapp 100 % en el navegador (TypeScript + React + Vite) que se entrega como un único `dist/index.html`.
 Las decisiones con sus alternativas descartadas están en [`decisiones/`](decisiones/): núcleo y contrato de módulos
 (0001), lectura de datos (0002), control de calidad (0003), sistema de diseño, armazón y flujo guiado (0004), visor
-multipista (0005), deshacer y rehacer (0006), catálogo de módulos de la fase 6a con sus cambios de núcleo (0007),
+multipista (0005) con sus pistas armables y plantillas propias (0016), deshacer y rehacer (0006), catálogo de módulos de la fase 6a con sus cambios de núcleo (0007),
 tendencias y gradientes (0008), presiones MDT con los conjuntos de puntos del pozo (0009), datos de corona con
 puesta en profundidad y modelo k–φ (0010), exportación de datos (0011) y de figuras (0012), tamaño de interfaz (0013) e
 histograma y crossplot libre (0014).
@@ -51,7 +51,7 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 
 | Carpeta | Qué hay | Puede importar React |
 |---|---|---|
-| `src/core/` | modelo (`well.ts`; conjuntos de puntos `pointSets.ts`), unidades, roles, parámetros, contrato de módulo, registro, motor (`engine/`), estado (`state/`: proyecto, snapshots, recetas de zonas `zones.ts`, de tendencias `trends.ts`, de conjuntos de puntos `pointSets.ts` y de gráficos `plots.ts`), configuración del visor que se guarda y su validación al abrir (`display.ts`, incluidas las pilas de la pista volumétrica), configuración del histograma y del crossplot (`plots.ts`), tendencias (`trends.ts`: `TrendSpec`, saneamiento), conversión a unidad canónica compartida (`canonical.ts`) | no |
+| `src/core/` | modelo (`well.ts`; conjuntos de puntos `pointSets.ts`), unidades, roles, parámetros, contrato de módulo, registro, motor (`engine/`), estado (`state/`: proyecto, snapshots, recetas de zonas `zones.ts`, de tendencias `trends.ts`, de conjuntos de puntos `pointSets.ts`, de gráficos `plots.ts` y de pistas y plantillas `tracks.ts`), configuración del visor que se guarda y su validación al abrir (`display.ts`, incluidas las pilas de la pista volumétrica), configuración del histograma y del crossplot (`plots.ts`), tendencias (`trends.ts`: `TrendSpec`, saneamiento), conversión a unidad canónica compartida (`canonical.ts`) | no |
 | `src/petro/` | funciones de cálculo puras, testeadas | no |
 | `src/modules/<id>/index.ts` | definición pura del módulo | no |
 | `src/modules/<id>/panel.tsx` | panel a medida (opcional) | sí |
@@ -59,10 +59,11 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 | `src/modules/index.ts` | **el registro** (una línea por módulo) | no |
 | `src/modules/sharedParams.ts` | catálogo canónico de parámetros compartidos | no |
 | `src/app/` | arranque, worker (`engine.worker.ts`), puente con el motor, stores (`store/viewer.ts`: cursor y tramo visible), descubrimiento de superposiciones (`viewerOverlays.ts`), pantallas | sí |
-| `src/app/shell/` | armazón: barra superior, flujo guiado, inspector, dock (`dockPanels.tsx`: una entrada por panel), `ViewerSlot` (conecta stores con el visor: edición de zonas, modo marcar zona, encabezado), `CurveEditor` (editor de escalas), diálogos | sí |
+| `src/app/shell/` | armazón: barra superior, flujo guiado, inspector, dock (`dockPanels.tsx`: una entrada por panel), `ViewerSlot` (conecta stores con el visor: edición de zonas, modo marcar zona, encabezado, «Armar pistas»), `viewerOverlayList.ts` (superposiciones del visor de la app), `CurveEditor` (editor de escalas), diálogos | sí |
+| `src/app/tracks/` | «Armar pistas» (0016): panel con el catálogo (`TrackBuilder.tsx`), plantillas y diálogos (`Templates.tsx`), arrastre con eventos de puntero (`dnd.ts`) y acciones que traducen gestos a recetas con `commit` (`actions.ts`) | sí |
 | `src/app/flow/` | flujo guiado: definición de pasos y evaluación de estados (`flow.ts`, puro y testeado) | `flow.ts` no |
 | `src/ui/` | sistema de diseño: tokens, tema, paleta de curvas, componentes, `useCanvas`; contrato de panel. Guía en `src/ui/README.md`; muestra en `#ui` | sí |
-| `src/viewer/` | visor multipista: plantillas, resolución de pistas, viewport, ticks, reducción M4, rellenos, pilas (`stack.ts`), lectura, contrato de superposiciones (con elementos del teclado), gestos (`interaction.ts`), dibujo en canvas (`*.ts`, puros o canvas) y los componentes `WellViewer.tsx`, `Minimap.tsx`, `WellHeader.tsx`. Guía en `src/viewer/README.md` | solo los `.tsx` |
+| `src/viewer/` | visor multipista: plantillas, resolución de pistas, viewport, ticks, reducción M4, rellenos, pilas (`stack.ts`), lectura, contrato de superposiciones (con elementos del teclado), gestos (`interaction.ts`), catálogo de herramientas y curvas para armar pistas (`catalog.ts`), dibujo en canvas (`*.ts`, puros o canvas) y los componentes `WellViewer.tsx`, `Minimap.tsx`, `WellHeader.tsx`, `layoutEdit.tsx` (modo «Armar pistas»: destinos y bordes de ancho). Guía en `src/viewer/README.md` | solo los `.tsx` |
 | `src/io/` | lectores Excel/LAS/CSV, mnemónicos, control de calidad, tablas de presiones (`pressures.ts`) (ver su README) | no |
 | `src/plots/xy/` | gráfico x–y base (ejes lineales o log, ticks, mapeo dato ↔ px puro en `axes.ts`, dibujo en `draw.ts` —barras, eje derecho, guías rotuladas, nube densa—, búsqueda por grilla `pick.ts`, componente `XYPlot.tsx` con guías arrastrables): lo usan el crossplot k–φ de la corona, el histograma y el crossplot libre. Guía en `src/plots/README.md` | solo `XYPlot.tsx` |
 | `src/plots/histogram/`, `src/plots/crossplot/`, `src/plots/*.ts` | histograma y crossplot libre (0014): lo puro en `.ts` (binning, estadísticos, plantillas, serie `crossplot`, curvas y zonas `data.ts`, cutoffs `cutoffs.ts`, enlace con el visor `link.ts`) y los paneles de presentación en `.tsx` (sin stores) | solo los `.tsx` |
@@ -238,7 +239,9 @@ de otro.
 `serializeProject` / `deserializeProject` (`src/core/state/serialize.ts`): JSON con `format`, `version` (hoy 6: v2
 agregó el progreso del flujo, v3 la configuración del visor, v4 las tendencias de cada pozo y snapshot, v5 los
 conjuntos de puntos del pozo y las decisiones sobre ellos, v6 la configuración del histograma y del crossplot en
-`display.plots`) y migraciones. Al abrir, `display` (con `plots`), las tendencias, los
+`display.plots`) y migraciones. La fase 7b agregó dos campos opcionales sin cambiar la versión: `display.trackTemplates`
+(plantillas de pistas propias) y `TrackSpec.hidden` (pistas de superposición quitadas); un proyecto anterior se abre
+sin ellos. Al abrir, `display` (con `plots` y las plantillas), las tendencias, los
 conjuntos de puntos y sus decisiones se validan: lo inválido se descarta con aviso. Los arrays van como Float64 little-endian comprimidos con `CompressionStream('deflate')` (con o sin
 "byte shuffle", lo que salga más chico) en base64: exactos bit a bit. Los perfiles del TP quedan en menos de la
 mitad del binario sin comprimir.
@@ -319,6 +322,27 @@ Decisión y catálogo completo: [`docs/decisiones/0007-modulos-fase-6a.md`](deci
 - Al abrir un proyecto, `display` se valida: lo inválido se descarta con un aviso.
 - El cursor publica su profundidad en `useViewer.cursorDepth`; clic en la franja de zonas fija
   `useUi.editingZoneId`.
+
+## Pistas armables y plantillas propias (fase 7b)
+
+Decisión: [`docs/decisiones/0016-pistas-armables.md`](decisiones/0016-pistas-armables.md).
+
+- **Modo «Armar pistas»** (botón «Pistas» de la barra del visor): el catálogo ocupa la columna izquierda y el visor
+  muestra manijas, menús y bordes de ancho en los encabezados, y las pistas que se ocultan vacías (latentes). Se
+  arrastra una herramienta o curva a una pista (agregar) o entre pistas (pista nueva); filas y encabezados se
+  arrastran para mover o reordenar. Sin mouse: «Agregar a pista…» en cada elemento del catálogo, menú de la manija y
+  de cada fila, Alt+flechas y Supr.
+- **Catálogo** (`src/viewer/catalog.ts`, puro): grupos por herramienta con la pista completa de fábrica y sus curvas
+  (color, escala y rellenos de convención); lo que el pozo no tiene, deshabilitado; los roles de módulos nuevos caen
+  en su familia. Pistas especiales: profundidad y zonas, columna volumétrica y las pistas propias de superposiciones.
+- **Recetas** (`src/core/state/tracks.ts`): sobre la lista materializada (propias o de fábrica + superposiciones) y
+  por id; un `commit` con etiqueta propia por gesto. Las curvas son entradas con selector: soltar del catálogo agrega,
+  arrastrar una fila mueve; un grupo (`unassigned`) se expande en curvas puntuales para mover una sola; los rellenos
+  de una curva viajan con ella.
+- **Plantillas propias** en `display.trackTemplates` (nombre y espacio de trabajo): guardar (reemplaza por nombre),
+  aplicar, restablecer la de fábrica, renombrar y borrar. El selector de la barra muestra la aplicada.
+- La figura del perfil (0012) resuelve las mismas pistas armadas.
+
 
 ## Tendencias y gradientes (fase 6b-1)
 
