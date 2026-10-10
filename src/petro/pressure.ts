@@ -22,7 +22,7 @@
  * - Bourgoyne, A.T. et al. (1986), "Applied Drilling Engineering", SPE Textbook 2, cap. 6 (agua dulce 0,433 psi/ft,
  *   agua de formación típica 0,465 psi/ft).
  */
-import { pressureGradientToDensity } from './gradients';
+import { G_STANDARD, densityToPressureGradient, pressureGradientToDensity } from './gradients';
 
 export type FluidKind = 'gas' | 'oil' | 'water';
 
@@ -34,7 +34,7 @@ export const FLUID_DENSITY_RANGES: Readonly<Record<FluidKind, readonly [number, 
 };
 
 /** 1 g/cm³ en psi/ft con g estándar: 9,80665 kPa/m · 0,3048 m/ft / 6,894757 kPa/psi. */
-export const PSI_PER_FT_PER_G_CM3 = (9.80665 * 0.3048) / 6.894757293168361;
+export const PSI_PER_FT_PER_G_CM3 = (G_STANDARD * 0.3048) / 6.894757293168361;
 
 /** Densidad del fluido (g/cm³) a partir de un gradiente de presión en psi/ft. */
 export function densityFromPsiPerFt(psiPerFt: number): number {
@@ -84,6 +84,17 @@ export function classifyFluidByDensity(density: number): FluidSuggestion {
   return { fluid: null, between: null, inRange: false, density };
 }
 
+/**
+ * ¿Es compatible la densidad con el fluido elegido? Sí si cae en su rango o en un hueco contiguo a él (los candidatos
+ * de `between`) o más allá del extremo de gas/agua. Es la comparación que corresponde para avisar de un fluido mal
+ * asignado: `classifyFluidByDensity(d).fluid !== fluid` da falsos avisos en los huecos (p. ej. petróleo volátil de
+ * 0,45 g/cm³ rotulado «petróleo», que el vecino más cercano manda al gas).
+ */
+export function fluidFitsDensity(fluid: FluidKind, density: number): boolean {
+  const s = classifyFluidByDensity(density);
+  return s.fluid === fluid || (s.between?.includes(fluid) ?? false);
+}
+
 /** Densidad (g/cm³) de un gradiente en kPa/m (atajo de `pressureGradientToDensity`, para leer junto a lo anterior). */
 export function densityFromKPaPerM(kPaPerM: number): number {
   return pressureGradientToDensity(kPaPerM);
@@ -94,5 +105,5 @@ export function densityFromKPaPerM(kPaPerM: number): number {
  * P = P₀ + ρ·g·(z − z₀). Unidades: z en m, ρ en g/cm³, P en kPa.
  */
 export function hydrostaticPressureKPa(p0KPa: number, z0M: number, densityGPerCm3: number, zM: number): number {
-  return p0KPa + densityGPerCm3 * 9.80665 * (zM - z0M);
+  return p0KPa + densityToPressureGradient(densityGPerCm3) * (zM - z0M);
 }

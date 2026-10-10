@@ -11,7 +11,8 @@
  * Sin React ni stores ni `src/plots`: lo importan el proveedor de series, la superposición y el panel.
  */
 import { pointNumbers, pointTexts, type PointSet, type PointSetDecisions } from '../../core/pointSets';
-import { evalTrend, intersectTrends, type TrendCoefficients } from '../../petro/regression';
+import { convert } from '../../core/units';
+import { evalTrend, intersectTrends, trendSlopeAt, type TrendCoefficients } from '../../petro/regression';
 import type { FluidKind } from '../../petro/pressure';
 
 export const MDT_PROVIDER_ID = 'mdt';
@@ -100,6 +101,21 @@ export interface PointQuality {
   proposeExclude: boolean;
 }
 
+const unitOf = (set: PointSet, key: string): string | undefined => {
+  const c = set.columns[key];
+  return c && 'unit' in c ? c.unit : undefined;
+};
+
+/** Valor convertido de `from` a `to` (sin cambios si falta una unidad o no son convertibles). */
+function toUnit(value: number, from: string | undefined, to: string | undefined): number {
+  if (!from || !to || from === to) return value;
+  try {
+    return convert(value, from, to);
+  } catch {
+    return value;
+  }
+}
+
 /** Reglas automáticas sobre cada punto de un conjunto de presiones (proponen; decide el usuario). */
 export function assessQuality(set: PointSet, minMobility: number = DEFAULT_MIN_MOBILITY): PointQuality[] {
   const n = set.depth.length;
@@ -107,6 +123,10 @@ export function assessQuality(set: PointSet, minMobility: number = DEFAULT_MIN_M
   const mob = pointNumbers(set, 'mobility');
   const mudB = pointNumbers(set, 'mudBefore');
   const mudA = pointNumbers(set, 'mudAfter');
+  // La presión del lodo se compara en la unidad de la presión de formación (las columnas pueden venir en unidades distintas).
+  const pUnit = unitOf(set, 'pressure');
+  const mudUnitB = unitOf(set, 'mudBefore');
+  const mudUnitA = unitOf(set, 'mudAfter');
   const texts = ['quality', 'testType', 'comment'].map((k) => pointTexts(set, k));
   const out: PointQuality[] = [];
   for (let i = 0; i < n; i++) {
@@ -119,7 +139,7 @@ export function assessQuality(set: PointSet, minMobility: number = DEFAULT_MIN_M
     }
     const m = mob ? mob[i]! : NaN;
     if (Number.isFinite(m) && Number.isFinite(minMobility) && m < minMobility) reasons.push('lowMobility');
-    const mud = mudB && Number.isFinite(mudB[i]!) ? mudB[i]! : mudA ? mudA[i]! : NaN;
+    const mud = mudB && Number.isFinite(mudB[i]!) ? toUnit(mudB[i]!, mudUnitB, pUnit) : mudA ? toUnit(mudA[i]!, mudUnitA, pUnit) : NaN;
     if (Number.isFinite(pi) && Number.isFinite(mud) && pi >= mud) reasons.push('overMud');
     out.push({ reasons, proposeExclude: reasons.length > 0 });
   }
@@ -252,7 +272,16 @@ export function findContacts(gradients: readonly GradientLine[]): FluidContact[]
     const z = intersectTrends(up.coeffs, lo.coeffs, up.coeffs.model === lo.coeffs.model ? undefined : [lowLim, highLim]);
     const range = `entre ${m1(lowLim)} y ${m1(highLim)} m`;
     if (z === null || !Number.isFinite(z)) {
-      out.push({ kind, upper: up, lower: lo, depth: null, pressure: null, problem: `Los gradientes «${up.name}» y «${lo.name}» no se cortan (son paralelos).`, warning: null });
+      const mixed = up.coeffs.model !== lo.coeffs.model;
+      out.push({
+        kind,
+        upper: up,
+        lower: lo,
+        depth: null,
+        pressure: null,
+        problem: mixed ? `Los gradientes «${up.name}» y «${lo.name}» no se cortan ${range}.` : `Los gradientes «${up.name}» y «${lo.name}» no se cortan (son paralelos).`,
+        warning: null,
+      });
       continue;
     }
     if (z < lowLim || z > highLim) {
@@ -267,9 +296,28 @@ export function findContacts(gradients: readonly GradientLine[]): FluidContact[]
       });
       continue;
     }
+    // El fluido pesado debe tener MAYOR gradiente que el liviano en el corte: si no, las rectas se cruzan pero la
+    // columna es físicamente imposible (p. ej. «petróleo» de 0,45 psi/ft sobre «agua» de 0,33).
+    const sUp = trendSlopeAt(up.coeffs, z);
+    const sLo = trendSlopeAt(lo.coeffs, z);
+    if (Number.isFinite(sUp) && Number.isFinite(sLo) && sUp >= sLo) {
+      out.push({
+        kind,
+        upper: up,
+        lower: lo,
+        depth: null,
+        pressure: null,
+        problem: `El gradiente de ${FLUID_LABEL[fa].toLowerCase()} («${up.name}») es mayor o igual que el de ${FLUID_LABEL[fb].toLowerCase()} («${lo.name}») en el corte: un fluido más liviano no puede tener más gradiente que el más denso. Revisá el fluido de cada gradiente o los puntos usados.`,
+        warning: null,
+      });
+      continue;
+    }
     let warning: string | null = null;
-    if (z < up.span[1]) warning = `El contacto cae dentro de los puntos de ${FLUID_LABEL[fa].toLowerCase()} (su base está a ${m1(up.span[1])} m): debería quedar entre el último punto de ${FLUID_LABEL[fa].toLowerCase()} y el primero de ${FLUID_LABEL[fb].toLowerCase()}.`;
-    else if (z > lo.span[0]) warning = `El contacto cae dentro de los puntos de ${FLUID_LABEL[fb].toLowerCase()} (su tope está a ${m1(lo.span[0])} m): debería quedar entre el último punto de ${FLUID_LABEL[fa].toLowerCase()} y el primero de ${FLUID_LABEL[fb].toLowerCase()}.`;
+    const pair = `debería quedar entre el último punto de ${FLUID_LABEL[fa].toLowerCase()} y el primero de ${FLUID_LABEL[fb].toLowerCase()}`;
+    if (z < up.span[0]) warning = `El contacto cae por encima de todos los puntos de ${FLUID_LABEL[fa].toLowerCase()} (su tope está a ${m1(up.span[0])} m): ${pair}.`;
+    else if (z > lo.span[1]) warning = `El contacto cae por debajo de todos los puntos de ${FLUID_LABEL[fb].toLowerCase()} (su base está a ${m1(lo.span[1])} m): ${pair}.`;
+    else if (z < up.span[1]) warning = `El contacto cae dentro de los puntos de ${FLUID_LABEL[fa].toLowerCase()} (su base está a ${m1(up.span[1])} m): ${pair}.`;
+    else if (z > lo.span[0]) warning = `El contacto cae dentro de los puntos de ${FLUID_LABEL[fb].toLowerCase()} (su tope está a ${m1(lo.span[0])} m): ${pair}.`;
     out.push({ kind, upper: up, lower: lo, depth: z, pressure: evalTrend(up.coeffs, z), problem: null, warning });
   }
   return out;

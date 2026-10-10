@@ -80,6 +80,24 @@ describe('mdt: reglas de calidad', () => {
     expect(assessQuality(set, 0.1)[2]!.reasons).toEqual([]);
   });
 
+  it('compara con el lodo en la unidad de la presión de formación (lodo en bar, formación en psi)', () => {
+    const mk = (pPsi: number, mudBar: number) =>
+      createPointSet({
+        id: 'u',
+        kind: 'pressure',
+        name: 'U',
+        depth: Float64Array.of(1000),
+        pointIds: ['a'],
+        columns: {
+          pressure: { label: 'P', unit: 'psi', values: Float64Array.of(pPsi) },
+          mudBefore: { label: 'H', unit: 'bar', values: Float64Array.of(mudBar) },
+        },
+      });
+    // 1650 psi = 113,76 bar. 1450 psi (99,98 bar) está por debajo del lodo; 1700 psi (117,2 bar), por encima.
+    expect(assessQuality(mk(1450, 113.76))[0]!.reasons).toEqual([]);
+    expect(assessQuality(mk(1700, 113.76))[0]!.reasons).toEqual(['overMud']);
+  });
+
   it('la decisión del usuario manda; sin presión nunca entra; decisionFor guarda solo lo distinto a la propuesta', () => {
     expect(pointStatuses(set, undefined).map((s) => s.included)).toEqual([true, false, false, false, false]);
     const st = pointStatuses(set, { points: { c: { status: 'include' }, a: { status: 'exclude' }, b: { status: 'include' } } });
@@ -215,6 +233,39 @@ describe('mdt: gradientes y contactos', () => {
     // dos gradientes del mismo fluido no dan contacto; sin fluido no participan
     expect(findContacts([line('a', 'water', 0, 0.45, [100, 200]), line('b', 'water', 5, 0.45, [300, 400])])).toEqual([]);
     expect(findContacts([line('a', null, 0, 0.45, [100, 200]), line('b', 'oil', 5, 0.35, [300, 400])])).toEqual([]);
+  });
+
+  it('gradientes invertidos (el fluido liviano con más gradiente que el pesado) no dan contacto aunque se corten en el hueco', () => {
+    const line = (id: string, fluid: GradientLine['fluid'], a: number, b: number, span: [number, number]): GradientLine => ({ id, name: id, fluid, coeffs: { model: 'linear', a, b }, span });
+    // petróleo 0,45 y agua 0,33 psi/m se cortan a z = 250 m, entre los puntos (100–200 y 300–400): físicamente imposible
+    const c = findContacts([line('o', 'oil', 0, 0.45, [100, 200]), line('w', 'water', 25, 0.35, [300, 400])]);
+    expect(c[0]!.depth).toBeNull();
+    expect(c[0]!.problem).toMatch(/más liviano no puede tener más gradiente/);
+  });
+
+  it('el aviso distingue contacto por encima/por debajo de todos los puntos y dentro de ellos', () => {
+    const line = (id: string, fluid: GradientLine['fluid'], a: number, b: number, span: [number, number]): GradientLine => ({ id, name: id, fluid, coeffs: { model: 'linear', a, b }, span });
+    // corte a 90 m (petróleo 100–200, rango razonable desde 70)
+    const above = findContacts([line('o', 'oil', 0, 0.35, [100, 200]), line('w', 'water', -9, 0.45, [300, 400])]);
+    expect(above[0]!.depth).toBeCloseTo(90, 9);
+    expect(above[0]!.warning).toMatch(/por encima de todos los puntos de petróleo/);
+    // corte a 420 m (agua 300–400, rango razonable hasta 430)
+    const below = findContacts([line('o', 'oil', 0, 0.35, [100, 200]), line('w', 'water', -42, 0.45, [300, 400])]);
+    expect(below[0]!.depth).toBeCloseTo(420, 9);
+    expect(below[0]!.warning).toMatch(/por debajo de todos los puntos de agua/);
+    // corte a 350 m: dentro de los puntos de agua
+    const inWater = findContacts([line('o', 'oil', 0, 0.35, [100, 200]), line('w', 'water', -35, 0.45, [300, 400])]);
+    expect(inWater[0]!.depth).toBeCloseTo(350, 9);
+    expect(inWater[0]!.warning).toMatch(/dentro de los puntos de agua/);
+  });
+
+  it('modelos distintos que no se cortan en el rango: no se dice «paralelos»', () => {
+    const o: GradientLine = { id: 'o', name: 'o', fluid: 'oil', coeffs: { model: 'linear', a: 0, b: 0.35 }, span: [100, 200] };
+    const w: GradientLine = { id: 'w', name: 'w', fluid: 'water', coeffs: { model: 'exp', a: 1000, b: 0.0001 }, span: [300, 400] };
+    const c = findContacts([o, w]);
+    expect(c[0]!.depth).toBeNull();
+    expect(c[0]!.problem).toMatch(/no se cortan entre/);
+    expect(c[0]!.problem).not.toMatch(/paralelos/);
   });
 
   it('ejemplo cargado: tres gradientes con la densidad de diseño y los dos contactos a menos de 5 m de lo diseñado (el ruido de ±2 psi sobre rectas que difieren en ≈ 0,39 psi/m)', () => {

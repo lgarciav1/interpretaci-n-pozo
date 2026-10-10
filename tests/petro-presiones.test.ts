@@ -5,6 +5,7 @@ import {
   classifyFluidByDensity,
   densityFromKPaPerM,
   densityFromPsiPerFt,
+  fluidFitsDensity,
   hydrostaticPressureKPa,
   psiPerFtFromDensity,
 } from '../src/petro/pressure';
@@ -81,5 +82,36 @@ describe('petro/pressure: presión hidrostática', () => {
     const rhoW = densityFromPsiPerFt(0.45);
     const p = hydrostaticPressureKPa(15 * psi, 0, rhoW, 5500 * 0.3048) / psi;
     expect(p).toBeCloseTo(2490, 9);
+  });
+});
+
+describe('petro/pressure: bordes y huecos de la clasificación', () => {
+  it('los extremos de cada rango pertenecen al rango (cerrados)', () => {
+    for (const [d, f] of [[0.05, 'gas'], [0.35, 'gas'], [0.55, 'oil'], [0.95, 'oil'], [0.98, 'water'], [1.2, 'water']] as const) {
+      expect(classifyFluidByDensity(d)).toMatchObject({ fluid: f, inRange: true, between: null });
+    }
+    expect(classifyFluidByDensity(1.6).fluid).toBe('water');
+    expect(classifyFluidByDensity(1.6000001).fluid).toBeNull();
+  });
+
+  it('empate exacto en un hueco: gana el fluido liviano; los candidatos siempre son los dos vecinos', () => {
+    expect(classifyFluidByDensity(0.45)).toMatchObject({ fluid: 'gas', between: ['gas', 'oil'] });
+    expect(classifyFluidByDensity(0.46)).toMatchObject({ fluid: 'oil', between: ['oil', 'gas'] });
+    expect(classifyFluidByDensity(0.955)).toMatchObject({ fluid: 'oil', between: ['oil', 'water'] });
+  });
+
+  it('fluidFitsDensity: en el hueco es compatible con los dos vecinos, no con el tercero', () => {
+    expect(fluidFitsDensity('oil', 0.45)).toBe(true); // petróleo volátil (0,195 psi/ft) rotulado petróleo
+    expect(fluidFitsDensity('gas', 0.45)).toBe(true);
+    expect(fluidFitsDensity('water', 0.45)).toBe(false);
+    expect(fluidFitsDensity('oil', 0.97)).toBe(true);
+    expect(fluidFitsDensity('gas', 0.97)).toBe(false);
+    expect(fluidFitsDensity('water', 1.3)).toBe(true);
+    expect(fluidFitsDensity('water', NaN)).toBe(false);
+  });
+
+  it('hidrostática: valor calculado a mano con g = 9,80665 (1,038 g/cm³ × 9,80665 = 10,17928 kPa/m)', () => {
+    expect(hydrostaticPressureKPa(0, 0, 1.038, 1000)).toBeCloseTo(10179.28, 1);
+    expect(hydrostaticPressureKPa(500, 100, 0.761, 50)).toBeCloseTo(500 + 0.761 * 9.80665 * -50, 9);
   });
 });
