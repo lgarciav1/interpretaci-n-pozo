@@ -62,6 +62,8 @@ export interface XYPlotProps {
   highlight?: { layerId: string; index: number } | null;
   /** Rectángulo elegido arrastrando (en datos). Sin esto, arrastrar no hace nada. */
   onSelectRect?(r: DataRect): void;
+  /** Selección vigente (en datos): queda dibujada hasta que el dueño la limpie. */
+  selection?: DataRect | null;
   /**
    * Guía arrastrable (`draggable` con `id`) movida: 'preview' en cada movimiento (y con cada tecla), 'commit' al soltar,
    * 'cancel' con Escape durante el arrastre (volver al valor de antes).
@@ -86,6 +88,11 @@ interface Hover {
 }
 
 const DRAG_MIN_PX = 5;
+const NO_POINTS: readonly XYPointLayer[] = [];
+const NO_LINES: readonly XYLineLayer[] = [];
+const NO_TRENDS: readonly XYTrendLayer[] = [];
+const NO_GUIDES: readonly XYGuide[] = [];
+const NO_BARS: readonly XYBarLayer[] = [];
 const GUIDE_HIT_PX = 6;
 
 /** Puntos interactivos en orden de x (para el teclado). */
@@ -118,7 +125,8 @@ export function nudgeGuideValue(a: XYAxis, v: number, steps: number): number {
 }
 
 export function XYPlot(props: XYPlotProps) {
-  const { x: xAxis, y: yAxis, y2, points = [], lines = [], trends = [], guides = [], bars = [], height, compact = false } = props;
+  // Capas ausentes = listas vacías CONSTANTES (un `[]` nuevo en cada render redibujaría toda la escena).
+  const { x: xAxis, y: yAxis, y2, points = NO_POINTS, lines = NO_LINES, trends = NO_TRENDS, guides = NO_GUIDES, bars = NO_BARS, height, compact = false } = props;
   const mapRef = useRef<XYMapping | null>(null);
   const gridRef = useRef<{ key: unknown; grids: (PointGrid | null)[] } | null>(null);
   const [geom, setGeom] = useState<PlotRect | null>(null);
@@ -234,6 +242,24 @@ export function XYPlot(props: XYPlotProps) {
         }
         ctx.stroke();
       }
+      const sel = props.selection;
+      if (sel && !rect) {
+        const xa = m.x(sel.xMin);
+        const xb = m.x(sel.xMax);
+        const ya = m.y(sel.yMin);
+        const yb = m.y(sel.yMax);
+        if ([xa, xb, ya, yb].every(Number.isFinite)) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(r.x, r.y, r.width, r.height);
+          ctx.clip();
+          ctx.strokeStyle = theme.color.accent;
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([5, 3]);
+          ctx.strokeRect(Math.min(xa, xb) + 0.5, Math.min(ya, yb) + 0.5, Math.abs(xb - xa), Math.abs(yb - ya));
+          ctx.restore();
+        }
+      }
       if (rect) {
         const x = Math.min(rect.x0, rect.x1);
         const y = Math.min(rect.y0, rect.y1);
@@ -245,7 +271,7 @@ export function XYPlot(props: XYPlotProps) {
         ctx.strokeRect(x + 0.5, y + 0.5, Math.abs(rect.x1 - rect.x0), Math.abs(rect.y1 - rect.y0));
       }
     },
-    [hover, focus, extHover, hoverBin, rect, dragGuide, hoverGuide, shownGuides, points, bars, ok, geom, xAxis, yAxis],
+    [hover, focus, extHover, hoverBin, rect, dragGuide, hoverGuide, shownGuides, points, bars, ok, geom, xAxis, yAxis, props.selection],
   );
 
   /** Grillas de búsqueda por capa interactiva (se arman la primera vez que hacen falta tras un dibujo). */
@@ -444,7 +470,7 @@ export function XYPlot(props: XYPlotProps) {
   const m = mapRef.current;
   const tipPos = tip && tipLayer && m ? { x: m.x(tipLayer.x[tip.i]!), y: m.y(tipLayer.y[tip.i]!) } : null;
   const barTip = hoverBin !== null && props.barLabel && m && bars[0] ? props.barLabel(hoverBin) : null;
-  const barPos = barTip && m && bars[0] ? { x: (m.x(bars[0].edges[hoverBin!]!) + m.x(bars[0].edges[hoverBin! + 1]!)) / 2, y: m.rect.y + m.rect.height * 0.3 } : null;
+  const barPos = barTip && m && bars[0] ? { x: Math.max(m.x(bars[0].edges[hoverBin!]!), m.x(bars[0].edges[hoverBin! + 1]!)), y: m.rect.y + 6 } : null;
   const hasData = points.some((l) => l.x.length > 0) || lines.length > 0 || trends.length > 0 || bars.some((b) => b.values.length > 0);
   const draggable = props.onGuideChange && geom && m ? shownGuides.filter((g) => g.draggable && g.id) : [];
 
@@ -546,7 +572,7 @@ export function XYPlot(props: XYPlotProps) {
         </div>
       )}
       {!tipText && barTip && barPos && Number.isFinite(barPos.x) && (
-        <div className={`xy-plot__tip${barPos.x > (m?.rect.x ?? 0) + (m?.rect.width ?? 0) * 0.6 ? ' is-left' : ''}`} style={{ left: barPos.x, top: barPos.y }} role="tooltip">
+        <div className={`xy-plot__tip is-bar${barPos.x > (m?.rect.x ?? 0) + (m?.rect.width ?? 0) * 0.6 ? ' is-left' : ''}`} style={{ left: barPos.x, top: barPos.y }} role="tooltip">
           {barTip}
         </div>
       )}

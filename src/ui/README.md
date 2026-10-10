@@ -92,6 +92,8 @@ Escala por `devicePixelRatio`, redibuja al cambiar el tamaño (ResizeObserver), 
   porosidad sin partir (`pore`) y resto sin partir (`undivided`, neutro) de la pista volumétrica…
 - `CURVE_SWATCHES`: colores clásicos de perfiles (de la paleta) para elegir el color de una curva.
 - `ZONE_PALETTE` / `zoneColor(i)`: colores para zonas nuevas.
+- `SEQUENTIAL_PALETTE[tema]` + `rampColor(t, paradas)`: rampa viridis para colorear puntos por una tercera curva
+  (crossplot libre); en oscuro arranca más clara.
 - `dashPattern(línea, grosor)`: patrón para `setLineDash` / `stroke-dasharray`.
 
 ## Componentes
@@ -101,7 +103,7 @@ Escala por `devicePixelRatio`, redibuja al cambiar el tamaño (ResizeObserver), 
 | `Button` | Acción. `variant`: primary / secondary / ghost / danger; `size`: sm / md / lg; `icon`, `iconRight`, `loading`, `block`. |
 | `IconButton` | Acción con ícono; `label` obligatorio (nombre accesible y tooltip); `pressed` para alternar. |
 | `SegmentedControl` | Opciones excluyentes visibles (radiogroup, flechas). `block`, `wrap`, opciones solo-ícono con `title`. |
-| `Tabs` + `TabPanel` | Pestañas con paneles (tablist, flechas, insignia por pestaña). |
+| `Tabs` + `TabPanel` | Pestañas con paneles (tablist, flechas, insignia por pestaña). El rótulo va en `.ui-tabs__label` (y en el `title`): una pantalla puede ocultarlo visualmente en las no elegidas cuando no entran (el dock lo hace por debajo de 74 em). |
 | `Select` | Selector nativo estilizado; `options` o `groups` (optgroup). |
 | `TextField` | Texto de una línea con ícono y sufijo. |
 | `NumberField` | Número con coma o punto, unidad, Enter/Escape, ↑/↓ por paso (Mayús ×10; log proporcional); destella al cambiar desde afuera. |

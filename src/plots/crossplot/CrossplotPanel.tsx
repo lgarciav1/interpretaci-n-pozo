@@ -56,7 +56,9 @@ function axisFor(curve: PlotCurve, scale: 'linear' | 'log', values: Float64Array
   if (fixed && (scale !== 'log' || fixed[0] > 0)) return { ...base, min: fixed[0], max: fixed[1] };
   const r = robustRange(values, scale === 'log');
   const nice = r ? niceRange([[r.min, r.max]], scale, { pad: 0.06 }) : null;
-  return { ...base, min: nice?.min ?? (scale === 'log' ? 0.1 : 0), max: nice?.max ?? (scale === 'log' ? 1000 : 1) };
+  // Una curva sin negativos (porosidad, Vsh) no muestra un eje que empieza en negativo.
+  const min = nice && scale === 'linear' && r!.min >= 0 && nice.min < 0 ? 0 : nice?.min;
+  return { ...base, min: min ?? (scale === 'log' ? 0.1 : 0), max: nice?.max ?? (scale === 'log' ? 1000 : 1) };
 }
 
 /** Parámetros de Archie para el gráfico de Pickett: a, m, n del alcance; Rw = mediana de la curva RW en los puntos visibles. */
@@ -126,7 +128,7 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
   const { ctx, config, onChange } = props;
   const theme = useThemeTokens();
   const [preview, setPreview] = useState<{ id: string; value: number } | null>(null);
-  const [selection, setSelection] = useState<{ count: number; runs: number } | null>(null);
+  const [selection, setSelection] = useState<{ count: number; runs: number; rect: DataRect } | null>(null);
   const options = useMemo(() => plotCurveOptions(ctx), [ctx]);
   const depth = ctx.well.depth.values;
   const zones = ctx.interpretation.zones;
@@ -371,7 +373,7 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
     const mark = new Uint8Array(depth.length);
     for (const k of inside) mark[cloud.idx[k]!] = 1;
     const runs = depthRuns(depth, (i) => mark[i] === 1, 1);
-    setSelection({ count: inside.length, runs: runs.length });
+    setSelection({ count: inside.length, runs: runs.length, rect: r });
     setPlotLink({ selection: { runs, count: inside.length } });
   };
   const addTrend = (model: TrendModel) => {
@@ -565,6 +567,7 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
               ariaLabel={`Crossplot de ${cy.label} contra ${cx.label}, ${formatNumber(n, { digits: 0 })} puntos`}
               colorKey={coloring?.kind === 'curve' ? coloring.key : undefined}
               highlight={highlight}
+              selection={selection?.rect ?? null}
               onGuideChange={onGuide}
               onGuideRemove={removeGuide}
               onSelectRect={onRect}
@@ -645,6 +648,7 @@ interface CloudPlotProps {
   ariaLabel: string;
   colorKey: XYColorKey | undefined;
   highlight: { layerId: string; index: number } | null;
+  selection: DataRect | null;
   onGuideChange(id: string, value: number, phase: GuidePhase): void;
   onGuideRemove(id: string): void;
   onSelectRect(r: DataRect): void;
@@ -670,6 +674,7 @@ const CloudPlot = memo(function CloudPlot(p: CloudPlotProps) {
       guides={p.guides}
       {...(p.colorKey ? { colorKey: p.colorKey } : {})}
       highlight={p.highlight}
+      selection={p.selection}
       onGuideChange={p.onGuideChange}
       onGuideRemove={p.onGuideRemove}
       onSelectRect={p.onSelectRect}

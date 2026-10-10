@@ -7,9 +7,9 @@
  * - Freedman, D. y Diaconis, P. (1981). On the histogram as a density estimator: L2 theory. Zeitschrift für
  *   Wahrscheinlichkeitstheorie und verwandte Gebiete 57, 453–476. Ancho h = 2·IQR·n^(−1/3).
  * - Sturges, H. A. (1926). The choice of a class interval. JASA 21(153), 65–66. k = ⌈log2 n⌉ + 1.
- * - Percentiles: Hyndman y Fan (1996), definición 7 (`percentile` de src/petro/stats.ts).
+ * - Percentiles: Hyndman y Fan (1996), definición 7 (la misma de `percentile` en src/petro/stats.ts, sobre un typed array
+ *   ordenado una sola vez).
  */
-import { percentile } from '../../petro/stats';
 
 export type HistScale = 'linear' | 'log';
 
@@ -192,13 +192,21 @@ export function sampleStats(values: ArrayLike<number>, scale: HistScale, include
     if (v < min) min = v;
     if (v > max) max = v;
   }
+  // Un solo ordenamiento numérico (typed array) para los tres percentiles; misma definición que `percentile`.
+  const sorted = xs.sort();
+  const q = (p: number) => {
+    const h = (n - 1) * p;
+    const a = Math.floor(h);
+    const b = Math.min(a + 1, n - 1);
+    return sorted[a]! + (h - a) * (sorted[b]! - sorted[a]!);
+  };
   return {
     n,
     mean: inv(scale, sum / n),
     geometric: scale === 'log',
-    p10: inv(scale, percentile(xs, 0.1)),
-    p50: inv(scale, percentile(xs, 0.5)),
-    p90: inv(scale, percentile(xs, 0.9)),
+    p10: inv(scale, q(0.1)),
+    p50: inv(scale, q(0.5)),
+    p90: inv(scale, q(0.9)),
     min: inv(scale, min),
     max: inv(scale, max),
   };

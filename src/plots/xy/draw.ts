@@ -292,6 +292,9 @@ export function drawBars(ctx: CanvasRenderingContext2D, m: XYMapping, l: XYBarLa
   ctx.restore();
 }
 
+/** Por encima de esta cantidad, la nube densa se dibuja con cuadraditos en vez de círculos. */
+export const DENSE_ARC_LIMIT = 12000;
+
 /** Nube densa: puntos sin halo agrupados por color (un trazado por color). */
 function drawDensePoints(ctx: CanvasRenderingContext2D, m: XYMapping, l: XYPointLayer, theme: ThemeTokens): void {
   const n = Math.min(l.x.length, l.y.length);
@@ -309,12 +312,18 @@ function drawDensePoints(ctx: CanvasRenderingContext2D, m: XYMapping, l: XYPoint
   }
   ctx.save();
   ctx.globalAlpha = l.alpha ?? (theme.name === 'dark' ? 0.8 : 0.72);
+  // Con muchos puntos, cuadraditos (un `rect` cuesta una fracción de un `arc`; a 3 px no se distinguen).
+  const squares = n > DENSE_ARC_LIMIT;
+  const side = r * 1.8;
   for (const [c, g] of groups) {
     ctx.fillStyle = c;
     ctx.beginPath();
     for (let k = 0; k < g.length; k += 2) {
-      ctx.moveTo(g[k]! + r, g[k + 1]!);
-      ctx.arc(g[k]!, g[k + 1]!, r, 0, 2 * Math.PI);
+      if (squares) ctx.rect(g[k]! - side / 2, g[k + 1]! - side / 2, side, side);
+      else {
+        ctx.moveTo(g[k]! + r, g[k + 1]!);
+        ctx.arc(g[k]!, g[k + 1]!, r, 0, 2 * Math.PI);
+      }
     }
     ctx.fill();
   }

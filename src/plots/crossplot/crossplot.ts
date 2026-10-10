@@ -28,19 +28,26 @@ export function gather(v: ArrayLike<number>, idx: ArrayLike<number>): Float64Arr
 }
 
 /**
- * Rango robusto de valores (percentiles `lo`–`hi`, por defecto 1–99): una lectura espuria no aplasta la nube. En log
- * solo cuentan los positivos. null si no hay valores.
+ * Rango robusto de valores (percentiles `lo`–`hi`, por defecto 1–99; definición 7 de Hyndman y Fan, igual que
+ * `percentile`): una lectura espuria no aplasta la nube. En log solo cuentan los positivos. null si no hay valores.
  */
 export function robustRange(v: ArrayLike<number>, log: boolean, lo = 0.01, hi = 0.99): { min: number; max: number } | null {
-  const xs: number[] = [];
+  // Float64Array.sort es numérico y mucho más rápido que un sort con comparador (decenas de miles de muestras).
+  const buf = new Float64Array(v.length);
+  let m = 0;
   for (let i = 0; i < v.length; i++) {
     const a = v[i]!;
-    if (Number.isFinite(a) && (!log || a > 0)) xs.push(a);
+    if (Number.isFinite(a) && (!log || a > 0)) buf[m++] = a;
   }
-  if (xs.length === 0) return null;
-  const min = percentile(xs, lo);
-  const max = percentile(xs, hi);
-  return { min, max };
+  if (m === 0) return null;
+  const xs = buf.subarray(0, m).sort();
+  const q = (p: number) => {
+    const h = (m - 1) * p;
+    const a = Math.floor(h);
+    const b = Math.min(a + 1, m - 1);
+    return xs[a]! + (h - a) * (xs[b]! - xs[a]!);
+  };
+  return { min: q(lo), max: q(hi) };
 }
 
 /** Niveles de la rampa de color (32: suaves a la vista y pocos lotes de dibujo). */

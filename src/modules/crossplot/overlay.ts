@@ -47,7 +47,7 @@ export const overlays: ViewerOverlay[] = [
       const x1 = Math.max(...tracks.map((t) => t.x + t.width));
       const accent = theme.color.accent;
       ctx.save();
-      if (s.selection) bands(frame, s.selection.runs, withAlpha(accent, 0.2), withAlpha(accent, 0.9), x0, x1);
+      if (s.selection) bands(frame, s.selection.runs, withAlpha(accent, 0.13), withAlpha(accent, 0.85), x0, x1);
       if (s.hoverRuns) bands(frame, s.hoverRuns, withAlpha(accent, 0.16), accent, x0, x1);
       if (s.hoverDepth !== null && s.hoverDepth >= v.top && s.hoverDepth <= v.base) {
         const y = Math.round(v.yOf(s.hoverDepth)) + 0.5;

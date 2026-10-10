@@ -5,7 +5,8 @@ Las decisiones con sus alternativas descartadas están en [`decisiones/`](decisi
 (0001), lectura de datos (0002), control de calidad (0003), sistema de diseño, armazón y flujo guiado (0004), visor
 multipista (0005), deshacer y rehacer (0006), catálogo de módulos de la fase 6a con sus cambios de núcleo (0007),
 tendencias y gradientes (0008), presiones MDT con los conjuntos de puntos del pozo (0009), datos de corona con
-puesta en profundidad y modelo k–φ (0010), exportación de datos (0011) y de figuras (0012) y tamaño de interfaz (0013).
+puesta en profundidad y modelo k–φ (0010), exportación de datos (0011) y de figuras (0012), tamaño de interfaz (0013) e
+histograma y crossplot libre (0014).
 Este documento resume cómo encajan las piezas y cómo agregar un módulo.
 
 ## Ideas centrales
@@ -50,7 +51,7 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 
 | Carpeta | Qué hay | Puede importar React |
 |---|---|---|
-| `src/core/` | modelo (`well.ts`; conjuntos de puntos `pointSets.ts`), unidades, roles, parámetros, contrato de módulo, registro, motor (`engine/`), estado (`state/`: proyecto, snapshots, recetas de zonas `zones.ts`, de tendencias `trends.ts` y de conjuntos de puntos `pointSets.ts`), configuración del visor que se guarda y su validación al abrir (`display.ts`, incluidas las pilas de la pista volumétrica), tendencias (`trends.ts`: `TrendSpec`, saneamiento), conversión a unidad canónica compartida (`canonical.ts`) | no |
+| `src/core/` | modelo (`well.ts`; conjuntos de puntos `pointSets.ts`), unidades, roles, parámetros, contrato de módulo, registro, motor (`engine/`), estado (`state/`: proyecto, snapshots, recetas de zonas `zones.ts`, de tendencias `trends.ts`, de conjuntos de puntos `pointSets.ts` y de gráficos `plots.ts`), configuración del visor que se guarda y su validación al abrir (`display.ts`, incluidas las pilas de la pista volumétrica), configuración del histograma y del crossplot (`plots.ts`), tendencias (`trends.ts`: `TrendSpec`, saneamiento), conversión a unidad canónica compartida (`canonical.ts`) | no |
 | `src/petro/` | funciones de cálculo puras, testeadas | no |
 | `src/modules/<id>/index.ts` | definición pura del módulo | no |
 | `src/modules/<id>/panel.tsx` | panel a medida (opcional) | sí |
@@ -63,12 +64,14 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 | `src/ui/` | sistema de diseño: tokens, tema, paleta de curvas, componentes, `useCanvas`; contrato de panel. Guía en `src/ui/README.md`; muestra en `#ui` | sí |
 | `src/viewer/` | visor multipista: plantillas, resolución de pistas, viewport, ticks, reducción M4, rellenos, pilas (`stack.ts`), lectura, contrato de superposiciones (con elementos del teclado), gestos (`interaction.ts`), dibujo en canvas (`*.ts`, puros o canvas) y los componentes `WellViewer.tsx`, `Minimap.tsx`, `WellHeader.tsx`. Guía en `src/viewer/README.md` | solo los `.tsx` |
 | `src/io/` | lectores Excel/LAS/CSV, mnemónicos, control de calidad, tablas de presiones (`pressures.ts`) (ver su README) | no |
-| `src/plots/xy/` | gráfico x–y base (ejes lineales o log, ticks, mapeo dato ↔ px puro en `axes.ts`, dibujo en `draw.ts`, componente `XYPlot.tsx`): lo usa el crossplot k–φ de la corona y lo hereda la fase 7. Guía en `src/plots/README.md` | solo `XYPlot.tsx` |
+| `src/plots/xy/` | gráfico x–y base (ejes lineales o log, ticks, mapeo dato ↔ px puro en `axes.ts`, dibujo en `draw.ts` —barras, eje derecho, guías rotuladas, nube densa—, búsqueda por grilla `pick.ts`, componente `XYPlot.tsx` con guías arrastrables): lo usan el crossplot k–φ de la corona, el histograma y el crossplot libre. Guía en `src/plots/README.md` | solo `XYPlot.tsx` |
+| `src/plots/histogram/`, `src/plots/crossplot/`, `src/plots/*.ts` | histograma y crossplot libre (0014): lo puro en `.ts` (binning, estadísticos, plantillas, serie `crossplot`, curvas y zonas `data.ts`, cutoffs `cutoffs.ts`, enlace con el visor `link.ts`) y los paneles de presentación en `.tsx` (sin stores) | solo los `.tsx` |
+| `src/app/plots/` | conexión de los gráficos del dock con los stores: contexto del pozo, configuración, `commit`, cutoff real hacia los parámetros, montaje solo con la pestaña a la vista | sí |
 | `src/plots/trend/` | tendencias: contrato y registro de proveedores de series (`series.ts`, proveedor `curve`), ajuste sobre la serie (`compute.ts`), dibujo independiente de los ejes (`draw.ts`), textos (`format.ts`) y superposición del visor sin stores (`overlay.ts`). Guía en `src/plots/README.md` | no |
 | `src/app/trends/` | estado de interfaz de las tendencias (herramienta, selección), proveedores de los módulos (`providers.ts`), conexión con los stores (`actions.ts`) y panel «Tendencias» del dock | sí |
 | `src/modules/<id>/series.ts` | proveedores de series para tendencias (opcional, `seriesProviders: TrendSeriesProvider[]`): MDT, plugs de corona…; el worker no lo importa | no |
-| `src/modules/<id>/dock.tsx` | paneles del dock aportados por un módulo (opcional, `dockPanels: DockPanelDef[]`, contrato en `src/ui/dockPanel.ts`): «Presiones MDT» | sí |
-| `src/plots` (resto), `ml` | fases siguientes (ver su README) | — |
+| `src/modules/<id>/dock.tsx` | paneles del dock aportados por un módulo (opcional, `dockPanels: DockPanelDef[]`, contrato en `src/ui/dockPanel.ts`): «Presiones MDT», «Corona», «Histograma», «Crossplot» | sí |
+| `ml` | fases siguientes (ver su README) | — |
 
 Un test (`tests/modules.test.ts`) falla si `core`, `petro` o una definición de módulo importan React, zustand o la
 interfaz.
@@ -232,9 +235,10 @@ de otro.
 
 ## Guardar / abrir
 
-`serializeProject` / `deserializeProject` (`src/core/state/serialize.ts`): JSON con `format`, `version` (hoy 5: v2
+`serializeProject` / `deserializeProject` (`src/core/state/serialize.ts`): JSON con `format`, `version` (hoy 6: v2
 agregó el progreso del flujo, v3 la configuración del visor, v4 las tendencias de cada pozo y snapshot, v5 los
-conjuntos de puntos del pozo y las decisiones sobre ellos) y migraciones. Al abrir, `display`, las tendencias, los
+conjuntos de puntos del pozo y las decisiones sobre ellos, v6 la configuración del histograma y del crossplot en
+`display.plots`) y migraciones. Al abrir, `display` (con `plots`), las tendencias, los
 conjuntos de puntos y sus decisiones se validan: lo inválido se descarta con aviso. Los arrays van como Float64 little-endian comprimidos con `CompressionStream('deflate')` (con o sin
 "byte shuffle", lo que salga más chico) en base64: exactos bit a bit. Los perfiles del TP quedan en menos de la
 mitad del binario sin comprimir.
@@ -260,9 +264,13 @@ mitad del binario sin comprimir.
 | psia y psig se tratan como psi | cuando haya datos reales | Guardar la referencia por columna y avisar en el asistente si se mezclan (desplaza ~14,7 psi la regla «presión ≥ lodo»). |
 | Gradientes de presión en pozos desviados (hoy contra MD; el panel avisa si TVD difiere de MD) | cuando haya un pozo desviado | Serie `mdt` con x = TVD (columna `tvd`) y la pista ubicada por MD. |
 | «Usar un contacto como tope de zona» (opcional del pedido MDT) | cuando se pida | Receta que parta la zona que contiene el contacto (`createZone`, `src/core/state/zones.ts`). |
-| Excluir o incluir muchos puntos a la vez (lazo en el crossplot) | fase 7 | Receta nueva en `src/core/state/trends.ts`; hoy se alterna de a uno (el panel «Corona» lo resuelve para sus plugs con el rectángulo de `XYPlot`, escribiendo `selection.excluded` de la tendencia). |
+| Excluir o incluir muchos puntos a la vez (lazo en el crossplot) | fase 7b | Receta nueva en `src/core/state/trends.ts`; hoy se alterna de a uno (el panel «Corona» lo resuelve para sus plugs con el rectángulo de `XYPlot`, escribiendo `selection.excluded` de la tendencia). El crossplot libre (7a) ya tiene selección por rectángulo, que hoy solo marca tramos en el visor. |
 | Corrección de Klinkenberg y de presión de confinamiento de los plugs | cuando haya datos reales de laboratorio | El lector (`src/io/core.ts`) elige la columna (Klinkenberg antes que aire) pero no corrige; sumar la columna de presión de confinamiento y un factor opcional. |
-| Modelo k–φ por litofacies o capa (hoy global o por zona) | fase 7 (crossplot libre con filtro por capa) | Una tendencia por capa sobre la serie `core` y «Aplicar» a la zona que corresponda; el módulo `perm-core` ya tiene a y b por zona. |
+| Modelo k–φ por litofacies o capa (hoy global o por zona) | fase 7b | Una tendencia por capa sobre la serie `core` y «Aplicar» a la zona que corresponda; el módulo `perm-core` ya tiene a y b por zona. El crossplot libre filtra por zona y ajusta tendencias, pero sobre curvas del perfil, no sobre plugs. |
+| Arrastrar el punto de matriz (densidad–neutrón), la recta de agua (Pickett) y las líneas de GR limpio/arcilla | fase 7b | Las líneas ya salen de funciones de sus parámetros (`src/plots/crossplot/templates.ts`); arrastrar = guía o manija nueva que escribe el parámetro con `setParam`, como el cutoff real (0014, D3/D7). |
+| Líneas de litología curvas en densidad–neutrón (hoy rectas de mezcla matriz–agua) | cuando se pida | Tabular la carta CP-1 del fabricante por litología y dibujarla como `XYLineLayer`. |
+| Arrastre de un cutoff real: una sola entrada de deshacer aunque se pause más de 800 ms | antes de la fase 12 | Agrupar por «gesto» (abrir un grupo al empezar el arrastre y cerrarlo al soltar) en `history.ts`; vale también para los sliders. |
+| Rangos de ejes del crossplot editables a mano (hoy automáticos o de la plantilla) | cuando se pida | `xRange`/`yRange` ya se guardan; falta el editor (como el de escalas del visor). |
 | La densidad de grano de los plugs no alimenta ρma de la porosidad por densidad | cuando se pida | Parámetro de `phi-density` que tome la mediana de ρg de la corona (en la zona) como densidad de matriz sugerida. |
 | Puesta en profundidad de la corona en pozos desviados (hoy en MD) | cuando haya un pozo desviado | Igual que los gradientes MDT: variable independiente TVD con la pista ubicada por MD. |
 
@@ -385,6 +393,27 @@ Decisión: [`docs/decisiones/0010-datos-de-corona.md`](decisiones/0010-datos-de-
   `example.ts`), `src/modules/perm-core/`, `src/plots/xy/`. Tests: `tests/point-sets-shift.test.ts`,
   `tests/petro-depth-match.test.ts`, `tests/perm-core.test.ts`, `tests/io/core.test.ts`, `tests/core-plugs.test.ts`,
   `tests/plots/xy-geometry.test.ts`, `tests/plots/core-overlay.test.ts`.
+
+## Histograma y crossplot libre (fase 7a)
+
+Decisión: [`docs/decisiones/0014-histograma-y-crossplot.md`](decisiones/0014-histograma-y-crossplot.md). Dos módulos
+obligatorios del profesor como pestañas del dock (aportadas por `src/modules/histogram/` y `src/modules/crossplot/`).
+
+- **Configuración** en `Project.display.plots[pozo]` (formato v6): curvas, escalas, color, zonas, plantilla, opciones y
+  cutoffs libres; recetas `updatePlotConfig`/`setPlotCutoff` por `commit` (deshacer); no recalcula el motor ni entra en
+  snapshots.
+- **Cutoff arrastrable**: real para curvas con rol VSH/PHIE/SW (escribe `vshCutoff`/`phiCutoff`/`swCutoff` con la
+  etiqueta del slider: recálculo en vivo y una entrada de deshacer; global, o de la zona si hay una sola filtrada) o
+  libre (solo en la configuración del gráfico). Mouse, teclado (manija `role="slider"`) y quitar.
+- **Histograma**: Freedman–Diaconis, escala log por rol, superposición por zona, normalizar a %, acumulada, n, media,
+  P10/P50/P90 en un panel aparte.
+- **Crossplot**: dos clics, escala log por rol, color por tercera curva (viridis) o por zona, filtro por zonas,
+  tendencias sobre la nube (proveedor `crossplot`), plantillas densidad–neutrón, Pickett (a, m, n y Rw del proyecto),
+  φ–Sw y GR–Rt.
+- **Visor**: punto o clase bajo el puntero y selección por rectángulo se marcan en el visor (superposición `plot-link`,
+  estado en `src/plots/link.ts`); el cursor del visor resalta el punto de esa profundidad (`useViewer.cursorDepth`).
+- **Rendimiento**: nube en lotes por color, grilla de búsqueda, capa de interacción aparte; 50 000 muestras siguen
+  fluidas al pasar el puntero.
 
 ## Deshacer y rehacer
 
