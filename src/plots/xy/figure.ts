@@ -6,6 +6,7 @@
  */
 import type { TextMeasure } from '../../io/export/figures/svg';
 import type { FigureParts } from '../../io/export/figures/templates';
+import { formatNumber } from '../../ui/format';
 import { BASE_TOKENS, THEMES } from '../../ui/tokens';
 import { plotRectFor, validAxis, xyMapping } from './axes';
 import { drawXYScene, type XYScene } from './draw';
@@ -27,7 +28,7 @@ export interface XYColorKey {
 }
 
 export interface XYFigureInput {
-  source: Pick<XYFigureSource, 'x' | 'y' | 'points' | 'lines' | 'trends' | 'guides'>;
+  source: Pick<XYFigureSource, 'x' | 'y' | 'points' | 'lines' | 'trends' | 'guides' | 'bars' | 'y2'>;
   parts: FigureParts;
   title: string;
   subtitle?: string;
@@ -42,7 +43,7 @@ export interface XYFigureInput {
 }
 
 export interface LegendEntry {
-  kind: 'point' | 'line' | 'trend';
+  kind: 'point' | 'line' | 'trend' | 'bar';
   color: string;
   text: string;
   dash?: readonly number[];
@@ -51,6 +52,7 @@ export interface LegendEntry {
 /** Entradas de la leyenda: capas con nombre y tendencias con su ecuación y R². */
 export function xyLegendEntries(src: XYFigureInput['source']): LegendEntry[] {
   const out: LegendEntry[] = [];
+  for (const b of src.bars ?? []) if (b.name) out.push({ kind: 'bar', color: b.color, text: b.name });
   for (const l of src.points) if (l.name) out.push({ kind: 'point', color: typeof l.color === 'string' ? l.color : '#6b737e', text: l.name });
   for (const l of src.lines) if (l.name) out.push({ kind: 'line', color: l.color, text: l.name, ...(l.dash ? { dash: l.dash } : {}) });
   for (const t of src.trends) out.push({ kind: 'trend', color: t.color, text: t.label ? `${t.name ?? 'Tendencia'}: ${t.label[0]} · ${t.label[1]}` : (t.name ?? 'Tendencia') });
@@ -108,7 +110,15 @@ export function layoutXYFigure(input: XYFigureInput): XYFigureLayout {
 
 function drawSwatch(ctx: CanvasRenderingContext2D, e: LegendEntry, x: number, y: number): void {
   ctx.save();
-  if (e.kind === 'point') {
+  if (e.kind === 'bar') {
+    ctx.fillStyle = e.color;
+    ctx.globalAlpha = 0.45;
+    ctx.fillRect(x + 4, y - 5, 14, 10);
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = e.color;
+    ctx.lineWidth = 1.25;
+    ctx.strokeRect(x + 4.5, y - 4.5, 13, 9);
+  } else if (e.kind === 'point') {
     ctx.beginPath();
     ctx.arc(x + 11, y, 4.5, 0, 2 * Math.PI);
     ctx.fillStyle = e.color;
@@ -155,8 +165,8 @@ export function drawXYFigure(ctx: CanvasRenderingContext2D, input: XYFigureInput
   ctx.save();
   ctx.translate(L.plot.x, L.plot.y);
   if (validAxis(xAxis) && validAxis(yAxis)) {
-    const scene: XYScene = { points: input.source.points, lines: input.source.lines, trends: input.source.trends, guides: input.source.guides };
-    drawXYScene(ctx, xyMapping(xAxis, yAxis, plotRectFor(L.plot.width, L.plot.height, false)), xAxis, yAxis, scene, th, false);
+    const scene: XYScene = { points: input.source.points, lines: input.source.lines, trends: input.source.trends, guides: input.source.guides, ...(input.source.bars ? { bars: input.source.bars } : {}), ...(input.source.y2 ? { y2: input.source.y2 } : {}) };
+    drawXYScene(ctx, xyMapping(xAxis, yAxis, plotRectFor(L.plot.width, L.plot.height, false, 1, !!input.source.y2)), xAxis, yAxis, scene, th, false);
   } else {
     ctx.fillStyle = th.color.textMuted;
     ctx.font = font(BASE_TOKENS.text.sm);
@@ -199,9 +209,9 @@ export function drawXYFigure(ctx: CanvasRenderingContext2D, input: XYFigureInput
     ctx.font = font(10);
     ctx.textBaseline = 'top';
     ctx.textAlign = 'left';
-    ctx.fillText(String(key.min), left, L.keyY + 25);
+    ctx.fillText(formatNumber(key.min, { significant: 3 }), left, L.keyY + 25);
     ctx.textAlign = 'right';
-    ctx.fillText(String(key.max), left + kw, L.keyY + 25);
+    ctx.fillText(formatNumber(key.max, { significant: 3 }), left + kw, L.keyY + 25);
   }
 
   if (parts.credits) {

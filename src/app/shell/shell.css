@@ -5,6 +5,9 @@
   height: 100%;
   min-width: 1024px;
   background: var(--color-bg);
+  /* Red de seguridad: nada absoluto de adentro alarga la página (el documento no debe desplazarse en vertical). */
+  position: relative;
+  overflow-y: clip;
 }
 .shell-spacer { flex: 1; }
 
@@ -17,29 +20,33 @@
   padding: 0 var(--space-3) 0 var(--space-4);
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border-subtle);
+  /* Contenedor: lo que hay adentro se compacta según el ancho de la barra (abajo), sin ensanchar la página. */
+  container: topbar / inline-size;
 }
 .shell-brand { display: flex; align-items: center; gap: var(--space-2-5); white-space: nowrap; }
 .shell-brand__name { font-size: var(--text-lg); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-tight); }
-@media (max-width: 1520px) { .shell-brand__name { display: none; } }
 .shell-context {
   display: flex;
   align-items: center;
+  flex: 0 1 auto;
   gap: var(--space-1);
   min-width: 0;
-  height: 24px;
+  height: calc(24px * var(--ui-scale));
   padding: 0 var(--space-3);
   border-left: 1px solid var(--color-border);
   color: var(--color-text-muted);
   white-space: nowrap;
 }
-.shell-context__project { flex: none; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+.shell-context__project { flex: 0 4 auto; min-width: 0; max-width: calc(200px * var(--ui-scale)); overflow: hidden; text-overflow: ellipsis; }
 .shell-context__sep { color: var(--color-text-subtle); flex: none; }
-.shell-context__well { display: inline-flex; align-items: center; gap: var(--space-1-5); color: var(--color-text); font-weight: var(--weight-medium); overflow: hidden; text-overflow: ellipsis; }
+.shell-context__well { display: inline-flex; align-items: center; flex: 0 1 auto; gap: var(--space-1-5); min-width: 0; color: var(--color-text); font-weight: var(--weight-medium); overflow: hidden; }
+.shell-context__well > .ui-icon { flex: none; }
+.shell-context__well-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .shell-engine {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  height: 28px;
+  height: calc(28px * var(--ui-scale));
   padding: 0 var(--space-2-5);
   border: 1px solid transparent;
   border-radius: var(--radius-full);
@@ -54,18 +61,40 @@
 .shell-actions { display: flex; align-items: center; gap: var(--space-2); }
 .shell-history { display: flex; align-items: center; gap: var(--space-0-5); }
 .shell-count {
-  min-width: 18px;
-  height: 18px;
+  min-width: calc(18px * var(--ui-scale));
+  height: calc(18px * var(--ui-scale));
   margin-left: var(--space-0-5);
-  padding: 0 5px;
+  padding: 0 calc(5px * var(--ui-scale));
   border-radius: var(--radius-full);
   background: var(--color-surface-active);
   color: var(--color-text-muted);
   font-size: var(--text-xs);
-  line-height: 18px;
+  line-height: calc(18px * var(--ui-scale));
   text-align: center;
 }
-.shell-topbar__divider { width: 1px; height: 20px; background: var(--color-border); }
+.shell-topbar__divider { flex: none; width: 1px; height: calc(20px * var(--ui-scale)); background: var(--color-border); }
+.shell-workspace, .shell-engine, .shell-history, .shell-actions { flex: none; }
+.shell-prefs { display: flex; align-items: center; flex: none; gap: var(--space-2); }
+
+/*
+ * Barra angosta (ventana chica o tamaño de interfaz grande): se compacta por etapas. Los umbrales van en em del texto
+ * de la barra, así siguen al tamaño de interfaz (1 em = 13 px en Compacto). Medido en Compacto: todo con la marca
+ * ~1750 px (135 em); sin la marca y con el nombre del pozo recortado a ~110 px, ~1350 px (104 em); con las acciones en
+ * ícono, ~1110 px (86 em). Los rótulos se ocultan solo a la vista: los botones conservan su nombre accesible y `title`.
+ */
+@container topbar (max-width: 135em) { .shell-brand__name { display: none; } }
+@container topbar (max-width: 104em) {
+  .shell-actions .ui-btn:not(.ui-btn--primary) { position: relative; --btn-px: var(--space-2); }
+  .shell-actions .ui-btn:not(.ui-btn--primary) .ui-btn__label,
+  .shell-engine__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .shell-engine { position: relative; padding-inline: var(--space-2); }
+}
+@container topbar (max-width: 86em) {
+  .shell-workspace .ui-seg__item > span,
+  .shell-actions .ui-btn--primary .ui-btn__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .shell-workspace .ui-seg__item,
+  .shell-actions .ui-btn--primary { position: relative; --btn-px: var(--space-2); }
+}
 
 /* Flujo guiado */
 .shell-flowbar {
@@ -79,7 +108,7 @@
 }
 .shell-flowbar .ui-stepper { flex: 1; }
 .shell-flowbar__progress { display: flex; align-items: center; gap: var(--space-2); color: var(--color-text-muted); font-size: var(--text-sm); white-space: nowrap; }
-.shell-progress { width: 72px; height: 4px; border-radius: var(--radius-full); background: var(--color-surface-active); overflow: hidden; }
+.shell-progress { width: calc(72px * var(--ui-scale)); height: calc(4px * var(--ui-scale)); border-radius: var(--radius-full); background: var(--color-surface-active); overflow: hidden; }
 .shell-progress > span { display: block; height: 100%; border-radius: inherit; background: var(--color-ok); transition: width var(--dur-slow) var(--ease-standard); }
 
 /* Tres zonas */
@@ -91,7 +120,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 40px;
+  height: calc(40px * var(--ui-scale));
   padding: 0 var(--space-2) 0 var(--space-4);
   border-bottom: 1px solid var(--color-border-subtle);
   flex: none;
@@ -112,10 +141,10 @@
 /* Centro: visor + dock */
 .shell-center { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; padding: var(--space-3); }
 .shell-center > .ui-resize--horizontal { height: var(--space-2-5); }
-.shell-center > .ui-resize--horizontal::before { inset: 4px 46%; height: 2px; border-radius: 2px; background: transparent; }
+.shell-center > .ui-resize--horizontal::before { inset: calc(4px * var(--ui-scale)) 46%; height: 2px; border-radius: 2px; background: transparent; }
 .shell-center > .ui-resize--horizontal:hover::before,
 .shell-center > .ui-resize--horizontal.is-dragging::before,
-.shell-center > .ui-resize--horizontal:focus-visible::before { inset: 4px 42%; background: var(--color-accent); }
+.shell-center > .ui-resize--horizontal:focus-visible::before { inset: calc(4px * var(--ui-scale)) 42%; background: var(--color-accent); }
 .shell-center > .ui-resize--horizontal::after { inset: 0; }
 
 .shell-viewer {
@@ -123,7 +152,7 @@
   display: flex;
   flex-direction: column;
   flex: 1;
-  min-height: 160px;
+  min-height: calc(160px * var(--ui-scale));
   overflow: hidden;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -151,7 +180,19 @@
   box-shadow: var(--shadow-xs);
 }
 .shell-dock.is-collapsed { height: auto; margin-top: var(--space-2-5); }
-.shell-dock__bar { display: flex; align-items: center; flex: none; padding: 0 var(--space-2) 0 var(--space-2); border-bottom: 1px solid var(--color-border-subtle); }
+.shell-dock__bar { display: flex; align-items: center; flex: none; padding: 0 var(--space-2) 0 var(--space-2); border-bottom: 1px solid var(--color-border-subtle); container-type: inline-size; }
+/* Dock angosto (muchas pestañas): las no elegidas quedan solo con ícono (y su insignia); el nombre sigue siendo el
+   nombre accesible y aparece al pasar el mouse. Umbral en em: sigue al tamaño de interfaz. */
+@container (max-width: 74em) {
+  .shell-dock__bar .ui-tabs__tab[aria-selected='false'] .ui-tabs__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
 .shell-dock.is-collapsed .shell-dock__bar { border-bottom: 0; }
 .shell-dock__body { flex: 1; min-height: 0; overflow: auto; }
 .shell-dock__panel { min-height: 100%; }
@@ -161,7 +202,7 @@
 .dock-results .ui-section { padding: 0; border: 0; }
 .dock-flash { border-radius: 3px; padding: 0 2px; margin: 0 -2px; }
 .dock-table tbody tr[data-total] td { font-weight: var(--weight-semibold); background: var(--color-surface-subtle); border-top: 1px solid var(--color-border); }
-.stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: var(--space-2-5); }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(calc(190px * var(--ui-scale)), 1fr)); gap: var(--space-2-5); }
 .stat { padding: var(--space-2-5) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-subtle); }
 .stat.is-alternative { border-style: dashed; }
 .stat__label { font-size: var(--text-sm); color: var(--color-text-muted); }
@@ -175,7 +216,7 @@
 
 /* Inspector (columna derecha) */
 .inspector-head { display: flex; flex-direction: column; gap: var(--space-1-5); padding: var(--space-3) var(--space-4) var(--space-3); border-bottom: 1px solid var(--color-border-subtle); }
-.inspector-head__top { display: flex; align-items: center; gap: var(--space-2); min-height: 28px; }
+.inspector-head__top { display: flex; align-items: center; gap: var(--space-2); min-height: calc(28px * var(--ui-scale)); }
 .inspector-tools { display: inline-flex; gap: var(--space-0-5); margin-right: calc(var(--space-2) * -1); }
 .inspector-head__title { font-size: var(--text-xl); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-tight); }
 .inspector-head__reason { color: var(--color-text-muted); }
@@ -190,12 +231,12 @@
 .kv--wide dd { text-align: left; font-weight: var(--weight-regular); }
 .qc-summary { padding: var(--space-2-5) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-subtle); }
 .issue-list { display: flex; flex-direction: column; border: 1px solid var(--color-border); border-radius: var(--radius-md); overflow: hidden; }
-.issue { display: grid; grid-template-columns: 10px 56px 1fr; align-items: baseline; gap: var(--space-2); padding: 7px var(--space-2-5); border-bottom: 1px solid var(--color-border-subtle); font-size: var(--text-sm); }
+.issue { display: grid; grid-template-columns: calc(10px * var(--ui-scale)) calc(56px * var(--ui-scale)) 1fr; align-items: baseline; gap: var(--space-2); padding: calc(7px * var(--ui-scale)) var(--space-2-5); border-bottom: 1px solid var(--color-border-subtle); font-size: var(--text-sm); }
 .issue:last-child { border-bottom: 0; }
 .issue__name { font-weight: var(--weight-medium); }
 .issue__text { color: var(--color-text-muted); }
 .zone-name { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: var(--weight-medium); }
-.zone-swatch { width: 10px; height: 10px; border-radius: 3px; flex: none; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12); }
+.zone-swatch { width: calc(10px * var(--ui-scale)); height: calc(10px * var(--ui-scale)); border-radius: 3px; flex: none; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12); }
 
 .method-list { display: flex; flex-direction: column; gap: var(--space-1-5); padding: var(--space-3) var(--space-4) 0; }
 .method {

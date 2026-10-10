@@ -121,3 +121,48 @@ describe('registro de gráficos exportables', () => {
     expect(listXYFigures()).toBe(listXYFigures());
   });
 });
+
+describe('figuras de la fase 7a (histograma y crossplot libre)', () => {
+  it('histograma: barras, acumulada en eje derecho y cutoff rotulado salen a SVG válido', () => {
+    const src: XYFigureSource = {
+      id: 'histograma',
+      title: 'Histograma de PHIE',
+      x: { kind: 'linear', min: 0, max: 0.3, label: 'PHIE', unit: 'v/v' },
+      y: { kind: 'linear', min: 0, max: 40, label: 'Frecuencia', unit: '%' },
+      y2: { kind: 'linear', min: 0, max: 100, label: 'Acumulada', unit: '%' },
+      points: [],
+      bars: [
+        { id: 'za', name: 'Zona A', edges: [0, 0.1, 0.2, 0.3], values: [10, 30, 20], color: '#e8c872', fillAlpha: 0.16 },
+        { id: 'zb', name: 'Zona B', edges: [0, 0.1, 0.2, 0.3], values: [25, 15, 5], color: '#9ec5e8', fillAlpha: 0.16 },
+      ],
+      lines: [{ id: 'cum', x: [0.1, 0.2, 0.3], y: [10, 40, 60], color: '#e8c872', y2: true, dash: [5, 3] }],
+      trends: [],
+      guides: [{ id: 'cut', axis: 'x', value: 0.08, color: '#d92d20', label: 'Cutoff global · 0,08', detail: 'Pasa 70 % de las muestras', draggable: true }],
+    };
+    const { svg, rep } = toSvg(inputOf({ source: src, title: src.title }));
+    expect(rep.root).toBe('svg');
+    expect(svg).not.toMatch(/NaN|undefined|Infinity/);
+    const texts = rep.elements.filter((e) => e.name === 'text').map((e) => e.text);
+    for (const t of ['Zona A', 'Zona B', 'Cutoff global · 0,08', 'Pasa 70 % de las muestras', 'Acumulada (%)']) expect(texts, t).toContain(t);
+  });
+  it('crossplot libre: nube densa, líneas de plantilla rotuladas y barra de color', () => {
+    const n = 500;
+    const x = Float64Array.from({ length: n }, (_, i) => 0.05 + (0.3 * i) / n);
+    const y = Float64Array.from(x, (v) => 2.65 - 1.65 * v);
+    const src: XYFigureSource = {
+      id: 'crossplot-libre',
+      title: 'Crossplot Densidad–neutrón',
+      x: { kind: 'linear', min: -0.05, max: 0.45, label: 'NPHI', unit: 'v/v' },
+      y: { kind: 'linear', min: 1.9, max: 2.9, label: 'RHOB', unit: 'g/cm³', reversed: true },
+      points: [{ id: 'cloud', name: 'RHOB vs. NPHI', x, y, color: (i: number) => (i % 2 ? '#440154' : '#fde725'), dense: true, interactive: true }],
+      lines: [{ id: 'dn-limestone', name: 'Caliza', x: [0, 0.45], y: [2.71, 1.9405], color: '#4f8fb8', label: 'Caliza', labelAt: 'start' }],
+      trends: [],
+      guides: [],
+      colorKey: { title: 'GR', unit: 'gAPI', min: 20, max: 140, colors: ['#440154', '#21918c', '#fde725'] },
+    };
+    const { svg, rep } = toSvg(inputOf({ source: src, title: src.title, colorKey: src.colorKey! }));
+    expect(svg).not.toMatch(/NaN|undefined|Infinity/);
+    const texts = rep.elements.filter((e) => e.name === 'text').map((e) => e.text);
+    for (const t of ['Caliza', 'GR (gAPI)', '20', '140']) expect(texts, t).toContain(t);
+  });
+});

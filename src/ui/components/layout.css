@@ -33,7 +33,7 @@
 /* Sección */
 .ui-section { padding: var(--space-3) var(--space-4) var(--space-4); border-bottom: 1px solid var(--color-border-subtle); }
 .ui-section:last-child { border-bottom: 0; }
-.ui-section__head { display: flex; align-items: center; gap: var(--space-2); min-height: 24px; margin-bottom: var(--space-2); }
+.ui-section__head { display: flex; align-items: center; gap: var(--space-2); min-height: calc(24px * var(--ui-scale)); margin-bottom: var(--space-2); }
 .ui-section.is-collapsible:not(.is-open) .ui-section__head { margin-bottom: 0; }
 .ui-section__heading, .ui-section__toggle {
   display: flex;

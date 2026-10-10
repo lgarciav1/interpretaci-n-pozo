@@ -18,6 +18,14 @@ export interface XYPointLayer {
   radius?: number;
   /** Nube tenue (miles de puntos de un perfil): puntos chicos, translúcidos y no interactivos. */
   cloud?: boolean;
+  /**
+   * Nube densa (crossplot libre, decenas de miles de muestras): puntos chicos sin halo, dibujados en lotes por color
+   * (conviene que `color(i)` devuelva pocos colores distintos: una rampa cuantizada, los colores de zona). Puede ser
+   * interactiva: la búsqueda del punto bajo el puntero usa una grilla.
+   */
+  dense?: boolean;
+  /** Opacidad de los puntos de una nube densa (por defecto 0,75). */
+  alpha?: number;
   /** Responde al puntero y al teclado (tooltip, clic). */
   interactive?: boolean;
   /** Texto del tooltip y nombre accesible. */
@@ -32,6 +40,25 @@ export interface XYLineLayer {
   color: string;
   width?: number;
   dash?: number[];
+  /** Se mide contra el eje derecho (`y2`), p. ej. la acumulada de un histograma. */
+  y2?: boolean;
+  /** Rótulo junto a un extremo visible de la línea («Sw 50 %», «Arenisca»). */
+  label?: string;
+  /** Extremo donde va el rótulo: el del final de la polilínea (por defecto) o el del comienzo, ya recortado al área. */
+  labelAt?: 'start' | 'end';
+}
+
+/** Barras de un histograma: clases con bordes en x (`edges`, n + 1) y altura en y (`values`, n). */
+export interface XYBarLayer {
+  id: string;
+  name?: string;
+  edges: ArrayLike<number>;
+  values: ArrayLike<number>;
+  color: string;
+  /** Opacidad del relleno (por defecto 0,35); el contorno va opaco. */
+  fillAlpha?: number;
+  /** Solo el contorno escalonado, sin relleno (superposición de varias series). */
+  outlineOnly?: boolean;
 }
 
 export interface XYTrendLayer {
@@ -53,7 +80,15 @@ export interface XYGuide {
   axis: 'x' | 'y';
   value: number;
   color: string;
+  /** Rótulo en una etiqueta junto a la línea (arriba en una vertical, a la derecha en una horizontal). */
   label?: string;
+  /** Segundo renglón del rótulo («38 % ≤ · 62 % >»). */
+  detail?: string;
   dash?: number[];
   width?: number;
+  /** Id para arrastrarla (cutoffs): con `draggable`, `XYPlot` la mueve con el mouse y el teclado. */
+  id?: string;
+  draggable?: boolean;
+  /** Paso del teclado en unidades del dato (p. ej. el paso del parámetro); por defecto, 1 % del eje. */
+  step?: number;
 }

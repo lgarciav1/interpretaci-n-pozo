@@ -19,7 +19,7 @@ import { setPointDecision, setPointSetDepthShift } from '../../core/state/pointS
 import type { Project } from '../../core/state/project';
 import { contrastRatio, ensureContrast, withAlpha } from '../../ui/color';
 import { formatNumber } from '../../ui/format';
-import { BASE_TOKENS, type ThemeTokens } from '../../ui/tokens';
+import { BASE_TOKENS, scalePx, type ThemeTokens } from '../../ui/tokens';
 import type { OverlayFrame, OverlayHit, OverlayHitFrame, OverlayTarget, OverlayTrack, ViewerOverlay } from '../../viewer/overlay';
 import { COL, CORE_OVERLAY_ID, CORE_REASON_LABEL, coreSets, plugDecisionFor, plugStatuses, runColor, runLabel } from './model';
 
@@ -235,8 +235,9 @@ function drawCoreBars(ctx: CanvasRenderingContext2D, frame: OverlayFrame): void 
   const dt = frame.tracks.find((t) => t.kind === 'depth');
   if (!dt) return;
   const { viewport: vp, theme } = frame;
+  const u = frame.uiScale ?? 1;
   ctx.save();
-  ctx.font = `${BASE_TOKENS.weight.bold} 10px ${BASE_TOKENS.font.sans}`;
+  ctx.font = `${BASE_TOKENS.weight.bold} ${scalePx(10, u)}px ${BASE_TOKENS.font.sans}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   for (const set of coreSets(frame.data.well.pointSets)) {
@@ -262,11 +263,12 @@ function drawCoreBars(ctx: CanvasRenderingContext2D, frame: OverlayFrame): void 
       ctx.fill();
       // Sigla de la corona al costado del tope de la barra.
       const tag = g.run ? (/^\d+$/.test(g.run) ? `C${g.run}` : g.run.slice(0, 3)) : 'C';
-      const w = 8 + tag.length * 6;
+      const w = (8 + tag.length * 6) * u;
+      const th = scalePx(14, u);
       const ty = Math.max(9, Math.min(vp.height - 9, y0 + 8));
       ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.roundRect(x - w - 3, ty - 7, w, 14, 7);
+      ctx.roundRect(x - w - 3, ty - th / 2, w, th, th / 2);
       ctx.fill();
       ctx.fillStyle = contrastRatio(color, '#ffffff') >= 3 ? '#ffffff' : '#111418';
       ctx.fillText(tag, x - 3 - w / 2, ty + 0.5);
@@ -287,7 +289,7 @@ const main: ViewerOverlay = {
   hit(frame, p) {
     if (!p.track || coreSets(frame.data.well.pointSets).length === 0) return null;
     let best: PlacedPlug | null = null;
-    let bestD = PLUG_HIT_PX;
+    let bestD = PLUG_HIT_PX * (frame.uiScale ?? 1);
     for (const d of placePlugs(frame)) {
       if (d.track.id !== p.track.id) continue;
       const dist = Math.hypot(d.x - p.x, d.y - p.y);
@@ -397,19 +399,21 @@ const points: ViewerOverlay = {
         const cur = shiftOf(frame.data.interpretation.pointSets?.[set.id], p.run);
         const text = `${runLabel(p.run)} · ${signed(round2(cur + p.delta))} m`;
         const top = moved.reduce((a, d) => (d.y < a.y ? d : a));
-        ctx.font = `${BASE_TOKENS.weight.semibold} ${BASE_TOKENS.text.xs}px ${BASE_TOKENS.font.sans}`;
-        const w = ctx.measureText(text).width + 16;
+        const u = frame.uiScale ?? 1;
+        ctx.font = `${BASE_TOKENS.weight.semibold} ${scalePx(BASE_TOKENS.text.xs, u)}px ${BASE_TOKENS.font.sans}`;
+        const w = ctx.measureText(text).width + scalePx(16, u);
+        const ph = scalePx(20, u);
         const x = Math.max(4, Math.min(top.track.x + top.track.width - w - 4, top.x - w / 2));
-        const y = Math.max(4, top.y - 30);
+        const y = Math.max(4, top.y - scalePx(30, u));
         const color = colorOf(set, p.run, theme);
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.roundRect(x, y, w, 20, 10);
+        ctx.roundRect(x, y, w, ph, ph / 2);
         ctx.fill();
         ctx.fillStyle = contrastRatio(color, '#ffffff') >= 3 ? '#ffffff' : '#111418';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(text, x + w / 2, y + 10.5);
+        ctx.fillText(text, x + w / 2, y + ph / 2 + 0.5);
       }
     }
     ctx.restore();

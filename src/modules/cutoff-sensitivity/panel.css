@@ -8,8 +8,8 @@
 
 .cs-legend { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-1-5) var(--space-3); color: var(--color-text-muted); font-size: var(--text-xs); min-height: var(--size-control-sm); }
 .cs-legend__item { display: inline-flex; align-items: center; gap: var(--space-1-5); white-space: nowrap; }
-.cs-legend__area { width: 14px; height: 9px; border-top: 2px solid; border-radius: 1px; }
-.cs-legend__dash { width: 16px; height: 0; border-top: 2px dashed; }
+.cs-legend__area { width: calc(14px * var(--ui-scale)); height: calc(9px * var(--ui-scale)); border-top: 2px solid; border-radius: 1px; }
+.cs-legend__dash { width: calc(16px * var(--ui-scale)); height: 0; border-top: 2px dashed; }
 
 .cs-charts { display: flex; flex-direction: column; gap: var(--space-2-5); }
 .cs-chart {
@@ -19,7 +19,7 @@
   padding: var(--space-2) var(--space-2) var(--space-1);
 }
 .cs-chart__head { display: flex; align-items: baseline; gap: var(--space-1-5); padding: 0 var(--space-1) var(--space-1); min-width: 0; }
-.cs-chart__swatch { width: 3px; height: 12px; border-radius: var(--radius-full); align-self: center; flex: none; }
+.cs-chart__swatch { width: calc(3px * var(--ui-scale)); height: calc(12px * var(--ui-scale)); border-radius: var(--radius-full); align-self: center; flex: none; }
 .cs-chart__title { font-weight: var(--weight-semibold); white-space: nowrap; }
 .cs-chart__cut { color: var(--color-text-muted); font-size: var(--text-sm); white-space: nowrap; }
 .cs-chart__read { display: inline-flex; gap: var(--space-2); font-size: var(--text-sm); white-space: nowrap; }
@@ -27,7 +27,7 @@
 .cs-chart__read-vol { color: var(--color-text-muted); }
 .cs-chart__plot { position: relative; border-radius: var(--radius-sm); }
 .cs-chart__plot:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-.cs-chart__canvas { display: block; width: 100%; height: 132px; cursor: crosshair; touch-action: none; }
+.cs-chart__canvas { display: block; width: 100%; height: calc(132px * var(--ui-scale)); cursor: crosshair; touch-action: none; }
 .cs-chart__plot.is-near .cs-chart__canvas, .cs-chart__plot.is-dragging .cs-chart__canvas { cursor: ew-resize; }
 .cs-chart__note { padding: var(--space-1) var(--space-1) 0; color: var(--color-text-muted); font-size: var(--text-xs); }
 
@@ -35,7 +35,7 @@
   position: absolute;
   top: var(--space-5);
   z-index: var(--z-tooltip);
-  min-width: 150px;
+  min-width: calc(150px * var(--ui-scale));
   padding: var(--space-1-5) var(--space-2);
   border-radius: var(--radius-sm);
   background: var(--color-surface-inverse);

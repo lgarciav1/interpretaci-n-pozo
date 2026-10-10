@@ -1,15 +1,23 @@
 /**
  * Canvas que se redibuja solo: escala por devicePixelRatio, observa su tamaño y vuelve a dibujar al cambiar el
- * tema (o el tema del sistema). Patrón base para el visor (fase 4) y los gráficos (fase 7).
+ * tema (o el tema del sistema) o el tamaño de interfaz. Patrón base para el visor (fase 4) y los gráficos (fase 7).
  *
- *     const ref = useCanvas((ctx, { width, height }, theme) => { ctx.fillStyle = theme.viewer.trackBg; ... }, [datos]);
+ *     const ref = useCanvas((ctx, { width, height }, theme, ui) => {
+ *       ctx.fillStyle = theme.viewer.trackBg; ...
+ *       ctx.font = canvasFont(BASE_TOKENS.text.xs, 400, ui); // rótulos que siguen al tamaño de interfaz
+ *     }, [datos]);
  *     return <canvas ref={ref} style={{ width: '100%', height: 240 }} />;
  */
 import { useEffect, useLayoutEffect, useRef, type DependencyList } from 'react';
 import { getResolvedTheme, subscribeTheme, type ThemeName } from './theme';
 import { THEMES, type ThemeTokens } from './tokens';
+import { getUiScaleFactor, subscribeUiScale } from './uiScale';
 
-export type DrawFn = (ctx: CanvasRenderingContext2D, size: { width: number; height: number }, theme: ThemeTokens) => void;
+/**
+ * `uiScale`: factor del tamaño de interfaz (1 = Compacto). Multiplica rótulos, márgenes de texto y tolerancias de
+ * puntero; nunca los datos. Lo que se exporta como figura dibuja con 1.
+ */
+export type DrawFn = (ctx: CanvasRenderingContext2D, size: { width: number; height: number }, theme: ThemeTokens, uiScale: number) => void;
 
 export function useCanvas(draw: DrawFn, deps: DependencyList, fixedTheme?: ThemeName) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -33,7 +41,7 @@ export function useCanvas(draw: DrawFn, deps: DependencyList, fixedTheme?: Theme
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, height);
-    drawRef.current(ctx, { width, height }, THEMES[fixedTheme ?? getResolvedTheme()]);
+    drawRef.current(ctx, { width, height }, THEMES[fixedTheme ?? getResolvedTheme()], getUiScaleFactor());
   };
 
   useLayoutEffect(() => {
@@ -47,11 +55,13 @@ export function useCanvas(draw: DrawFn, deps: DependencyList, fixedTheme?: Theme
     const ro = new ResizeObserver(schedule);
     ro.observe(canvas);
     const unsubscribe = fixedTheme ? () => {} : subscribeTheme(schedule);
+    const unsubscribeScale = subscribeUiScale(schedule);
     paint.current();
     return () => {
       cancelAnimationFrame(frame);
       ro.disconnect();
       unsubscribe();
+      unsubscribeScale();
     };
   }, [fixedTheme]);
 

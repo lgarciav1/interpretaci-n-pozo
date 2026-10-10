@@ -4,6 +4,7 @@
  */
 import type { CSSProperties, ReactNode } from 'react';
 import './table.css';
+import { scaledCss } from '../uiScale';
 
 export interface Column<T> {
   key: string;
@@ -37,7 +38,7 @@ export interface DataTableProps<T> {
 export function DataTable<T>({ columns, rows, rowKey, maxHeight, dense, onRowClick, selectedKey, empty, caption, className, rowProps, ...rest }: DataTableProps<T>) {
   const alignClass = (c: Column<T>) => (c.align === 'num' ? 'is-num' : c.align === 'right' ? 'is-right' : c.align === 'center' ? 'is-center' : undefined);
   return (
-    <div className={['ui-table-wrap', className].filter(Boolean).join(' ')} style={maxHeight !== undefined ? { maxHeight } : undefined}>
+    <div className={['ui-table-wrap', className].filter(Boolean).join(' ')} style={maxHeight !== undefined ? { maxHeight: scaledCss(maxHeight) } : undefined}>
       <table className={`ui-table${dense ? ' ui-table--dense' : ''}${onRowClick ? ' ui-table--interactive' : ''}`} data-testid={rest['data-testid']}>
         {caption && <caption className="ui-visually-hidden">{caption}</caption>}
         <thead>

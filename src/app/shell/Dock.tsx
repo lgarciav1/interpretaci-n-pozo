@@ -1,4 +1,4 @@
-/** Dock del centro: pestañas de paneles acoplables (resultados, avisos, motor; histograma y crossplot en la fase 7). */
+/** Dock del centro: pestañas de paneles acoplables (resultados, avisos, tendencias y las de los módulos: corona, crossplot, histograma, MDT; motor). */
 import { IconButton, TabPanel, Tabs } from '../../ui';
 import { useUi } from '../store/ui';
 import { DOCK_PANELS } from './dockPanels';

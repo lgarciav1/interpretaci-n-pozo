@@ -1,7 +1,7 @@
 /* Panel «Tendencias» del dock (prefijo trend-/trends-). Solo tokens del sistema de diseño. */
 .trends {
   display: grid;
-  grid-template-columns: minmax(200px, 250px) minmax(0, 1fr);
+  grid-template-columns: minmax(calc(200px * var(--ui-scale)), calc(250px * var(--ui-scale))) minmax(0, 1fr);
   min-height: 100%;
 }
 
@@ -47,7 +47,7 @@
   cursor: pointer;
 }
 .trends-item__main:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
-.trends-item__swatch { flex: none; width: 4px; height: 28px; border-radius: var(--radius-full); }
+.trends-item__swatch { flex: none; width: calc(4px * var(--ui-scale)); height: calc(28px * var(--ui-scale)); border-radius: var(--radius-full); }
 .trends-item__text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .trends-item__name { font-weight: var(--weight-medium); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .trends-item__meta { color: var(--color-text-muted); font-size: var(--text-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -65,21 +65,21 @@
 }
 .trend-detail__swatch {
   flex: none;
-  width: 18px;
-  height: 18px;
+  width: calc(18px * var(--ui-scale));
+  height: calc(18px * var(--ui-scale));
   border: 2px solid var(--color-surface);
   border-radius: var(--radius-full);
   box-shadow: 0 0 0 1px var(--color-border-strong);
   cursor: pointer;
 }
 .trend-detail__swatch:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-.trend-detail__name { width: min(240px, 100%); min-width: 120px; }
+.trend-detail__name { width: min(calc(240px * var(--ui-scale)), 100%); min-width: calc(120px * var(--ui-scale)); }
 .trend-detail__name input { font-weight: var(--weight-semibold); }
 .trend-color-pop { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); padding: var(--space-3); }
 
 .trend-detail__body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  grid-template-columns: minmax(0, 1fr) minmax(calc(220px * var(--ui-scale)), calc(280px * var(--ui-scale)));
   gap: var(--space-4) var(--space-5);
   padding: var(--space-3) var(--space-4) var(--space-4);
 }
@@ -105,7 +105,7 @@
 
 .trend-kpis { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; }
 .trend-kpi {
-  min-width: 72px;
+  min-width: calc(72px * var(--ui-scale));
   padding: var(--space-1) var(--space-2-5);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);

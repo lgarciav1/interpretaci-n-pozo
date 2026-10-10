@@ -1,6 +1,6 @@
 # src/plots
 
-Gráficos fuera del visor (histogramas y crossplots, fase 7) y herramientas que se dibujan sobre cualquier gráfico.
+Gráficos fuera del visor (histograma y crossplot libre, fase 7a) y herramientas que se dibujan sobre cualquier gráfico.
 Igual que el visor: datos del proyecto + resultados del motor; lo que el usuario elige sobre un gráfico se escribe con
 recetas puras de `src/core/state/` por `commit`. Sin React en los `.ts` de esta carpeta.
 
@@ -22,7 +22,7 @@ Tests: `tests/plots/` (series y ajuste, geometría, interacción con `PointerGes
 
 Decisión: [`docs/decisiones/0010-datos-de-corona.md`](../../docs/decisiones/0010-datos-de-corona.md) (D6). Gráfico de
 dispersión genérico en canvas: ejes lineales o logarítmicos en cada eje, grilla y rótulos con unidad, capas de puntos,
-líneas, guías y tendencias. Lo usa el crossplot k–φ de la corona; la fase 7 (crossplot libre, histograma) lo hereda. No
+líneas, guías y tendencias. Lo usan el crossplot k–φ de la corona y, desde la fase 7a, el histograma y el crossplot libre. No
 sabe nada de plugs ni de curvas.
 
 | Archivo | Qué hace |
@@ -32,9 +32,10 @@ sabe nada de plugs ni de curvas.
 | `layers.ts` | tipos de capa (`XYPointLayer`, `XYLineLayer`, `XYTrendLayer`, `XYGuide`), con `name` opcional para la leyenda |
 | `figure.ts`, `figures.ts` | figura de publicación (título, leyenda con ecuación y R², barra de color, créditos) y registro de los gráficos exportables |
 | `XYPlot.tsx` | componente: capas, tooltip, clic, selección por rectángulo y teclado |
-| `xy.css` | estilos del contenedor y del tooltip |
+| `pick.ts` | puro: grilla de búsqueda del punto bajo el puntero (`buildPointGrid`, `gridNearest`) para nubes de decenas de miles de puntos |
+| `xy.css` | estilos del contenedor, del tooltip y de la manija de las guías arrastrables |
 
-Tests: `tests/plots/xy-geometry.test.ts`.
+Tests: `tests/plots/xy-geometry.test.ts`, `tests/plots/xy-interaction.test.ts`.
 
 ### Uso
 
@@ -60,11 +61,27 @@ import { XYPlot } from '../../plots/xy/XYPlot';
   que caen fuera del rango salen del área y el dibujo los recorta.
 - **Escalas y mapeo**: `xyMapping(xAxis, yAxis, rect)` devuelve `x(v)`, `y(v)` (y crece hacia arriba) y las inversas
   `xInv`, `yInv`; es la misma función que usan la grilla, los puntos y las tendencias. `plotRectFor(ancho, alto,
-  compact?)` reserva el lugar de los rótulos y los títulos.
+  compact?, ui?)` reserva el lugar de los rótulos y los títulos.
+- **Tamaño de interfaz** (docs/decisiones/0013): `XYPlot` pasa el factor (`ui`) a `plotRectFor` y `drawXYScene`, que
+  agrandan rótulos, títulos, márgenes y la etiqueta de tendencias (no los puntos). `height` es px de Compacto. La figura
+  exportada llama sin factor (1): sale igual con cualquier nivel.
 - **Capas**: `points` (`XYPointLayer`: `color` fijo o por punto —color por una tercera curva o por capa—, `variant`
-  lleno/vacío/tachado, `cloud` para una nube tenue de miles de puntos no interactiva, `interactive` y `label` para el
-  tooltip y el teclado), `lines` (`XYLineLayer`: cortan en los NaN), `guides` (`XYGuide`: línea vertical u horizontal con
-  rótulo; los cutoffs de la fase 7) y `trends`.
+  lleno/vacío/tachado, `cloud` para una nube tenue de miles de puntos no interactiva, `dense` para una nube de decenas
+  de miles de puntos dibujada en lotes por color —puede ser interactiva—, `interactive` y `label` para el tooltip y el
+  teclado), `bars` (`XYBarLayer`: clases de un histograma, relleno tenue y contorno escalonado), `lines` (`XYLineLayer`:
+  cortan en los NaN; `y2` las mide contra el eje derecho; `label`/`labelAt` las rotulan en un extremo visible),
+  `guides` (`XYGuide`: línea vertical u horizontal con rótulo de dos renglones; con `id` y `draggable`, arrastrable) y
+  `trends`.
+- **Eje derecho** (`y2`): para la acumulada del histograma; `plotRectFor(…, rightAxis)` le reserva el margen.
+- **Guías arrastrables** (cutoffs): `onGuideChange(id, valor, 'preview' | 'commit' | 'cancel')` al arrastrar la línea o
+  su manija (un `role="slider"`: Tab, flechas —1 % del eje o `step`—, Mayús ×10, Supr = `onGuideRemove`). El valor se
+  redondea a un paso 1-2-5 de 1/400 del eje (3 cifras en log). La guía se ve en su nueva posición durante el arrastre
+  aunque el dueño todavía no la haya guardado.
+- **Conexión con otros paneles**: `onPointHover`/`onPointLeave`, `onBarHover(clase)` + `barLabel(clase)` (tooltip de la
+  clase), `highlight` (punto resaltado desde afuera: el cursor del visor) y `selection` (rectángulo vigente). Todo lo
+  interactivo va en un segundo canvas: mover el puntero no redibuja la escena.
+- `height` en px de Compacto o `'fill'` (ocupa el alto del contenedor: paneles del dock).
+- Las capas que no se pasan son listas vacías **constantes**: pasar un `[]` nuevo en cada render redibuja toda la escena.
 - **Capa de tendencias** (`XYTrendLayer { id, coeffs, span, color, extend?, label?, emphasis? }`): se dibuja con
   `trendGeometry` de `trend/` con `transpose: false` y los dos mapeos del gráfico, así que una recta en un eje log se ve
   curva y la extensión punteada llega a los bordes. `coeffs` y `span` salen de `evaluateTrend` sobre una serie
@@ -76,6 +93,8 @@ import { XYPlot } from '../../plots/xy/XYPlot';
 - Para dibujar fuera de React (otro canvas, exportar a imagen) se usan `axes.ts` y `draw.ts` directamente.
 
 ### Exportar como figura (fase 6c-2)
+
+Además de las capas, la figura toma `bars`, `y2` y `colorKey` (barra de color de la tercera curva, `XYColorKey`).
 
 Decisión: [`docs/decisiones/0012-exportacion-de-figuras.md`](../../docs/decisiones/0012-exportacion-de-figuras.md). Pasando
 `figureId` y `figureTitle` a `<XYPlot>`, el gráfico se publica en `figures.ts` mientras está montado y aparece en
@@ -131,3 +150,28 @@ export const seriesProviders: TrendSeriesProvider[] = [{
 - Pista propia en otra unidad que la serie (presión en psi, pista en bar): la capa convierte sola con `track.unit`.
 - Contactos: `intersectTrends` (`src/petro/regression.ts`) entre dos tendencias de presión (MDT: `findContacts` en
   `src/modules/mdt/model.ts`).
+
+## Histograma y crossplot libre (fase 7a)
+
+Decisión: [`docs/decisiones/0014-histograma-y-crossplot.md`](../../docs/decisiones/0014-histograma-y-crossplot.md).
+Pestañas del dock «Histograma» y «Crossplot», aportadas por `src/modules/histogram/dock.tsx` y
+`src/modules/crossplot/dock.tsx` (delgados: conectan los stores con `src/app/plots/connect.tsx`). Los paneles de acá
+son de presentación: reciben el contexto del pozo, la configuración y callbacks.
+
+| Archivo | Qué hace |
+|---|---|
+| `data.ts` | puro: curvas por clave `m:`/`r:` en unidad canónica con la escala de su rol (`resolvePlotCurve`, `plotCurveOptions`, `keyForRole`), filtro por zonas (`zoneFilter`), tramos de profundidad de un conjunto de muestras (`depthRuns`), muestra más cercana |
+| `cutoffs.ts` | puro: rol → parámetro del módulo de cutoffs (`cutoffParamFor`), alcance global o de una zona (`cutoffScope`), valor efectivo (`sharedParamValue`), redondeo al paso (`normalizeCutoff`), línea real o libre (`resolveCutoffLine`) |
+| `link.ts` | pub/sub sin React de lo que se señala en un gráfico (profundidad, tramos de una clase, selección); lo dibuja la superposición `plot-link` del módulo `crossplot` |
+| `controls.tsx`, `plots.css` | controles compartidos (curva, escala, filtro de zonas, grupos) y el armado del panel (controles · gráfico · panel aparte) |
+| `histogram/histogram.ts` | puro: Freedman–Diaconis/Sturges, bordes lineales o log, conteo, %, acumulada, rango robusto, estadísticos (n, media —geométrica en log—, P10/P50/P90), reparto a cada lado de un cutoff |
+| `histogram/HistogramPanel.tsx` | panel: curva, escala, clases, zonas superpuestas, normalizar, acumulada, cutoff, estadísticos |
+| `crossplot/crossplot.ts` | puro: muestras graficables, rango robusto, nivel de color de la rampa, mediana sobre índices |
+| `crossplot/templates.ts` | puro: líneas de las plantillas (densidad–neutrón, Pickett, φ–Sw, GR–Rt) y su definición |
+| `crossplot/series.ts` | proveedor de series `crossplot` (tendencias sobre la nube; clave `<x>\|<y>\|<zonas>`), registrado por `src/modules/crossplot/series.ts` |
+| `crossplot/CrossplotPanel.tsx` | panel: ejes, color, zonas, plantilla, cutoffs X/Y, tendencias, leyenda, cuadrantes, selección |
+
+Tests: `tests/plots/histogram.test.ts`, `tests/plots/crossplot.test.ts`, `tests/plots-state.test.ts`.
+
+La configuración de cada gráfico se guarda en el proyecto (`display.plots[pozo]`, `src/core/plots.ts`) con las
+recetas de `src/core/state/plots.ts` (`updatePlotConfig`, `setPlotCutoff`): entra en deshacer y viaja con el archivo.

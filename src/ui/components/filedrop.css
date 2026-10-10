@@ -20,8 +20,8 @@
 .ui-filedrop__icon {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: calc(44px * var(--ui-scale));
+  height: calc(44px * var(--ui-scale));
   margin-bottom: var(--space-1-5);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -30,4 +30,4 @@
   box-shadow: var(--shadow-xs);
 }
 .ui-filedrop__title { font-size: var(--text-lg); font-weight: var(--weight-semibold); color: var(--color-text); }
-.ui-filedrop__text { max-width: 460px; line-height: var(--leading-relaxed); }
+.ui-filedrop__text { max-width: calc(460px * var(--ui-scale)); line-height: var(--leading-relaxed); }

@@ -47,14 +47,14 @@ p { margin: 0; }
 .ui-text-sm { font-size: var(--text-sm); }
 .ui-kbd {
   display: inline-block;
-  min-width: 18px;
-  padding: 0 4px;
+  min-width: calc(18px * var(--ui-scale));
+  padding: 0 calc(4px * var(--ui-scale));
   border: 1px solid var(--color-border-strong);
   border-bottom-width: 2px;
   border-radius: var(--radius-xs);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  line-height: 16px;
+  line-height: calc(16px * var(--ui-scale));
   text-align: center;
   color: var(--color-text-muted);
   background: var(--color-surface-subtle);

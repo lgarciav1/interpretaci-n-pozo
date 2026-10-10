@@ -24,8 +24,10 @@ export const PROJECT_FORMAT = 'pozo-proyecto';
  * - v4 (fase 6b-1): `interpretation.trends` (líneas de tendencia) en cada pozo y snapshot. Migración: v3 → `[]`.
  * - v5 (fase 6b-2): `well.pointSets` (presiones MDT, plugs de corona) e `interpretation.pointSets` (decisiones sobre
  *   sus puntos) en cada pozo y snapshot. Migración: v4 → `[]` y `{}`.
+ * - v6 (fase 7a): `display.plots` (configuración del histograma y del crossplot libre por pozo). Migración: v5 → sin
+ *   configuración (valores por defecto); el campo es opcional, así que no hay que tocar nada.
  */
-export const PROJECT_VERSION = 5;
+export const PROJECT_VERSION = 6;
 
 export type ArrayCodec = 'f64le-b64' | 'f64le-deflate-b64' | 'f64le-shuffle-deflate-b64';
 /** 'auto' = la variante comprimida más chica para cada array. */
@@ -279,6 +281,10 @@ function migrate(file: ProjectFile): ProjectFile {
         snapshots: (f.project.snapshots ?? []).map((s) => ({ ...s, interpretation: withPoints(s.interpretation) })),
       },
     };
+  }
+  if (f.version < 6) {
+    // v5 → v6: sin configuración de gráficos (`display.plots` ausente = valores por defecto).
+    f = { ...f, version: 6 };
   }
   return f;
 }

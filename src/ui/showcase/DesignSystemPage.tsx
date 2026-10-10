@@ -40,6 +40,7 @@ import {
   Tabs,
   TextField,
   ThemeToggle,
+  UiScaleToggle,
   Toaster,
   Tooltip,
   toast,
@@ -398,6 +399,7 @@ export function DesignSystemPage() {
         <a className="showcase-link" href="#">
           Volver a la app
         </a>
+        <UiScaleToggle size="md" />
         <ThemeToggle size="md" />
       </header>
 

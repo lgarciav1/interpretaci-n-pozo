@@ -152,7 +152,7 @@ describe('recetas sobre conjuntos de puntos', () => {
 
 describe('formato v5', () => {
   it('guarda y abre conjuntos (numéricos y de texto, NaN incluido) y decisiones, exactos', async () => {
-    expect(PROJECT_VERSION).toBe(5);
+    expect(PROJECT_VERSION).toBe(6);
     const p = setPointSetSetting(setPointDecision(addPointSet(base(), W, { ...pressureSet(), synthetic: true }), W, 'mdt1', 'a', { status: 'exclude', tag: 'oil' }), W, 'mdt1', 'minMobility', 2);
     for (const codec of ['f64le-b64', 'auto'] as const) {
       const back = await deserializeProject(await serializeProject(p, { codec }));

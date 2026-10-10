@@ -19,12 +19,12 @@
 
 .qc-borehole { display: flex; flex-direction: column; gap: var(--space-1-5); min-width: 0; }
 .qc-borehole__meta { margin: 0; color: var(--color-text-muted); }
-.qc-borehole__row { display: grid; grid-template-columns: 8px 1fr; align-items: start; gap: var(--space-0-5) var(--space-2); }
-.qc-borehole__row > .ui-dot { margin-top: calc(var(--leading-normal) * 0.5em - 4px); }
+.qc-borehole__row { display: grid; grid-template-columns: calc(8px * var(--ui-scale)) 1fr; align-items: start; gap: var(--space-0-5) var(--space-2); }
+.qc-borehole__row > .ui-dot { margin-top: calc(var(--leading-normal) * 0.5em - calc(4px * var(--ui-scale))); }
 .qc-borehole__label { font-weight: var(--weight-medium); margin-right: var(--space-1); }
 .qc-borehole__list {
   grid-column: 2;
-  max-height: 72px;
+  max-height: calc(72px * var(--ui-scale));
   overflow: auto;
   font-size: var(--text-xs);
   line-height: var(--leading-relaxed);
