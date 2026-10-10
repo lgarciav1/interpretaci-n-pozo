@@ -120,6 +120,22 @@ export interface TrackSpec {
   hideWhenEmpty?: boolean;
   /** Texto del estado vacío (qué falta para que aparezcan curvas). */
   emptyHint?: string;
+  /**
+   * Pista quitada por el usuario que no se borra de la lista: las pistas propias de superposiciones (MDT) se
+   * volverían a agregar solas si se borraran (docs/decisiones/0016, D3). No se dibuja ni entra en las figuras.
+   */
+  hidden?: boolean;
+}
+
+/** Plantilla de pistas guardada por el usuario (docs/decisiones/0016, D5). */
+export interface TrackTemplate {
+  id: string;
+  name: string;
+  /** Espacio de trabajo para el que se armó (el selector lista las del espacio activo). */
+  workspace: string;
+  tracks: TrackSpec[];
+  /** ISO 8601 del último guardado. */
+  savedAt?: string;
 }
 
 export interface DisplaySettings {
@@ -139,6 +155,11 @@ export interface DisplaySettings {
    * por defecto (proyectos guardados antes de la fase 7a).
    */
   plots?: Record<string, WellPlots>;
+  /**
+   * Plantillas de pistas propias con nombre (docs/decisiones/0016). Ausente = ninguna (proyectos anteriores a la
+   * fase 7b). Aplicar una copia sus pistas a `layouts[espacio]`.
+   */
+  trackTemplates?: TrackTemplate[];
 }
 
 export function emptyDisplay(): DisplaySettings {
@@ -275,7 +296,51 @@ function sanitizeTrack(raw: unknown, where: string, warn: (m: string) => void): 
   if (raw['collect'] === 'computed' || raw['collect'] === 'flags') t.collect = raw['collect'];
   if (typeof raw['hideWhenEmpty'] === 'boolean') t.hideWhenEmpty = raw['hideWhenEmpty'];
   if (typeof raw['emptyHint'] === 'string') t.emptyHint = raw['emptyHint'];
+  if (raw['hidden'] === true) t.hidden = true;
   return t;
+}
+
+/** Lista de pistas validada: descarta las inválidas y las de id repetido (con aviso). */
+function sanitizeTrackList(tracks: unknown[], where: string, warn: (m: string) => void): TrackSpec[] {
+  const list = tracks.map((t, i) => sanitizeTrack(t, `${where}, pista ${i + 1}`, warn)).filter((t): t is TrackSpec => !!t);
+  const ids = new Set<string>();
+  return list.filter((t) => {
+    if (ids.has(t.id)) {
+      warn(`${where}: la pista '${t.id}' está repetida; se descarta la segunda.`);
+      return false;
+    }
+    ids.add(t.id);
+    return true;
+  });
+}
+
+/** Plantillas propias validadas: sin nombre, sin espacio o sin pistas válidas se descartan (con aviso). */
+function sanitizeTemplates(raw: unknown, warn: (m: string) => void): TrackTemplate[] | null {
+  if (raw === undefined || raw === null) return null;
+  if (!Array.isArray(raw)) {
+    warn('Las plantillas de pistas del proyecto no son una lista; se descartan.');
+    return null;
+  }
+  const out: TrackTemplate[] = [];
+  const ids = new Set<string>();
+  raw.forEach((t, i) => {
+    if (!isObj(t) || !isStr(t['id']) || typeof t['name'] !== 'string' || !t['name'].trim() || !isStr(t['workspace']) || !Array.isArray(t['tracks'])) {
+      warn(`Plantilla de pistas ${i + 1}: le falta el id, el nombre, el espacio de trabajo o las pistas; se descarta.`);
+      return;
+    }
+    if (ids.has(t['id'])) {
+      warn(`Plantilla de pistas '${t['name']}': el id está repetido; se descarta la segunda.`);
+      return;
+    }
+    const tracks = sanitizeTrackList(t['tracks'], `Plantilla '${t['name']}'`, warn);
+    if (!tracks.length) {
+      warn(`Plantilla de pistas '${t['name']}': no tiene pistas válidas; se descarta.`);
+      return;
+    }
+    ids.add(t['id']);
+    out.push({ id: t['id'], name: t['name'].trim(), workspace: t['workspace'], tracks, ...(typeof t['savedAt'] === 'string' ? { savedAt: t['savedAt'] } : {}) });
+  });
+  return out.length ? out : null;
 }
 
 /** Valida `display` leído de un archivo: devuelve solo lo válido y avisa lo que descartó. */
@@ -292,16 +357,7 @@ export function sanitizeDisplay(raw: unknown, warn: (message: string) => void = 
         warn(`Pistas de '${ws}': no es una lista; se usan las de fábrica.`);
         continue;
       }
-      const list = tracks.map((t, i) => sanitizeTrack(t, `Pistas de '${ws}', pista ${i + 1}`, warn)).filter((t): t is TrackSpec => !!t);
-      const ids = new Set<string>();
-      out.layouts[ws] = list.filter((t) => {
-        if (ids.has(t.id)) {
-          warn(`Pistas de '${ws}': la pista '${t.id}' está repetida; se descarta la segunda.`);
-          return false;
-        }
-        ids.add(t.id);
-        return true;
-      });
+      out.layouts[ws] = sanitizeTrackList(tracks, `Pistas de '${ws}'`, warn);
     }
   }
   const overrides = (v: unknown, where: string): Record<string, CurveDisplayOverride> => {
@@ -336,5 +392,7 @@ export function sanitizeDisplay(raw: unknown, warn: (message: string) => void = 
   }
   const plots = sanitizePlots(raw['plots'], warn);
   if (plots) out.plots = plots;
+  const templates = sanitizeTemplates(raw['trackTemplates'], warn);
+  if (templates) out.trackTemplates = templates;
   return out;
 }

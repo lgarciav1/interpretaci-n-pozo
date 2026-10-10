@@ -26,6 +26,8 @@ export const PROJECT_FORMAT = 'pozo-proyecto';
  *   sus puntos) en cada pozo y snapshot. Migración: v4 → `[]` y `{}`.
  * - v6 (fase 7a): `display.plots` (configuración del histograma y del crossplot libre por pozo). Migración: v5 → sin
  *   configuración (valores por defecto); el campo es opcional, así que no hay que tocar nada.
+ *   La fase 7b (docs/decisiones/0016) suma, sin cambiar la versión, dos campos opcionales: `display.trackTemplates`
+ *   (plantillas de pistas propias) y `TrackSpec.hidden` (pistas de superposición quitadas). Ausentes = ninguna.
  */
 export const PROJECT_VERSION = 6;
 
