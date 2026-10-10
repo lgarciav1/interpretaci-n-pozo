@@ -211,6 +211,25 @@ describe('formato v5', () => {
     expect(all).toMatch(/'roto'/);
   });
 
+  it('una columna con otro largo, sin unidad o ilegible se descarta sola: el conjunto se conserva', async () => {
+    const p = addPointSet(base(), W, pressureSet());
+    const file = JSON.parse(await serializeProject(p, { codec: 'f64le-b64' }));
+    const cols = file.project.wells[0].well.pointSets[0].columns;
+    cols.quality.text.pop(); // 2 valores para 3 puntos
+    cols.p2 = { ...cols.pressure, unit: '' }; // sin unidad: adimensional
+    cols.p3 = { ...cols.pressure, values: { ...cols.pressure.values, codec: 'otro' } }; // ilegible
+    const warnings: string[] = [];
+    const back = await deserializeProject(JSON.stringify(file), { onWarning: (m) => warnings.push(m) });
+    const s = getWellEntry(back, W).well.pointSets[0]!;
+    expect(s.pointIds).toEqual(['a', 'b', 'c']);
+    expect(Object.keys(s.columns).sort()).toEqual(['p2', 'pressure']);
+    expect(s.columns['p2']).toMatchObject({ unit: 'unitless' });
+    const all = warnings.join('\n');
+    expect(all).toMatch(/columna 'quality' tiene 2 valores y hay 3 puntos; se descarta la columna\./);
+    expect(all).toMatch(/columna 'p3' es inválida/);
+    expect(all).not.toMatch(/\.;/);
+  });
+
   it('sanitizePointSetDecisions: nulo o vacío → {}', () => {
     expect(sanitizePointSetDecisions(undefined, 'x')).toEqual({});
     expect(sanitizePointSetDecisions([], 'x')).toEqual({});

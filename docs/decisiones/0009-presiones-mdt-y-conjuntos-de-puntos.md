@@ -51,8 +51,9 @@ Well.pointSets: PointSet[]
   proyecto), `setPointSetSetting`, `setPointSetDepthShift`. Todas por `commit`.
 - **Formato v5**: los conjuntos se guardan con la misma codificación de arrays que las curvas (Float64 + deflate en
   base64, exacto bit a bit con NaN) y las columnas de texto como listas. Migración v4 → v5: `pointSets: []` en cada
-  pozo y `pointSets: {}` en cada interpretación (pozos y snapshots). Al abrir, un conjunto roto (ids repetidos,
-  largos distintos) se descarta con aviso sin perder el resto del proyecto; una columna inválida se descarta sola; las
+  pozo y `pointSets: {}` en cada interpretación (pozos y snapshots). Al abrir, un conjunto roto (ids repetidos o vacíos,
+  distinta cantidad de ids que de profundidades, profundidad no finita) se descarta con aviso sin perder el resto del proyecto; una
+  columna inválida (forma, array ilegible o largo distinto del de la profundidad) se descarta sola, con aviso; las
   decisiones se sanean como las tendencias (`sanitizePointSetDecisions`).
 
 **Cómo lo reusa corona (6b-3)**: un lector `src/io/core.ts` que arme `createPointSet({ kind: 'core', columns: { phi,

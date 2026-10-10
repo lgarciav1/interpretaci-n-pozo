@@ -255,6 +255,9 @@ mitad del binario sin comprimir.
 | Reenvío completo automático ante "resultado incompleto" | antes de la fase 12 | Mensaje `resync` del cliente: el worker vacía `sent` y la próxima respuesta trae todos los datos. |
 | Elegir método por zona para puertos con módulos distintos (Archie en arenas limpias, Simandoux en arcillosas) | cuando se pida | `sources` por zona: el motor arma una curva por tramos con la salida del módulo elegido en cada zona. |
 | Ruido de módulos por defecto sin consumidores (p. ej. sónico sin DT informa error aunque nadie use PHIS) | antes de la fase 12 | Bajar a `info` el faltante de un módulo que solo corre por ser fuente por defecto de un puerto sin consumidores. |
+| Profundidad corregida de un conjunto de puntos (`depthShift` no se aplica en el núcleo) | al empezar la 6b-3 | Helper `shiftedDepth(set, decisiones)` en `src/core/pointSets.ts` que usen serie, superposición y crossplot; definir si el desplazamiento es por conjunto o por corrida de corona. |
+| Borrar un conjunto de puntos no borra sus tendencias (lo hace el panel MDT) | 6b-3 | Convención de clave `<conjunto>[:…]` y que la receta del núcleo borre esas tendencias. |
+| psia y psig se tratan como psi | cuando haya datos reales | Guardar la referencia por columna y avisar en el asistente si se mezclan (desplaza ~14,7 psi la regla «presión ≥ lodo»). |
 | Gradientes de presión en pozos desviados (hoy contra MD; el panel avisa si TVD difiere de MD) | cuando haya un pozo desviado | Serie `mdt` con x = TVD (columna `tvd`) y la pista ubicada por MD. |
 | «Usar un contacto como tope de zona» (opcional del pedido MDT) | cuando se pida | Receta que parta la zona que contiene el contacto (`createZone`, `src/core/state/zones.ts`). |
 | Excluir o incluir muchos puntos a la vez (lazo en el crossplot) | fase 7 | Receta nueva en `src/core/state/trends.ts`; hoy se alterna de a uno. |

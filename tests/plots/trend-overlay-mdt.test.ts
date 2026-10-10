@@ -13,7 +13,7 @@ import { examplePressureSet } from '../../src/modules/mdt/example';
 import { overlays as mdtOverlays } from '../../src/modules/mdt/overlay';
 import { mdtSeriesProvider } from '../../src/modules/mdt/series';
 import { evaluateTrend } from '../../src/plots/trend/compute';
-import { createTrendsOverlays, TRENDS_OVERLAY_ID, type NewTrendInput, type TrendTool } from '../../src/plots/trend/overlay';
+import { createTrendsOverlays, TRENDS_LINES_ID, TRENDS_OVERLAY_ID, type NewTrendInput, type TrendTool } from '../../src/plots/trend/overlay';
 import { THEMES } from '../../src/ui/tokens';
 import { layoutTracks, trackAt } from '../../src/viewer/layout';
 import type { OverlayHitFrame, OverlayPointer, ViewerData } from '../../src/viewer/overlay';
@@ -154,5 +154,24 @@ describe('tendencias en la pista de presión MDT', () => {
     expect(getWellEntry(s.commits[1]!.recipe(p0), 'w').interpretation.pointSets['ej']!.points['MDT-17']).toEqual({ status: 'include' });
     // Teclado: un elemento por punto dibujable (las pruebas sin presión no).
     expect(main.targets!(s.frame()).length).toBe(set.pointIds.length);
+  });
+  it('la manija de un gradiente responde desde `trends-lines` y se resalta igual que las demás (manija activa)', () => {
+    const s = setup('psi');
+    s.app.trends = [{ id: 't1', name: 'Agua', visible: true, series: { provider: 'mdt', key: 'ej:water' }, model: 'linear', mode: 'fit', selection: { top: 8090, base: 8235, excluded: [] }, extend: true }];
+    const radii: number[] = [];
+    const ctx = new Proxy({} as Record<string | symbol, unknown>, {
+      get(target, prop) {
+        if (prop in target) return target[prop];
+        if (prop === 'arc') return (_x: number, _y: number, r: number) => radii.push(r);
+        if (prop === 'measureText') return (t: string) => ({ width: t.length * 6 });
+        return () => {};
+      },
+      set(target, prop, v) {
+        target[prop] = v;
+        return true;
+      },
+    }) as unknown as CanvasRenderingContext2D;
+    s.over.draw!({ ...s.frame(), ctx, active: { overlayId: TRENDS_LINES_ID, key: 't1:top' } });
+    expect(radii).toContain(5.5);
   });
 });

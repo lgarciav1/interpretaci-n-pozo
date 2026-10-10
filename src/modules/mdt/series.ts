@@ -16,7 +16,7 @@ import type { PointSet } from '../../core/pointSets';
 import { pointNumbers } from '../../core/pointSets';
 import type { TrendSpec } from '../../core/trends';
 import type { Well } from '../../core/well';
-import { classifyFluidByDensity, type FluidSuggestion } from '../../petro/pressure';
+import { classifyFluidByDensity, fluidFitsDensity, type FluidSuggestion } from '../../petro/pressure';
 import { evaluateTrend, excludedIndices, type TrendResult } from '../../plots/trend/compute';
 import type { ResolvedSeries, SeriesOption, TrendSeriesProvider } from '../../plots/trend/series';
 import { FLUID_LABEL, findContacts, MDT_OVERLAY_ID, MDT_PROVIDER_ID, mdtSeriesKey, parseMdtSeriesKey, pointStatuses, pressureSets, FLUIDS, type Fluid, type FluidContact, type GradientLine } from './model';
@@ -133,7 +133,7 @@ export function mdtAnalysis(well: Well, interpretation: Interpretation): MdtAnal
     const result = series ? evaluateTrend(spec, series, interpretation.zones) : null;
     const dens = result?.gradients.find((g) => g.unit.startsWith('g/cm³'))?.value ?? NaN;
     const suggestion = Number.isFinite(dens) ? classifyFluidByDensity(dens) : null;
-    gradients.push({ spec, index, setId, fluid, series, result, density: dens, suggestion, mismatch: !!(fluid && suggestion?.fluid && suggestion.fluid !== fluid) });
+    gradients.push({ spec, index, setId, fluid, series, result, density: dens, suggestion, mismatch: !!(fluid && suggestion?.fluid && !fluidFitsDensity(fluid, dens)) });
     // Puntos que usa este gradiente: su fluido.
     if (fluid && series && result?.span && spec.visible) {
       const [a, b] = result.span;

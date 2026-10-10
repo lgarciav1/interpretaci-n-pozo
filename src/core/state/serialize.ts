@@ -207,15 +207,22 @@ async function decodePointSet(raw: SavedPointSet, where: string, warn: (m: strin
   const label = `${where}, conjunto de puntos '${raw?.name ?? raw?.id ?? '?'}'`;
   try {
     if (!raw || typeof raw !== 'object' || !raw.depth || !Array.isArray(raw.pointIds)) throw new Error('le faltan la profundidad o los ids');
+    const depth = await decodeArray(raw.depth);
     const columns: Record<string, PointColumn> = {};
-    for (const [key, c] of Object.entries(raw.columns ?? {})) {
-      if (c && 'values' in c && c.values && typeof c.values === 'object' && 'codec' in c.values) {
-        columns[key] = { label: String(c.label ?? key), unit: String(c.unit ?? 'unitless'), values: await decodeArray(c.values) };
-      } else if (c && 'text' in c && Array.isArray(c.text)) {
-        columns[key] = { label: String(c.label ?? key), values: c.text.map((v) => (typeof v === 'string' ? v : String(v ?? ''))) };
-      } else {
-        warn(`${label}: la columna '${key}' es inválida; se descarta.`);
+    const cols = raw.columns && typeof raw.columns === 'object' && !Array.isArray(raw.columns) ? raw.columns : {};
+    for (const [key, c] of Object.entries(cols)) {
+      // Una columna rota (forma, unidad o largo) se descarta sola: el resto del conjunto se conserva.
+      let col: PointColumn | null = null;
+      if (c && typeof c === 'object' && 'values' in c && c.values && typeof c.values === 'object' && 'codec' in c.values) {
+        const unit = typeof c.unit === 'string' && c.unit ? c.unit : 'unitless';
+        const values = await decodeArray(c.values).catch(() => null);
+        if (values) col = { label: String(c.label ?? key), unit, values };
+      } else if (c && typeof c === 'object' && 'text' in c && Array.isArray(c.text)) {
+        col = { label: String(c.label ?? key), values: c.text.map((v) => (typeof v === 'string' ? v : String(v ?? ''))) };
       }
+      if (!col) warn(`${label}: la columna '${key}' es inválida; se descarta.`);
+      else if (col.values.length !== depth.length) warn(`${label}: la columna '${key}' tiene ${col.values.length} valores y hay ${depth.length} puntos; se descarta la columna.`);
+      else columns[key] = col;
     }
     return createPointSet({
       id: raw.id,
@@ -223,12 +230,12 @@ async function decodePointSet(raw: SavedPointSet, where: string, warn: (m: strin
       name: raw.name,
       ...(typeof raw.source === 'string' ? { source: raw.source } : {}),
       ...(raw.synthetic === true ? { synthetic: true } : {}),
-      depth: await decodeArray(raw.depth),
+      depth,
       pointIds: raw.pointIds,
       columns,
     });
   } catch (err) {
-    warn(`${label}: ${err instanceof Error ? err.message : String(err)}; se descarta.`);
+    warn(`${label}: ${(err instanceof Error ? err.message : String(err)).replace(/\.$/, '')}; se descarta el conjunto.`);
     return null;
   }
 }

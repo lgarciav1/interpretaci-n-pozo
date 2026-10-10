@@ -571,7 +571,8 @@ export function createTrendsOverlays(opts: TrendsOverlayOptions): ViewerOverlay[
       const labels: { x: number; y: number; w: number; h: number }[] = [];
       const font = `${BASE_TOKENS.weight.medium} ${BASE_TOKENS.text.xs}px ${BASE_TOKENS.font.sans}`;
       const fontStrong = `${BASE_TOKENS.weight.semibold} ${BASE_TOKENS.text.xs}px ${BASE_TOKENS.font.sans}`;
-      const active = frame.active?.overlayId === TRENDS_OVERLAY_ID ? frame.active.key : null;
+      // Las manijas de series con `pickSamples: false` responden desde `trends-lines`: también son de esta capa.
+      const active = frame.active && (frame.active.overlayId === TRENDS_OVERLAY_ID || frame.active.overlayId === TRENDS_LINES_ID) ? frame.active.key : null;
       // La seleccionada y la que se arrastra, al final (encima).
       const isHot = (pl: Placed) => pl.spec.id === selected || (preview !== null && (preview.id === pl.spec.id || (preview.id === null && pl.spec === preview.spec)));
       placed.sort((a, b) => Number(isHot(a)) - Number(isHot(b)));
