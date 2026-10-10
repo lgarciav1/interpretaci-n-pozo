@@ -83,3 +83,84 @@
 .xy-plot__tip.is-bar.is-left {
   transform: translate(calc(-100% - 12px), 0);
 }
+
+/* Manijas 2D (fase 7b, docs/decisiones/0015): punto de matriz, recta de agua. Rótulo con valor y alcance. */
+.xy-plot__handle-host {
+  display: contents;
+}
+.xy-plot__handle {
+  position: absolute;
+  z-index: var(--z-raised);
+  width: calc(14px * var(--ui-scale));
+  height: calc(14px * var(--ui-scale));
+  border: 2px solid var(--color-surface-raised);
+  border-radius: var(--radius-full);
+  background: var(--grip, var(--color-accent));
+  box-shadow: 0 0 0 1px var(--grip, var(--color-accent)), var(--shadow-sm, 0 1px 3px rgb(0 0 0 / 0.25));
+  transform: translate(-50%, -50%);
+  outline: none;
+  touch-action: none;
+  transition: transform 120ms ease-out;
+}
+.xy-plot__handle.is-diamond {
+  width: calc(15px * var(--ui-scale));
+  height: calc(15px * var(--ui-scale));
+  border-radius: 2px;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+.xy-plot__handle.is-square {
+  border-radius: 3px;
+}
+.xy-plot__handle:hover,
+.xy-plot__handle.is-active {
+  transform: translate(-50%, -50%) scale(1.2);
+}
+.xy-plot__handle.is-diamond:hover,
+.xy-plot__handle.is-diamond.is-active {
+  transform: translate(-50%, -50%) rotate(45deg) scale(1.2);
+}
+.xy-plot__handle:focus-visible {
+  box-shadow: 0 0 0 2px var(--color-surface-raised), 0 0 0 4px var(--color-focus);
+}
+.xy-plot__handle.is-disabled {
+  opacity: 0.55;
+  background: var(--color-surface-raised);
+  border-color: var(--grip, var(--color-accent));
+  border-style: dashed;
+}
+.xy-plot__handle-label {
+  position: absolute;
+  z-index: var(--z-raised);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: max-content;
+  padding: calc(3px * var(--ui-scale)) calc(6px * var(--ui-scale));
+  border: 1px solid color-mix(in srgb, var(--grip, var(--color-accent)) 45%, transparent);
+  border-left: 3px solid var(--grip, var(--color-accent));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-surface-raised) 90%, transparent);
+  color: var(--color-text);
+  font-size: var(--text-xs);
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: var(--shadow-xs);
+  transform: translate(calc(12px * var(--ui-scale)), calc(-100% - 6px * var(--ui-scale)));
+}
+.xy-plot__handle-label.is-left {
+  transform: translate(calc(-100% - 12px * var(--ui-scale)), calc(-100% - 6px * var(--ui-scale)));
+}
+.xy-plot__handle-label.is-below {
+  transform: translate(calc(12px * var(--ui-scale)), calc(6px * var(--ui-scale)));
+}
+.xy-plot__handle-label.is-left.is-below {
+  transform: translate(calc(-100% - 12px * var(--ui-scale)), calc(6px * var(--ui-scale)));
+}
+.xy-plot__handle-label.is-active {
+  border-color: var(--grip, var(--color-accent));
+}
+.xy-plot__handle-detail {
+  color: var(--color-text-muted);
+}

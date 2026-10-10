@@ -4,12 +4,14 @@
  * paneles de `src/plots/` no conocen los stores; los `dock.tsx` de los módulos los conectan con esto.
  */
 import { useMemo, type ReactNode } from 'react';
+import type { SourceRef } from '../../core/interpretation';
 import type { CrossplotConfig, HistogramConfig, PlotKind } from '../../core/plots';
 import { plotConfig, updatePlotConfig } from '../../core/state/plots';
-import { activeWellEntry, setParam } from '../../core/state/project';
+import { activeWellEntry, makeId, setModuleEnabled, setParam, setSource } from '../../core/state/project';
 import { registry } from '../../modules';
 import { SHARED_PARAMS } from '../../modules/sharedParams';
 import type { CutoffParamKey } from '../../plots/cutoffs';
+import type { ParamWrite } from '../../plots/params';
 import type { SeriesContext } from '../../plots/trend/series';
 import type { GuidePhase } from '../../plots/xy/XYPlot';
 import { EmptyState } from '../../ui';
@@ -46,16 +48,58 @@ export function commitPlotConfig<K extends PlotKind>(kind: K, patch: Partial<Con
 }
 
 /**
+ * Gesto en curso (un arrastre con el mouse desde un gráfico): sus cambios van con el mismo `group` y se funden en UNA
+ * entrada de deshacer aunque haya pausas largas (docs/decisiones/0015). Se abre con el primer 'preview' y se cierra
+ * con 'commit'; 'cancel' (Escape) vuelve al proyecto de antes del gesto. Las flechas mandan solo 'commit' (sin
+ * gesto): se agrupan por la ventana de 800 ms, como el slider del inspector.
+ */
+let gesture: { id: string; label: string } | null = null;
+
+/**
+ * Parámetros elegidos sobre un gráfico (fase 7b): todas las escrituras de un movimiento en un solo `commit` (el punto
+ * de matriz mueve ρma y la corrección del neutrón a la vez), con la etiqueta dada —la del slider del inspector para un
+ * solo parámetro, así se agrupan igual—. Cada movimiento recalcula en vivo; el gesto entero es un solo deshacer.
+ * Una zona que ya no existe escribe el global.
+ */
+export function commitPlotParams(label: string, writes: readonly ParamWrite[], phase: GuidePhase): void {
+  const store = useProject.getState();
+  if (phase === 'cancel') {
+    if (gesture) store.cancelGroup(gesture.id);
+    gesture = null;
+    return;
+  }
+  if (phase === 'preview' && (!gesture || gesture.label !== label)) gesture = { id: makeId('gesto'), label };
+  const group = gesture?.label === label ? gesture.id : undefined;
+  if (phase === 'commit') gesture = null;
+  const entry = activeWellEntry(store.project);
+  const valid = writes.filter((w) => Number.isFinite(w.value));
+  if (!entry || valid.length === 0) return;
+  const zoneOk = (z: string | null) => (z && entry.interpretation.zones.some((q) => q.id === z) ? z : null);
+  store.commit(label, (p) => valid.reduce((acc, w) => setParam(acc, entry.well.id, w.storage, w.value, zoneOk(w.zoneId)), p), group ? { group } : undefined);
+}
+
+/**
  * Cutoff real movido desde un gráfico: escribe el parámetro compartido del módulo de cutoffs (global o de la zona).
  * Con la MISMA etiqueta que el slider del inspector («Cambiar Porosidad mínima»): cada movimiento recalcula en vivo
- * (pay, sumario, pista del visor) y los cambios seguidos se agrupan en una sola entrada de deshacer, igual que al
- * arrastrar el slider. Cancelar (Escape) vuelve al valor de antes del arrastre.
+ * (pay, sumario, pista del visor) y el arrastre entero es una sola entrada de deshacer (gesto). Cancelar (Escape)
+ * vuelve al valor de antes del arrastre.
  */
-export function commitParamCutoff(key: CutoffParamKey, zoneId: string | null, value: number, _phase: GuidePhase): void {
+export function commitParamCutoff(key: CutoffParamKey, zoneId: string | null, value: number, phase: GuidePhase): void {
+  commitPlotParams(`Cambiar ${SHARED_PARAMS[key].label}`, [{ storage: key, value, zoneId }], phase);
+}
+
+/** Fuentes activas por puerto del último resultado del motor para el pozo activo (null mientras no hay). */
+export function useEngineSources(): Readonly<Record<string, SourceRef>> | null {
+  const wellId = useProject((s) => s.project.activeWellId);
+  const result = useResults((s) => s.result);
+  return result && result.wellId === wellId ? result.sources : null;
+}
+
+/** Usa un módulo como fuente de un puerto (lo activa si estaba desactivado): «Usar Rw manual». */
+export function chooseModuleSource(port: string, moduleId: string, label: string): void {
   const entry = activeWellEntry(useProject.getState().project);
-  if (!entry || !Number.isFinite(value)) return;
-  const zone = zoneId && entry.interpretation.zones.some((z) => z.id === zoneId) ? zoneId : null;
-  useProject.getState().commit(`Cambiar ${SHARED_PARAMS[key].label}`, (p) => setParam(p, entry.well.id, key, value, zone));
+  if (!entry) return;
+  useProject.getState().commit(label, (p) => setSource(setModuleEnabled(p, entry.well.id, moduleId, true), entry.well.id, port, { kind: 'module', moduleId }));
 }
 
 /**

@@ -7,6 +7,11 @@
  * - Agrupado: cambios consecutivos con la MISMA etiqueta separados por menos de `GROUP_MS` se funden en una
  *   entrada (sliders, ↑/↓ de un campo, topes movidos con el teclado). La entrada conserva el proyecto anterior al
  *   primero, así un deshacer vuelve al valor inicial. La ventana se mide desde el último cambio del grupo.
+ * - Gesto (docs/decisiones/0015): un cambio puede traer un `group` (el id de un arrastre). Los cambios con la misma
+ *   etiqueta y el mismo grupo se funden SIN límite de tiempo: un arrastre con pausas largas sigue siendo una sola
+ *   entrada de deshacer. Un gesto siempre abre su propia entrada (no se funde con lo anterior por la ventana), así
+ *   `cancelGroup` (Escape durante el arrastre) vuelve exactamente al proyecto de antes del gesto. Sin grupo vale la
+ *   ventana de `GROUP_MS`.
  * - Deshacer o rehacer corta el grupo: el próximo cambio abre una entrada nueva aunque tenga la misma etiqueta.
  */
 import type { Project } from './project';
@@ -26,7 +31,7 @@ export interface History {
   /** Lo que se puede rehacer; el último es el próximo a rehacer. */
   future: readonly HistoryEntry[];
   /** Último cambio registrado (para agrupar), o null si se cortó el grupo. */
-  last: { label: string; at: number } | null;
+  last: { label: string; at: number; group?: string } | null;
 }
 
 export const HISTORY_LIMIT = 100;
@@ -38,16 +43,29 @@ export function emptyHistory(): History {
 }
 
 /**
- * Registra un cambio ya aplicado: `prev` es el proyecto de antes. Si continúa el grupo abierto (misma etiqueta,
- * dentro de la ventana), no agrega entrada: la de arriba ya guarda el proyecto anterior al primer cambio.
+ * Registra un cambio ya aplicado: `prev` es el proyecto de antes. Si continúa el grupo abierto (misma etiqueta y
+ * dentro de la ventana, o mismo gesto `group`), no agrega entrada: la de arriba ya guarda el proyecto anterior al
+ * primer cambio.
  */
-export function recordChange(h: History, prev: Project, label: string, now: number, limit = HISTORY_LIMIT): History {
+export function recordChange(h: History, prev: Project, label: string, now: number, limit = HISTORY_LIMIT, group?: string): History {
   const top = h.past[h.past.length - 1];
-  if (top && h.last && h.last.label === label && now - h.last.at >= 0 && now - h.last.at < GROUP_MS) {
-    return { past: h.past, future: [], last: { label, at: now } };
+  const last = { label, at: now, ...(group ? { group } : {}) };
+  const merge = group ? h.last?.group === group : !!h.last && now - h.last.at >= 0 && now - h.last.at < GROUP_MS;
+  if (top && h.last && h.last.label === label && merge) {
+    return { past: h.past, future: [], last };
   }
   const past = [...h.past, { project: prev, label, at: now }];
-  return { past: past.length > limit ? past.slice(past.length - limit) : past, future: [], last: { label, at: now } };
+  return { past: past.length > limit ? past.slice(past.length - limit) : past, future: [], last };
+}
+
+/**
+ * Cancela un gesto en curso (Escape durante un arrastre): si la última entrada la abrió el gesto `group`, la quita y
+ * devuelve el proyecto de antes del gesto, sin pasar nada al futuro. null si el gesto no registró cambios.
+ */
+export function cancelGroup(h: History, group: string): { history: History; project: Project } | null {
+  const top = h.past[h.past.length - 1];
+  if (!top || h.last?.group !== group) return null;
+  return { history: { past: h.past.slice(0, -1), future: h.future, last: null }, project: top.project };
 }
 
 export interface HistoryStep {

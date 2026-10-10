@@ -256,3 +256,43 @@ export function pointsInRect(r: DataRect, x: ArrayLike<number>, y: ArrayLike<num
   for (let i = 0; i < n; i++) if (inDataRect(r, x[i]!, y[i]!)) out.push(i);
   return out;
 }
+
+/**
+ * Manija arrastrada (fase 7b, 0015): posición en datos de un punto que estaba en `start` (datos) cuando el puntero
+ * bajó en `p0` (px) y que ahora está en `p` (px). Mantiene el desplazamiento entre el puntero y la manija (agarrar una
+ * recta lejos de su manija la traslada sin saltos) y acota la manija al área del gráfico. En ejes log un desplazamiento
+ * en px es un factor en datos: trasladar una recta en log–log la mantiene recta.
+ */
+export function movePointPx(m: XYMapping, start: { x: number; y: number }, p0: { x: number; y: number }, p: { x: number; y: number }): { x: number; y: number } {
+  const r = m.rect;
+  const sx = m.x(start.x);
+  const sy = m.y(start.y);
+  const px = Math.min(r.x + r.width, Math.max(r.x, (Number.isFinite(sx) ? sx : p0.x) + p.x - p0.x));
+  const py = Math.min(r.y + r.height, Math.max(r.y, (Number.isFinite(sy) ? sy : p0.y) + p.y - p0.y));
+  return { x: m.xInv(px), y: m.yInv(py) };
+}
+
+/** Distancia en px de (px, py) a una polilínea en datos (se salta los vértices que no se pueden ubicar). */
+export function distanceToPolylinePx(m: XYMapping, xs: ArrayLike<number>, ys: ArrayLike<number>, px: number, py: number): number {
+  let best = Infinity;
+  let prev: [number, number] | null = null;
+  const n = Math.min(xs.length, ys.length);
+  for (let k = 0; k < n; k++) {
+    const ax = m.x(xs[k]!);
+    const ay = m.y(ys[k]!);
+    if (!Number.isFinite(ax) || !Number.isFinite(ay)) {
+      prev = null;
+      continue;
+    }
+    if (prev) {
+      const [bx, by] = prev;
+      const dx = ax - bx;
+      const dy = ay - by;
+      const len2 = dx * dx + dy * dy;
+      const t = len2 > 0 ? Math.min(1, Math.max(0, ((px - bx) * dx + (py - by) * dy) / len2)) : 0;
+      best = Math.min(best, Math.hypot(px - (bx + t * dx), py - (by + t * dy)));
+    } else best = Math.min(best, Math.hypot(px - ax, py - ay));
+    prev = [ax, ay];
+  }
+  return best;
+}

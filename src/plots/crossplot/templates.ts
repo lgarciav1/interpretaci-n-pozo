@@ -3,9 +3,8 @@
  * parámetros del proyecto. Puro y testeado contra valores conocidos. No dibuja: devuelve polilíneas en datos que el
  * panel pasa a `XYPlot` como capas `lines`.
  *
- * Preparado para la fase 7b (arrastrar el punto de matriz, la recta de agua o las líneas de GR limpio/arcilla): cada
- * línea sale de una función de sus parámetros (`densityNeutronLine(lith)`, `pickettLine(sw, archie)`, …), así que
- * arrastrar un elemento será cambiar un parámetro y volver a llamarla.
+ * Cada línea sale de una función de sus parámetros (`densityNeutronLine(lith)`, `pickettLine(sw, archie)`, …): en la
+ * fase 7b arrastrar un elemento cambia el parámetro y la vuelve a llamar (las inversas están en `drag.ts`; 0015).
  */
 import type { CrossplotTemplateId } from '../../core/plots';
 

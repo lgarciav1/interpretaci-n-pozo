@@ -2,15 +2,18 @@
  * Panel «Histograma» (docs/decisiones/0014, D5): cualquier curva, clases automáticas o a mano, escala log para
  * resistividades (convención del visor por rol), superposición por zona con los colores de zona, normalización a %,
  * acumulada, cutoff arrastrable (real para VSH/PHIE/SW, libre para el resto) y estadísticos en un panel aparte.
- * Pasar sobre una clase marca en el visor los tramos de esas muestras.
+ * Pasar sobre una clase marca en el visor los tramos de esas muestras. Con una curva de GR, las líneas de GR limpio y
+ * GR de arcilla son los parámetros del módulo `igr`: arrastrarlas recalcula Vsh en vivo (fase 7b, 0015).
  *
  * Presentación: no conoce los stores. Lo conecta `src/modules/histogram/dock.tsx`.
  */
 import { useEffect, useMemo, useState } from 'react';
+import type { SourceRef } from '../../core/interpretation';
 import { HISTOGRAM_BINS, type HistogramConfig } from '../../core/plots';
-import { Button, Checkbox, DataTable, EmptyState, IconButton, NumberField, curveStyle, formatNumber, useThemeTokens } from '../../ui';
-import { ControlGroup, CurveSelect, ScaleControl, ZoneFilterChips } from '../controls';
+import { Button, Checkbox, DataTable, EmptyState, IconButton, NumberField, curveStyle, ensureContrast, fillColor, formatNumber, useThemeTokens } from '../../ui';
+import { ControlGroup, CurveSelect, DriverCallout, ScaleControl, ZoneFilterChips } from '../controls';
 import { CUTOFF_PASSES, cutoffParamFor, cutoffScope, normalizeCutoff, paramStep, resolveCutoffLine, type CutoffParamKey } from '../cutoffs';
+import { formatParam, grGuides, grWrite, inactiveDriver, paramChangeLabel, paramOfGuide, plotParamValue, plotScope, PLOT_PARAMS, type ParamWrite } from '../params';
 import { depthRuns, effectiveScale, keyForRole, plotCurveOptions, resolvePlotCurve, zoneFilter } from '../data';
 import { setPlotLink } from '../link';
 import type { SeriesContext } from '../trend/series';
@@ -25,6 +28,12 @@ export interface HistogramPanelProps {
   onChange(patch: Partial<HistogramConfig>, label: string): void;
   /** Cutoff real arrastrado (parámetro del módulo de cutoffs en la zona del alcance o global). */
   onParamCutoff(key: CutoffParamKey, zoneId: string | null, value: number, phase: GuidePhase): void;
+  /** Parámetros elegidos sobre el gráfico (GR limpio y de arcilla): las escrituras de un movimiento. */
+  onParams(label: string, writes: readonly ParamWrite[], phase: GuidePhase): void;
+  /** Fuentes activas del motor (avisa si el módulo `igr` no alimenta la cadena); null sin resultado. */
+  sources: Readonly<Record<string, SourceRef>> | null;
+  /** Usar un módulo como fuente de un puerto («Usar índice de arcilla por GR»). */
+  onUseModule(port: string, moduleId: string, label: string): void;
 }
 
 const fmt = (v: number) => formatNumber(v, { significant: 3 });
@@ -37,9 +46,11 @@ interface Series {
   stats: SampleStats;
 }
 
-export function HistogramPanel({ ctx, config, onChange, onParamCutoff }: HistogramPanelProps) {
+export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams, sources, onUseModule }: HistogramPanelProps) {
   const theme = useThemeTokens();
   const [preview, setPreview] = useState<{ id: string; value: number } | null>(null);
+  // Rango del eje congelado mientras se arrastra una línea de GR (si no, el eje que la incluye crecería con ella).
+  const [frozenX, setFrozenX] = useState<[number, number] | null>(null);
   const options = useMemo(() => plotCurveOptions(ctx), [ctx]);
   const key = config.curve ?? keyForRole(ctx, 'GR') ?? options[0]?.value ?? null;
   const curve = useMemo(() => resolvePlotCurve(ctx, key), [ctx, key]);
@@ -91,16 +102,34 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff }: Histogr
   const line = curve ? resolveCutoffLine('x', curve, config.cutoffs, ctx.interpretation.params, scope, preview) : null;
   const param = cutoffParamFor(curve?.role ?? null);
 
-  const xAxis: XYAxis | null = model && !model.empty ? { kind: scale, min: model.edges[0]!, max: model.edges[model.edges.length - 1]!, label: curve!.short, unit: curve!.unitText || undefined } : null;
+  // GR limpio y GR de arcilla (parámetros del módulo igr) sobre un histograma de GR.
+  const params = ctx.interpretation.params;
+  const isGr = curve?.role === 'GR';
+  const grScope = plotScope(config.zones, zones, PLOT_PARAMS.grClean.spec);
+  const grIdle = isGr ? inactiveDriver(sources, 'IGR', 'igr') : null;
+  const grClean = plotParamValue(params, PLOT_PARAMS.grClean, grScope.zoneId);
+  const grShale = plotParamValue(params, PLOT_PARAMS.grShale, grScope.zoneId);
+
+  let xRange: [number, number] | null = model && !model.empty ? [model.edges[0]!, model.edges[model.edges.length - 1]!] : null;
+  if (xRange && isGr) {
+    // El eje incluye las dos líneas (con un margen) para que siempre se puedan agarrar.
+    const pad = 0.03 * (xRange[1] - xRange[0]);
+    xRange = frozenX ?? [Math.min(xRange[0], grClean - pad), Math.max(xRange[1], grShale + pad)];
+  }
+  const xAxis: XYAxis | null = xRange && curve ? { kind: scale, min: xRange[0], max: xRange[1], label: curve.short, unit: curve.unitText || undefined } : null;
   const yAxis: XYAxis = { kind: 'linear', min: 0, max: model && !model.empty ? model.yMax : 1, label: config.normalize ? 'Frecuencia' : 'Muestras', ...(config.normalize ? { unit: '%' } : {}) };
 
   const passSide = line?.param ? CUTOFF_PASSES[line.param] : null;
   const split = line && curve ? cutoffSplit(curve.data, line.value, filter.include, passSide === 'above' ? 'above' : 'below') : null;
-  const guides: XYGuide[] = line
+  const bg = theme.viewer.trackBg;
+  const grLines = isGr && xAxis ? grGuides(params, grScope, { clean: ensureContrast(fillColor('sand', theme.name).color, bg, 3), shale: ensureContrast(fillColor('shale', theme.name).color, bg, 3) }, !grIdle) : [];
+  const guides: XYGuide[] = [
+    ...grLines,
+    ...(line
     ? [
         {
           id: line.id,
-          axis: 'x',
+          axis: 'x' as const,
           value: line.value,
           color: line.param ? theme.color.error : theme.color.accent,
           dash: line.param ? [] : [6, 4],
@@ -113,9 +142,17 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff }: Histogr
             : {}),
         },
       ]
-    : [];
+    : []),
+  ];
 
   const onGuide = (id: string, value: number, phase: GuidePhase) => {
+    const gp = paramOfGuide(id);
+    if (gp === 'grClean' || gp === 'grShale') {
+      setFrozenX(phase === 'preview' && xAxis ? [xAxis.min, xAxis.max] : null);
+      const w = grWrite(gp, value, params, grScope);
+      onParams(paramChangeLabel(PLOT_PARAMS[gp]), w ? [w] : [], phase);
+      return;
+    }
     if (!line || id !== line.id) return;
     if (line.param) {
       const v = normalizeCutoff(line.param, value);
@@ -195,6 +232,27 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff }: Histogr
                 )}
               </div>
             </ControlGroup>
+            {isGr && (
+              <ControlGroup title="Arcilla">
+                <dl className="plot-params" data-testid="histogram-gr-params">
+                  <dt>
+                    <span className="plot-swatch" style={{ ['--swatch' as string]: grLines[0]?.color }} aria-hidden="true" />
+                    GR limpio
+                  </dt>
+                  <dd>{formatParam(PLOT_PARAMS.grClean, grClean)}</dd>
+                  <dt>
+                    <span className="plot-swatch" style={{ ['--swatch' as string]: grLines[1]?.color }} aria-hidden="true" />
+                    GR arcilla
+                  </dt>
+                  <dd>{formatParam(PLOT_PARAMS.grShale, grShale)}</dd>
+                </dl>
+                {grIdle ? (
+                  <DriverCallout title="El índice de arcilla no sale de este GR" action="Usar índice de arcilla por GR" onAction={() => onUseModule('IGR', 'igr', 'Usar índice de arcilla por GR')}>
+                    Mover las líneas no cambiaría Vsh.
+                  </DriverCallout>
+                ) : (
+                  <p className="plot-hint">Arrastrá las líneas (o usá las flechas en su manija): Vsh se recalcula en vivo. Valores {grScope.zoneId ? `de la ${grScope.text}` : 'globales'}.</p>
+                )}
             <ControlGroup title="Zonas">
               <ZoneFilterChips zones={filter.zones} selected={filter.selected} onChange={(ids) => onChange({ zones: ids }, 'Filtrar el histograma por zona')} />
               <Checkbox checked={config.byZone} onChange={(on) => onChange({ byZone: on }, on ? 'Superponer zonas' : 'Juntar zonas')} label="Un histograma por zona" />
@@ -221,6 +279,8 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff }: Histogr
                   : 'Línea libre: no cambia la petrofísica. Arrastrala o movela con las flechas desde su manija.'}
               </p>
             </ControlGroup>
+              </ControlGroup>
+            )}
           </div>
           <aside className="plot-panel__aside" aria-label="Estadísticos">
             <div className="plot-group__title">Estadísticos{curve?.unitText ? ` (${curve.unitText})` : ''}</div>
@@ -271,7 +331,7 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff }: Histogr
               lines={model.lines}
               guides={guides}
               onGuideChange={onGuide}
-              onGuideRemove={removeCutoff}
+              onGuideRemove={(id) => !paramOfGuide(id) && removeCutoff()}
               onBarHover={onBarHover}
               barLabel={barLabel}
             />

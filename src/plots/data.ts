@@ -3,6 +3,7 @@
  * mismas `m:<curva>` / `r:<ROL>` de las tendencias, en unidad canónica), escala por rol, filtro por zonas y tramos de
  * profundidad de un conjunto de muestras (para marcarlos en el visor).
  */
+import type { SourceRef } from '../core/interpretation';
 import { unitLabel, type UnitId } from '../core/units';
 import { layoutZones, type Zone } from '../core/well';
 import { curveSeriesProvider, type SeriesContext } from './trend/series';
@@ -71,6 +72,18 @@ export function keyForRole(ctx: SeriesContext, role: string): string | null {
   if (m) return `m:${m.id}`;
   if (ctx.computed.some((c) => c.active && c.port === role)) return `r:${role}`;
   return null;
+}
+
+/**
+ * Datos que el motor usa para un puerto (en unidad canónica): la curva medida elegida como fuente, o la salida activa
+ * del módulo. Sin fuentes (todavía no hay resultado): la calculada activa o la medida con ese rol. null si no hay.
+ */
+export function engineInputData(ctx: SeriesContext, sources: Readonly<Record<string, SourceRef>> | null, port: string): Float64Array | null {
+  const s = sources?.[port];
+  if (s?.kind === 'curve') return resolvePlotCurve(ctx, `m:${s.curveId}`)?.data ?? null;
+  const computed = ctx.computed.find((c) => c.active && c.port === port)?.data;
+  if (computed || s) return computed ?? null;
+  return resolvePlotCurve(ctx, keyForRole(ctx, port))?.data ?? null;
 }
 
 /** Escala efectiva de un eje: la elegida o la del rol. */

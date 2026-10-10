@@ -165,7 +165,8 @@ crossplot k–φ de la corona sigue igual.
 ## Pendiente
 
 - Selección por lazo y «excluir del ajuste los puntos del rectángulo» para las tendencias del crossplot.
-- Arrastre de matriz, recta de agua y líneas de GR (fase 7b).
+- ~~Arrastre de matriz, recta de agua y líneas de GR (fase 7b).~~ Hecho: 0015.
 - Líneas de litología curvas (cartas CP-1 tabuladas) en vez de rectas de mezcla.
 - Rangos de ejes editables a mano (hoy: automáticos o los de la plantilla).
-- Que el arrastre de un cutoff real garantice una sola entrada de deshacer aunque se pause más de 800 ms.
+- ~~Que el arrastre de un cutoff real garantice una sola entrada de deshacer aunque se pause más de 800 ms.~~ Hecho:
+  agrupado por gesto (0015, D2.1).

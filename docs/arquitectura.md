@@ -5,8 +5,8 @@ Las decisiones con sus alternativas descartadas están en [`decisiones/`](decisi
 (0001), lectura de datos (0002), control de calidad (0003), sistema de diseño, armazón y flujo guiado (0004), visor
 multipista (0005), deshacer y rehacer (0006), catálogo de módulos de la fase 6a con sus cambios de núcleo (0007),
 tendencias y gradientes (0008), presiones MDT con los conjuntos de puntos del pozo (0009), datos de corona con
-puesta en profundidad y modelo k–φ (0010), exportación de datos (0011) y de figuras (0012), tamaño de interfaz (0013) e
-histograma y crossplot libre (0014).
+puesta en profundidad y modelo k–φ (0010), exportación de datos (0011) y de figuras (0012), tamaño de interfaz (0013),
+histograma y crossplot libre (0014) y parámetros elegidos sobre los gráficos (0015).
 Este documento resume cómo encajan las piezas y cómo agregar un módulo.
 
 ## Ideas centrales
@@ -65,8 +65,8 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 | `src/viewer/` | visor multipista: plantillas, resolución de pistas, viewport, ticks, reducción M4, rellenos, pilas (`stack.ts`), lectura, contrato de superposiciones (con elementos del teclado), gestos (`interaction.ts`), dibujo en canvas (`*.ts`, puros o canvas) y los componentes `WellViewer.tsx`, `Minimap.tsx`, `WellHeader.tsx`. Guía en `src/viewer/README.md` | solo los `.tsx` |
 | `src/io/` | lectores Excel/LAS/CSV, mnemónicos, control de calidad, tablas de presiones (`pressures.ts`) (ver su README) | no |
 | `src/plots/xy/` | gráfico x–y base (ejes lineales o log, ticks, mapeo dato ↔ px puro en `axes.ts`, dibujo en `draw.ts` —barras, eje derecho, guías rotuladas, nube densa—, búsqueda por grilla `pick.ts`, componente `XYPlot.tsx` con guías arrastrables): lo usan el crossplot k–φ de la corona, el histograma y el crossplot libre. Guía en `src/plots/README.md` | solo `XYPlot.tsx` |
-| `src/plots/histogram/`, `src/plots/crossplot/`, `src/plots/*.ts` | histograma y crossplot libre (0014): lo puro en `.ts` (binning, estadísticos, plantillas, serie `crossplot`, curvas y zonas `data.ts`, cutoffs `cutoffs.ts`, enlace con el visor `link.ts`) y los paneles de presentación en `.tsx` (sin stores) | solo los `.tsx` |
-| `src/app/plots/` | conexión de los gráficos del dock con los stores: contexto del pozo, configuración, `commit`, cutoff real hacia los parámetros, montaje solo con la pestaña a la vista | sí |
+| `src/plots/histogram/`, `src/plots/crossplot/`, `src/plots/*.ts` | histograma y crossplot libre (0014): lo puro en `.ts` (binning, estadísticos, plantillas, serie `crossplot`, curvas y zonas `data.ts`, cutoffs `cutoffs.ts`, parámetros sobre los gráficos `params.ts` y `crossplot/drag.ts` (0015), enlace con el visor `link.ts`) y los paneles de presentación en `.tsx` (sin stores) | solo los `.tsx` |
+| `src/app/plots/` | conexión de los gráficos del dock con los stores: contexto del pozo, configuración, `commit`, cutoff real y parámetros elegidos sobre los gráficos (agrupados por gesto), fuentes activas y «Usar …», montaje solo con la pestaña a la vista | sí |
 | `src/plots/trend/` | tendencias: contrato y registro de proveedores de series (`series.ts`, proveedor `curve`), ajuste sobre la serie (`compute.ts`), dibujo independiente de los ejes (`draw.ts`), textos (`format.ts`) y superposición del visor sin stores (`overlay.ts`). Guía en `src/plots/README.md` | no |
 | `src/app/trends/` | estado de interfaz de las tendencias (herramienta, selección), proveedores de los módulos (`providers.ts`), conexión con los stores (`actions.ts`) y panel «Tendencias» del dock | sí |
 | `src/modules/<id>/series.ts` | proveedores de series para tendencias (opcional, `seriesProviders: TrendSeriesProvider[]`): MDT, plugs de corona…; el worker no lo importa | no |
@@ -267,9 +267,10 @@ mitad del binario sin comprimir.
 | Excluir o incluir muchos puntos a la vez (lazo en el crossplot) | fase 7b | Receta nueva en `src/core/state/trends.ts`; hoy se alterna de a uno (el panel «Corona» lo resuelve para sus plugs con el rectángulo de `XYPlot`, escribiendo `selection.excluded` de la tendencia). El crossplot libre (7a) ya tiene selección por rectángulo, que hoy solo marca tramos en el visor. |
 | Corrección de Klinkenberg y de presión de confinamiento de los plugs | cuando haya datos reales de laboratorio | El lector (`src/io/core.ts`) elige la columna (Klinkenberg antes que aire) pero no corrige; sumar la columna de presión de confinamiento y un factor opcional. |
 | Modelo k–φ por litofacies o capa (hoy global o por zona) | fase 7b | Una tendencia por capa sobre la serie `core` y «Aplicar» a la zona que corresponda; el módulo `perm-core` ya tiene a y b por zona. El crossplot libre filtra por zona y ajusta tendencias, pero sobre curvas del perfil, no sobre plugs. |
-| Arrastrar el punto de matriz (densidad–neutrón), la recta de agua (Pickett) y las líneas de GR limpio/arcilla | fase 7b | Las líneas ya salen de funciones de sus parámetros (`src/plots/crossplot/templates.ts`); arrastrar = guía o manija nueva que escribe el parámetro con `setParam`, como el cutoff real (0014, D3/D7). |
+| Rw con valores propios por zona y alcance global en el Pickett (la recta usa y escribe la Rw global; las zonas con valor propio no cambian, igual que los cutoffs) | cuando se pida | Avisar en el rótulo cuántas zonas visibles tienen valor propio, u ofrecer escribirlo en todas (0015). |
+| Matriz del densidad–neutrón con las cartas CP-1 (curvas) en vez de rectas de mezcla | cuando se pida | Tabular la carta por litología; imán hacia la curva más cercana (`snapMatrixToLithology`, 0015). |
 | Líneas de litología curvas en densidad–neutrón (hoy rectas de mezcla matriz–agua) | cuando se pida | Tabular la carta CP-1 del fabricante por litología y dibujarla como `XYLineLayer`. |
-| Arrastre de un cutoff real: una sola entrada de deshacer aunque se pause más de 800 ms | antes de la fase 12 | Agrupar por «gesto» (abrir un grupo al empezar el arrastre y cerrarlo al soltar) en `history.ts`; vale también para los sliders. |
+| Sliders del inspector: una sola entrada de deshacer aunque se pause más de 800 ms con el botón apretado | antes de la fase 12 | Usar el gesto de `history.ts` (0015, D2.1: `commit(…, { group })`, `cancelGroup`) desde `Slider` (abrir al bajar el puntero, cerrar al soltar). Los arrastres de los gráficos ya lo usan. |
 | Rangos de ejes del crossplot editables a mano (hoy automáticos o de la plantilla) | cuando se pida | `xRange`/`yRange` ya se guardan; falta el editor (como el de escalas del visor). |
 | La densidad de grano de los plugs no alimenta ρma de la porosidad por densidad | cuando se pida | Parámetro de `phi-density` que tome la mediana de ρg de la corona (en la zona) como densidad de matriz sugerida. |
 | Puesta en profundidad de la corona en pozos desviados (hoy en MD) | cuando haya un pozo desviado | Igual que los gradientes MDT: variable independiente TVD con la pista ubicada por MD. |
@@ -415,6 +416,16 @@ obligatorios del profesor como pestañas del dock (aportadas por `src/modules/hi
 - **Rendimiento**: nube en lotes por color, grilla de búsqueda, capa de interacción aparte; 50 000 muestras siguen
   fluidas al pasar el puntero.
 
+### Parámetros elegidos sobre los gráficos (fase 7b)
+
+Decisión: [`docs/decisiones/0015-parametros-sobre-graficos.md`](decisiones/0015-parametros-sobre-graficos.md). GR limpio
+y de arcilla en el histograma de GR, punto de matriz en el densidad–neutrón (ρma y corrección del neutrón) y recta de
+agua del Pickett (trasladar = Rw de referencia convertida con Arps desde la mediana de TEMP de los puntos visibles;
+rotar = m). Misma regla de alcance, vista previa en vivo y deshacer que los cutoffs, con agrupado por **gesto** en el
+historial (un Ctrl+Z por arrastre; Escape vuelve a antes del gesto). Si el módulo del parámetro no alimenta la cadena,
+aviso y acción explícita («Usar Rw manual»). Lo puro en `src/plots/params.ts` y `src/plots/crossplot/drag.ts`; las
+manijas 2D son una capa genérica de `XYPlot` (`XYHandle`).
+
 ## Deshacer y rehacer
 
 Decisión: [`docs/decisiones/0006-deshacer-rehacer.md`](decisiones/0006-deshacer-rehacer.md).
@@ -426,6 +437,9 @@ Decisión: [`docs/decisiones/0006-deshacer-rehacer.md`](decisiones/0006-deshacer
   que conserva el proyecto previo al primero (un slider arrastrado, ↑/↓ en un campo, un tope movido con el
   teclado: un Ctrl+Z vuelve al valor inicial). Deshacer o rehacer corta el grupo. Un arrastre del visor ya es un
   solo `commit` al soltar.
+- **Gesto** (0015, D2.1): `commit(etiqueta, receta, { group })` funde los cambios del mismo gesto sin límite de tiempo
+  (los arrastres de los gráficos recalculan en vivo y siguen siendo un Ctrl+Z aunque se pause); un gesto abre siempre
+  su propia entrada y `cancelGroup(group)` (Escape) vuelve al proyecto de antes del gesto sin dejar entrada.
 - **Qué entra**: todo `commit` (parámetros, fuentes, zonas, roles, display de curvas, snapshots, cargar o cambiar de
   pozo). `replace` (abrir un proyecto) vacía el historial. El motor recalcula solo, porque cambia la interpretación.
 - **Store**: `useProject` expone `undo()`, `redo()`, `canUndo`, `canRedo`, `undoLabel`, `redoLabel`.
