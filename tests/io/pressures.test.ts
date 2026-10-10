@@ -156,3 +156,22 @@ describe('io/pressures: LAS 2.0 (sale gratis del lector de perfiles)', () => {
     expect(set.pointIds).toEqual(['P01', 'P02', 'P03']);
   });
 });
+
+describe('io/pressures: unidad pegada al nombre y token de unidad que no es nombre', () => {
+  const byNameOf = (csv: string) => Object.fromEntries(suggestPressureMapping(parseTable(csv, 'p.csv', { requireDepth: false })).map((m) => [m.name, m]));
+
+  it('«Presion bar» → unidad bar (no psi por defecto) y conversión a psi', () => {
+    const csv = 'MD,Presion bar\n2500,250\n2501,251\n';
+    expect(byNameOf(csv)['Presion bar']).toMatchObject({ field: 'pressure', unit: 'bar' });
+    const t = parseTable(csv, 'p.csv', { requireDepth: false });
+    expect(pointNumbersOf(buildPressureSet(t, suggestPressureMapping(t), { id: 'x' }).set, 'pressure')[0]).toBeCloseTo(3625.94, 1);
+  });
+
+  it('«Movilidad mD/cP»: unidad mD/cP pegada al nombre', () => {
+    expect(byNameOf('MD,Movilidad mD/cP\n2500,85\n')['Movilidad mD/cP']).toMatchObject({ field: 'mobility', unit: 'mD/cP' });
+  });
+
+  it('«Prueba MD»: el MD es la unidad, la columna es el id de la prueba (no profundidad)', () => {
+    expect(byNameOf('Prueba MD,Presion psi\nT1,3500\n')['Prueba MD']).toMatchObject({ field: 'test' });
+  });
+});

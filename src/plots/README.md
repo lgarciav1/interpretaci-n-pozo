@@ -18,6 +18,61 @@ Decisión: [`docs/decisiones/0008-tendencias-y-gradientes.md`](../../docs/decisi
 
 Tests: `tests/plots/` (series y ajuste, geometría, interacción con `PointerGestures`).
 
+## `xy/` — gráfico x–y base
+
+Decisión: [`docs/decisiones/0010-datos-de-corona.md`](../../docs/decisiones/0010-datos-de-corona.md) (D6). Gráfico de
+dispersión genérico en canvas: ejes lineales o logarítmicos en cada eje, grilla y rótulos con unidad, capas de puntos,
+líneas, guías y tendencias. Lo usa el crossplot k–φ de la corona; la fase 7 (crossplot libre, histograma) lo hereda. No
+sabe nada de plugs ni de curvas.
+
+| Archivo | Qué hace |
+|---|---|
+| `axes.ts` | puro: `XYAxis`, `axisFraction` / `fractionValue` (dato ↔ fracción, lineal, log e invertido), `xyMapping` (dato ↔ px), `axisTicks` (1-2-5 o décadas), `niceRange`, `plotRectFor`, `nearestPoint`, `dataRectFromPx`, `pointsInRect` |
+| `draw.ts` | canvas sin React: `drawFrame` (marco, grilla, rótulos, títulos), `drawPoint`, `drawDataLine`, `drawXYTrend` (capa de tendencias de `trend/`) |
+| `XYPlot.tsx` | componente: capas, tooltip, clic, selección por rectángulo y teclado |
+| `xy.css` | estilos del contenedor y del tooltip |
+
+Tests: `tests/plots/xy-geometry.test.ts`.
+
+### Uso
+
+```tsx
+import { XYPlot } from '../../plots/xy/XYPlot';
+
+<XYPlot
+  x={{ kind: 'linear', min: 0, max: 0.3, label: 'Porosidad φ', unit: 'v/v' }}
+  y={{ kind: 'log', min: 0.01, max: 10000, label: 'Permeabilidad k', unit: 'mD' }}
+  points={[{ id: 'plugs', x: phi, y: k, color: '#a21caf', interactive: true, label: (i) => ids[i]! }]}
+  trends={[{ id: 't1', coeffs, span: [0.06, 0.21], color: '#1d4ed8', extend: true, label: ['k = 0,02·e^(50,2·φ)', 'R² 0,95'] }]}
+  height={260}
+  ariaLabel="Crossplot k–φ"
+  onPointClick={(layerId, i) => …}
+  onSelectRect={(r) => …}
+/>
+```
+
+- **Ejes** (`x`, `y`: `XYAxis { kind: 'linear' | 'log', min, max, label, unit?, reversed? }`): `max > min` y, en log,
+  `min > 0`; un eje inválido no dibuja el gráfico; `emptyText` se muestra si ninguna capa tiene datos. `niceRange(series, kind, { pad?, zero? })` da un
+  rango «lindo» (lineal: múltiplos de un paso 1-2-5; log: décadas enteras). `reversed` pone el mayor a la izquierda o
+  abajo (profundidad, escalas de densidad). Los valores ≤ 0 en un eje log, y los NaN, no se ubican (no se dibujan); los
+  que caen fuera del rango salen del área y el dibujo los recorta.
+- **Escalas y mapeo**: `xyMapping(xAxis, yAxis, rect)` devuelve `x(v)`, `y(v)` (y crece hacia arriba) y las inversas
+  `xInv`, `yInv`; es la misma función que usan la grilla, los puntos y las tendencias. `plotRectFor(ancho, alto,
+  compact?)` reserva el lugar de los rótulos y los títulos.
+- **Capas**: `points` (`XYPointLayer`: `color` fijo o por punto —color por una tercera curva o por capa—, `variant`
+  lleno/vacío/tachado, `cloud` para una nube tenue de miles de puntos no interactiva, `interactive` y `label` para el
+  tooltip y el teclado), `lines` (`XYLineLayer`: cortan en los NaN), `guides` (`XYGuide`: línea vertical u horizontal con
+  rótulo; los cutoffs de la fase 7) y `trends`.
+- **Capa de tendencias** (`XYTrendLayer { id, coeffs, span, color, extend?, label?, emphasis? }`): se dibuja con
+  `trendGeometry` de `trend/` con `transpose: false` y los dos mapeos del gráfico, así que una recta en un eje log se ve
+  curva y la extensión punteada llega a los bordes. `coeffs` y `span` salen de `evaluateTrend` sobre una serie
+  `xIsDepth: false` (ver arriba, «Crossplot»); la etiqueta de dos líneas (ecuación y R²) se construye con
+  `trendEquation` y `formatR2` de `trend/format.ts`.
+- **Interacción**: tooltip al pasar sobre un punto interactivo, `onPointClick(capa, índice)`, `onSelectRect(DataRect)`
+  al arrastrar un rectángulo (en datos; con ejes log e invertidos; `pointsInRect` da los índices adentro) y teclado
+  (←/→ recorren los puntos en orden de x, Enter = clic, Esc suelta). Sin `onSelectRect` arrastrar no hace nada.
+- Para dibujar fuera de React (otro canvas, exportar a imagen) se usan `axes.ts` y `draw.ts` directamente.
+
 ### Agregar un proveedor de series (MDT, crossplot, plugs de corona…)
 
 Una carpeta de módulo, sin tocar el núcleo: `src/modules/<id>/series.ts` (la app lo descubre sola,

@@ -138,8 +138,16 @@ export interface PointDecision {
 export interface PointSetDecisions {
   /** Por id de punto. Sin entrada = sin decisión. */
   points: Record<string, PointDecision>;
-  /** Puesta en profundidad (m, se suma a la profundidad del archivo): corona–perfil (6b-3). */
+  /**
+   * Puesta en profundidad del conjunto (m, se SUMA a la profundidad del archivo): corona–perfil (6b-3). Es el valor
+   * por defecto de todas las corridas; una corrida con valor propio en `runShifts` usa el suyo.
+   */
   depthShift?: number;
+  /**
+   * Puesta en profundidad por corrida o corona (valor de la columna `run`; ver `RUN_COLUMN`), en m. REEMPLAZA a
+   * `depthShift` para los puntos de esa corrida (cada corona se recupera con su propio desfasaje).
+   */
+  runShifts?: Record<string, number>;
   /** Ajustes del módulo dueño para este conjunto (umbral de movilidad…). */
   settings?: Record<string, number | string | boolean>;
 }
@@ -149,6 +157,88 @@ export function emptyPointSetDecisions(): PointSetDecisions {
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+
+// ── corridas y profundidad corregida ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Clave de la columna de TEXTO que agrupa los puntos por corrida (MDT) o corona (plugs). Convención del núcleo: el
+ * lector la llena si el archivo trae el número de corona o de corrida; la puesta en profundidad puede ser por grupo.
+ */
+export const RUN_COLUMN = 'run';
+
+/** Corrida de cada punto ('' = sin corrida), o null si el conjunto no tiene columna de corrida. */
+export function pointRuns(set: PointSet): readonly string[] | null {
+  return pointTexts(set, RUN_COLUMN);
+}
+
+/** Corridas del conjunto (sin la vacía), en el orden en que aparecen al bajar en profundidad. */
+export function listRuns(set: PointSet): string[] {
+  const runs = pointRuns(set);
+  if (!runs) return [];
+  const out: string[] = [];
+  for (const r of runs) if (r && !out.includes(r)) out.push(r);
+  return out;
+}
+
+/** Desplazamiento efectivo (m) de una corrida: el suyo si lo tiene, si no el del conjunto, si no 0. */
+export function shiftOf(decisions: Pick<PointSetDecisions, 'depthShift' | 'runShifts'> | undefined, run: string | null | undefined): number {
+  if (!decisions) return 0;
+  const own = run ? decisions.runShifts?.[run] : undefined;
+  if (typeof own === 'number' && Number.isFinite(own)) return own;
+  const d = decisions.depthShift;
+  return typeof d === 'number' && Number.isFinite(d) ? d : 0;
+}
+
+const shiftedCache = new WeakMap<PointSet, WeakMap<object, Float64Array>>();
+
+/**
+ * Profundidad CORREGIDA de cada punto (m): la del archivo más la puesta en profundidad de su corrida (o del conjunto).
+ * La usan TODOS los consumidores (series, superposiciones, crossplots, sugerencia de desplazamiento): nunca leer
+ * `set.depth` directamente para ubicar un punto contra los perfiles.
+ *
+ * - Sin desplazamientos devuelve `set.depth` (misma identidad: los cachés por identidad siguen valiendo).
+ * - Con desplazamientos distintos por corrida el resultado puede NO quedar ordenado (dos coronas que se pisan):
+ *   quien necesite orden (una serie con `xIsDepth`) ordena los índices.
+ * - Inmutable y en caché por identidad del conjunto y de las decisiones.
+ */
+export function shiftedDepth(set: PointSet, decisions: PointSetDecisions | undefined): Float64Array {
+  if (!decisions || (!decisions.depthShift && !decisions.runShifts)) return set.depth;
+  let byDec = shiftedCache.get(set);
+  if (!byDec) shiftedCache.set(set, (byDec = new WeakMap()));
+  const hit = byDec.get(decisions);
+  if (hit) return hit;
+  const runs = pointRuns(set);
+  const n = set.depth.length;
+  let out: Float64Array = set.depth;
+  for (let i = 0; i < n; i++) {
+    const s = shiftOf(decisions, runs?.[i]);
+    if (s === 0) continue;
+    if (out === set.depth) out = Float64Array.from(set.depth);
+    out[i] = set.depth[i]! + s;
+  }
+  byDec.set(decisions, out);
+  return out;
+}
+
+/**
+ * Índices de los puntos ordenados por profundidad corregida (estable). Para series que necesitan la profundidad no
+ * decreciente (`xIsDepth`) cuando dos corridas con desplazamientos distintos se pisan.
+ */
+export function depthOrder(depth: ArrayLike<number>): number[] {
+  const idx = Array.from({ length: depth.length }, (_, i) => i);
+  for (let i = 1; i < depth.length; i++) {
+    if (depth[i]! < depth[i - 1]!) return idx.sort((a, b) => depth[a]! - depth[b]! || a - b);
+  }
+  return idx;
+}
+
+/**
+ * ¿La tendencia con esta clave de serie es de este conjunto? Convención de los proveedores sobre conjuntos de puntos
+ * (MDT, corona): la clave es `<idDelConjunto>` o `<idDelConjunto>:<algo>`. Borrar el conjunto borra esas tendencias.
+ */
+export function isPointSetSeriesKey(key: string, setId: string): boolean {
+  return key === setId || key.startsWith(`${setId}:`);
+}
 
 /** Decisiones guardadas, validadas: lo inválido se descarta con aviso (como las tendencias). */
 export function sanitizePointSetDecisions(raw: unknown, where: string, warn: (m: string) => void = () => {}): Record<string, PointSetDecisions> {
@@ -183,6 +273,18 @@ export function sanitizePointSetDecisions(raw: unknown, where: string, warn: (m:
     const shift = d['depthShift'];
     if (typeof shift === 'number' && Number.isFinite(shift)) clean.depthShift = shift;
     else if (shift !== undefined) warn(`${where}: la puesta en profundidad del conjunto '${setId}' no es un número; se quita.`);
+    if (d['runShifts'] !== undefined) {
+      const runShifts: Record<string, number> = {};
+      let badRun = 0;
+      if (isObj(d['runShifts'])) {
+        for (const [run, v] of Object.entries(d['runShifts'])) {
+          if (run && typeof v === 'number' && Number.isFinite(v)) runShifts[run] = v;
+          else badRun++;
+        }
+      } else badRun++;
+      if (badRun) warn(`${where}: se quitaron ${badRun} puestas en profundidad por corrida inválidas del conjunto '${setId}'.`);
+      if (Object.keys(runShifts).length) clean.runShifts = runShifts;
+    }
     if (isObj(d['settings'])) {
       const settings: Record<string, number | string | boolean> = {};
       for (const [k, v] of Object.entries(d['settings'])) {

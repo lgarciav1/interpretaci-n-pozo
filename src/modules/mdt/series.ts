@@ -13,7 +13,7 @@
  */
 import type { Interpretation } from '../../core/interpretation';
 import type { PointSet } from '../../core/pointSets';
-import { pointNumbers } from '../../core/pointSets';
+import { depthOrder, pointNumbers, shiftedDepth } from '../../core/pointSets';
 import type { TrendSpec } from '../../core/trends';
 import type { Well } from '../../core/well';
 import { classifyFluidByDensity, fluidFitsDensity, type FluidSuggestion } from '../../petro/pressure';
@@ -38,9 +38,10 @@ export function mdtSeries(set: PointSet, interpretation: Pick<Interpretation, 'p
   let s = byKey.get(key);
   if (!s) {
     const st = pointStatuses(set, dec);
-    const idx: number[] = [];
-    for (let i = 0; i < set.depth.length; i++) if (st[i]!.included && Number.isFinite(p[i]!)) idx.push(i);
-    const x = Float64Array.from(idx, (i) => set.depth[i]!);
+    // Profundidad corregida (puesta en profundidad del conjunto o de la corrida), ordenada: `xIsDepth` la exige.
+    const z = shiftedDepth(set, dec);
+    const idx = depthOrder(z).filter((i) => st[i]!.included && Number.isFinite(p[i]!));
+    const x = Float64Array.from(idx, (i) => z[i]!);
     const y = Float64Array.from(idx, (i) => p[i]!);
     const ids = idx.map((i) => set.pointIds[i]!);
     const at = new Map(ids.map((id, k) => [id, k]));

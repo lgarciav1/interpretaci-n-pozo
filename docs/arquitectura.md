@@ -4,7 +4,8 @@ Webapp 100 % en el navegador (TypeScript + React + Vite) que se entrega como un 
 Las decisiones con sus alternativas descartadas están en [`decisiones/`](decisiones/): núcleo y contrato de módulos
 (0001), lectura de datos (0002), control de calidad (0003), sistema de diseño, armazón y flujo guiado (0004), visor
 multipista (0005), deshacer y rehacer (0006), catálogo de módulos de la fase 6a con sus cambios de núcleo (0007),
-tendencias y gradientes (0008) y presiones MDT con los conjuntos de puntos del pozo (0009).
+tendencias y gradientes (0008), presiones MDT con los conjuntos de puntos del pozo (0009) y datos de corona con
+puesta en profundidad y modelo k–φ (0010).
 Este documento resume cómo encajan las piezas y cómo agregar un módulo.
 
 ## Ideas centrales
@@ -62,6 +63,7 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 | `src/ui/` | sistema de diseño: tokens, tema, paleta de curvas, componentes, `useCanvas`; contrato de panel. Guía en `src/ui/README.md`; muestra en `#ui` | sí |
 | `src/viewer/` | visor multipista: plantillas, resolución de pistas, viewport, ticks, reducción M4, rellenos, pilas (`stack.ts`), lectura, contrato de superposiciones (con elementos del teclado), gestos (`interaction.ts`), dibujo en canvas (`*.ts`, puros o canvas) y los componentes `WellViewer.tsx`, `Minimap.tsx`, `WellHeader.tsx`. Guía en `src/viewer/README.md` | solo los `.tsx` |
 | `src/io/` | lectores Excel/LAS/CSV, mnemónicos, control de calidad, tablas de presiones (`pressures.ts`) (ver su README) | no |
+| `src/plots/xy/` | gráfico x–y base (ejes lineales o log, ticks, mapeo dato ↔ px puro en `axes.ts`, dibujo en `draw.ts`, componente `XYPlot.tsx`): lo usa el crossplot k–φ de la corona y lo hereda la fase 7. Guía en `src/plots/README.md` | solo `XYPlot.tsx` |
 | `src/plots/trend/` | tendencias: contrato y registro de proveedores de series (`series.ts`, proveedor `curve`), ajuste sobre la serie (`compute.ts`), dibujo independiente de los ejes (`draw.ts`), textos (`format.ts`) y superposición del visor sin stores (`overlay.ts`). Guía en `src/plots/README.md` | no |
 | `src/app/trends/` | estado de interfaz de las tendencias (herramienta, selección), proveedores de los módulos (`providers.ts`), conexión con los stores (`actions.ts`) y panel «Tendencias» del dock | sí |
 | `src/modules/<id>/series.ts` | proveedores de series para tendencias (opcional, `seriesProviders: TrendSeriesProvider[]`): MDT, plugs de corona…; el worker no lo importa | no |
@@ -255,12 +257,14 @@ mitad del binario sin comprimir.
 | Reenvío completo automático ante "resultado incompleto" | antes de la fase 12 | Mensaje `resync` del cliente: el worker vacía `sent` y la próxima respuesta trae todos los datos. |
 | Elegir método por zona para puertos con módulos distintos (Archie en arenas limpias, Simandoux en arcillosas) | cuando se pida | `sources` por zona: el motor arma una curva por tramos con la salida del módulo elegido en cada zona. |
 | Ruido de módulos por defecto sin consumidores (p. ej. sónico sin DT informa error aunque nadie use PHIS) | antes de la fase 12 | Bajar a `info` el faltante de un módulo que solo corre por ser fuente por defecto de un puerto sin consumidores. |
-| Profundidad corregida de un conjunto de puntos (`depthShift` no se aplica en el núcleo) | al empezar la 6b-3 | Helper `shiftedDepth(set, decisiones)` en `src/core/pointSets.ts` que usen serie, superposición y crossplot; definir si el desplazamiento es por conjunto o por corrida de corona. |
-| Borrar un conjunto de puntos no borra sus tendencias (lo hace el panel MDT) | 6b-3 | Convención de clave `<conjunto>[:…]` y que la receta del núcleo borre esas tendencias. |
 | psia y psig se tratan como psi | cuando haya datos reales | Guardar la referencia por columna y avisar en el asistente si se mezclan (desplaza ~14,7 psi la regla «presión ≥ lodo»). |
 | Gradientes de presión en pozos desviados (hoy contra MD; el panel avisa si TVD difiere de MD) | cuando haya un pozo desviado | Serie `mdt` con x = TVD (columna `tvd`) y la pista ubicada por MD. |
 | «Usar un contacto como tope de zona» (opcional del pedido MDT) | cuando se pida | Receta que parta la zona que contiene el contacto (`createZone`, `src/core/state/zones.ts`). |
-| Excluir o incluir muchos puntos a la vez (lazo en el crossplot) | fase 7 | Receta nueva en `src/core/state/trends.ts`; hoy se alterna de a uno. |
+| Excluir o incluir muchos puntos a la vez (lazo en el crossplot) | fase 7 | Receta nueva en `src/core/state/trends.ts`; hoy se alterna de a uno (el panel «Corona» lo resuelve para sus plugs con el rectángulo de `XYPlot`, escribiendo `selection.excluded` de la tendencia). |
+| Corrección de Klinkenberg y de presión de confinamiento de los plugs | cuando haya datos reales de laboratorio | El lector (`src/io/core.ts`) elige la columna (Klinkenberg antes que aire) pero no corrige; sumar la columna de presión de confinamiento y un factor opcional. |
+| Modelo k–φ por litofacies o capa (hoy global o por zona) | fase 7 (crossplot libre con filtro por capa) | Una tendencia por capa sobre la serie `core` y «Aplicar» a la zona que corresponda; el módulo `perm-core` ya tiene a y b por zona. |
+| La densidad de grano de los plugs no alimenta ρma de la porosidad por densidad | cuando se pida | Parámetro de `phi-density` que tome la mediana de ρg de la corona (en la zona) como densidad de matriz sugerida. |
+| Puesta en profundidad de la corona en pozos desviados (hoy en MD) | cuando haya un pozo desviado | Igual que los gradientes MDT: variable independiente TVD con la pista ubicada por MD. |
 
 ## Petrofísica en módulos (fase 6a)
 
@@ -350,6 +354,32 @@ Decisión: [`docs/decisiones/0009-presiones-mdt-y-conjuntos-de-puntos.md`](decis
   `TrendTool.series` (herramienta sobre una serie dada), `ResolvedSeries.canvasLabel` y `pickSamples`, superposición
   `trends-lines` (prioridad del puntero: herramienta y manijas > puntos de módulos > líneas) y paneles del dock en
   `src/modules/<id>/dock.tsx`.
+
+## Datos de corona (fase 6b-3)
+
+Decisión: [`docs/decisiones/0010-datos-de-corona.md`](decisiones/0010-datos-de-corona.md).
+
+- **Plugs** = `PointSet` de `kind: 'core'` (`phi`, `k`, `rhog`, `run`, `description`), leídos de Excel, CSV o LAS por
+  `src/io/core.ts` (columnas por nombre y unidad, φ en % → v/v, k en mD). Los datos no se tocan: descartar un plug o
+  poner la corona en profundidad son decisiones en `Interpretation.pointSets` (snapshots y deshacer).
+- **Puesta en profundidad por corona**: `depthShift` (defecto del conjunto) y `runShifts` (por valor de la columna
+  `run`). `shiftedDepth(set, decisiones)` (`src/core/pointSets.ts`) es la única forma de ubicar un punto contra los
+  perfiles: lo usan series, superposiciones y la sugerencia, también MDT. `suggestDepthShift` (`src/petro/depthMatch.ts`)
+  propone el desplazamiento por correlación de Pearson contra PHIE (u otra curva) con advertencias de borde, ambigüedad
+  y correlación débil; el usuario lo acepta, lo escribe o arrastra la corona en el visor (un `commit` al soltar).
+- **Borrado en cascada**: `removePointSet` borra las tendencias de la serie `<conjunto>[:…]` de cualquier proveedor
+  salvo `curve`.
+- **Modelo k–φ**: tendencia exponencial sobre el proveedor `core` (`<conjunto>:kphi`: x = φ, y = k, `xIsDepth: false`).
+  «Aplicar al pozo» convierte a log10 k = a + b·φ y escribe a y b en el módulo del motor `perm-core` (el worker no ve
+  los plugs), con indicador de sincronización; `perm-core` no es la fuente por defecto de PERM (sigue `perm-timur`).
+- **Gráfico x–y base** (`src/plots/xy/`): ejes lineales o log por separado, ticks, tendencias y selección por
+  rectángulo; es la base del crossplot libre y el histograma de la fase 7.
+- **Ejemplo sintético** rotulado (`src/modules/core/example.ts`): dos coronas corridas 2,4 y 1,6 m respecto del perfil;
+  la sugerencia recupera el desplazamiento de diseño.
+- Archivos: `src/modules/core/` (`model.ts`, `series.ts`, `overlay.ts`, `dock.tsx`, `LoadCoreDialog.tsx`,
+  `example.ts`), `src/modules/perm-core/`, `src/plots/xy/`. Tests: `tests/point-sets-shift.test.ts`,
+  `tests/petro-depth-match.test.ts`, `tests/perm-core.test.ts`, `tests/io/core.test.ts`, `tests/core-plugs.test.ts`,
+  `tests/plots/xy-geometry.test.ts`, `tests/plots/core-overlay.test.ts`.
 
 ## Deshacer y rehacer
 

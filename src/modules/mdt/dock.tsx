@@ -8,7 +8,7 @@
  * (`src/modules/<id>/dock.tsx`).
  */
 import { useMemo, useState, type ReactNode } from 'react';
-import { pointNumbers, pointTexts, type PointSet } from '../../core/pointSets';
+import { pointNumbers, pointTexts, shiftedDepth, type PointSet } from '../../core/pointSets';
 import { removePointSet, setPointDecision, setPointSetSetting } from '../../core/state/pointSets';
 import { activeWellEntry, makeId, setOverlaySetting } from '../../core/state/project';
 import { removeTrend } from '../../core/state/trends';
@@ -210,14 +210,8 @@ function MdtBar({ set, sets, unit, onPick, onLoad }: { set: PointSet; sets: Poin
           onClick={() => {
             const w = activeWellId();
             if (!w) return;
-            useProject.getState().commit('Borrar presiones', (p) => {
-              const e = p.wells.find((x) => x.well.id === w);
-              let next = removePointSet(p, w, set.id);
-              for (const t of e?.interpretation.trends ?? []) {
-                if (t.series.provider === MDT_PROVIDER_ID && (t.series.key === set.id || t.series.key.startsWith(`${set.id}:`))) next = removeTrend(next, w, t.id);
-              }
-              return next;
-            });
+            // La receta del núcleo borra también los gradientes (tendencias de la serie `<conjunto>[:fluido]`).
+            useProject.getState().commit('Borrar presiones', (p) => removePointSet(p, w, set.id));
             stopTrendTool();
           }}
         />
@@ -367,7 +361,7 @@ function PointsTable({ set, analysis, unit, selected, onSelect }: { set: PointSe
         selectedKey={selected}
         onRowClick={(r) => {
           onSelect(r.id === selected ? null : r.id);
-          const z = set.depth[r.i]!;
+          const z = shiftedDepth(set, interp?.pointSets[set.id])[r.i]!;
           useTrendsUi.getState().requestRange(z - 30, z + 30);
         }}
         rowProps={(r) => ({ 'data-excluded': st[r.i]!.included ? undefined : '' })}

@@ -100,9 +100,29 @@ export function normalizeColumnName(name: string): string {
 
 const tokensOf = (norm: string) => norm.split(/[_/]+/).filter(Boolean);
 
+/**
+ * Unidad escrita pegada al nombre, sin paréntesis: «Depth ft», «DEPTH_FT», «Perm mD», «PHI %», «K/mD», «Movilidad mD/cP».
+ * Cuenta como unidad el último token (o los dos últimos unidos por «/») si es una unidad conocida y queda algo de
+ * nombre. Así «MD» sola sigue siendo profundidad medida, y «Perm mD» no deja que el MD le gane a PERM.
+ */
+export function splitUnitSuffix(raw: string): { name: string; unitText: string } {
+  const parts = raw.trim().split(/[\s_/]+/).filter(Boolean);
+  for (const take of [1, 2]) {
+    if (parts.length <= take) break;
+    const suffix = parts.slice(-take).join('/');
+    if (parseUnit(suffix)) return { name: parts.slice(0, -take).join(' '), unitText: suffix };
+  }
+  return { name: raw, unitText: '' };
+}
+
+/** Texto de unidad de una columna: la de la línea de unidades o la de paréntesis; si no, la pegada al nombre. */
+export function unitTextOf(col: RawColumn): string {
+  return col.unit.trim() || splitUnitSuffix(col.name).unitText;
+}
+
 /** Campo por el nombre (y confianza), o null si el nombre no dice nada. */
 function fieldByName(name: string): { field: PressureField; confidence: Confidence } | null {
-  const n = normalizeColumnName(name);
+  const n = normalizeColumnName(splitUnitSuffix(name).name);
   const t = new Set(tokensOf(n));
   const has = (...w: string[]) => w.some((x) => t.has(x));
   const starts = (...w: string[]) => w.some((x) => n.startsWith(x));
@@ -162,7 +182,7 @@ export function suggestPressureMapping(table: RawTable): PressureColumnMapping[]
     }
     if (field === 'ignore' && col.kind === 'numeric') {
       // Por unidad: una presión o una movilidad sin nombre reconocible.
-      const u = parseUnit(col.unit.trim());
+      const u = parseUnit(unitTextOf(col));
       const dim = u ? getUnit(u)?.dimension : undefined;
       if (dim === 'pressure') {
         field = 'pressure';
@@ -177,7 +197,7 @@ export function suggestPressureMapping(table: RawTable): PressureColumnMapping[]
       confidence = 'none';
     }
     if (field !== 'ignore') taken.add(field);
-    return { ...base, field, unit: unitFor(field, col.unit), confidence };
+    return { ...base, field, unit: unitFor(field, unitTextOf(col)), confidence };
   });
   // Sin columna de profundidad reconocida: la que el lector marcó como tal (o la primera numérica).
   if (!taken.has('depth')) {
