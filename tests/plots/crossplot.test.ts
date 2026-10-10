@@ -66,6 +66,24 @@ describe('plantilla de Pickett', () => {
     // En φ = 1, Rt = a·Rw (la recta de agua corta φ = 1 en Rw).
     expect(l.rt[1]).toBeCloseTo(0.05, 12);
   });
+  it('orientación (φ en y, Rt en x): Sw 100 % es la línea más a la izquierda y cada punto devuelve su Sw por Archie', () => {
+    // Revisión numérica 7a, cuenta a mano con a = 1, m = 2, n = 2, Rw = 0,05: en φ = 0,1 la recta de agua pasa por
+    // Rt = 5; Sw = 50 % por 20; Sw = 30 % por 5/0,09 = 55,56; Sw = 20 % por 5/0,04 = 125 ohm·m.
+    const rtAt = (sw: number) => pickettLine(sw, p, [0.1, 1]).rt[0]!;
+    expect([rtAt(1), rtAt(0.5), rtAt(0.3), rtAt(0.2)].map((v) => +v.toFixed(2))).toEqual([5, 20, 55.56, 125]);
+    // Menos agua → más a la derecha: la zona «imposible» (Sw > 100 %) queda abajo a la izquierda de la recta de agua.
+    expect(rtAt(0.2)).toBeGreaterThan(rtAt(0.3));
+    expect(rtAt(0.3)).toBeGreaterThan(rtAt(0.5));
+    expect(rtAt(0.5)).toBeGreaterThan(rtAt(1));
+    // Ida y vuelta: Sw = sqrt(a·Rw / (φ^m·Rt)) en cualquier punto de cualquier línea.
+    for (const sw of [1, 0.5, 0.3, 0.2]) {
+      const l = pickettLine(sw, p, [0.02, 0.35]);
+      l.phi.forEach((f, k) => expect(Math.sqrt((p.a * p.rw) / (f ** p.m * l.rt[k]!))).toBeCloseTo(sw, 12));
+    }
+    // Con m = 2,5 la pendiente cambia a −1/2,5 = −0,4 y la intersección sigue en φ = 1 → Rt = a·Rw.
+    const l25 = pickettLine(1, { ...p, m: 2.5 }, [0.01, 1]);
+    expect((Math.log10(l25.phi[1]!) - Math.log10(l25.phi[0]!)) / (Math.log10(l25.rt[1]!) - Math.log10(l25.rt[0]!))).toBeCloseTo(-0.4, 12);
+  });
 });
 
 describe('plantilla φ–Sw (BVW constante)', () => {

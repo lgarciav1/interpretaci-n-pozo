@@ -215,13 +215,17 @@ export function sampleStats(values: ArrayLike<number>, scale: HistScale, include
 export interface CutoffSplit {
   /** Muestras válidas incluidas. */
   n: number;
-  /** % con valor ≤ cutoff y > cutoff. */
+  /** % del lado de abajo y del lado de arriba del cutoff (el valor justo en el corte va al lado `inclusive`). */
   below: number;
   above: number;
 }
 
-/** Reparto de las muestras incluidas a cada lado de un cutoff (inclusivo abajo, como los cutoffs del motor). */
-export function cutoffSplit(values: ArrayLike<number>, cutoff: number, include?: (i: number) => boolean): CutoffSplit {
+/**
+ * Reparto de las muestras incluidas a cada lado de un cutoff. El valor exactamente en el corte va al lado que el motor
+ * de cutoffs acepta (`src/petro/cutoffs.ts`, cortes inclusivos): `inclusive = 'below'` para un máximo (Vsh y Sw:
+ * pasa v ≤ corte; también para una línea libre) e `'above'` para un mínimo (φ: pasa v ≥ corte).
+ */
+export function cutoffSplit(values: ArrayLike<number>, cutoff: number, include?: (i: number) => boolean, inclusive: 'below' | 'above' = 'below'): CutoffSplit {
   let n = 0;
   let lo = 0;
   for (let i = 0; i < values.length; i++) {
@@ -229,7 +233,7 @@ export function cutoffSplit(values: ArrayLike<number>, cutoff: number, include?:
     const v = values[i]!;
     if (!Number.isFinite(v)) continue;
     n++;
-    if (v <= cutoff) lo++;
+    if (inclusive === 'below' ? v <= cutoff : v < cutoff) lo++;
   }
   return n === 0 ? { n, below: NaN, above: NaN } : { n, below: (100 * lo) / n, above: (100 * (n - lo)) / n };
 }

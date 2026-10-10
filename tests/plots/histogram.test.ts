@@ -4,6 +4,7 @@
  * cutoff. Valores verificados con cuentas a mano.
  */
 import { describe, expect, it } from 'vitest';
+import { netReservoirFlag } from '../../src/petro/cutoffs';
 import { AUTO_BINS, autoBinCount, autoRange, binEdges, binIndex, collect, countBins, cumulativePercent, cutoffSplit, sampleStats, toPercent } from '../../src/plots/histogram/histogram';
 
 describe('autoBinCount (Freedman–Diaconis con límites)', () => {
@@ -125,5 +126,21 @@ describe('cutoffSplit', () => {
     expect(s.n).toBe(4);
     expect(s.below).toBe(50);
     expect(s.above).toBe(50);
+  });
+  it('porosidad (φ ≥ mínimo pasa): la muestra justo en el corte cuenta como arriba, igual que netReservoirFlag', () => {
+    // Revisión numérica 7a: el reparto fijo «≤ abajo» sacaba del «pasa» a φ = corte, que el módulo de cutoffs SÍ acepta.
+    const phi = [0.05, 0.08, 0.1, 0.2];
+    const s = cutoffSplit(phi, 0.08, undefined, 'above');
+    expect(s.n).toBe(4);
+    expect(s.below).toBe(25); // solo 0,05 < 0,08
+    expect(s.above).toBe(75); // 0,08 (inclusivo), 0,1 y 0,2
+    // Coincide con las banderas del motor: pasan las muestras con netReservoirFlag = 1 (Vsh = 0).
+    const pass = phi.filter((f) => netReservoirFlag(0, f, 0.4, 0.08) === 1).length;
+    expect(s.above).toBe((100 * pass) / phi.length);
+  });
+  it('Vsh y Sw (≤ máximo pasa): el valor en el corte sigue abajo (default)', () => {
+    const vsh = [0.2, 0.4, 0.5];
+    expect(cutoffSplit(vsh, 0.4).below).toBeCloseTo((100 * 2) / 3, 12);
+    expect(cutoffSplit(vsh, 0.4, undefined, 'below').below).toBeCloseTo((100 * 2) / 3, 12);
   });
 });

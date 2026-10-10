@@ -29,6 +29,7 @@ import type { SeriesContext } from '../trend/series';
 import { niceRange, pointsInRect, type DataRect, type XYAxis } from '../xy/axes';
 import type { XYColorKey } from '../xy/figure';
 import { XYPlot, type GuidePhase, type XYGuide, type XYLineLayer, type XYPointLayer, type XYTrendLayer } from '../xy/XYPlot';
+import { cutoffSplit } from '../histogram/histogram';
 import { COLOR_LEVELS, colorLevel, gather, medianAt, plottableIndices, robustRange } from './crossplot';
 import { CROSSPLOT_PROVIDER_ID, crossplotSeries, crossplotSeriesKey, parseCrossplotSeriesKey } from './series';
 import { BVW_LINES, CROSSPLOT_TEMPLATE_DEFS, DN_LITHOLOGIES, PICKETT_SW, bvwLine, densityNeutronLine, pickettLine, templateDef, type ArchieParams } from './templates';
@@ -201,14 +202,11 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
     const out: XYGuide[] = [...(tpl?.guides ?? [])];
     for (const l of cutLines) {
       const vals = l.axis === 'x' ? cloud?.x : cloud?.y;
-      let lo = 0;
-      let n = 0;
-      if (vals) for (const v of vals) {
-        n++;
-        if (v <= l.value) lo++;
-      }
       const pass = l.param ? CUTOFF_PASSES[l.param] : null;
-      const below = n ? (100 * lo) / n : NaN;
+      // El valor justo en el corte va al lado que acepta el motor de cutoffs (φ ≥ mínimo; Vsh y Sw ≤ máximo).
+      const split = vals ? cutoffSplit(vals, l.value, undefined, pass === 'above' ? 'above' : 'below') : null;
+      const n = split?.n ?? 0;
+      const below = split && n ? split.below : NaN;
       out.push({
         id: l.id,
         axis: l.axis,
@@ -616,8 +614,9 @@ const NO_LINES: XYLineLayer[] = [];
 function quadrants(x: Float64Array, y: Float64Array, lx: CutoffLine, ly: CutoffLine, xName: string, yName: string) {
   const c = [0, 0, 0, 0]; // [arriba-izq, arriba-der, abajo-izq, abajo-der] en VALORES (≤ / >)
   for (let k = 0; k < x.length; k++) {
-    const right = x[k]! > lx.value;
-    const up = y[k]! > ly.value;
+    // Inclusividad del motor: un mínimo (φ) acepta el valor en el corte («arriba»); un máximo (Vsh, Sw) lo deja abajo.
+    const right = lx.param && CUTOFF_PASSES[lx.param] === 'above' ? x[k]! >= lx.value : x[k]! > lx.value;
+    const up = ly.param && CUTOFF_PASSES[ly.param] === 'above' ? y[k]! >= ly.value : y[k]! > ly.value;
     c[(up ? 0 : 2) + (right ? 1 : 0)]!++;
   }
   const n = x.length;

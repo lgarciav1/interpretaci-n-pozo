@@ -94,8 +94,8 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff }: Histogr
   const xAxis: XYAxis | null = model && !model.empty ? { kind: scale, min: model.edges[0]!, max: model.edges[model.edges.length - 1]!, label: curve!.short, unit: curve!.unitText || undefined } : null;
   const yAxis: XYAxis = { kind: 'linear', min: 0, max: model && !model.empty ? model.yMax : 1, label: config.normalize ? 'Frecuencia' : 'Muestras', ...(config.normalize ? { unit: '%' } : {}) };
 
-  const split = line && curve ? cutoffSplit(curve.data, line.value, filter.include) : null;
   const passSide = line?.param ? CUTOFF_PASSES[line.param] : null;
+  const split = line && curve ? cutoffSplit(curve.data, line.value, filter.include, passSide === 'above' ? 'above' : 'below') : null;
   const guides: XYGuide[] = line
     ? [
         {
