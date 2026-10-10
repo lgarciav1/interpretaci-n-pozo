@@ -20,9 +20,10 @@
 /*
  * Barra angosta (visor estrecho o tamaño de interfaz grande): los botones de herramientas quedan en ícono (conservan
  * nombre y `title`) y después se oculta la escala 1:N. Umbrales en em (siguen al tamaño del texto): en Compacto la
- * barra completa pide ~660 px (51 em) y con las herramientas en ícono ~520 px (40 em).
+ * barra completa (con plantilla y «Pistas», fase 7b) pide ~830 px (64 em) y con las herramientas en ícono ~520 px
+ * (40 em).
  */
-@container wvbar (max-width: 51em) {
+@container wvbar (max-width: 64em) {
   .wv-toolbar__end > .ui-btn { position: relative; --btn-px: var(--space-1-5); }
   .wv-toolbar__end > .ui-btn .ui-btn__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }

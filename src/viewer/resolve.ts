@@ -127,6 +127,16 @@ export interface ResolvedTrack {
   stack?: ResolvedStack;
   /** Curvas de la pista ocultas por el usuario. */
   hidden?: HiddenCurve[];
+  /**
+   * Pista que normalmente no se ve porque está vacía (`hideWhenEmpty`); solo con `keepEmpty` (modo «Armar pistas»,
+   * docs/decisiones/0016): se muestra para poder moverla o quitarla.
+   */
+  latent?: boolean;
+}
+
+export interface ResolveOptions {
+  /** Resolver también las pistas `hideWhenEmpty` vacías (con `latent: true`). */
+  keepEmpty?: boolean;
 }
 
 /**
@@ -243,8 +253,12 @@ function makeCurve(
 
 // ── resolución ─────────────────────────────────────────────────────────────────────────────────────────────────
 
-/** Arma las pistas a dibujar. Las pistas `hideWhenEmpty` sin curvas se omiten. */
-export function resolveTracks(layout: readonly TrackSpec[], src: ViewerSources, overrides: DisplayOverrides = {}): ResolvedTrack[] {
+/**
+ * Arma las pistas a dibujar. Las pistas `hideWhenEmpty` sin curvas se omiten (salvo con `keepEmpty`) y las ocultas
+ * por el usuario (`hidden`) nunca se resuelven.
+ */
+export function resolveTracks(fullLayout: readonly TrackSpec[], src: ViewerSources, overrides: DisplayOverrides = {}, options: ResolveOptions = {}): ResolvedTrack[] {
+  const layout = fullLayout.some((t) => t.hidden) ? fullLayout.filter((t) => !t.hidden) : fullLayout;
   const { catalog } = src;
   const n = src.depth.length;
   const measured = src.curves.filter((c) => c.data.length === n);
@@ -388,7 +402,8 @@ export function resolveTracks(layout: readonly TrackSpec[], src: ViewerSources, 
     }
     const curves = perTrack.get(t)!;
     const hidden = hiddenBy.get(t);
-    if (curves.length === 0 && !hidden?.length && t.hideWhenEmpty) continue;
+    const latent = curves.length === 0 && !hidden?.length && !!t.hideWhenEmpty;
+    if (latent && !options.keepEmpty) continue;
     const byRole = (role: RoleId) => findCurve(curves, role, true);
     const fills: ResolvedFill[] = [];
     for (const f of t.fills ?? []) {
@@ -420,6 +435,7 @@ export function resolveTracks(layout: readonly TrackSpec[], src: ViewerSources, 
       grid,
       ...(t.emptyHint ? { emptyHint: t.emptyHint } : {}),
       ...(hidden?.length ? { hidden } : {}),
+      ...(latent ? { latent: true } : {}),
     });
   }
   return out;

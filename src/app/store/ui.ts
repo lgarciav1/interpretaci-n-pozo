@@ -111,6 +111,8 @@ export interface UiStore {
   dockTab: string;
   /** Modo «marcar zona» del visor: arrastrar sobre el perfil crea una zona. */
   zoneMarking: boolean;
+  /** Modo «Armar pistas»: catálogo al costado del visor y encabezados editables (docs/decisiones/0016). */
+  trackBuilder: boolean;
   /** Asistente de carga abierto (con `tp` arranca leyendo los datos del TP). */
   loadDialog: null | { source?: 'tp' };
   snapshotsOpen: boolean;
@@ -129,6 +131,7 @@ export const useUi = create<UiStore>()((set) => ({
   editingZoneId: null,
   dockTab: 'results',
   zoneMarking: false,
+  trackBuilder: false,
   loadDialog: null,
   snapshotsOpen: false,
   exportOpen: false,
