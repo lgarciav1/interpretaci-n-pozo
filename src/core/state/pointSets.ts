@@ -8,7 +8,7 @@
  *   el puente sincroniza el pozo solo si cambian sus curvas o su profundidad.
  * - Las DECISIONES (`Interpretation.pointSets`) son de la interpretación: entran en snapshots.
  */
-import type { PointDecision, PointSet, PointSetDecisions } from '../pointSets';
+import { isPointSetSeriesKey, type PointDecision, type PointSet, type PointSetDecisions } from '../pointSets';
 import { getWellEntry, updateInterpretation, updateWell, type Project } from './project';
 
 function requireSet(project: Project, wellId: string, setId: string): PointSet {
@@ -23,14 +23,19 @@ export function addPointSet(project: Project, wellId: string, set: PointSet): Pr
   return updateWell(project, wellId, (w) => ({ ...w, pointSets: [...w.pointSets, set] }));
 }
 
-/** Quita un conjunto y las decisiones sobre él. Las tendencias que lo usaban quedan «sin datos» (no se borran acá). */
+/**
+ * Quita un conjunto, las decisiones sobre él y SUS TENDENCIAS: las de una serie cuya clave es `<conjunto>` o
+ * `<conjunto>:…` (convención de los proveedores de series sobre conjuntos de puntos: gradientes MDT, modelo k–φ de la
+ * corona), de cualquier proveedor que no sea el de curvas (`curve`, cuyas claves son `m:…` / `r:…`).
+ */
 export function removePointSet(project: Project, wellId: string, setId: string): Project {
   requireSet(project, wellId, setId);
   const next = updateWell(project, wellId, (w) => ({ ...w, pointSets: w.pointSets.filter((s) => s.id !== setId) }));
   return updateInterpretation(next, wellId, (i) => {
-    if (!(setId in i.pointSets)) return i;
+    const trends = i.trends.filter((t) => t.series.provider === 'curve' || !isPointSetSeriesKey(t.series.key, setId));
+    if (!(setId in i.pointSets) && trends.length === i.trends.length) return i;
     const { [setId]: _gone, ...rest } = i.pointSets;
-    return { ...i, pointSets: rest };
+    return { ...i, pointSets: rest, trends: trends.length === i.trends.length ? i.trends : trends };
   });
 }
 
@@ -101,9 +106,27 @@ export function setPointSetSetting(project: Project, wellId: string, setId: stri
   });
 }
 
-/** Puesta en profundidad del conjunto (m; 0 o undefined la quita). */
-export function setPointSetDepthShift(project: Project, wellId: string, setId: string, shift: number | undefined): Project {
+/**
+ * Puesta en profundidad (m, se suma a la profundidad del archivo).
+ * - Sin `run`: la del conjunto (valor por defecto de todas las corridas); 0 o undefined la quita.
+ * - Con `run`: la de esa corrida o corona (reemplaza a la del conjunto para sus puntos); undefined la quita y la
+ *   corrida vuelve a usar la del conjunto; 0 es un valor explícito (si el conjunto tiene otro).
+ */
+export function setPointSetDepthShift(project: Project, wellId: string, setId: string, shift: number | undefined, run?: string): Project {
   if (shift !== undefined && !Number.isFinite(shift)) throw new Error('La puesta en profundidad debe ser un número.');
+  if (run !== undefined) {
+    if (!run) throw new Error('La corrida no tiene nombre.');
+    return mapDecisions(project, wellId, setId, (d) => {
+      const prev = d.runShifts?.[run];
+      const v = shift === undefined ? undefined : shift === 0 && !d.depthShift ? undefined : shift;
+      if (prev === v) return d;
+      const runShifts = { ...d.runShifts };
+      if (v === undefined) delete runShifts[run];
+      else runShifts[run] = v;
+      const { runShifts: _old, ...rest } = d;
+      return Object.keys(runShifts).length ? { ...rest, runShifts } : rest;
+    });
+  }
   return mapDecisions(project, wellId, setId, (d) => {
     const v = shift === 0 ? undefined : shift;
     if (d.depthShift === v) return d;

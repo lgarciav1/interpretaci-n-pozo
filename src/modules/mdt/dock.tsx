@@ -210,14 +210,8 @@ function MdtBar({ set, sets, unit, onPick, onLoad }: { set: PointSet; sets: Poin
           onClick={() => {
             const w = activeWellId();
             if (!w) return;
-            useProject.getState().commit('Borrar presiones', (p) => {
-              const e = p.wells.find((x) => x.well.id === w);
-              let next = removePointSet(p, w, set.id);
-              for (const t of e?.interpretation.trends ?? []) {
-                if (t.series.provider === MDT_PROVIDER_ID && (t.series.key === set.id || t.series.key.startsWith(`${set.id}:`))) next = removeTrend(next, w, t.id);
-              }
-              return next;
-            });
+            // La receta del núcleo borra también los gradientes (tendencias de la serie `<conjunto>[:fluido]`).
+            useProject.getState().commit('Borrar presiones', (p) => removePointSet(p, w, set.id));
             stopTrendTool();
           }}
         />

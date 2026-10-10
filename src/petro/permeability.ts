@@ -87,3 +87,63 @@ export function timurCoatesPermeabilityInto(
   for (let i = start; i < end; i++) out[i] = timurCoatesPermeability(phi[i]!, bvi[i]!, c);
   return out;
 }
+
+// ── modelo k–φ de corona (log-lineal) ────────────────────────────────────────────────────────────────────────────
+//
+//   log10 k = a + b·φ          (k en mD, φ en v/v)        ⇔        k = 10^(a + b·φ)
+//
+// Es la regresión clásica de plugs de corona: log k lineal en φ (Nelson 1994; Tiab y Donaldson 2015, cap. 3). Se
+// ajusta en el crossplot k–φ con el modelo EXPONENCIAL de las tendencias, k = A·e^(B·φ), que es la misma recta en
+// ln k: ln k = ln A + B·φ. Conversión exacta (ln ↔ log10, con ln 10 ≈ 2,302585):
+//
+//   a = log10 A = ln A / ln 10          b = B / ln 10          (y a la inversa: A = 10^a, B = b·ln 10)
+//
+// Como log10 y ln difieren en una constante, el ajuste por mínimos cuadrados en ln k da EXACTAMENTE los mismos a y b
+// que ajustar log10 k (misma recta, mismo R²). Fuera del rango de φ de los plugs la exponencial extrapola mal: el
+// módulo recorta a [kMin, kMax].
+//
+// Referencias: Nelson, P.H. (1994), "Permeability-porosity relationships in sedimentary rocks", The Log Analyst
+// 35(3); Tiab, D. y Donaldson, E.C. (2015), "Petrophysics", 4.ª ed., cap. 3; Asquith y Krygowski (2004).
+
+/** Coeficientes de log10 k = a + b·φ. */
+export interface LogLinearPermModel {
+  a: number;
+  b: number;
+}
+
+/** Exponencial k = A·e^(B·φ) (tendencia 'exp') → log10 k = a + b·φ. null si A ≤ 0 o algo no es finito. */
+export function expTrendToLogLinear(A: number, B: number): LogLinearPermModel | null {
+  if (!(A > 0) || !Number.isFinite(A) || !Number.isFinite(B)) return null;
+  return { a: Math.log10(A), b: B / Math.LN10 };
+}
+
+/** log10 k = a + b·φ → exponencial k = A·e^(B·φ). */
+export function logLinearToExpTrend(a: number, b: number): { A: number; B: number } {
+  return { A: Math.pow(10, a), B: b * Math.LN10 };
+}
+
+/**
+ * Permeabilidad del modelo k–φ de corona: k = 10^(a + b·φ) (mD), recortada a [kMin, kMax].
+ * φ < 0 o no finito → NaN (sin dato). φ = 0 es válido (k = 10^a, recortado).
+ */
+export function logLinearPermeability(phi: number, a: number, b: number, kMin = 0, kMax = Infinity): number {
+  if (!Number.isFinite(phi) || phi < 0 || !Number.isFinite(a) || !Number.isFinite(b)) return NaN;
+  const k = Math.pow(10, a + b * phi);
+  if (!Number.isFinite(k)) return k > 0 ? kMax : NaN;
+  return Math.min(kMax, Math.max(kMin, k));
+}
+
+/** Variante por tramo [start, end) de `phi`, escrita en `out`. a, b, kMin y kMax únicos del tramo. */
+export function logLinearPermeabilityInto(
+  phi: ArrayLike<number>,
+  out: Float64Array,
+  a: number,
+  b: number,
+  kMin = 0,
+  kMax = Infinity,
+  start = 0,
+  end = phi.length,
+): Float64Array {
+  for (let i = start; i < end; i++) out[i] = logLinearPermeability(phi[i]!, a, b, kMin, kMax);
+  return out;
+}

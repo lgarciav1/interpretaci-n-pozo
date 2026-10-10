@@ -16,7 +16,7 @@
  * Escribe solo por `frame.data.commit` (recetas de `src/core/state/pointSets.ts`): no importa stores.
  */
 import { setPointDecision } from '../../core/state/pointSets';
-import { pointNumbers, pointTexts, type PointSet } from '../../core/pointSets';
+import { pointNumbers, pointTexts, shiftedDepth, type PointSet } from '../../core/pointSets';
 import { conversionCoefficients, unitLabel } from '../../core/units';
 import { contrastRatio, ensureContrast, withAlpha } from '../../ui/color';
 import { formatNumber } from '../../ui/format';
@@ -107,6 +107,8 @@ interface DrawnPoint {
   key: string;
   x: number;
   y: number;
+  /** Profundidad corregida (m). */
+  depth: number;
   /** -1 / 1 si quedó fuera de escala a la izquierda / derecha. */
   clamp: -1 | 0 | 1;
   included: boolean;
@@ -138,7 +140,9 @@ function placePoints(frame: OverlayHitFrame, an: MdtAnalysis): DrawnPoint[] {
     for (const set of an.sets) {
       const p = pointNumbers(set, 'pressure');
       if (!p) continue;
-      const st = pointStatuses(set, frame.data.interpretation.pointSets?.[set.id]);
+      const dec = frame.data.interpretation.pointSets?.[set.id];
+      const st = pointStatuses(set, dec);
+      const z = shiftedDepth(set, dec);
       for (let i = 0; i < p.length; i++) {
         const v = p[i]!;
         if (!Number.isFinite(v)) continue;
@@ -152,7 +156,8 @@ function placePoints(frame: OverlayHitFrame, an: MdtAnalysis): DrawnPoint[] {
           i,
           key,
           x: t.x + Math.max(5, Math.min(t.width - 5, xr)),
-          y: vp.yOf(set.depth[i]!),
+          y: vp.yOf(z[i]!),
+          depth: z[i]!,
           clamp,
           included: s.included,
           forced: s.included && s.quality.proposeExclude,
@@ -177,7 +182,7 @@ function pointLabel(frame: OverlayHitFrame, an: MdtAnalysis, d: DrawnPoint): str
   const mob = pointNumbers(set, 'mobility')?.[i];
   const qText = pointTexts(set, 'quality')?.[i];
   const st = pointStatuses(set, frame.data.interpretation.pointSets?.[set.id])[i]!;
-  const lines = [`${set.pointIds[i]} · ${m1(set.depth[i]!)}${set.synthetic ? ' · ejemplo sintético' : ''}`];
+  const lines = [`${set.pointIds[i]} · ${m1(d.depth)}${set.synthetic ? ' · ejemplo sintético' : ''}`];
   const parts = [`Presión ${formatNumber(p * a + b, { digits: unit === 'psi' || unit === 'kPa' ? 1 : 2 })} ${unitLabel(unit)}`];
   if (mob !== undefined && Number.isFinite(mob)) parts.push(`movilidad ${formatNumber(mob, { significant: 3 })} mD/cP`);
   lines.push(parts.join(' · '));
@@ -322,7 +327,7 @@ const main: ViewerOverlay = {
   targets(frame): OverlayTarget[] {
     if (!pressureTrack(frame)) return [];
     const an = analysisOf(frame);
-    return placePoints(frame, an).map((d) => ({ depth: d.set.depth[d.i]!, hit: pointHit(frame, an, d) }));
+    return placePoints(frame, an).map((d) => ({ depth: d.depth, hit: pointHit(frame, an, d) }));
   },
 };
 

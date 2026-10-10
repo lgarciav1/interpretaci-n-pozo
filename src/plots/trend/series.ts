@@ -44,8 +44,13 @@ export interface SeriesOption {
 
 export interface ResolvedSeries {
   ref: SeriesRef;
-  /** Nombre corto para la ecuación y la lista (mnemónico, rol). */
+  /** Nombre corto para la ecuación y la lista (mnemónico, rol): la variable dependiente. */
   label: string;
+  /**
+   * Nombre corto de la variable independiente en la ecuación cuando no es la profundidad (crossplot: «φ»). Sin él,
+   * la ecuación usa «z» si `xIsDepth` y «x» si no.
+   */
+  xLabel?: string;
   /**
    * Variable independiente. Si `xIsDepth`, profundidad en m, NO decreciente (se admiten repetidas: dos pretests MDT a
    * la misma cota) y finita (los puntos sin profundidad se dejan afuera de la serie).

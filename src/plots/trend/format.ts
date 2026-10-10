@@ -20,7 +20,7 @@ export const MODEL_LABEL: Readonly<Record<TrendModel, string>> = {
 /** Ecuación con los nombres de la serie (z = profundidad en m). */
 export function trendEquation(r: TrendResult, s: ResolvedSeries | null): string {
   if (!r.coeffs) return '—';
-  return formatTrendEquation(r.coeffs, { x: s?.xIsDepth ? 'z' : s?.ref.key ?? 'x', y: s?.label ?? 'y', digits: 4 });
+  return formatTrendEquation(r.coeffs, { x: s?.xIsDepth ? 'z' : s?.xLabel ?? 'x', y: s?.label ?? 'y', digits: 4 });
 }
 
 export function formatR2(r2: number | null): string {
