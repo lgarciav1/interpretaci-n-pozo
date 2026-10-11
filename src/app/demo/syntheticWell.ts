@@ -85,14 +85,14 @@ export function syntheticWell(n = 5810, seed = 2026): { well: Well; zones: Zone[
   });
   // Inducción de arreglo (fase 8b): perfil escalonado plausible por zona, leído con el modelo directo de
   // src/petro/invasion.ts. En la arcilla no hay invasión (Rxo = Rt, diámetro = trépano); en la arena el contraste
-  // Rxo/Rt y el diámetro de invasión crecen con la limpieza. La zona C con hidrocarburo tiene Rxo < Rt (lodo dulce
+  // Rxo/Rt y el diámetro de invasión crecen con la limpieza (contrastes y diámetros que el ajuste puede resolver). La zona C con hidrocarburo tiene Rxo < Rt (lodo dulce
   // que invade un reservorio resistivo); el resto, Rxo > Rt. AT90 es la lectura de 90 in del mismo modelo.
   const INVASION: Record<string, { ratio: number; di: number }> = {
-    'zone-a': { ratio: 3.0, di: 30 },
-    'zone-b': { ratio: 2.5, di: 36 },
-    'zone-c': { ratio: 2.0, di: 48 },
-    'zone-d': { ratio: 2.0, di: 28 },
-    'zone-e': { ratio: 1.8, di: 22 },
+    'zone-a': { ratio: 5.0, di: 40 },
+    'zone-b': { ratio: 4.0, di: 50 },
+    'zone-c': { ratio: 2.5, di: 60 },
+    'zone-d': { ratio: 4.0, di: 45 },
+    'zone-e': { ratio: 3.5, di: 40 },
   };
   const R50 = [10, 30, 60, 90];
   const at = [new Float64Array(n), new Float64Array(n), new Float64Array(n), new Float64Array(n)];

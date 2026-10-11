@@ -15,7 +15,7 @@ import type { Zone } from '../src/core/well';
 import { readWellFile } from '../src/io';
 import { registry } from '../src/modules';
 import invasionStep from '../src/modules/invasion-step';
-import { forwardStepProfile } from '../src/petro/invasion';
+import { forwardStepProfile, invertStepProfile } from '../src/petro/invasion';
 import { curve, well, zone } from './helpers';
 
 function run(w: ReturnType<typeof well>, partial: Partial<Interpretation> = {}, zones: Zone[] = []): EngineRunResult {
@@ -55,9 +55,9 @@ describe('contrato del módulo', () => {
     expect(registry.warnings).toEqual([]);
   });
 
-  it('entradas por rol: RA10/RA20/RA30/RM opcionales y RT requerida; salidas RXO, RT, DI e INV_MISFIT', () => {
+  it('entradas por rol: RA10/RA20/RA30/RM y el trépano BS opcionales, RT requerida; salidas RXO, RT, DI e INV_MISFIT', () => {
     const inputs = Object.values(invasionStep.inputs).map((i) => [i.kind === 'curve' ? i.role : '', !!i.optional]);
-    expect(inputs).toEqual([['RA10', true], ['RA20', true], ['RA30', true], ['RM', true], ['RT', false]]);
+    expect(inputs).toEqual([['RA10', true], ['RA20', true], ['RA30', true], ['RM', true], ['RT', false], ['BS', true]]);
     expect(Object.values(invasionStep.outputs).map((o) => (o.kind === 'curve' ? o.role : ''))).toEqual(['RXO', 'RT', 'DI', 'INV_MISFIT']);
   });
 
@@ -83,7 +83,7 @@ describe('cadena con el motor', () => {
   const profiles = [
     { di: 40, rxo: 20, rt: 2 },
     { di: 60, rxo: 0.5, rt: 5 },
-    { di: 25, rxo: 6, rt: 1.2 },
+    { di: 50, rxo: 6, rt: 1.2 },
     { di: 90, rxo: 15, rt: 3 },
     { di: 35, rxo: 0.8, rt: 8 },
   ];
@@ -125,7 +125,7 @@ describe('cadena con el motor', () => {
     const r = run(arrayWell(profiles, ['RM', 'RT']));
     expect(status(r)).toBe('ok');
     for (const port of ['RXO', 'RT', 'DI', 'INV_MISFIT']) expect(Array.from(out(r, port)).every(Number.isNaN), port).toBe(true);
-    expect(warnings(r).some((m) => m.includes('solo 2 curvas') && m.includes('al menos 3'))).toBe(true);
+    expect(warnings(r).some((m) => m.includes('solo 2 curvas') && m.includes('se usan RM y RT') && m.includes('al menos 3'))).toBe(true);
   });
 
   it('sin invasión visible: Rt = lectura más profunda, Rxo, DI y desajuste sin dato', () => {
@@ -162,12 +162,25 @@ describe('cadena con el motor', () => {
     const w = arrayWell(prof);
     const zones = [zone('a', 1000, 1002), zone('b', 1002.5, 1004.5)];
     const r = run(w, { params: { global: {}, zones: { b: { 'invasion-step.minSeparation': 0.5 } } } }, zones);
+    const mf = out(r, 'INV_MISFIT');
+    for (let i = 0; i < 5; i++) expect(Number.isFinite(mf[i]!), `A ${i}`).toBe(true); // hay ajuste
+    for (let i = 5; i < 10; i++) expect(mf[i]!, `B ${i}`).toBeNaN(); // sin invasión visible
+  });
+
+  it('el trépano fija la cota inferior de di: parámetro bitSize como respaldo y curva BS por muestra cuando existe', () => {
+    const prof = [{ di: 40, rxo: 20, rt: 2 }, { di: 40, rxo: 20, rt: 2 }, { di: 40, rxo: 20, rt: 2 }];
+    const base = arrayWell(prof);
+    // sin BS: bitSize = 50 deja a la invasión de 40 in por debajo de la cota → sin resolver; con el defecto se resuelve
+    const noBs50 = run(base, { params: { global: { 'invasion-step.bitSize': 50 }, zones: {} } });
+    expect(Array.from(out(noBs50, 'DI')).every(Number.isNaN)).toBe(true);
+    expect(relErr(out(run(base), 'DI')[0]!, 40)).toBeLessThan(2e-3);
+    // con BS por muestra [8,5 / 50 / sin dato]: el respaldo (8,5) rige en la tercera
+    const withBs = { ...base, curves: [...base.curves, curve('BS', 'BS', [8.5, 50, NaN])] };
+    const r = run(withBs);
     const di = out(r, 'DI');
-    for (let i = 0; i < 5; i++) expect(di[i]!, `A ${i}`).toBeGreaterThan(0);
-    for (let i = 5; i < 10; i++) expect(di[i]!, `B ${i}`).toBeNaN();
-    // el trépano de la zona fija la cota inferior del diámetro
-    const r2 = run(arrayWell([{ di: 9, rxo: 5, rt: 1 }, { di: 9, rxo: 5, rt: 1 }]), { params: { global: { 'invasion-step.bitSize': 12 }, zones: {} } });
-    expect(out(r2, 'DI')[0]!).toBeGreaterThanOrEqual(12 - 1e-9);
+    expect(relErr(di[0]!, 40)).toBeLessThan(2e-3);
+    expect(di[1]).toBeNaN();
+    expect(relErr(di[2]!, 40)).toBeLessThan(2e-3);
   });
 
   it('avisos: más del 10 % de ajustes con desajuste alto, y zonas casi sin invasión', () => {
@@ -181,7 +194,7 @@ describe('cadena con el motor', () => {
     });
     const zones = [zone('a', 1000, 1004.5)];
     const r = run({ ...w, curves: patched }, {}, zones);
-    expect(warnings(r).some((m) => m.includes('en la zona A') && m.includes('desajuste alto'))).toBe(true);
+    expect(warnings(r).some((m) => m.includes('En la zona A') && m.includes('desajuste alto'))).toBe(true);
     for (let i = 0; i < 4; i++) expect(out(r, 'INV_MISFIT')[i]!).toBeGreaterThan(0.15);
     for (let i = 4; i < N; i++) expect(out(r, 'INV_MISFIT')[i]!).toBeLessThan(1e-4);
 
@@ -205,7 +218,8 @@ describe('pozo de demostración', () => {
 
   it('el módulo corre y su ajuste reproduce las 4 curvas del demo (desajuste bajo) con cotas físicas', () => {
     expect(status(r)).toBe('ok');
-    expect(warnings(r)).toEqual([]);
+    // las curvas salen de un perfil escalonado exacto: ningún aviso de desajuste (sí de di mal resuelto en las zonas con poca arena)
+    expect(warnings(r).filter((m) => m.includes('desajuste'))).toEqual([]);
     const rxo = out(r, 'RXO');
     const rt = out(r, 'RT');
     const di = out(r, 'DI');
@@ -253,6 +267,8 @@ describe('pozo del TP completo (datos/pozo_tp_perfiles.csv)', () => {
   };
   const zonaCol = lines.slice(1).map((l) => l.split(',')[header.indexOf('ZONA')]!);
   const at = { AT10: raw('AT10'), AT30: raw('AT30'), AT60: raw('AT60'), AT90: raw('AT90') };
+  const R50_TP = [10, 30, 60, 90];
+  const readingsAt = (i: number) => [at.AT10[i]!, at.AT30[i]!, at.AT60[i]!, at.AT90[i]!].map((v, k) => ({ r50: R50_TP[k]!, resistivity: v }));
   const n = at.AT10.length;
 
   const { well: tpWell, zones } = readWellFile(csvText, 'pozo_tp_perfiles.csv');
@@ -261,6 +277,9 @@ describe('pozo del TP completo (datos/pozo_tp_perfiles.csv)', () => {
   const rt = out(r, 'RT');
   const di = out(r, 'DI');
   const mf = out(r, 'INV_MISFIT');
+  // Estado de cada muestra con el motor puro sobre las columnas crudas
+  const fits = Array.from({ length: n }, (_, i) => invertStepProfile(readingsAt(i)));
+  const count = (pred: (f: (typeof fits)[number]) => boolean): number => fits.filter(pred).length;
 
   it('el lector asigna los roles que el módulo necesita y el módulo corre sobre las 5810 muestras', () => {
     expect(n).toBe(5810);
@@ -270,46 +289,142 @@ describe('pozo del TP completo (datos/pozo_tp_perfiles.csv)', () => {
     expect(rt).toHaveLength(n);
   });
 
-  it('cotas físicas: Rxo, Rt > 0 y finitos; di ≥ trépano (8,5 in) y ≤ 300 donde hay invasión; desajuste ≥ 0', () => {
-    let withFit = 0;
+  it('las salidas del módulo siguen el estado de cada muestra: ok emite todo; mal resuelto, Rt y desajuste; sin resolver y sin invasión, Rt = AT90', () => {
+    for (let i = 0; i < n; i++) {
+      const f = fits[i]!;
+      const ctx = `muestra ${i} (${f.status})`;
+      if (f.status === 'ok') {
+        expect(di[i]!, ctx).toBeCloseTo(f.di, 9);
+        if (f.rxoAtBound) expect(rxo[i]!, ctx).toBeNaN();
+        else expect(rxo[i]!, ctx).toBeCloseTo(f.rxo, 9);
+        expect(rt[i]!, ctx).toBeCloseTo(f.rt, 9);
+        expect(mf[i]!, ctx).toBeCloseTo(f.misfit, 9);
+      } else if (f.status === 'poorly-resolved') {
+        expect(rxo[i]!, ctx).toBeNaN();
+        expect(di[i]!, ctx).toBeNaN();
+        expect(rt[i]!, ctx).toBeCloseTo(f.rt, 9);
+        expect(mf[i]!, ctx).toBeCloseTo(f.misfit, 9);
+      } else if (f.status === 'unresolved') {
+        expect(rxo[i]!, ctx).toBeNaN();
+        expect(di[i]!, ctx).toBeNaN();
+        expect(rt[i]!, ctx).toBe(at.AT90[i]!);
+        expect(Number.isFinite(mf[i]!), ctx).toBe(true);
+      } else {
+        expect(f.status, ctx).toBe('no-invasion');
+        expect(rxo[i]!, ctx).toBeNaN();
+        expect(di[i]!, ctx).toBeNaN();
+        expect(mf[i]!, ctx).toBeNaN();
+        expect(rt[i]!, ctx).toBe(at.AT90[i]!);
+      }
+    }
+  });
+
+  it('cotas físicas: Rt > 0 en todo el pozo; Rxo emitido en (0, 10⁴) ohm·m; di emitido en [8,5, 300] in; desajuste ≥ 0', () => {
+    let emittedDi = 0;
     for (let i = 0; i < n; i++) {
       expect(rt[i]!, `Rt ${i}`).toBeGreaterThan(0);
       expect(Number.isFinite(rt[i]!)).toBe(true);
-      if (Number.isNaN(di[i]!)) {
-        expect(rxo[i]!).toBeNaN();
-        expect(mf[i]!).toBeNaN();
-        continue;
+      if (Number.isFinite(rxo[i]!)) {
+        expect(rxo[i]!, `Rxo ${i}`).toBeGreaterThan(0);
+        expect(rxo[i]!, `Rxo ${i} (nunca en la cota de σ: antes salían 10⁵ ohm·m)`).toBeLessThan(1e4);
       }
-      withFit++;
-      expect(rxo[i]!, `Rxo ${i}`).toBeGreaterThan(0);
-      expect(Number.isFinite(rxo[i]!)).toBe(true);
-      expect(di[i]!, `di ${i}`).toBeGreaterThanOrEqual(8.5 - 1e-9);
-      expect(di[i]!).toBeLessThanOrEqual(300 + 1e-9);
-      expect(mf[i]!).toBeGreaterThanOrEqual(0);
+      if (Number.isFinite(di[i]!)) {
+        emittedDi++;
+        expect(di[i]!, `di ${i}`).toBeGreaterThanOrEqual(8.5 - 1e-9);
+        expect(di[i]!).toBeLessThanOrEqual(300 + 1e-9);
+      }
+      if (Number.isFinite(mf[i]!)) expect(mf[i]!).toBeGreaterThanOrEqual(0);
     }
-    expect(withFit).toBeGreaterThan(3000);
+    expect(emittedDi).toBeGreaterThan(500);
   });
 
-  it('fracción de muestras sin invasión y con desajuste alto (informadas por el módulo)', () => {
-    const noInv = Array.from(di).filter((v, i) => Number.isNaN(v) && Number.isFinite(rt[i]!)).length;
-    const fitted = n - noInv;
+  it('fracción de muestras por estado (medido en esta versión, umbral 0,10, δ = 0,02)', () => {
+    const frac = (x: number): number => x / n;
+    const noInv = count((f) => f.status === 'no-invasion');
+    const ok = count((f) => f.status === 'ok');
+    const poorly = count((f) => f.status === 'poorly-resolved');
+    const unresolved = count((f) => f.status === 'unresolved');
+    // 33 % sin invasión, 12 % ok, 42 % mal resuelto, 13 % sin resolver (6,5 % pegado al trépano, 5,7 % en el máximo)
+    expect(noInv + ok + poorly + unresolved).toBe(n);
+    expect(frac(noInv)).toBeGreaterThan(0.28);
+    expect(frac(noInv)).toBeLessThan(0.38);
+    expect(frac(ok)).toBeGreaterThan(0.08);
+    expect(frac(ok)).toBeLessThan(0.17);
+    expect(frac(poorly)).toBeGreaterThan(0.35);
+    expect(frac(poorly)).toBeLessThan(0.5);
+    expect(frac(unresolved)).toBeGreaterThan(0.08);
+    expect(frac(unresolved)).toBeLessThan(0.18);
+    expect(count((f) => f.reason === 'shallow')).toBeGreaterThan(300);
+    expect(count((f) => f.reason === 'deep')).toBeGreaterThan(250);
+    // σxo pegado a una cota: ~ 6 % de los ajustes interiores (antes salían Rxo = 10⁵ ohm·m en el 9,6 %)
+    const interior = ok + poorly;
+    const rxoBound = count((f) => (f.status === 'ok' || f.status === 'poorly-resolved') && f.rxoAtBound);
+    expect(rxoBound / interior).toBeGreaterThan(0.04);
+    expect(rxoBound / interior).toBeLessThan(0.18);
+    // desajuste alto (> 0,15): una fracción chica de los ajustes, y están los picos de AT10
+    const fitted = ok + poorly + unresolved;
     const high = Array.from(mf).filter((v) => v > 0.15).length;
-    // medido en esta versión: 33 % sin invasión (umbral 0,10) y 0,4 % de los ajustes con desajuste > 0,15
-    expect(noInv / n).toBeGreaterThan(0.25);
-    expect(noInv / n).toBeLessThan(0.4);
     expect(high / fitted).toBeLessThan(0.02);
-    expect(high).toBeGreaterThan(0); // los picos de AT10 del README se delatan
-    // sin invasión: Rt es exactamente la AT90 cruda
-    for (let i = 0; i < n; i++) if (Number.isNaN(di[i]!)) expect(rt[i]!).toBe(at.AT90[i]!);
+    expect(high).toBeGreaterThan(0);
   });
 
-  it('desajuste recalculado con código propio a partir del modelo directo: coincide con INV_MISFIT', () => {
-    const r50 = [10, 30, 60, 90];
+  describe('filas verificadas por una revisión independiente (índices desde 0; tolerancia 0,5 % y 10⁻⁴ en misfit)', () => {
+    const table: [number, number[], number, number, number, number, 'ok' | 'poorly-resolved'][] = [
+      [0, [0.76, 0.659, 0.636, 0.613], 32.1, 0.869, 0.605, 0.0077, 'poorly-resolved'],
+      [1000, [2.121, 1.772, 1.548, 1.52], 59.3, 2.358, 1.409, 0.0097, 'poorly-resolved'],
+      [3000, [1.244, 0.59, 0.473, 0.447], 36.6, 6.96, 0.411, 0.0025, 'ok'],
+      [4000, [0.962, 0.571, 0.472, 0.446], 41.5, 1.742, 0.412, 0.0009, 'ok'],
+      [5809, [5.277, 2.127, 1.092, 0.834], 168.7, 9.39, 0.452, 0.0128, 'ok'],
+    ];
+    for (const [i, vals, diRef, rxoRef, rtRef, mfRef, st] of table) {
+      it(`fila ${i}: di ${diRef}, Rxo ${rxoRef}, Rt ${rtRef}, misfit ${mfRef} (${st})`, () => {
+        expect([at.AT10[i], at.AT30[i], at.AT60[i], at.AT90[i]]).toEqual(vals);
+        const f = fits[i]!;
+        expect(f.status).toBe(st);
+        expect(relErr(f.di, diRef)).toBeLessThan(5e-3);
+        expect(relErr(f.rxo, rxoRef)).toBeLessThan(5e-3);
+        expect(relErr(f.rt, rtRef)).toBeLessThan(5e-3);
+        expect(Math.abs(f.misfit - mfRef)).toBeLessThan(1e-4);
+        // y lo que sale en las curvas
+        expect(relErr(rt[i]!, rtRef)).toBeLessThan(5e-3);
+        expect(Math.abs(mf[i]!- mfRef)).toBeLessThan(1e-4);
+        if (st === 'ok') {
+          expect(relErr(di[i]!, diRef)).toBeLessThan(5e-3);
+          expect(relErr(rxo[i]!, rxoRef)).toBeLessThan(5e-3);
+        } else {
+          expect(di[i]).toBeNaN(); // el intervalo de di es más ancho que un factor 2
+          expect(rxo[i]).toBeNaN();
+          expect(f.diHigh / f.diLow).toBeGreaterThan(2);
+        }
+      });
+    }
+
+    it('filas 400, 2500, 4500 y 5000: sin invasión, Rt = AT90', () => {
+      for (const i of [400, 2500, 4500, 5000]) {
+        expect(fits[i]!.status, `fila ${i}`).toBe('no-invasion');
+        expect(rt[i]!).toBe(at.AT90[i]!);
+        expect(di[i]).toBeNaN();
+        expect(rxo[i]).toBeNaN();
+        expect(mf[i]).toBeNaN();
+      }
+    });
+
+    it('fila 3024 (AT10/30/60/90 = 2,106 / 0,913 / 0,782 / 0,846): el ajuste pedía Rxo = 10⁵ ohm·m; ahora Rxo queda sin dato y di y Rt se mantienen', () => {
+      expect([at.AT10[3024], at.AT30[3024], at.AT60[3024], at.AT90[3024]]).toEqual([2.106, 0.913, 0.782, 0.846]);
+      expect(fits[3024]!.rxoAtBound).toBe(true);
+      expect(rxo[3024]).toBeNaN();
+      expect(Number.isFinite(di[3024]!)).toBe(true);
+      expect(rt[3024]!).toBeGreaterThan(0.6);
+      expect(rt[3024]!).toBeLessThan(0.85);
+    });
+  });
+
+  it('desajuste recalculado con código propio a partir del modelo directo: coincide con INV_MISFIT en los ajustes que emiten Rxo y di', () => {
     let checked = 0;
-    for (let i = 0; i < n; i += 7) {
-      if (Number.isNaN(di[i]!)) continue;
+    for (let i = 0; i < n; i += 3) {
+      if (!Number.isFinite(di[i]!) || !Number.isFinite(rxo[i]!)) continue;
       const obs = [at.AT10[i]!, at.AT30[i]!, at.AT60[i]!, at.AT90[i]!];
-      const mod = forwardStepProfile(di[i]!, rxo[i]!, rt[i]!, r50);
+      const mod = forwardStepProfile(di[i]!, rxo[i]!, rt[i]!, R50_TP);
       const sigma = obs.map((v) => 1 / v);
       const sMax = Math.max(...sigma);
       let ss = 0;
@@ -320,10 +435,10 @@ describe('pozo del TP completo (datos/pozo_tp_perfiles.csv)', () => {
       expect(Math.sqrt(ss / 4), `muestra ${i}`).toBeCloseTo(mf[i]!, 9);
       checked++;
     }
-    expect(checked).toBeGreaterThan(300);
+    expect(checked).toBeGreaterThan(100);
   });
 
-  it('los picos de AT10 (> 50 ohm·m, README) quedan con desajuste alto o sin dato, nunca como ajuste bueno', () => {
+  it('los picos de AT10 (> 50 ohm·m, README) quedan con desajuste alto, nunca como ajuste bueno', () => {
     let spikes = 0;
     for (let i = 0; i < n; i++) {
       if (at.AT10[i]! < 50 || at.AT10[i]! < 5 * at.AT90[i]!) continue;
@@ -333,22 +448,41 @@ describe('pozo del TP completo (datos/pozo_tp_perfiles.csv)', () => {
     expect(spikes).toBeGreaterThan(0);
   });
 
-  it('medianas por zona: invasión resistiva (Rxo > Rt), Rt cerca de la AT90 y diámetros plausibles', () => {
+  it('medianas por zona de los ajustes con Rxo y di emitidos: invasión resistiva (Rxo > Rt), Rt por debajo de AT90 y diámetros plausibles', () => {
     const median = (a: number[]): number => {
-      const s = a.filter(Number.isFinite).sort((x, y) => x - y);
-      return s[Math.floor((s.length - 1) / 2)]!;
+      const x = [...a].sort((u, v) => u - v);
+      return x[Math.floor((x.length - 1) / 2)]!;
     };
+    let zonesChecked = 0;
     for (const z of ['A', 'B', 'C', 'D', 'E']) {
-      const idx = zonaCol.map((q, i) => (q === z ? i : -1)).filter((i) => i >= 0);
-      const pick = (a: Float64Array): number[] => idx.map((i) => a[i]!);
-      const mRxo = median(pick(rxo));
-      const mRt = median(pick(rt));
-      const mDi = median(pick(di));
-      const mAt90 = median(pick(at.AT90));
+      const idx = zonaCol.map((q, i) => (q === z && Number.isFinite(di[i]!) && Number.isFinite(rxo[i]!) ? i : -1)).filter((i) => i >= 0);
+      if (idx.length < 3) continue; // C casi no tiene ajustes resueltos
+      zonesChecked++;
+      const mRxo = median(idx.map((i) => rxo[i]!));
+      const mRt = median(idx.map((i) => rt[i]!));
+      const mDi = median(idx.map((i) => di[i]!));
+      const ratio = median(idx.map((i) => rt[i]! / at.AT90[i]!));
       expect(mRxo, `Rxo > Rt en ${z}`).toBeGreaterThan(mRt);
-      expect(relErr(mRt, mAt90), `Rt ≈ AT90 en ${z}`).toBeLessThan(0.1);
+      // la AT90 lee algo de zona lavada: la Rt corregida es menor (−5 % a −35 % en las medianas; en E, con di ≈ 100 in, 0,67)
+      expect(ratio, `Rt/AT90 en ${z}`).toBeGreaterThan(0.6);
+      expect(ratio, `Rt/AT90 en ${z}`).toBeLessThan(1.05);
       expect(mDi, `di de ${z}`).toBeGreaterThan(8.5);
       expect(mDi, `di de ${z}`).toBeLessThan(150);
+      expect(Math.max(...idx.map((i) => rxo[i]!)), `Rxo máximo en ${z}`).toBeLessThan(1e4);
     }
+    expect(zonesChecked).toBeGreaterThanOrEqual(3);
+  });
+
+  it('Rt de todos los ajustes (interiores, incluso los de di mal resuelto) cerca de AT90: el 95 % entre 0,6 y 1,1 veces', () => {
+    const ratios: number[] = [];
+    for (let i = 0; i < n; i++) {
+      if (fits[i]!.status === 'ok' || fits[i]!.status === 'poorly-resolved') ratios.push(rt[i]! / at.AT90[i]!);
+    }
+    expect(ratios.length).toBeGreaterThan(3000);
+    const inside = ratios.filter((x) => x >= 0.6 && x <= 1.1).length / ratios.length;
+    expect(inside).toBeGreaterThan(0.95);
+    const sorted = [...ratios].sort((a, b) => a - b);
+    expect(sorted[Math.floor(sorted.length / 2)]!).toBeGreaterThan(0.85);
+    expect(sorted[Math.floor(sorted.length / 2)]!).toBeLessThan(1.02);
   });
 });

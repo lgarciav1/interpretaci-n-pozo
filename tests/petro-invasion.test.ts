@@ -14,6 +14,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ARRAY_INDUCTION_R50_IN,
+  DI_MISFIT_TOLERANCE,
   RADIAL_STEEPNESS,
   forwardStepProfile,
   invasionProfileAtDepth,
@@ -84,9 +85,10 @@ describe('factor geométrico radial J(r)', () => {
   });
 
   /**
-   * Factor geométrico radial integrado de una sonda de dos bobinas en medio homogéneo (sin efecto pelicular), con
-   * g(ρ, z) ∝ ρ² / (ρT³ ρR³) (Doll 1949), integrado en z (sustitución z = s·sinh t) y acumulado en ρ (trapezoides
-   * en grilla logarítmica). Espaciamiento L = 1; se compara en unidades de r50.
+   * Factor geométrico radial integrado de una sonda de dos bobinas en medio homogéneo (sin efecto pelicular). El factor
+   * de Doll es por unidad de volumen, g ∝ ρ²/(ρT³ρR³), y el anillo (ρ, z) tiene volumen 2πρ dρ dz: el peso que se
+   * integra en z (sustitución z = s·sinh t) y se acumula en ρ (trapezoides en grilla logarítmica) es ρ³/(ρT³ρR³).
+   * Espaciamiento L = 1; se compara en unidades de r50.
    */
   function twoCoilRadialJ(): { rho: number[]; j: number[]; r50: number } {
     const L = 1;
@@ -101,7 +103,7 @@ describe('factor geométrico radial J(r)', () => {
         const dz = s * Math.cosh(t);
         const a = Math.hypot(rho, z + L / 2);
         const b = Math.hypot(rho, z - L / 2);
-        acc += ((rho * rho) / (a ** 3 * b ** 3)) * dz * (i === 0 || i === N ? 0.5 : 1);
+        acc += ((rho * rho * rho) / (a ** 3 * b ** 3)) * dz * (i === 0 || i === N ? 0.5 : 1);
       }
       return (acc * 2 * T) / N;
     };
@@ -116,7 +118,7 @@ describe('factor geométrico radial J(r)', () => {
     }
     const cum = [0];
     for (let i = 1; i <= M; i++) cum.push(cum[i - 1]! + 0.5 * (g[i]! + g[i - 1]!) * (rho[i]! - rho[i - 1]!));
-    const total = cum[M]! + g[M]! * rho[M]!; // cola ∝ 1/ρ²
+    const total = cum[M]! + g[M]! * rho[M]!; // g ∝ 1/ρ² en la cola: ∫ = g·ρ
     const j = cum.map((c) => c / total);
     let r50 = NaN;
     for (let i = 1; i <= M; i++) {
@@ -129,15 +131,36 @@ describe('factor geométrico radial J(r)', () => {
     return { rho, j, r50 };
   }
 
-  it('la logística con p = 1,5 reproduce el J de dos bobinas (Doll) a menos de 0,045; con p = 1 o p = 2 el error es mayor', () => {
+  it('la logística con p = 1,5 reproduce el J de dos bobinas (Doll) a menos de 0,045; el óptimo es p ≈ 1,54; con p = 1 o p = 2 el error es mayor', () => {
     const { rho, j, r50 } = twoCoilRadialJ();
-    expect(r50).toBeGreaterThan(0.3);
-    expect(r50).toBeLessThan(0.45); // r50 ≈ 0,378·L
+    expect(r50).toBeGreaterThan(1.0);
+    expect(r50).toBeLessThan(1.07); // r50 ≈ 1,035·L
     const maxErr = (p: number): number => Math.max(...rho.map((r, i) => Math.abs(radialGeometricFactor(r, r50, p) - j[i]!)));
     expect(maxErr(1.5)).toBeLessThan(0.045);
-    expect(maxErr(1.5)).toBeGreaterThan(0.03); // el error documentado es 0,040, no es despreciable
-    expect(maxErr(1)).toBeGreaterThan(maxErr(1.5));
-    expect(maxErr(2)).toBeGreaterThan(maxErr(1.5));
+    expect(maxErr(1.5)).toBeGreaterThan(0.035); // el error documentado es 0,041, no es despreciable
+    expect(maxErr(1.54)).toBeLessThan(maxErr(1.5));
+    expect(maxErr(1.54)).toBeLessThan(0.04);
+    expect(maxErr(1)).toBeGreaterThan(0.1);
+    expect(maxErr(2)).toBeGreaterThan(0.08);
+  });
+
+  it('la logística sobrestima J en la cola y cerca del pozo (J de dos bobinas: 0,90 en 5,8·r50 y 0,10 en 0,31·r50)', () => {
+    const { rho, j, r50 } = twoCoilRadialJ();
+    const at = (x: number): number => {
+      // interpolación lineal en ln ρ
+      for (let i = 1; i < rho.length; i++) {
+        if (rho[i]! >= x * r50) {
+          const t = (Math.log(x * r50) - Math.log(rho[i - 1]!)) / (Math.log(rho[i]!) - Math.log(rho[i - 1]!));
+          return j[i - 1]! + t * (j[i]! - j[i - 1]!);
+        }
+      }
+      return NaN;
+    };
+    expect(at(5.82)).toBeCloseTo(0.9, 2);
+    expect(at(0.309)).toBeGreaterThan(0.09);
+    expect(at(0.309)).toBeLessThan(0.12);
+    expect(radialGeometricFactor(5.82 * r50, r50)).toBeGreaterThan(at(5.82) + 0.025); // 0,934
+    expect(radialGeometricFactor(0.309 * r50, r50)).toBeGreaterThan(at(0.309) + 0.03); // 0,147
   });
 });
 
@@ -190,18 +213,56 @@ describe('inversión: ida y vuelta (modelo directo → inversión)', () => {
   ];
   for (const [setName, r50s] of sets) {
     for (const [name, di, rxo, rt] of cases) {
-      it(`${name} (di ${di}, Rxo ${rxo}, Rt ${rt}) con ${setName}: recupera Rxo, di y Rt a menos de 0,1 %`, () => {
+      it(`${name} (di ${di}, Rxo ${rxo}, Rt ${rt}) con ${setName}: recupera Rxo, di y Rt a menos de 0,1 % y el intervalo de di contiene al verdadero`, () => {
         const fit = invertStepProfile(reads(di, rxo, rt, r50s));
-        expect(fit.status).toBe('ok');
+        // di somero (18 in, apenas dos veces el trépano): el intervalo compatible es más ancho que un factor 2
+        expect(fit.status).toBe(di === 18 ? 'poorly-resolved' : 'ok');
         expect(fit.nCurves).toBe(r50s.length);
         expect(relErr(fit.di, di)).toBeLessThan(1e-3);
         expect(relErr(fit.rxo, rxo)).toBeLessThan(1e-3);
         expect(relErr(fit.rt, rt)).toBeLessThan(1e-3);
         expect(fit.misfit).toBeLessThan(1e-4);
         expect(fit.atBound).toBeNull();
+        expect(fit.rxoAtBound).toBe(false);
+        expect(fit.diLow).toBeLessThan(di);
+        expect(fit.diHigh).toBeGreaterThan(di);
+        if (fit.status === 'ok') expect(fit.diHigh / fit.diLow).toBeLessThanOrEqual(2);
       });
     }
   }
+
+  it('el intervalo de di es el de ri con misfit ≤ √(misfit² + δ²): el misfit en sus extremos es ≈ δ = 0,02', () => {
+    const r = reads(40, 20, 2, [10, 30, 60, 90]);
+    const fit = invertStepProfile(r);
+    expect(fit.status).toBe('ok');
+    expect(DI_MISFIT_TOLERANCE).toBe(0.02);
+    // Recalculo independiente del desajuste en un di fijo: se ajustan Rxo y Rt por mínimos cuadrados con una búsqueda
+    // sobre Rxo y Rt (σ), con los mismos pesos, y se verifica que en diLow y diHigh quede en √(misfit² + δ²).
+    const misfitAt = (di: number): number => {
+      const sigma = r.map((x) => 1 / x.resistivity);
+      const sMax = Math.max(...sigma);
+      const w = sigma.map((s) => 1 / Math.max(s, 0.05 * sMax));
+      const J = r.map((x) => 1 / (1 + Math.pow(x.r50 / (di / 2), 1.5)));
+      // normal 2×2
+      let suu = 0, suv = 0, svv = 0, suy = 0, svy = 0;
+      r.forEach((_x, k) => {
+        const u = w[k]! * J[k]!, v = w[k]! * (1 - J[k]!), y = w[k]! * sigma[k]!;
+        suu += u * u; suv += u * v; svv += v * v; suy += u * y; svy += v * y;
+      });
+      const det = suu * svv - suv * suv;
+      const a = (suy * svv - svy * suv) / det;
+      const b = (svy * suu - suy * suv) / det;
+      let ss = 0;
+      r.forEach((_x, k) => { ss += (w[k]! * (J[k]! * a + (1 - J[k]!) * b - sigma[k]!)) ** 2; });
+      return Math.sqrt(ss / r.length);
+    };
+    expect(misfitAt(40)).toBeLessThan(1e-9);
+    expect(misfitAt(fit.diLow)).toBeCloseTo(0.02, 3);
+    expect(misfitAt(fit.diHigh)).toBeCloseTo(0.02, 3);
+    // y es un intervalo: fuera de él el desajuste supera δ
+    expect(misfitAt(fit.diLow * 0.9)).toBeGreaterThan(0.02);
+    expect(misfitAt(fit.diHigh * 1.1)).toBeGreaterThan(0.02);
+  });
 
   it('el orden de las lecturas no importa', () => {
     const a = reads(40, 20, 2);
@@ -259,7 +320,7 @@ describe('inversión: casos borde', () => {
       { r50: 30, resistivity: 1.12 },
       { r50: 90, resistivity: 1.0 },
     ];
-    expect(invertStepProfile(r, { minSeparation: 0.1 }).status).toBe('ok');
+    expect(['ok', 'poorly-resolved', 'unresolved']).toContain(invertStepProfile(r, { minSeparation: 0.1 }).status);
     expect(invertStepProfile(r, { minSeparation: 0.3 }).status).toBe('no-invasion');
   });
 
@@ -280,7 +341,7 @@ describe('inversión: casos borde', () => {
       const r = good.map((x, k) => (k === 1 ? { ...x, resistivity: bad } : x));
       const fit = invertStepProfile(r);
       expect(fit.nCurves).toBe(3);
-      expect(fit.status).toBe('ok');
+      expect(['ok', 'poorly-resolved']).toContain(fit.status);
       expect(relErr(fit.rt, 2)).toBeLessThan(1e-3);
     }
     const r2 = good.map((x, k) => (k < 2 ? { ...x, resistivity: NaN } : x));
@@ -295,7 +356,6 @@ describe('inversión: casos borde', () => {
     expect(cleanFit.misfit).toBeLessThan(1e-4);
     const spiked = clean.map((x, k) => (k === 0 ? { ...x, resistivity: 110 } : x));
     const fit = invertStepProfile(spiked);
-    expect(fit.status).toBe('ok');
     expect(fit.misfit).toBeGreaterThan(0.15); // umbral por defecto del módulo
     expect(fit.misfit).toBeGreaterThan(100 * cleanFit.misfit);
     // Con 4 curvas y un pico queda 1 grado de libertad: Rt de esa muestra NO es confiable (en la prueba se desvía
@@ -304,18 +364,87 @@ describe('inversión: casos borde', () => {
     expect(Number.isFinite(fit.rt)).toBe(true);
   });
 
-  it('el ri óptimo en una cota se informa (invasión somera por debajo del trépano: atBound = min)', () => {
+  it('pico aislado con 5 curvas: el misfit lo delata igual (≥ 0,5 en las pruebas) y la muestra no queda como ajuste interior bueno', () => {
+    for (const [di, rxo, rt] of [[40, 3, 1], [40, 20, 2], [60, 0.5, 5], [30, 8, 1]] as const) {
+      const v = reads(di, rxo, rt, R50);
+      const fit = invertStepProfile(v.map((x, k) => (k === 0 ? { ...x, resistivity: 110 } : x)));
+      expect(fit.misfit, `di ${di}`).toBeGreaterThan(0.15);
+      expect(invertStepProfile(v).misfit).toBeLessThan(1e-4);
+    }
+  });
+
+  const row = (a: number[]): InvasionReading[] => a.map((v, k) => ({ r50: [10, 30, 60, 90][k]!, resistivity: v }));
+
+  it('ri óptimo en el trépano (invasión más somera de lo que resuelve la herramienta): sin resolver («shallow»), Rt = lectura más profunda', () => {
     // Solo AT10 se aparta de las demás un 15 %: el mejor ajuste es la invasión mínima
-    const r: InvasionReading[] = [
-      { r50: 10, resistivity: 1.15 },
-      { r50: 30, resistivity: 1.0 },
-      { r50: 60, resistivity: 1.0 },
-      { r50: 90, resistivity: 1.0 },
-    ];
-    const fit = invertStepProfile(r);
-    expect(fit.status).toBe('ok');
+    const fit = invertStepProfile(row([1.15, 1.0, 1.0, 1.0]));
+    expect(fit.status).toBe('unresolved');
+    expect(fit.reason).toBe('shallow');
     expect(fit.atBound).toBe('min');
-    expect(fit.di).toBeCloseTo(8.5, 2);
+    expect(fit.rxo).toBeNaN();
+    expect(fit.di).toBeNaN();
+    expect(fit.rt).toBe(1.0);
+    expect(fit.misfit).toBeGreaterThanOrEqual(0); // el desajuste del ajuste se conserva
+    expect(fit.diLow).toBeCloseTo(8.5, 6); // el intervalo parte del borde
+  });
+
+  it('ri óptimo en el máximo de la búsqueda (invasión de 400 in): sin resolver («deep»), Rt = lectura más profunda y no la verdadera', () => {
+    for (const set of [[10, 30, 90], [10, 30, 60, 90], [10, 20, 30, 60, 90]]) {
+      const fit = invertStepProfile(reads(400, 10, 1, set));
+      expect(fit.status, `${set.length} curvas`).toBe('unresolved');
+      expect(fit.reason).toBe('deep');
+      expect(fit.atBound).toBe('max');
+      expect(fit.rxo).toBeNaN();
+      expect(fit.di).toBeNaN();
+      expect(fit.rt).toBeCloseTo(stepProfileReading(400, 10, 1, 90), 12); // AT90, que lee zona lavada: ≠ 1
+      expect(fit.diHigh).toBeCloseTo(300, 6);
+    }
+  });
+
+  it('σt en una cota de σ: sin resolver («sigma»), Rt = lectura más profunda (fila 317 del TP)', () => {
+    const fit = invertStepProfile(row([0.446, 0.474, 0.517, 0.667]));
+    expect(fit.status).toBe('unresolved');
+    expect(fit.reason).toBe('sigma');
+    expect(fit.rt).toBe(0.667);
+    expect(fit.rxo).toBeNaN();
+    expect(fit.di).toBeNaN();
+  });
+
+  it('σxo en una cota de σ (fila 3024 del TP: Rxo pedida = 10⁵ ohm·m): Rxo sin dato, di y Rt del ajuste se mantienen', () => {
+    const fit = invertStepProfile(row([2.106, 0.913, 0.782, 0.846]));
+    expect(fit.rxoAtBound).toBe(true);
+    expect(fit.rxo).toBeNaN();
+    expect(fit.status).toBe('ok');
+    expect(fit.di).toBeGreaterThan(25);
+    expect(fit.di).toBeLessThan(35);
+    expect(fit.rt).toBeGreaterThan(0.6);
+    expect(fit.rt).toBeLessThan(0.85);
+    expect(fit.misfit).toBeGreaterThan(0.03); // el ajuste fuerza una zona lavada de resistividad extrema y se nota
+  });
+
+  it('di mal resuelto (fila 0 del TP): el intervalo toca el trépano; el ajuste se devuelve igual y la salida de curvas lo deja sin dato', () => {
+    const fit = invertStepProfile(row([0.76, 0.659, 0.636, 0.613]));
+    expect(fit.status).toBe('poorly-resolved');
+    expect(relErr(fit.di, 32.1)).toBeLessThan(5e-3);
+    expect(relErr(fit.rxo, 0.869)).toBeLessThan(5e-3);
+    expect(relErr(fit.rt, 0.605)).toBeLessThan(5e-3);
+    expect(Math.abs(fit.misfit - 0.0077)).toBeLessThan(1e-4);
+    expect(fit.diLow).toBeCloseTo(8.5, 6);
+    expect(fit.diHigh).toBeGreaterThan(80);
+    expect(fit.diHigh / fit.diLow).toBeGreaterThan(2);
+    const out = { rxo: new Float64Array(1), rt: new Float64Array(1), di: new Float64Array(1), misfit: new Float64Array(1) };
+    const counts = invertStepProfileInto([10, 30, 60, 90].map((r50, k) => ({ r50, data: [[0.76], [0.659], [0.636], [0.613]][k]! })), out);
+    expect(counts.poorlyResolved).toBe(1);
+    expect(out.rxo[0]).toBeNaN();
+    expect(out.di[0]).toBeNaN();
+    expect(relErr(out.rt[0]!, 0.605)).toBeLessThan(5e-3);
+  });
+
+  it('con 4 curvas el di sale mejor determinado cuanto mayor es el contraste: Rxo/Rt = 1,5 es difuso y 10 es preciso', () => {
+    const weak = invertStepProfile(reads(40, 3, 2, [10, 30, 60, 90]));
+    const strong = invertStepProfile(reads(40, 20, 2, [10, 30, 60, 90]));
+    expect(weak.diHigh / weak.diLow).toBeGreaterThan(strong.diHigh / strong.diLow);
+    expect(strong.status).toBe('ok');
   });
 });
 
@@ -356,7 +485,7 @@ describe('inversión: contra una búsqueda exhaustiva independiente', () => {
     for (const s of samples) {
       const r = s.map((v, k) => ({ r50: R50[k]!, resistivity: v }));
       const fit = invertStepProfile(r);
-      expect(fit.status).toBe('ok');
+      expect(Number.isFinite(fit.misfit)).toBe(true);
       const ssrFit = fit.misfit * fit.misfit * r.length;
       const ssrBrute = bruteForceSsr(r);
       expect(ssrFit).toBeLessThanOrEqual(ssrBrute * (1 + 1e-9) + 1e-12);
@@ -365,28 +494,35 @@ describe('inversión: contra una búsqueda exhaustiva independiente', () => {
 });
 
 describe('invertStepProfileInto', () => {
-  const n = 8;
-  it('escribe solo el tramo [start, end), cuenta los casos y no toca el resto', () => {
+  const n = 9;
+  const r50 = [10, 30, 60, 90];
+  it('escribe solo el tramo [start, end), cuenta cada estado y no toca el resto', () => {
     const cols = [0, 1, 2, 3].map(() => new Float64Array(n));
     const put = (i: number, vals: number[]) => vals.forEach((v, k) => (cols[k]![i] = v));
-    const resist = forwardStepProfile(40, 20, 2, [10, 30, 60, 90]);
-    const cond = forwardStepProfile(60, 0.5, 5, [10, 30, 60, 90]);
-    put(0, [...resist]);
-    put(1, [...cond]);
+    const resist = forwardStepProfile(40, 20, 2, r50);
+    const cond = forwardStepProfile(60, 0.5, 5, r50);
+    put(0, [...resist]); // fuera del tramo
+    put(1, [...cond]); // ok
     put(2, [2.02, 2.01, 2.0, 2.0]); // sin invasión
     put(3, [NaN, NaN, 1, 1]); // 2 curvas válidas
-    put(4, [...resist]);
+    put(4, [...resist]); // ok
     put(5, [110, resist[1]!, resist[2]!, resist[3]!]); // pico en AT10
-    put(6, [...resist]);
-    put(7, [...resist]);
+    put(6, [0.76, 0.659, 0.636, 0.613]); // di mal resuelto (fila 0 del TP)
+    put(7, [2.106, 0.913, 0.782, 0.846]); // Rxo en la cota de σ (fila 3024 del TP)
+    put(8, [...resist]); // fuera del tramo
     const out = { rxo: new Float64Array(n).fill(-7), rt: new Float64Array(n).fill(-7), di: new Float64Array(n).fill(-7), misfit: new Float64Array(n).fill(-7) };
-    const curves = [10, 30, 60, 90].map((r50, k) => ({ r50, data: cols[k]! }));
-    const counts = invertStepProfileInto(curves, out, {}, 0.15, 1, 7);
-    expect(counts).toMatchObject({ ok: 4, noInvasion: 1, insufficient: 1, highMisfit: 1 });
+    const curves = r50.map((r, k) => ({ r50: r, data: cols[k]! }));
+    const counts = invertStepProfileInto(curves, out, {}, 0.15, 1, 8);
+    expect(counts).toMatchObject({ noInvasion: 1, insufficient: 1, poorlyResolved: 1, rxoAtBound: 1 });
+    expect(counts.ok).toBe(3); // dos perfiles exactos (1, 4) y la fila 3024 (7); el pico (5) queda sin resolver
+    expect(counts.unresolvedDeep + counts.unresolvedShallow + counts.unresolvedSigma).toBe(1);
+    expect(counts.highMisfit).toBeGreaterThanOrEqual(1);
+    const fitted = counts.ok + counts.poorlyResolved + counts.unresolvedDeep + counts.unresolvedShallow + counts.unresolvedSigma;
+    expect(fitted + counts.noInvasion + counts.insufficient).toBe(7);
     // fuera del tramo: intacto
     for (const key of ['rxo', 'rt', 'di', 'misfit'] as const) {
       expect(out[key][0]).toBe(-7);
-      expect(out[key][7]).toBe(-7);
+      expect(out[key][8]).toBe(-7);
     }
     expect(relErr(out.rxo[1]!, 0.5)).toBeLessThan(1e-3);
     expect(relErr(out.rt[1]!, 5)).toBeLessThan(1e-3);
@@ -394,16 +530,50 @@ describe('invertStepProfileInto', () => {
     expect(out.rt[2]).toBe(2.0);
     expect(out.rxo[2]).toBeNaN();
     expect(out.di[2]).toBeNaN();
+    expect(out.misfit[2]).toBeNaN();
     expect(out.rt[3]).toBeNaN();
     expect(out.misfit[5]!).toBeGreaterThan(0.15);
     expect(out.misfit[4]!).toBeLessThan(1e-4);
+    // mal resuelto: Rxo y di sin dato, Rt y misfit del ajuste
+    expect(out.rxo[6]).toBeNaN();
+    expect(out.di[6]).toBeNaN();
+    expect(relErr(out.rt[6]!, 0.605)).toBeLessThan(5e-3);
+    expect(out.misfit[6]!).toBeGreaterThan(0);
+    // Rxo en la cota: Rxo sin dato, di y Rt presentes
+    expect(out.rxo[7]).toBeNaN();
+    expect(out.di[7]!).toBeGreaterThan(25);
+    expect(out.rt[7]!).toBeGreaterThan(0.6);
   });
 
-  it('las mismas curvas por defecto cubren todo el arreglo y las constantes de la herramienta son las de la AIT', () => {
-    const cols = [10, 30, 60, 90].map((r50) => Float64Array.from([stepProfileReading(40, 20, 2, r50), stepProfileReading(40, 20, 2, r50)]));
-    const out = { rxo: new Float64Array(2), rt: new Float64Array(2), di: new Float64Array(2), misfit: new Float64Array(2) };
-    const c = invertStepProfileInto(cols.map((d, k) => ({ r50: [10, 30, 60, 90][k]!, data: d })), out);
-    expect(c.ok).toBe(2);
+  it('cuenta los estados sin resolver por motivo y deja Rt = lectura más profunda', () => {
+    const rows = [reads(400, 10, 1, r50), row2([1.15, 1.0, 1.0, 1.0]), row2([0.446, 0.474, 0.517, 0.667])];
+    const cols = r50.map((_r, k) => Float64Array.from(rows.map((x) => x[k]!.resistivity)));
+    const out = { rxo: new Float64Array(3), rt: new Float64Array(3), di: new Float64Array(3), misfit: new Float64Array(3) };
+    const counts = invertStepProfileInto(r50.map((r, k) => ({ r50: r, data: cols[k]! })), out);
+    expect(counts).toMatchObject({ unresolvedDeep: 1, unresolvedShallow: 1, unresolvedSigma: 1, ok: 0, poorlyResolved: 0 });
+    expect(Array.from(out.rt)).toEqual([cols[3]![0], 1.0, 0.667]);
+    expect(Array.from(out.di).every(Number.isNaN)).toBe(true);
+    expect(Array.from(out.rxo).every(Number.isNaN)).toBe(true);
+    expect(Array.from(out.misfit).every(Number.isFinite)).toBe(true);
+    function row2(a: number[]): InvasionReading[] {
+      return a.map((v, k) => ({ r50: r50[k]!, resistivity: v }));
+    }
+  });
+
+  it('el trépano por muestra (options.bitSizes) manda sobre bitSize donde tiene dato y bitSize respalda donde no', () => {
+    const v = forwardStepProfile(30, 8, 1, r50);
+    const data = r50.map((_r, k) => Float64Array.from([v[k]!, v[k]!, v[k]!]));
+    const out = { rxo: new Float64Array(3), rt: new Float64Array(3), di: new Float64Array(3), misfit: new Float64Array(3) };
+    // la invasión verdadera (30 in) no cambia con el trépano mientras éste sea menor; con 40 in la cota inferior queda por encima
+    invertStepProfileInto(data.map((d, k) => ({ r50: r50[k]!, data: d })), out, { bitSize: 8.5, bitSizes: [8.5, 40, NaN] });
+    expect(relErr(out.di[0]!, 30)).toBeLessThan(1e-3);
+    expect(out.di[1]).toBeNaN(); // con trépano de 40 in el mejor ajuste queda en el borde: sin resolver
+    expect(relErr(out.di[2]!, 30)).toBeLessThan(1e-3); // NaN en bitSizes: usa bitSize
+    const fit = invertStepProfile(reads(30, 8, 1, r50), { bitSize: 40 });
+    expect(fit.reason).toBe('shallow');
+  });
+
+  it('las constantes de la herramienta son las de la AIT', () => {
     expect(ARRAY_INDUCTION_R50_IN).toEqual({ RA10: 10, RA20: 20, RA30: 30, RM: 60, RT: 90 });
   });
 });
