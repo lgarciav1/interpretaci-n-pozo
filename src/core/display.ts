@@ -162,6 +162,17 @@ export interface DisplaySettings {
   trackTemplates?: TrackTemplate[];
 }
 
+/**
+ * Rango del ancho relativo de una pista (docs/decisiones/0016). Se acota al editar y al abrir un proyecto: un ancho
+ * enorme (1e6) armaría un lienzo de millones de px y dejaría el visor en blanco.
+ */
+export const TRACK_WIDTH_RANGE = { min: 0.4, max: 4 } as const;
+/** Paso de «más ancha / más angosta» (factor), igual en el menú, Alt+Mayús+flechas y el borde con el teclado. */
+export const TRACK_WIDTH_STEP = 1.25;
+
+/** Ancho relativo acotado a `TRACK_WIDTH_RANGE` y redondeado a centésimos. */
+export const clampTrackWidth = (w: number): number => Math.round(Math.min(TRACK_WIDTH_RANGE.max, Math.max(TRACK_WIDTH_RANGE.min, w)) * 100) / 100;
+
 export function emptyDisplay(): DisplaySettings {
   return { layouts: {}, roles: {}, curves: {} };
 }
@@ -266,7 +277,10 @@ function sanitizeTrack(raw: unknown, where: string, warn: (m: string) => void): 
     return null;
   }
   const t: TrackSpec = { id: raw['id'], title: raw['title'], kind, ...(stack ? { stack } : {}) };
-  if (isNum(raw['width']) && raw['width'] > 0) t.width = raw['width'];
+  if (isNum(raw['width']) && raw['width'] > 0) {
+    t.width = clampTrackWidth(raw['width']);
+    if (t.width !== raw['width']) warn(`${where}: la pista '${t.id}' tiene un ancho fuera de rango (${raw['width']}); se usa ${t.width}.`);
+  }
   if (Array.isArray(raw['curves'])) {
     t.curves = [];
     raw['curves'].forEach((c, i) => {

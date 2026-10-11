@@ -9,13 +9,10 @@
  *
  * Las de proyecto (`updateTrackLayout`, plantillas) usan `setTrackLayout` de project.ts. Sin React ni stores.
  */
-import type { CurveDisplayOverride, CurveSelector, FillSpec, TrackCurveSpec, TrackSpec, TrackTemplate } from '../display';
+import { clampTrackWidth, TRACK_WIDTH_RANGE, TRACK_WIDTH_STEP, type CurveDisplayOverride, type CurveSelector, type FillSpec, type TrackCurveSpec, type TrackSpec, type TrackTemplate } from '../display';
 import { setTrackLayout, type Project } from './project';
 
-/** Rango del ancho relativo de una pista. */
-export const TRACK_WIDTH_RANGE = { min: 0.4, max: 4 } as const;
-/** Paso de «más ancha / más angosta» (factor). */
-export const TRACK_WIDTH_STEP = 1.25;
+export { TRACK_WIDTH_RANGE, TRACK_WIDTH_STEP };
 
 // ── utilidades ─────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -138,7 +135,7 @@ export function setTrackWidth(tracks: readonly TrackSpec[], id: string, width: n
   const i = indexOf(tracks, id);
   const t = tracks[i]!;
   if (t.kind === 'depth' || !Number.isFinite(width)) return tracks as TrackSpec[];
-  const w = Math.round(Math.min(TRACK_WIDTH_RANGE.max, Math.max(TRACK_WIDTH_RANGE.min, width)) * 100) / 100;
+  const w = clampTrackWidth(width);
   if ((t.width ?? 1) === w) return tracks as TrackSpec[];
   return replaceTrack(tracks, i, { ...t, width: w });
 }

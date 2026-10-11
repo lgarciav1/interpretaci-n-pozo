@@ -32,6 +32,8 @@ import {
   uniqueTrackId,
   updateTrackLayout,
 } from '../../core/state/tracks';
+import { getUnit } from '../../core/units';
+import type { Curve } from '../../core/well';
 import type { WorkspaceId } from '../../core/workspaces';
 import type { MenuEntry } from '../../ui';
 import { curveEntryOf, trackForCurve, type TrackDraft } from '../../viewer/catalog';
@@ -73,6 +75,11 @@ export interface LayoutEditorContext {
   overlays: readonly ViewerOverlay[];
   /** Pistas como las dibuja el visor en modo edición (incluye las latentes). */
   displayed: readonly ResolvedTrack[];
+  /**
+   * Curvas medidas del pozo activo: al expandir un grupo (`{ unassigned }`) se toman de acá, no de lo dibujado, para
+   * no perder las que el usuario ocultó (siguen ocultas: el ocultamiento vive en `display.curves`).
+   */
+  curves: readonly Pick<Curve, 'id' | 'role' | 'unit'>[];
 }
 
 const isCurveTrack = (t: ResolvedTrack) => t.kind === 'curves' || t.kind === 'flags';
@@ -96,8 +103,8 @@ export function createLayoutEditor(ctx: LayoutEditorContext) {
     if (done && useProject.getState().project !== before) announce(done);
   };
 
-  /** Ids de las curvas del pozo que una entrada de grupo puso en la pista (en orden de dibujo). */
-  const groupIds = (t: ResolvedTrack) => t.curves.filter((c) => c.origin === 'measured' && c.role === null && c.curveId).map((c) => c.curveId!);
+  /** Ids de las curvas del pozo que toma una entrada de grupo (sin rol, de esa magnitud), en el orden del pozo. */
+  const groupIds = (dimension: string) => ctx.curves.filter((c) => !c.role && getUnit(c.unit)?.dimension === dimension).map((c) => c.id);
 
   /**
    * Entrada de la lista que corresponde a una curva dibujada. Si vino de un grupo, primero lo expande (D3). -1 si la
@@ -107,8 +114,9 @@ export function createLayoutEditor(ctx: LayoutEditorContext) {
     const spec = tracks.find((x) => x.id === t.id);
     if (!spec) return { tracks, index: -1 };
     const i = entryIndexFor(spec, c);
-    if (i >= 0 && 'unassigned' in spec.curves![i]!.select) {
-      const expanded = expandGroupEntry(tracks, t.id, i, groupIds(t));
+    const sel = i >= 0 ? spec.curves![i]!.select : null;
+    if (sel && 'unassigned' in sel) {
+      const expanded = expandGroupEntry(tracks, t.id, i, groupIds(sel.unassigned));
       return { tracks: expanded, index: entryIndexFor(expanded.find((x) => x.id === t.id)!, c) };
     }
     return { tracks, index: i };

@@ -2,6 +2,7 @@
  * Anchos de pista en píxeles. Se calculan una vez por tamaño y se usan igual para la grilla HTML de encabezados y
  * para el canvas (docs/decisiones/0005-visor-multipista.md, D1). Puro.
  */
+import { TRACK_WIDTH_RANGE } from '../core/display';
 
 export interface TrackBox {
   x: number;
@@ -34,7 +35,8 @@ export const MIN_TRACK_WIDTH = 104;
 export function layoutTracks(tracks: readonly TrackSizing[], available: number, minWidth = MIN_TRACK_WIDTH, opts: { weightedMin?: boolean } = {}): TrackLayout {
   const fixedSum = tracks.reduce((s, t) => s + (t.fixed ?? 0), 0);
   const weight = (t: TrackSizing) => t.width ?? 1;
-  const minOf = (t: TrackSizing) => (opts.weightedMin ? minWidth * Math.max(1, weight(t)) : minWidth);
+  // Acotado a TRACK_WIDTH_RANGE.max: un ancho guardado enorme no arma un lienzo de millones de px.
+  const minOf = (t: TrackSizing) => (opts.weightedMin ? minWidth * Math.min(TRACK_WIDTH_RANGE.max, Math.max(1, weight(t))) : minWidth);
   // Las pistas que quedarían por debajo del mínimo se fijan en el mínimo y el resto se reparte entre las demás.
   const widths = new Map<TrackSizing, number>();
   let pending = tracks.filter((t) => t.fixed === undefined);

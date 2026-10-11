@@ -8,7 +8,8 @@
  * - `data-drop-row`: fila de una curva en el encabezado (insertar arriba o abajo de esa curva).
  * - `data-drop-track`: encabezado o columna de una pista → agregar a esa pista.
  */
-import { useRef, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useRef, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import { clampTrackWidth, TRACK_WIDTH_RANGE, TRACK_WIDTH_STEP } from '../core/display';
 import type { MenuEntry } from '../ui';
 import type { TrackBox } from './layout';
 import type { ResolvedCurve, ResolvedTrack } from './resolve';
@@ -167,7 +168,7 @@ export function ResizeEdge({
   onPreview(width: number | null): void;
   onCommit(width: number): void;
 }) {
-  const start = useRef<{ x: number; px: number; weight: number; rest: number; last: number } | null>(null);
+  const start = useRef<{ x: number; px: number; weight: number; rest: number; last: number; onKey: (e: globalThis.KeyboardEvent) => void } | null>(null);
   /**
    * Peso que da `targetPx` a esta pista con los demás pesos fijos: k' = w·(S − k) / (R − w). Si las pistas no entran,
    * cada una mide su mínimo × su ancho (`layoutTracks` con `weightedMin`): k' = w / mínimo.
@@ -177,45 +178,64 @@ export function ResizeEdge({
     const w = Math.max(24, Math.min(room - 24, targetPx));
     return Math.max(0.05, (w * s.rest) / Math.max(1, room - w));
   };
+  /** Termina el arrastre: `commit` guarda el último ancho; si no, se cancela (Escape, captura perdida, desmontar). */
+  const stop = (commit: boolean, moved = true) => {
+    const s = start.current;
+    if (!s) return;
+    start.current = null;
+    window.removeEventListener('keydown', s.onKey, true);
+    onPreview(null);
+    if (commit && moved) onCommit(s.last);
+  };
+  const stopRef = useRef(stop);
+  stopRef.current = stop;
+  useEffect(() => () => stopRef.current(false), []);
+  const value = Math.round(clampTrackWidth(track.width) * 100);
   return (
     <div
       className="wv-head__resize"
       role="separator"
       aria-orientation="vertical"
       aria-label={`Ancho de ${track.title}`}
-      aria-valuenow={Math.round(track.width * 100)}
-      aria-valuetext={`${Math.round(track.width * 100)} %`}
+      aria-valuemin={Math.round(TRACK_WIDTH_RANGE.min * 100)}
+      aria-valuemax={Math.round(TRACK_WIDTH_RANGE.max * 100)}
+      aria-valuenow={value}
+      aria-valuetext={`${value} %`}
       tabIndex={0}
-      title="Arrastrá para cambiar el ancho de la pista (← → con el teclado)"
+      title="Arrastrá para cambiar el ancho de la pista (← → con el teclado; Esc cancela)"
       onPointerDown={(e) => {
         if (e.button !== 0) return;
         e.preventDefault();
         e.stopPropagation();
         e.currentTarget.setPointerCapture(e.pointerId);
-        start.current = { x: e.clientX, px, weight: track.width, rest: Math.max(0.05, weights - track.width), last: track.width };
+        // Escape cancela aunque el foco esté en otro lado (el borde no toma el foco al apretarlo).
+        const onKey = (ev: globalThis.KeyboardEvent) => {
+          if (ev.key !== 'Escape') return;
+          ev.preventDefault();
+          ev.stopPropagation();
+          stopRef.current(false);
+        };
+        window.addEventListener('keydown', onKey, true);
+        start.current = { x: e.clientX, px, weight: track.width, rest: Math.max(0.05, weights - track.width), last: track.width, onKey };
       }}
       onPointerMove={(e) => {
         const s = start.current;
         if (!s) return;
-        s.last = weightFor(s.px + e.clientX - s.x, s);
+        s.last = clampTrackWidth(weightFor(s.px + e.clientX - s.x, s));
         onPreview(s.last);
       }}
       onPointerUp={(e) => {
         const s = start.current;
-        start.current = null;
         if (!s) return;
-        e.currentTarget.releasePointerCapture(e.pointerId);
-        onPreview(null);
-        if (Math.abs(e.clientX - s.x) >= 2) onCommit(s.last);
+        stop(true, Math.abs(e.clientX - s.x) >= 2);
+        if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
       }}
-      onPointerCancel={() => {
-        start.current = null;
-        onPreview(null);
-      }}
+      onPointerCancel={() => stop(false)}
+      onLostPointerCapture={() => stop(false)}
       onKeyDown={(e) => {
         if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
         e.preventDefault();
-        onCommit(track.width * (e.key === 'ArrowRight' ? 1.1 : 1 / 1.1));
+        onCommit(clampTrackWidth(track.width * (e.key === 'ArrowRight' ? TRACK_WIDTH_STEP : 1 / TRACK_WIDTH_STEP)));
       }}
     />
   );

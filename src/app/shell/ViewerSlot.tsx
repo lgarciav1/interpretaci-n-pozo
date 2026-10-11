@@ -85,7 +85,7 @@ export function ViewerSlot() {
   }, [well, computed, workspace, display, building]);
 
   // «Armar pistas» (docs/decisiones/0016): acciones sobre las pistas que se ven, publicadas para el panel.
-  const editor = useMemo(() => (well ? createLayoutEditor({ workspace, overlays: OVERLAYS, displayed: tracks }) : null), [well, workspace, tracks]);
+  const editor = useMemo(() => (well ? createLayoutEditor({ workspace, overlays: OVERLAYS, displayed: tracks, curves: well.curves }) : null), [well, workspace, tracks]);
   useEffect(() => {
     useTrackUi.getState().set({ editor });
     setDropHandler(editor ? (payload, target) => editor.drop(payload, target) : null);

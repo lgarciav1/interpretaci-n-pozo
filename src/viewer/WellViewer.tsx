@@ -141,6 +141,10 @@ export function WellViewer(props: WellViewerProps) {
   const [size, setSize] = useState({ width: 0, height: 0, heads: 0 });
   /** Ancho que se está arrastrando en modo «Armar pistas» (vista previa hasta soltar). */
   const [resizing, setResizing] = useState<{ id: string; width: number } | null>(null);
+  // Si el modo edición termina en medio del arrastre del borde, la vista previa no queda pegada.
+  useEffect(() => {
+    if (!layoutEdit) setResizing(null);
+  }, [layoutEdit]);
   const layout = useMemo(
     () =>
       layoutTracks(
