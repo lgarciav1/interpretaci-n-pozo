@@ -105,7 +105,11 @@ El ancho se previsualiza en el visor mientras se arrastra el borde y se guarda a
 - **Formato del proyecto: sin cambio de versión.** Los dos campos son opcionales: un proyecto anterior se abre sin
   plantillas y sin pistas ocultas (valores por defecto) y `sanitizeDisplay` valida lo nuevo al abrir (plantillas sin
   nombre o con pistas inválidas se descartan con aviso; ids repetidos también). Una versión vieja de la app que abra
-  un proyecto nuevo ignora los campos que no conoce.
+  un proyecto nuevo ignora los campos que no conoce. **Consecuencia aceptada:** si ese proyecto se abre y se vuelve a
+  guardar con la app anterior, se pierden las plantillas propias y las pistas de superposición quitadas vuelven a
+  aparecer (las pistas armadas sí se conservan). Se prefirió esto a subir la versión, que impediría abrirlo del todo.
+- Al abrir también se acota el ancho de cada pista a 0,4–4 (con aviso) y se descartan, con aviso, las plantillas con
+  nombre repetido en un mismo espacio; una fecha de guardado inválida se descarta y la plantilla se conserva.
 - Descartado: **biblioteca personal en `localStorage`** compartida entre proyectos. Útil, pero no viaja con el archivo
   (el TP se entrega como proyecto) y duplica la validación; queda para después, como copia al proyecto al usarla.
 - Descartado: **plantillas globales para cualquier espacio.** Las de Geología y Petrofísica tienen pistas distintas;

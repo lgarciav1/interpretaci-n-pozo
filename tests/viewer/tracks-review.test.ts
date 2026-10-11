@@ -10,6 +10,7 @@ import { createLayoutEditor, materializedLayout } from '../../src/app/tracks/act
 import { sanitizeDisplay, TRACK_WIDTH_RANGE, type TrackSpec } from '../../src/core/display';
 import { defaultRoleCatalog } from '../../src/core/roles';
 import { addWell, createProject, setCurveDisplay, type Project } from '../../src/core/state/project';
+import { addCurveToTrack, fillKey } from '../../src/core/state/tracks';
 import { createWell, type Curve } from '../../src/core/well';
 import { layoutTracks } from '../../src/viewer/layout';
 import { resolveTracks, type ComputedCurve } from '../../src/viewer/resolve';
@@ -54,7 +55,7 @@ describe('acciones de «Armar pistas»', () => {
     expect(after.curves.map((c) => c.name)).not.toContain('AT60');
   });
 
-  it.skip('mover una curva que tomó el recolector le da su estilo y sus rellenos de convención', () => {
+  it('mover una curva que tomó el recolector le da su estilo y sus rellenos de convención', () => {
     const p = addWell(createProject('P'), well);
     // VSH fuera de la pista de Interpretación: la toma el recolector de una plantilla sin VSH.
     const layout = materializedLayout(p, WS, []).map((t) => (t.id === 'computed' ? { ...t, curves: [], fills: [] } : t));
@@ -82,6 +83,35 @@ describe('acciones de «Armar pistas»', () => {
     expect(sel(spec('sonic'))).toEqual(['DT', 'DTS', '#AT30']);
     useProject.getState().undo();
     expect(useProject.getState().project.display.layouts[WS]).toBeUndefined();
+  });
+});
+
+describe('rellenos y plantillas', () => {
+  it('un relleno equivalente (mismas curvas y lado, otra opacidad) no se duplica', () => {
+    const geo: TrackSpec[] = [{ id: 'g', title: 'GR espectral', kind: 'curves', curves: [{ select: { role: 'GR' } }], fills: [{ kind: 'edge', curve: 'GR', side: 'left', fill: 'shale', opacity: 0.3 }] }];
+    const out = addCurveToTrack(geo, 'g', { select: { role: 'GR' }, fills: [{ kind: 'edge', curve: 'GR', side: 'left', fill: 'shale', opacity: 0.32 }, { kind: 'edge', curve: 'GR', side: 'right', fill: 'sand' }] });
+    expect(out[0]!.fills!.map(fillKey)).toEqual(['edge:GR:left', 'edge:GR:right']);
+    expect(fillKey({ kind: 'between', a: 'RHOB', b: 'NPHI' })).toBe(fillKey({ kind: 'between', a: 'NPHI', b: 'RHOB', aLeft: 'gas' }));
+  });
+
+  it('al abrir se descartan las plantillas de nombre repetido en un espacio y las fechas inválidas', () => {
+    const warnings: string[] = [];
+    const tracks = [{ id: 'd', title: 'Prof.', kind: 'depth' }];
+    const out = sanitizeDisplay(
+      {
+        trackTemplates: [
+          { id: 'a', name: 'Mía', workspace: 'petrophysics', tracks, savedAt: 'ayer' },
+          { id: 'b', name: ' mía ', workspace: 'petrophysics', tracks },
+          { id: 'c', name: 'Mía', workspace: 'geology', tracks, savedAt: '2026-10-10T00:00:00Z' },
+        ],
+      },
+      (m) => warnings.push(m),
+    );
+    expect(out.trackTemplates!.map((t) => [t.id, t.savedAt])).toEqual([
+      ['a', undefined],
+      ['c', '2026-10-10T00:00:00Z'],
+    ]);
+    expect(warnings).toHaveLength(2);
   });
 });
 

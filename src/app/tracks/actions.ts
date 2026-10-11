@@ -35,8 +35,8 @@ import {
 import { getUnit } from '../../core/units';
 import type { Curve } from '../../core/well';
 import type { WorkspaceId } from '../../core/workspaces';
-import type { MenuEntry } from '../../ui';
-import { curveEntryOf, trackForCurve, type TrackDraft } from '../../viewer/catalog';
+import { toast, type MenuEntry } from '../../ui';
+import { conventionEntry, curveEntryOf, trackForCurve, type TrackDraft } from '../../viewer/catalog';
 import type { LayoutDropTarget } from '../../viewer/layoutEdit';
 import type { ViewerOverlay } from '../../viewer/overlay';
 import type { ResolvedCurve, ResolvedTrack } from '../../viewer/resolve';
@@ -51,6 +51,20 @@ export function announce(message: string): void {
   el.textContent = '';
   // Otro cuadro: algunos lectores no repiten un texto que cambia en el mismo cuadro.
   requestAnimationFrame(() => (el.textContent = message));
+}
+
+/**
+ * `commit` que no deja escapar el error de una receta (pista que ya no existe, nombre repetido…): avisa con un toast
+ * y no cambia nada. true si se aplicó.
+ */
+function safeCommit(label: string, recipe: (p: Project) => Project): boolean {
+  try {
+    useProject.getState().commit(label, recipe);
+    return true;
+  } catch (err) {
+    toast({ tone: 'warn', title: `No se pudo: ${label}`, description: err instanceof Error ? err.message : String(err) });
+    return false;
+  }
 }
 
 /** Pistas que se ven de un espacio (propias o de fábrica, con las de superposiciones). */
@@ -99,7 +113,7 @@ export function createLayoutEditor(ctx: LayoutEditorContext) {
 
   const edit = (label: string, fn: (tracks: readonly TrackSpec[]) => readonly TrackSpec[], done?: string) => {
     const before = useProject.getState().project;
-    useProject.getState().commit(label, (p) => updateTrackLayout(p, workspace, materializedLayout(p, workspace, overlays), fn));
+    if (!safeCommit(label, (p) => updateTrackLayout(p, workspace, materializedLayout(p, workspace, overlays), fn))) return;
     if (done && useProject.getState().project !== before) announce(done);
   };
 
@@ -145,7 +159,7 @@ export function createLayoutEditor(ctx: LayoutEditorContext) {
         const id = uniqueTrackId(base, name);
         const shell: TrackSpec = flag ? { id, title: name, kind: 'flags', curves: [] } : { id, title: name, kind: 'curves', curves: [], emptyHint: 'Arrastrá curvas a esta pista desde el catálogo.' };
         const withTrack = addTrack(base, shell, to.beforeId);
-        if (index < 0) return c.role ? addCurveToTrack(withTrack, id, { select: { role: c.role } }) : tracks;
+        if (index < 0) return c.role ? addCurveToTrack(withTrack, id, conventionEntry(c.role)) : tracks;
         return moveCurveEntry(withTrack, t.id, index, id);
       }, `${name} en una pista nueva`);
       return;
@@ -154,7 +168,7 @@ export function createLayoutEditor(ctx: LayoutEditorContext) {
     edit(to.trackId === t.id ? `Reordenar ${name}` : `Mover ${name} a ${dest}`, (tracks) => {
       const { tracks: base, index } = locate(tracks, t, c);
       const at = insertionAt(base, to);
-      if (index < 0) return c.role ? addCurveToTrack(base, to.trackId, { select: { role: c.role } }, at) : tracks;
+      if (index < 0) return c.role ? addCurveToTrack(base, to.trackId, conventionEntry(c.role), at) : tracks;
       return moveCurveEntry(base, t.id, index, to.trackId, at);
     }, to.trackId === t.id ? `${name} reordenada` : `${name} movida a ${dest}`);
   };
@@ -347,24 +361,22 @@ export type LayoutEditor = ReturnType<typeof createLayoutEditor>;
 export function saveTemplate(workspace: WorkspaceId, overlays: readonly ViewerOverlay[], name: string): void {
   const clean = name.trim();
   const before = useProject.getState().project;
-  useProject
-    .getState()
-    .commit(`Guardar plantilla «${clean}»`, (p) => saveTrackTemplate(p, { id: makeId('plantilla'), name: clean, workspace, tracks: materializedLayout(p, workspace, overlays), savedAt: new Date().toISOString() }));
-  if (useProject.getState().project !== before) announce(`Plantilla «${clean}» guardada`);
+  const ok = safeCommit(`Guardar plantilla «${clean}»`, (p) => saveTrackTemplate(p, { id: makeId('plantilla'), name: clean, workspace, tracks: materializedLayout(p, workspace, overlays), savedAt: new Date().toISOString() }));
+  if (ok && useProject.getState().project !== before) announce(`Plantilla «${clean}» guardada`);
 }
 
 export function applyTemplate(id: string, name: string): void {
-  useProject.getState().commit(`Aplicar plantilla «${name}»`, (p) => applyTrackTemplate(p, id));
+  if (!safeCommit(`Aplicar plantilla «${name}»`, (p) => applyTrackTemplate(p, id))) return;
   announce(`Plantilla «${name}» aplicada`);
 }
 
 export function resetToFactory(workspace: WorkspaceId): void {
-  useProject.getState().commit('Restablecer pistas de fábrica', (p) => resetTrackLayout(p, workspace));
+  if (!safeCommit('Restablecer pistas de fábrica', (p) => resetTrackLayout(p, workspace))) return;
   announce('Pistas de fábrica restablecidas');
 }
 
 export function deleteTemplate(id: string, name: string): void {
-  useProject.getState().commit(`Borrar plantilla «${name}»`, (p) => deleteTrackTemplate(p, id));
+  if (!safeCommit(`Borrar plantilla «${name}»`, (p) => deleteTrackTemplate(p, id))) return;
   announce(`Plantilla «${name}» borrada`);
 }
 

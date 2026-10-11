@@ -124,6 +124,8 @@ export function beginDrag(e: { button: number; clientX: number; clientY: number;
     window.removeEventListener('pointerup', onUp, true);
     window.removeEventListener('pointercancel', onCancel, true);
     window.removeEventListener('keydown', onKey, true);
+    window.removeEventListener('blur', onCancel);
+    document.removeEventListener('visibilitychange', onHidden);
     if (scrollTimer) clearTimeout(scrollTimer);
     if (!started) return;
     const target = useLayoutDrag.getState().target;
@@ -141,6 +143,11 @@ export function beginDrag(e: { button: number; clientX: number; clientY: number;
   };
   const onMove = (ev: PointerEvent) => {
     if (ev.pointerId !== e.pointerId) return;
+    // Botón suelto sin pointerup (se soltó fuera de la ventana o lo tragó otro elemento): se cancela.
+    if (ev.buttons === 0 && ev.pointerType === 'mouse') {
+      finish(false);
+      return;
+    }
     if (!started) {
       if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < THRESHOLD) return;
       start();
@@ -155,6 +162,9 @@ export function beginDrag(e: { button: number; clientX: number; clientY: number;
     finish(true);
   };
   const onCancel = () => finish(false);
+  const onHidden = () => {
+    if (document.visibilityState === 'hidden') finish(false);
+  };
   const onKey = (ev: KeyboardEvent) => {
     if (ev.key !== 'Escape' || !started) return;
     ev.preventDefault();
@@ -165,4 +175,6 @@ export function beginDrag(e: { button: number; clientX: number; clientY: number;
   window.addEventListener('pointerup', onUp, true);
   window.addEventListener('pointercancel', onCancel, true);
   window.addEventListener('keydown', onKey, true);
+  window.addEventListener('blur', onCancel);
+  document.addEventListener('visibilitychange', onHidden);
 }

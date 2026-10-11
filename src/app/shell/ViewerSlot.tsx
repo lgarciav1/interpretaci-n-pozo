@@ -38,6 +38,23 @@ import { RenameDialogs, SaveTemplateDialog, TemplateMenu } from '../tracks/Templ
 import type { ViewerLayoutEditing } from '../../viewer/layoutEdit';
 import { TRACK_WIDTH_STEP } from '../../core/state/tracks';
 
+/**
+ * Devuelve el foco después de mover con el teclado: el elemento enfocado puede volver a montarse en otra pista (una
+ * curva que cambia de pista) o desaparecer (una pista quitada). Se busca por sus atributos `data-` en el cuadro
+ * siguiente, cuando React ya pintó.
+ */
+function refocusTrack(trackId: string): void {
+  requestAnimationFrame(() => document.querySelector<HTMLElement>(`.wv-head[data-drop-track="${CSS.escape(trackId)}"] .wv-head__grip`)?.focus());
+}
+/** Ídem para una curva; `notIn` = pista de origen (si la curva está en varias pistas, la que no es esa). */
+function refocusCurve(key: string, notIn: string | null): void {
+  requestAnimationFrame(() => {
+    const rows = [...document.querySelectorAll<HTMLElement>(`[data-drop-row="${CSS.escape(key)}"]`)];
+    const row = rows.find((r) => notIn === null || r.closest('[data-drop-track]')?.getAttribute('data-drop-track') !== notIn) ?? rows[0];
+    row?.querySelector<HTMLElement>('.wv-legend')?.focus();
+  });
+}
+
 const onCursorChange = (cursorDepth: number | null) => useViewer.setState({ cursorDepth });
 const onViewportChange = (visible: { top: number; base: number }) => useViewer.setState({ visible });
 const onDragChange = (dragging: boolean) => useViewer.setState({ dragging });
@@ -90,7 +107,13 @@ export function ViewerSlot() {
     useTrackUi.getState().set({ editor });
     setDropHandler(editor ? (payload, target) => editor.drop(payload, target) : null);
   }, [editor]);
-  useEffect(() => () => useTrackUi.getState().set({ editor: null }), []);
+  useEffect(
+    () => () => {
+      useTrackUi.getState().set({ editor: null });
+      setDropHandler(null);
+    },
+    [],
+  );
   const layoutEdit = useMemo<ViewerLayoutEditing | null>(() => {
     if (!building || !editor) return null;
     const ghostColor = (c: { styles: Readonly<Record<"light" | "dark", { color: string }>> }) => c.styles[getResolvedTheme()].color;
@@ -109,9 +132,14 @@ export function ViewerSlot() {
           if (e.shiftKey) {
             if (t.fixed === undefined) editor.resize(t, dir > 0 ? t.width * TRACK_WIDTH_STEP : t.width / TRACK_WIDTH_STEP);
           } else editor.moveTrackBy(t, dir);
+          refocusTrack(t.id);
         } else if (e.key === 'Delete' || e.key === 'Backspace') {
           e.preventDefault();
+          // El foco pasa a la pista vecina (la de la derecha, o la de la izquierda si era la última).
+          const i = tracks.findIndex((x) => x.id === t.id);
+          const next = tracks[i + 1] ?? tracks[i - 1];
           editor.removeTrack(t);
+          if (next) refocusTrack(next.id);
         }
       },
       onCurveKeyDown: (e, t, c) => {
@@ -119,9 +147,11 @@ export function ViewerSlot() {
         if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
           e.preventDefault();
           editor.moveCurveBy(t, c, e.key === 'ArrowUp' ? 1 : -1);
+          refocusCurve(c.key, null);
         } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
           e.preventDefault();
           editor.moveCurveSideways(t, c, e.key === 'ArrowLeft' ? -1 : 1);
+          refocusCurve(c.key, t.id);
         }
       },
       onResize: (t, w) => editor.resize(t, w),

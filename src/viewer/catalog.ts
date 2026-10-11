@@ -136,7 +136,7 @@ function groupOf(def: RoleDef): string {
 
 // ── estilo y rellenos propios de cada curva (las convenciones de las pistas de fábrica) ──────────────────────────
 
-const OWN_STYLE: Readonly<Record<string, CurveDisplayOverride>> = {
+export const OWN_STYLE: Readonly<Record<string, CurveDisplayOverride>> = {
   GR: { wrap: true },
   PEF: { width: 1 },
   DRHO: { width: 1 },
@@ -146,7 +146,7 @@ const OWN_STYLE: Readonly<Record<string, CurveDisplayOverride>> = {
 const CROSSOVER: FillSpec = { kind: 'between', a: 'RHOB', b: 'NPHI', aLeft: 'gasCrossover', bLeft: 'shaleCrossover', opacity: 1 };
 const WASHOUT: FillSpec = { kind: 'between', a: 'BS', b: 'CALI', aLeft: 'washout', compare: 'value', opacity: 1 };
 
-const OWN_FILLS: Readonly<Record<string, FillSpec[]>> = {
+export const OWN_FILLS: Readonly<Record<string, FillSpec[]>> = {
   GR: [
     { kind: 'edge', curve: 'GR', side: 'left', fill: 'shale', opacity: 0.32 },
     { kind: 'edge', curve: 'GR', side: 'right', fill: 'sand', opacity: 0.45 },
@@ -325,6 +325,16 @@ export function filterCatalog(groups: readonly CatalogGroup[], query: string): C
     if (tools.length || curves.length) out.push({ ...g, tools, curves });
   }
   return out;
+}
+
+/**
+ * Entrada de convención de un rol (estilo de plantilla y rellenos propios), la misma que usa el catálogo. Para una
+ * curva que se mueve sin entrada propia (la tomó un recolector).
+ */
+export function conventionEntry(role: string): { select: CurveSelector; style?: CurveDisplayOverride; fills?: FillSpec[] } {
+  const style = OWN_STYLE[role];
+  const fills = OWN_FILLS[role];
+  return { select: { role }, ...(style ? { style } : {}), ...(fills ? { fills } : {}) };
 }
 
 /** Lo que se suelta al arrastrar una curva del catálogo (selector, estilo y rellenos propios). */

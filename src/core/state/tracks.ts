@@ -38,7 +38,16 @@ export function canonicalJson(value: unknown): string {
 /** ¿Dos juegos de pistas son iguales (mismo contenido)? */
 export const layoutsEqual = (a: readonly TrackSpec[], b: readonly TrackSpec[]): boolean => a === b || canonicalJson(a) === canonicalJson(b);
 
-const sameFill = (a: FillSpec, b: FillSpec) => canonicalJson(a) === canonicalJson(b);
+/**
+ * Identidad de un relleno: qué curvas y qué lado, no su color ni su opacidad. Dos rellenos de borde izquierdo de GR
+ * (arcilla al 32 % y al 30 %) son el mismo: soltar GR del catálogo en el GR espectral no lo duplica.
+ */
+export function fillKey(f: FillSpec): string {
+  if (f.kind === 'edge') return `edge:${f.curve}:${f.side}`;
+  if (f.kind === 'baseline') return `baseline:${f.curve}:${f.value}`;
+  return `between:${[f.a, f.b].sort().join(':')}`;
+}
+const sameFill = (a: FillSpec, b: FillSpec) => fillKey(a) === fillKey(b);
 
 /** Roles que usa un relleno. */
 export function fillRoles(f: FillSpec): string[] {

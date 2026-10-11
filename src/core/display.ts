@@ -337,6 +337,7 @@ function sanitizeTemplates(raw: unknown, warn: (m: string) => void): TrackTempla
   }
   const out: TrackTemplate[] = [];
   const ids = new Set<string>();
+  const names = new Set<string>();
   raw.forEach((t, i) => {
     if (!isObj(t) || !isStr(t['id']) || typeof t['name'] !== 'string' || !t['name'].trim() || !isStr(t['workspace']) || !Array.isArray(t['tracks'])) {
       warn(`Plantilla de pistas ${i + 1}: le falta el id, el nombre, el espacio de trabajo o las pistas; se descarta.`);
@@ -346,13 +347,22 @@ function sanitizeTemplates(raw: unknown, warn: (m: string) => void): TrackTempla
       warn(`Plantilla de pistas '${t['name']}': el id está repetido; se descarta la segunda.`);
       return;
     }
+    const nameKey = `${t['workspace']}|${t['name'].trim().toLocaleLowerCase('es')}`;
+    if (names.has(nameKey)) {
+      warn(`Plantilla de pistas '${t['name'].trim()}': ya hay otra con ese nombre en el mismo espacio de trabajo; se descarta la segunda.`);
+      return;
+    }
     const tracks = sanitizeTrackList(t['tracks'], `Plantilla '${t['name']}'`, warn);
     if (!tracks.length) {
       warn(`Plantilla de pistas '${t['name']}': no tiene pistas válidas; se descarta.`);
       return;
     }
     ids.add(t['id']);
-    out.push({ id: t['id'], name: t['name'].trim(), workspace: t['workspace'], tracks, ...(typeof t['savedAt'] === 'string' ? { savedAt: t['savedAt'] } : {}) });
+    names.add(nameKey);
+    const savedAt = t['savedAt'];
+    const validDate = typeof savedAt === 'string' && Number.isFinite(Date.parse(savedAt));
+    if (savedAt !== undefined && !validDate) warn(`Plantilla de pistas '${t['name'].trim()}': la fecha de guardado es inválida; se descarta la fecha.`);
+    out.push({ id: t['id'], name: t['name'].trim(), workspace: t['workspace'], tracks, ...(validDate ? { savedAt: savedAt as string } : {}) });
   });
   return out.length ? out : null;
 }
