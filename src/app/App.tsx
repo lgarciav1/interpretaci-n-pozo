@@ -8,7 +8,8 @@
  * cambio de tamaño por su ResizeObserver.
  */
 import { useLayoutEffect, useRef, useSyncExternalStore, type RefObject } from 'react';
-import { IconButton, ResizeHandle, Toaster, useUiScaleFactor } from '../ui';
+import { CommandLayer, IconButton, ResizeHandle, Toaster, useUiScaleFactor } from '../ui';
+import './commands';
 import { LoadWellDialog } from './components/LoadWellDialog';
 import { WellPanel } from './components/WellPanel';
 import { QcReportDialog, SnapshotsDialog } from './shell/Dialogs';
@@ -154,6 +155,7 @@ export function App() {
       <SnapshotsDialog />
       <ExportDialog />
       <QcReportDialog />
+      <CommandLayer />
       <Toaster />
     </div>
   );

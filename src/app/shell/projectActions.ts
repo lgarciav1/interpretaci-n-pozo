@@ -34,3 +34,15 @@ export async function openProjectFile(file: File): Promise<void> {
     toast({ title: 'No se pudo abrir el proyecto', description: err instanceof Error ? err.message : String(err), tone: 'error' });
   }
 }
+
+/** Abre el selector de archivos del sistema para elegir un proyecto guardado (atajo y paleta de comandos). */
+export function pickProjectFile(): void {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json,application/json';
+  input.onchange = () => {
+    const f = input.files?.[0];
+    if (f) void openProjectFile(f);
+  };
+  input.click();
+}

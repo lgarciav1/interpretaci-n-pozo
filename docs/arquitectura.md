@@ -6,7 +6,8 @@ Las decisiones con sus alternativas descartadas están en [`decisiones/`](decisi
 multipista (0005) con sus pistas armables y plantillas propias (0016), deshacer y rehacer (0006), catálogo de módulos de la fase 6a con sus cambios de núcleo (0007),
 tendencias y gradientes (0008), presiones MDT con los conjuntos de puntos del pozo (0009), datos de corona con
 puesta en profundidad y modelo k–φ (0010), exportación de datos (0011) y de figuras (0012), tamaño de interfaz (0013),
-histograma y crossplot libre (0014), parámetros elegidos sobre los gráficos (0015) y calculadora de agua de formación con indicadores automáticos (0017).
+histograma y crossplot libre (0014), parámetros elegidos sobre los gráficos (0015), calculadora de agua de formación con
+indicadores automáticos (0017) y los modelos de Sw lado a lado, las fichas de zona y la paleta de comandos (0018).
 Este documento resume cómo encajan las piezas y cómo agregar un módulo.
 
 ## Ideas centrales
@@ -449,6 +450,19 @@ rotar = m). Misma regla de alcance, vista previa en vivo y deshacer que los cuto
 historial (un Ctrl+Z por arrastre; Escape vuelve a antes del gesto). Si el módulo del parámetro no alimenta la cadena,
 aviso y acción explícita («Usar Rw manual»). Lo puro en `src/plots/params.ts` y `src/plots/crossplot/drag.ts`; las
 manijas 2D son una capa genérica de `XYPlot` (`XYHandle`).
+
+## Modelos de Sw, fichas de zona y paleta de comandos (fase 7c)
+
+Decisión: [`docs/decisiones/0018-sw-lado-a-lado-fichas-y-comandos.md`](decisiones/0018-sw-lado-a-lado-fichas-y-comandos.md).
+
+- **Pista «Modelos de Sw»** (`src/viewer/swModels.ts`): Archie, Simandoux e Indonesia como entradas `{ role: 'SW', module }` con
+  estilo propio y una banda entre la mínima y la máxima (relleno `range`); «Ver modelos de Sw lado a lado» activa la comparación
+  y agrega la pista en un solo `commit`.
+- **Fichas de zona** (`src/modules/zone-cards/`): pestaña «Zonas» del dock con espesores, φ y Sw del pay, volumen in situ, semáforo
+  de pay y minigráficos, leídos del sumario y del volumétrico; clic lleva el visor a la zona.
+- **Paleta de comandos** (`src/ui/commands.ts`, `CommandPalette.tsx`): Ctrl/Cmd+K, búsqueda difusa sin acentos y hoja de atajos
+  («?»). Un archivo `commands.ts` en una carpeta de `src/app/` o de un módulo exporta `commands: CommandSource` y se descubre solo,
+  como `dock.tsx`.
 
 ## Deshacer y rehacer
 

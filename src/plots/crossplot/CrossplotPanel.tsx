@@ -37,6 +37,7 @@ import { cutoffSplit } from '../histogram/histogram';
 import { COLOR_LEVELS, colorLevel, gather, medianAt, plottableIndices, robustRange } from './crossplot';
 import { CROSSPLOT_PROVIDER_ID, crossplotSeries, crossplotSeriesKey, parseCrossplotSeriesKey } from './series';
 import { matrixParamsOf, matrixPointOf, mFromRotate, projectMatrixLine, representativeTemperature, rwAtFormation, rwAtReference, rwFromTranslate, snapMatrixToLithology, waterLineHandles, waterLineRt } from './drag';
+import { crossplotTemplatePatch } from './applyTemplate';
 import { BVW_LINES, CROSSPLOT_TEMPLATE_DEFS, DN_LITHOLOGIES, PICKETT_SW, bvwLine, densityNeutronLine, pickettLine, templateDef, type ArchieParams } from './templates';
 import '../plots.css';
 
@@ -484,29 +485,9 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
   const swap = () =>
     onChange({ x: yKey, y: xKey, xScale: config.yScale, yScale: config.xScale, xReversed: config.yReversed, yReversed: config.xReversed, xRange: config.yRange, yRange: config.xRange, template: null }, 'Intercambiar los ejes del crossplot');
   const applyTemplate = (id: CrossplotTemplateId) => {
-    const def = templateDef(id)!;
-    const x = keyForRole(ctx, def.x.role);
-    const y = keyForRole(ctx, def.y.role);
-    if (!x || !y) {
-      toast({ tone: 'warn', title: `No se puede armar «${def.label}»`, description: `Hace falta ${!x ? def.x.role : def.y.role} en el pozo (medida o calculada).` });
-      return;
-    }
-    const color = def.colorRole ? keyForRole(ctx, def.colorRole) : null;
-    onChange(
-      {
-        x,
-        y,
-        xScale: def.x.scale,
-        yScale: def.y.scale,
-        xReversed: !!def.x.reversed,
-        yReversed: !!def.y.reversed,
-        xRange: def.x.range,
-        yRange: def.y.range,
-        template: id,
-        ...(color ? { color: { kind: 'curve' as const, curve: color } } : {}),
-      },
-      `Usar la plantilla ${def.label}`,
-    );
+    const r = crossplotTemplatePatch(ctx, id);
+    if (!r.ok) toast({ tone: 'warn', title: r.title, description: r.description });
+    else onChange(r.patch, r.label);
   };
   const toggleCutoff = (c: PlotCurve | null) => {
     if (!c) return;

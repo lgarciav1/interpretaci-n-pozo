@@ -18,7 +18,7 @@ export { TRACK_WIDTH_RANGE, TRACK_WIDTH_STEP };
 
 /** Clave estable de un selector ('r:GR', 'c:AT10', 'u:resistivity'). */
 export function selectorKey(sel: CurveSelector): string {
-  if ('role' in sel) return `r:${sel.role}`;
+  if ('role' in sel) return sel.module ? `r:${sel.role}@${sel.module}` : `r:${sel.role}`;
   if ('curveId' in sel) return `c:${sel.curveId}`;
   return `u:${sel.unassigned}`;
 }
@@ -45,6 +45,7 @@ export const layoutsEqual = (a: readonly TrackSpec[], b: readonly TrackSpec[]): 
 export function fillKey(f: FillSpec): string {
   if (f.kind === 'edge') return `edge:${f.curve}:${f.side}`;
   if (f.kind === 'baseline') return `baseline:${f.curve}:${f.value}`;
+  if (f.kind === 'range') return `range:${f.curve}`;
   return `between:${[f.a, f.b].sort().join(':')}`;
 }
 const sameFill = (a: FillSpec, b: FillSpec) => fillKey(a) === fillKey(b);
@@ -277,11 +278,14 @@ export function expandGroupEntry(tracks: readonly TrackSpec[], trackId: string, 
 }
 
 /** Índice de la entrada que puso una curva resuelta en su pista (-1 si la tomó un recolector). */
-export function entryIndexFor(t: TrackSpec, curve: { role: string | null; curveId?: string; origin: 'measured' | 'computed' }): number {
+export function entryIndexFor(t: TrackSpec, curve: { role: string | null; curveId?: string; origin: 'measured' | 'computed'; moduleId?: string }): number {
   const list = t.curves ?? [];
   const byId = curve.curveId === undefined ? -1 : list.findIndex((e) => 'curveId' in e.select && e.select.curveId === curve.curveId);
   if (byId >= 0) return byId;
-  const byRole = curve.role === null ? -1 : list.findIndex((e) => 'role' in e.select && e.select.role === curve.role);
+  // Primero la entrada que nombra al módulo de la curva (modelos de Sw lado a lado), después la del rol a secas.
+  const byModule = curve.role === null || !curve.moduleId ? -1 : list.findIndex((e) => 'role' in e.select && e.select.role === curve.role && e.select.module === curve.moduleId);
+  if (byModule >= 0) return byModule;
+  const byRole = curve.role === null ? -1 : list.findIndex((e) => 'role' in e.select && e.select.role === curve.role && !e.select.module);
   if (byRole >= 0) return byRole;
   return curve.origin === 'measured' && curve.role === null ? list.findIndex((e) => 'unassigned' in e.select) : -1;
 }

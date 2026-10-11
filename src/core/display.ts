@@ -30,8 +30,11 @@ export interface CurveDisplayOverride {
 
 /** Qué curvas toma una entrada de pista. */
 export type CurveSelector =
-  /** Curvas medidas con ese rol + la salida activa del módulo que produce ese puerto. */
-  | { role: RoleId }
+  /**
+   * Curvas medidas con ese rol + la salida activa del módulo que produce ese puerto. Con `module`, solo la salida de
+   * ese módulo (activa o en comparación, sin la marca de «alternativa»): Archie, Simandoux e Indonesia lado a lado.
+   */
+  | { role: RoleId; module?: string }
   /** Una curva puntual del pozo. */
   | { curveId: string }
   /** Curvas medidas sin rol de esa magnitud (p. ej. AT10/AT30 en ohm·m). */
@@ -59,7 +62,12 @@ export type FillSpec =
    */
   | { kind: 'between'; a: RoleId; b: RoleId; aLeft?: FillRef; bLeft?: FillRef; compare?: 'screen' | 'value'; opacity?: number }
   /** Entre la curva y un valor fijo (línea base): `left` donde la curva queda a la izquierda del valor. */
-  | { kind: 'baseline'; curve: RoleId; value: number; left?: FillRef; right?: FillRef; opacity?: number };
+  | { kind: 'baseline'; curve: RoleId; value: number; left?: FillRef; right?: FillRef; opacity?: number }
+  /**
+   * Banda entre la mínima y la máxima, muestra a muestra, de todas las curvas de la pista con ese rol (modelos de Sw
+   * lado a lado: se ve dónde difieren). Con menos de dos curvas con dato en una muestra no hay banda.
+   */
+  | { kind: 'range'; curve: RoleId; fill: FillRef; opacity?: number };
 
 /**
  * 'overlay': pista propia de una superposición (presiones MDT…), sin curvas; la dibuja `overlayId`.
@@ -187,7 +195,7 @@ export function isEmptyOverride(o: CurveDisplayOverride | null | undefined): boo
 // con errores no debe tirar abajo el visor).
 
 const TRACK_KINDS = new Set<TrackKind>(['depth', 'curves', 'flags', 'overlay', 'stack']);
-const FILL_KINDS = new Set(['edge', 'between', 'baseline']);
+const FILL_KINDS = new Set(['edge', 'between', 'baseline', 'range']);
 const LINES = new Set<LineStyleId>(['solid', 'dashed', 'dotted', 'dashdot']);
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const isStr = (v: unknown): v is string => typeof v === 'string' && v.length > 0;
@@ -211,7 +219,7 @@ export function sanitizeOverride(raw: unknown): CurveDisplayOverride | null {
 
 function sanitizeSelector(raw: unknown): CurveSelector | null {
   if (!isObj(raw)) return null;
-  if (isStr(raw['role'])) return { role: raw['role'] };
+  if (isStr(raw['role'])) return { role: raw['role'], ...(isStr(raw['module']) ? { module: raw['module'] } : {}) };
   if (isStr(raw['curveId'])) return { curveId: raw['curveId'] };
   if (isStr(raw['unassigned'])) return { unassigned: raw['unassigned'] as DimensionId };
   return null;
@@ -224,6 +232,10 @@ function sanitizeFill(raw: unknown): FillSpec | null {
   if (raw['kind'] === 'edge') {
     if (!isStr(raw['curve']) || (raw['side'] !== 'left' && raw['side'] !== 'right') || !isStr(raw['fill'])) return null;
     return { kind: 'edge', curve: raw['curve'], side: raw['side'], fill: raw['fill'], ...opacity };
+  }
+  if (raw['kind'] === 'range') {
+    if (!isStr(raw['curve']) || !isStr(raw['fill'])) return null;
+    return { kind: 'range', curve: raw['curve'], fill: raw['fill'], ...opacity };
   }
   if (raw['kind'] === 'between') {
     if (!isStr(raw['a']) || !isStr(raw['b'])) return null;
