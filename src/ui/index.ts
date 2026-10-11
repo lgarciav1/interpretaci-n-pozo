@@ -44,3 +44,23 @@ export { ThemeToggle } from './components/ThemeToggle';
 export { UiScaleToggle } from './components/UiScaleToggle';
 export { useFlash } from './components/useFlash';
 export { CurveLegend, CurveSwatch } from './components/CurveLegend';
+export { CommandLayer, IS_MAC_PLATFORM, useCommandSource } from './components/CommandPalette';
+export {
+  closeCommandPalette,
+  commandForKey,
+  commandScore,
+  fold,
+  formatShortcut,
+  highlightRanges,
+  isTypingTarget,
+  listCommands,
+  openCommandPalette,
+  openShortcutSheet,
+  registerCommandSource,
+  searchCommands,
+  shortcutMatches,
+  sourceOf,
+  type Command,
+  type CommandSource,
+  type Shortcut,
+} from './commands';

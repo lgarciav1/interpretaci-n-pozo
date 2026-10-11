@@ -35,27 +35,35 @@ export interface FlowView {
   suggested: StepState | null;
 }
 
+/** Estado de todos los pasos del espacio de trabajo y el que está abierto (puro respecto de sus argumentos). */
+export function computeFlow(workspace: WorkspaceId, activeStepId: string | null, entry: ReturnType<typeof selectActiveEntry>, result: ClientResult | null): FlowView {
+  const modules = workspaceModules(workspace).map(toFlowModule);
+  const states = evaluateFlow(FLOWS[workspace], {
+    hasWell: !!entry,
+    zoneCount: entry?.interpretation.zones.length ?? 0,
+    modules,
+    producedPorts: producedPorts(result),
+    okModules: new Set(result?.nodes.filter((n) => n.status === 'ok').map((n) => n.moduleId) ?? []),
+    marks: entry?.progress.marks ?? {},
+  });
+  const suggested = suggestedStep(states);
+  // Elegido → sugerido → primero sin completar (p. ej. un paso sin módulos) → el primero.
+  const active = states.find((s) => s.def.id === activeStepId) ?? suggested ?? states.find((s) => s.status !== 'done') ?? states[0]!;
+  return { states, active, suggested };
+}
+
+/** El flujo con los stores de ahora (para acciones fuera de React: la paleta de comandos). */
+export function currentFlow(): FlowView {
+  const ui = useUi.getState();
+  return computeFlow(ui.workspace, ui.activeStepId, selectActiveEntry(useProject.getState()), useResults.getState().result);
+}
+
 export function useFlow(): FlowView {
   const workspace = useUi((s) => s.workspace);
   const activeStepId = useUi((s) => s.activeStepId);
   const entry = useProject(selectActiveEntry);
   const result = useResults((s) => s.result);
-
-  return useMemo(() => {
-    const modules = workspaceModules(workspace).map(toFlowModule);
-    const states = evaluateFlow(FLOWS[workspace], {
-      hasWell: !!entry,
-      zoneCount: entry?.interpretation.zones.length ?? 0,
-      modules,
-      producedPorts: producedPorts(result),
-      okModules: new Set(result?.nodes.filter((n) => n.status === 'ok').map((n) => n.moduleId) ?? []),
-      marks: entry?.progress.marks ?? {},
-    });
-    const suggested = suggestedStep(states);
-    // Elegido → sugerido → primero sin completar (p. ej. un paso sin módulos) → el primero.
-    const active = states.find((s) => s.def.id === activeStepId) ?? suggested ?? states.find((s) => s.status !== 'done') ?? states[0]!;
-    return { states, active, suggested };
-  }, [workspace, activeStepId, entry, result]);
+  return useMemo(() => computeFlow(workspace, activeStepId, entry, result), [workspace, activeStepId, entry, result]);
 }
 
 /** Marca (o desmarca) un paso del pozo activo. */

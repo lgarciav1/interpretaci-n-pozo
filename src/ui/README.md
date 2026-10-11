@@ -132,6 +132,7 @@ Escala por `devicePixelRatio`, redibuja al cambiar el tamaño (ResizeObserver), 
 | `FileDrop` | Zona para soltar o elegir un archivo (arrastre, clic, Enter/Espacio); `accept`, `disabled`, `inputTestId`. |
 | `ThemeToggle` | Sistema / claro / oscuro. |
 | `UiScaleToggle` | Tamaño de interfaz: compacto / normal / grande. |
+| `CommandLayer` | Paleta de comandos (Ctrl/Cmd+K) y hoja de atajos («?»); se monta una vez en la raíz. Las acciones se registran con `registerCommandSource` o con un `commands.ts` descubierto (ver `commands.ts` y 0018). |
 | `CurveLegend`, `CurveSwatch` | Encabezado de curva (nombre en su color, rango, log, unidad, muestra del trazo); `tag` agrega una etiqueta («alternativa»). |
 | `Icon`, `BrandMark` | Íconos SVG propios (`ICON_NAMES`); para agregar uno, una entrada en `ICONS`. |
 
