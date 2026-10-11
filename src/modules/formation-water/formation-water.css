@@ -1,0 +1,44 @@
+/* Pestaña «Agua de formación» del dock (prefijo fw-). Solo tokens del sistema de diseño. */
+.shell-dock__panel:has(> .fw) { height: 100%; }
+.fw {
+  display: grid;
+  grid-template-columns: minmax(calc(320px * var(--ui-scale)), calc(440px * var(--ui-scale))) minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+}
+.fw-calc, .fw-well { min-width: 0; min-height: 0; overflow: auto; padding: var(--space-2) var(--space-4) var(--space-3); }
+.fw-calc { border-right: 1px solid var(--color-border-subtle); }
+.fw-grid { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--space-2) var(--space-3); align-items: center; }
+.fw-grid__label { color: var(--color-text); font-weight: var(--weight-medium); white-space: nowrap; }
+.fw-grid__note { grid-column: 2; margin-top: calc(var(--space-1) * -1); }
+
+.fw-temp { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-width: 0; }
+.fw-temp__value { color: var(--color-text); font-size: var(--text-sm); }
+.fw-muted { color: var(--color-text-muted); font-size: var(--text-xs); }
+
+.fw-result {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-1-5) var(--space-3);
+  border: 1px solid var(--color-accent-border);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-soft);
+}
+.fw-result__value { font-size: var(--text-lg); font-weight: var(--weight-semibold); color: var(--color-accent-text); }
+.fw-result__unit { color: var(--color-text-muted); font-size: var(--text-xs); }
+
+.fw-calc .ui-callout { margin-top: var(--space-3); }
+.fw-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin-top: var(--space-3); }
+.fw-actions__now { white-space: nowrap; }
+.fw-note { margin: var(--space-2) 0 0; color: var(--color-text-muted); font-size: var(--text-xs); }
+
+.fw-well__body { display: grid; grid-template-columns: repeat(auto-fit, minmax(calc(280px * var(--ui-scale)), 1fr)); gap: var(--space-4); align-items: start; }
+.fw-well__table { min-width: 0; }
+.fw-hot { color: var(--color-warn-text); font-weight: var(--weight-semibold); }
+
+@media (max-width: 900px) {
+  .fw { grid-template-columns: minmax(0, 1fr); overflow: auto; }
+  .fw-calc { border-right: 0; border-bottom: 1px solid var(--color-border-subtle); overflow: visible; }
+  .fw-well { overflow: visible; }
+}
