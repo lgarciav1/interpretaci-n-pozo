@@ -12,6 +12,7 @@
 import { defaultRoleCatalog, type RoleCatalog, type RoleId } from '../core/roles';
 import { conversionCoefficients, getUnit, sameDimension, unitLabel, type UnitId } from '../core/units';
 import type { Curve, Well } from '../core/well';
+import { isWashout, MIN_VALID_CALIPER_IN, WASHOUT_TOLERANCE_IN } from '../petro/indicators';
 
 export type QcStatus = 'ok' | 'warning' | 'bad';
 export type QcSeverity = 'info' | 'warning' | 'bad';
@@ -116,8 +117,8 @@ export interface QcOptions {
  */
 export const QC_DEFAULTS = {
   bitSize: 8.5,
-  washoutTolerance: 1,
-  minValidCaliper: 5,
+  washoutTolerance: WASHOUT_TOLERANCE_IN,
+  minValidCaliper: MIN_VALID_CALIPER_IN,
   constantRunMin: 25,
   spikeHalfWindow: 3,
   spikeLocalK: 8,
@@ -565,7 +566,7 @@ function boreholeQc(well: Well, byId: Map<string, CurveQc>, o: ResolvedOptions):
     if (c < o.minValidCaliper) {
       invalid[i] = 1;
       invalidSamples++;
-    } else if (c - bitAt(i) > o.washoutTolerance) {
+    } else if (isWashout(c, bitAt(i), o.washoutTolerance)) {
       washout[i] = 1;
       washoutSamples++;
     }

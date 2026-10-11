@@ -198,7 +198,10 @@ const TOOLS: Readonly<Record<string, ReturnType<typeof tool>[]>> = {
     tool('tool:saturation', 'Porosidad · Sw', 'PHIE, SW y BVW con hidrocarburo', factory('petrophysics', 'saturation'), ['PHIE', 'SW', 'BVW']),
     tool('tool:permeability', 'Permeabilidad', 'Escala logarítmica 0,01–10 000 mD', factory('petrophysics', 'permeability'), ['PERM']),
   ],
-  flags: [tool('tool:flags', 'Banderas', 'Reservorio y pay netos como franjas', factory('petrophysics', 'flags'), [])],
+  flags: [
+    tool('tool:flags', 'Banderas', 'Reservorio y pay netos como franjas', factory('petrophysics', 'flags'), []),
+    tool('tool:indicators', 'Indicadores', 'Gas, arcilla, carbón y derrumbe como franjas', factory('petrophysics', 'indicators'), ['IND_GAS', 'IND_SHALE', 'IND_COAL', 'IND_WASHOUT']),
+  ],
 };
 
 const SPECIALS: readonly { id: string; name: string; description: string; track: TrackDraft }[] = [

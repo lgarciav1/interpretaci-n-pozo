@@ -272,7 +272,7 @@ describe('resolución y superposiciones en modo edición', () => {
     const normal = resolveTracks(PETRO, src);
     expect(normal.map((t) => t.id)).not.toContain('saturation');
     const edit = resolveTracks(PETRO, src, {}, { keepEmpty: true });
-    expect(edit.filter((t) => t.latent).map((t) => t.id)).toEqual(['saturation', 'permeability', 'flags']);
+    expect(edit.filter((t) => t.latent).map((t) => t.id)).toEqual(['saturation', 'permeability', 'flags', 'indicators']);
     const hidden = resolveTracks(PETRO.map((t) => (t.id === 'sonic' ? { ...t, hidden: true } : t)), src);
     expect(hidden.map((t) => t.id)).not.toContain('sonic');
   });

@@ -75,6 +75,11 @@ export const CURVE_PALETTE: Readonly<Record<RoleId, CurvePaletteEntry>> = {
   NET_RES: { light: '#e9b949', dark: '#d8a83a', line: 'solid', kind: 'band' },
   NET_PAY: { light: '#d9534f', dark: '#e0605b', line: 'solid', kind: 'band' },
   LITHO: { light: '#8b939d', dark: '#6b737e', line: 'solid', kind: 'band' },
+  // Indicadores automáticos (fase 7c): franjas de la pista «Indicadores»
+  IND_GAS: { light: '#e8a317', dark: '#f0b429', line: 'solid', kind: 'band' },
+  IND_SHALE: { light: '#8a6d4b', dark: '#a8895f', line: 'solid', kind: 'band' },
+  IND_COAL: { light: '#2b2b2b', dark: '#9aa0a8', line: 'solid', kind: 'band' },
+  IND_WASHOUT: { light: '#5f87a8', dark: '#7da5c6', line: 'solid', kind: 'band' },
 };
 
 /**
