@@ -54,9 +54,9 @@ export const useWaterCalc = create<CalcState>((set) => ({
 }));
 
 const WARNING_TEXT: Readonly<Record<WaterWarning, string>> = {
-  'salinity-low': `Salinidad por debajo de ${formatNumber(SALINITY_RANGE_PPM.min, { digits: 0 })} ppm: la correlación pierde exactitud (≈ 9 % a 100 ppm).`,
-  'salinity-high': `Salinidad por encima de ${formatNumber(SALINITY_RANGE_PPM.max, { digits: 0 })} ppm: fuera del rango de la correlación (más que el NaCl saturado).`,
-  'salinity-accuracy': `Entre ${formatNumber(SALINITY_RANGE_PPM.accurateMax, { digits: 0 })} y ${formatNumber(SALINITY_RANGE_PPM.max, { digits: 0 })} ppm la correlación se aparta de la carta (hasta ≈ 12 %).`,
+  'salinity-low': `Salinidad por debajo de ${formatNumber(SALINITY_RANGE_PPM.min, { digits: 0 })} ppm: la correlación pierde exactitud (≈ 8 % a 100 ppm).`,
+  'salinity-high': `Salinidad por encima de ${formatNumber(SALINITY_RANGE_PPM.max, { digits: 0 })} ppm: fuera del rango de la correlación (cerca de la saturación del NaCl, ≈ 264.000 ppm).`,
+  'salinity-accuracy': `Entre ${formatNumber(SALINITY_RANGE_PPM.accurateMax, { digits: 0 })} y ${formatNumber(SALINITY_RANGE_PPM.max, { digits: 0 })} ppm la correlación es menos exacta (error no verificado contra la carta).`,
   'temperature-high': `Temperatura por encima de ${TEMPERATURE_EXTRAPOLATION_C} °C: la Rw está extrapolada más allá de la carta Gen-9.`,
   'temperature-low': 'Temperatura bajo 0 °C: fuera del rango de la carta.',
 };
@@ -227,7 +227,7 @@ function FormationWaterDock() {
           {!complete && (
             <Callout tone="warn" title="Sin solución">
               {st.solve === 'salinity'
-                ? 'Con esa Rw y esa temperatura la salinidad sería mayor que la del NaCl saturado: revisá los valores.'
+                ? 'Con esa Rw y esa temperatura la salinidad queda fuera del rango de la correlación: revisá los valores.'
                 : st.solve === 'temperature'
                   ? 'No hay una temperatura con esa salinidad y esa Rw: revisá los valores.'
                   : 'Falta la temperatura: elegí una profundidad dentro del pozo o escribila a mano.'}

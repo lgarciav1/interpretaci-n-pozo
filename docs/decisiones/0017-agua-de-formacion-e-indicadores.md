@@ -20,8 +20,8 @@ Bateman–Konen es un ajuste de la carta Gen-9 de Schlumberger (que a su vez se 
 que la calculadora es consistente con la corrección de `rw-manual` y `temp-gradient`.
 
 - **Rango**: 1 000–250 000 ppm. Contra conductividades medidas de NaCl a 25 °C (CRC; Robinson y Stokes) el error es
-  ≲ 5 % entre 1 000 y 150 000 ppm (−3,8 % a 585 ppm, −2,3 % a 5 800, −1,1 % a 56 000), ≈ 9 % a 100 ppm y ≈ 12 % a
-  200 000 ppm. Temperatura: la carta llega a ≈ 200 °C; por encima es extrapolación (el mismo aviso que el Pickett de 7b).
+  ≲ 5 % entre 1 000 y 150 000 ppm (−3,8 % a 585 ppm, −2,3 % a 5 800, −1,1 % a 56 000), ≈ 8 % a 100 ppm (conductividad
+  límite de Onsager); por encima de 150 000 ppm el error no está verificado contra datos (revisión de 7c). Temperatura: la carta llega a ≈ 200 °C; por encima es extrapolación (el mismo aviso que el Pickett de 7b).
 - **Avisos** (`waterWarnings`, bordes inclusivos): salinidad < 1 000 o > 250 000 ppm; entre 150 000 y 250 000 ppm
   («la correlación se aparta de la carta»); temperatura > 200 °C o < 0 °C.
 - **NaCl equivalente**: la salinidad que sale de una Rw medida es la de NaCl equivalente. Una salmuera con calcio,
