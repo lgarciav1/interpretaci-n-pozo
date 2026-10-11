@@ -290,7 +290,9 @@ export function resolveTracks(fullLayout: readonly TrackSpec[], src: ViewerSourc
       layers,
     );
   };
-  const computedCurve = (c: ComputedCurve, track: TrackSpec, tpl?: CurveDisplayOverride) => {
+  const computedCurve = (c: ComputedCurve, track: TrackSpec, tpl?: CurveDisplayOverride, explicitModule = false) => {
+    // Un módulo nombrado en la pista (modelos de Sw lado a lado) se muestra como una curva más, no como alternativa.
+    const alternative = !c.active && !explicitModule;
     const layers = merge(tpl, overrides.roles?.[c.port]);
     const def = catalog.get(c.port);
     const key = `c:${c.moduleId}:${c.port}`;
@@ -298,9 +300,13 @@ export function resolveTracks(fullLayout: readonly TrackSpec[], src: ViewerSourc
       hide(track, { key, name: c.port, role: c.port, origin: 'computed' });
       return null;
     }
-    const title = c.active ? `${def?.label ?? c.label} (calculada)` : `${def?.label ?? c.label} · alternativa (${c.label}): calculada para comparar, no alimenta la cadena`;
+    const title = explicitModule
+      ? `${def?.label ?? c.label} · ${c.label}${c.active ? ' (alimenta la cadena)' : ' (para comparar)'}`
+      : c.active
+        ? `${def?.label ?? c.label} (calculada)`
+        : `${def?.label ?? c.label} · alternativa (${c.label}): calculada para comparar, no alimenta la cadena`;
     return makeCurve(
-      { key, name: c.port, role: c.port, unit: def?.unit ?? 'unitless', origin: 'computed', alternative: !c.active, data: c.data, moduleId: c.moduleId, title },
+      { key, name: c.port, role: c.port, unit: def?.unit ?? 'unitless', origin: 'computed', alternative, data: c.data, moduleId: c.moduleId, title },
       catalog,
       track,
       layers,
@@ -328,8 +334,8 @@ export function resolveTracks(fullLayout: readonly TrackSpec[], src: ViewerSourc
     for (const entry of t.curves ?? []) {
       const sel = entry.select;
       if ('role' in sel) {
-        for (const c of measured) if (c.role === sel.role) add(measuredCurve(c, t, entry.style));
-        for (const c of computed) if (c.port === sel.role) add(computedCurve(c, t, entry.style));
+        if (sel.module === undefined) for (const c of measured) if (c.role === sel.role) add(measuredCurve(c, t, entry.style));
+        for (const c of computed) if (c.port === sel.role && (sel.module === undefined || c.moduleId === sel.module)) add(computedCurve(c, t, entry.style, sel.module !== undefined));
       } else if ('curveId' in sel) {
         const c = measured.find((m) => m.id === sel.curveId);
         if (c) add(measuredCurve(c, t, entry.style));
@@ -416,6 +422,9 @@ export function resolveTracks(fullLayout: readonly TrackSpec[], src: ViewerSourc
         const a = byRole(f.curve);
         // Borde izquierdo: el relleno está a la derecha del borde → la curva queda a la derecha (bLeft).
         if (a && isFillId(f.fill)) fills.push({ kind: 'edge', a, side: f.side, ...(f.side === 'left' ? { bLeft: f.fill } : { aLeft: f.fill }), compare: 'screen', opacity });
+      } else if (f.kind === 'range') {
+        const env = rangeCurves(t.id, curves.filter((c) => c.role === f.curve && c.kind === 'line'));
+        if (env && isFillId(f.fill)) fills.push({ kind: 'between', a: env.min, b: env.max, aLeft: f.fill, bLeft: f.fill, compare: 'screen', opacity });
       } else {
         const a = byRole(f.curve);
         if (a) fills.push({ kind: 'baseline', a, baseline: f.value, ...(isFillId(f.left) ? { aLeft: f.left } : {}), ...(isFillId(f.right) ? { bLeft: f.right } : {}), compare: 'screen', opacity });
@@ -439,6 +448,56 @@ export function resolveTracks(fullLayout: readonly TrackSpec[], src: ViewerSourc
     });
   }
   return out;
+}
+
+// ── banda entre la mínima y la máxima de varias curvas (relleno `range`) ───────────────────────────────────────
+
+/**
+ * Mínima y máxima, muestra a muestra, de varias series (NaN-consciente). Con menos de dos valores con dato en una
+ * muestra no hay banda (NaN en las dos): con una sola curva no hay nada que comparar. Puro.
+ */
+export function curveEnvelope(series: readonly ArrayLike<number>[]): { min: Float64Array; max: Float64Array } {
+  const n = series.reduce((m, s) => Math.max(m, s.length), 0);
+  const min = new Float64Array(n).fill(NaN);
+  const max = new Float64Array(n).fill(NaN);
+  for (let i = 0; i < n; i++) {
+    let lo = Infinity;
+    let hi = -Infinity;
+    let count = 0;
+    for (const s of series) {
+      const v = s[i];
+      if (v === undefined || !Number.isFinite(v)) continue;
+      count++;
+      if (v < lo) lo = v;
+      if (v > hi) hi = v;
+    }
+    if (count >= 2) {
+      min[i] = lo;
+      max[i] = hi;
+    }
+  }
+  return { min, max };
+}
+
+const envelopeCache = new WeakMap<Float64Array, { inputs: Float64Array[]; min: Float64Array; max: Float64Array }>();
+
+/**
+ * Las dos curvas sintéticas (mínima y máxima) que dibujan la banda entre `curves`, con la escala de la primera.
+ * null si hay menos de dos curvas. Los arrays se reusan mientras las entradas sean los mismos (identidad), así el
+ * dibujo no los recalcula en cada resolución.
+ */
+function rangeCurves(trackId: string, curves: readonly ResolvedCurve[]): { min: ResolvedCurve; max: ResolvedCurve } | null {
+  if (curves.length < 2) return null;
+  const inputs = curves.map((c) => c.data);
+  const first = inputs[0]!;
+  let hit = envelopeCache.get(first);
+  if (!hit || hit.inputs.length !== inputs.length || hit.inputs.some((a, i) => a !== inputs[i])) {
+    hit = { inputs, ...curveEnvelope(inputs) };
+    envelopeCache.set(first, hit);
+  }
+  const base = curves[curves.length - 1]!;
+  const make = (edge: 'min' | 'max'): ResolvedCurve => ({ ...base, key: `range:${edge}:${trackId}:${base.role}`, name: `${base.name} ${edge}`, data: hit![edge] });
+  return { min: make('min'), max: make('max') };
 }
 
 /** Caché de una pila por spec y por identidad de sus entradas (resolver no recalcula si no cambió nada). */

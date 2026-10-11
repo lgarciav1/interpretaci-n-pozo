@@ -8,7 +8,7 @@ import type { TrackSpec } from '../../core/display';
 import type { Well } from '../../core/well';
 import type { WorkspaceId } from '../../core/workspaces';
 import { registry } from '../../modules';
-import { Button, curveStyle, FILL_PALETTE, formatNumber, Icon, IconButton, Menu, TextField, useResolvedTheme, type MenuEntry, type ThemeName } from '../../ui';
+import { Button, curveStyle, dashPattern, FILL_PALETTE, formatNumber, Icon, IconButton, Menu, TextField, useResolvedTheme, type MenuEntry, type ThemeName } from '../../ui';
 import { buildTrackCatalog, filterCatalog, type CatalogCurve, type CatalogGroup, type CatalogOverlayTrack, type CatalogTrack } from '../../viewer/catalog';
 import { guard, type ViewerOverlay } from '../../viewer/overlay';
 import type { ComputedCurve } from '../../viewer/resolve';
@@ -19,6 +19,7 @@ import { OVERLAYS } from '../shell/viewerOverlayList';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useResults } from '../store/results';
 import { useUi } from '../store/ui';
+import { selectorKey } from '../../core/state/tracks';
 import { deleteTemplate, materializedLayout, resetToFactory, type LayoutEditor } from './actions';
 import { beginDrag, useLayoutDrag } from './dnd';
 import { useTrackUi } from './store';
@@ -93,15 +94,20 @@ function ToolPreview({ track, theme }: { track: TrackSpec | CatalogTrack['track'
     );
   }
   if (track.kind === 'overlay') return <span className="tb-preview tb-preview--overlay" aria-hidden="true"><Icon name="scatter" size={14} /></span>;
-  const roles = (track.curves ?? []).map((c) => ('role' in c.select ? c.select.role : null)).filter((r): r is string => !!r).slice(-4).reverse();
-  if (!roles.length) return <span className="tb-preview tb-preview--collect" aria-hidden="true"><Icon name={track.kind === 'flags' ? 'filter' : 'sigma'} size={14} /></span>;
+  // Cada entrada con su estilo de plantilla (los modelos de Sw comparten el rol pero no el color ni el trazo).
+  const strokes = (track.curves ?? [])
+    .flatMap((c) => ('role' in c.select ? [{ role: c.select.role, color: c.style?.color, line: c.style?.line }] : []))
+    .slice(-4)
+    .reverse();
+  if (!strokes.length) return <span className="tb-preview tb-preview--collect" aria-hidden="true"><Icon name={track.kind === 'flags' ? 'filter' : 'sigma'} size={14} /></span>;
   return (
     <span className="tb-preview" aria-hidden="true">
-      {roles.map((r) => {
-        const s = curveStyle(r, theme, registry.roles);
+      {strokes.map((st, k) => {
+        const s = curveStyle(st.role, theme, registry.roles);
+        const dash = st.line ? dashPattern(st.line, Math.max(1.4, s.width)) : s.dash;
         return (
-          <svg key={r} viewBox="0 0 24 4">
-            <line x1="1" y1="2" x2="23" y2="2" stroke={s.color} strokeWidth={Math.max(1.4, s.width)} strokeDasharray={s.dash.length ? s.dash.join(' ') : undefined} />
+          <svg key={`${st.role}:${k}`} viewBox="0 0 24 4">
+            <line x1="1" y1="2" x2="23" y2="2" stroke={st.color ?? s.color} strokeWidth={Math.max(1.4, s.width)} strokeDasharray={dash.length ? dash.join(' ') : undefined} />
           </svg>
         );
       })}
@@ -157,7 +163,7 @@ export function TrackBuilder({ workspace, well, computed, overlays, editor }: Tr
     for (const t of tracks) {
       if (t.hidden) continue;
       for (const e of t.curves ?? []) {
-        const k = 'role' in e.select ? `r:${e.select.role}` : 'curveId' in e.select ? `c:${e.select.curveId}` : `u:${e.select.unassigned}`;
+        const k = selectorKey(e.select);
         curves.set(k, [...(curves.get(k) ?? []), t.title]);
       }
     }

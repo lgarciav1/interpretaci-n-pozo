@@ -15,6 +15,7 @@ import { selectActiveEntry, useProject } from '../store/project';
 import { useWellQc } from '../store/qc';
 import { useResults } from '../store/results';
 import { useUi } from '../store/ui';
+import { showSwModels } from '../tracks/swModels';
 
 /** Valor de `activeStepId` cuando se eligió un módulo que no pertenece a ningún paso. */
 export const FREE_MODULE_VIEW = '@module';
@@ -287,8 +288,17 @@ function ModulesView({ state }: { state: StepState }) {
     );
   }
   const active = modules.find((m) => m.id === activeModuleId) ?? modules[0]!;
+  // Paso Saturación: los modelos de Sw lado a lado en una pista (docs/decisiones/0018).
+  const swModels = state.def.id === 'saturation' && modules.filter((m) => Object.values(m.outputs).some((o) => portOf(o) === 'SW')).length > 1;
   return (
     <>
+      {swModels && (
+        <div className="inspector-row">
+          <Button size="sm" icon="compare" onClick={() => showSwModels()}>
+            Ver modelos de Sw lado a lado
+          </Button>
+        </div>
+      )}
       {modules.length > 1 && (
       <div className="method-list" role="radiogroup" aria-label={`Módulos de ${state.def.label}`}>
         {modules.map((m) => {

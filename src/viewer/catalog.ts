@@ -12,6 +12,7 @@ import type { CurveDisplayOverride, CurveSelector, FillSpec, TrackSpec } from '.
 import type { RoleCatalog, RoleDef } from '../core/roles';
 import { getUnit } from '../core/units';
 import type { Curve } from '../core/well';
+import { SW_MODELS_TRACK } from './swModels';
 import { BUILTIN_LAYOUTS, VOLUMETRIC_STACK } from './templates';
 
 /** Pista sin id (la receta le pone uno único al crearla). */
@@ -196,6 +197,7 @@ const TOOLS: Readonly<Record<string, ReturnType<typeof tool>[]>> = {
   computed: [
     tool('tool:computed', 'Interpretación', 'Junta las calculadas que ninguna otra pista muestra', factory('petrophysics', 'computed'), []),
     tool('tool:saturation', 'Porosidad · Sw', 'PHIE, SW y BVW con hidrocarburo', factory('petrophysics', 'saturation'), ['PHIE', 'SW', 'BVW']),
+    tool('tool:sw-models', 'Modelos de Sw', 'Archie, Simandoux e Indonesia lado a lado, con la banda donde difieren', SW_MODELS_TRACK, ['SW']),
     tool('tool:permeability', 'Permeabilidad', 'Escala logarítmica 0,01–10 000 mD', factory('petrophysics', 'permeability'), ['PERM']),
   ],
   flags: [tool('tool:flags', 'Banderas', 'Reservorio y pay netos como franjas', factory('petrophysics', 'flags'), [])],

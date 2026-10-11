@@ -87,6 +87,7 @@ export const CURVE_SWATCHES: readonly string[] = (['RT', 'RM', 'NPHI', 'GR', 'TH
 export type FillId =
   | 'gasCrossover'
   | 'shaleCrossover'
+  | 'modelSpread'
   | 'shale'
   | 'sand'
   | 'limestone'
@@ -130,6 +131,8 @@ export const FILL_PALETTE: Readonly<Record<FillId, FillEntry>> = {
   washout: { label: 'Derrumbe', light: '#9aa1ab', dark: '#5b626b', alpha: 0.35 },
   netReservoir: { label: 'Reservorio neto', light: '#f0c43c', dark: '#c79f2c', alpha: 0.8 },
   netPay: { label: 'Pay neto', light: '#e0453f', dark: '#d0423c', alpha: 0.8 },
+  /** Banda entre la mínima y la máxima de varios modelos de la misma magnitud (modelos de Sw lado a lado). */
+  modelSpread: { label: 'Dispersión entre modelos', light: '#8e7cc3', dark: '#9d8ed0', alpha: 0.32 },
   /** Porosidad sin partir (falta Sw): ni agua ni hidrocarburo. */
   pore: { label: 'Porosidad', light: '#bcdcec', dark: '#4f7f94', alpha: 0.75 },
   /** Resto de una columna que no se pudo partir (faltan entradas): neutro, para no inventar una matriz. */
