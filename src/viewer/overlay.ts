@@ -131,6 +131,11 @@ export interface OverlayPointer {
   depth: number;
   /** Pista bajo el puntero (null si ninguna). */
   track: OverlayTrack | null;
+  /**
+   * Mayús apretada en el último evento del puntero (fase 8b, 0021): una superposición puede ofrecer un gesto con
+   * modificador (Mayús + arrastre marca un tramo para los gráficos). Ausente en tests y en el teclado.
+   */
+  shiftKey?: boolean;
 }
 
 export type OverlayCursor = 'pointer' | 'default' | 'grab' | 'grabbing' | 'move' | 'ns-resize' | 'ew-resize' | 'crosshair';

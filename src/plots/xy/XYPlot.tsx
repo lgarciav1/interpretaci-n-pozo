@@ -21,11 +21,12 @@ import { withAlpha } from '../../ui/color';
 import { formatNumber } from '../../ui/format';
 import { getUiScaleFactor, scaledCss } from '../../ui/uiScale';
 import { axisFraction, dataRectFromPx, distanceToPolylinePx, fractionValue, movePointPx, niceStep, plotRectFor, validAxis, xyMapping, type DataRect, type PlotRect, type XYAxis, type XYMapping } from './axes';
-import { drawXYScene } from './draw';
+import { drawDensePoints, drawXYScene } from './draw';
 import type { XYColorKey } from './figure';
 import { registerXYFigure } from './figures';
 import type { XYBarLayer, XYGuide, XYHandle, XYLineLayer, XYPointLayer, XYTrendLayer } from './layers';
 import { buildPointGrid, gridNearest, type PointGrid } from './pick';
+import { simplifyPath, type DataPolygon, type SelectionShape } from '../selection';
 import './xy.css';
 
 export type { XYBarLayer, XYGuide, XYHandle, XYLineLayer, XYPointLayer, XYTrendLayer } from './layers';
@@ -60,10 +61,34 @@ export interface XYPlotProps {
   barLabel?(bin: number): string;
   /** Punto resaltado desde afuera (cursor del visor). */
   highlight?: { layerId: string; index: number } | null;
-  /** Rectángulo elegido arrastrando (en datos). Sin esto, arrastrar no hace nada. */
-  onSelectRect?(r: DataRect): void;
+  /**
+   * Rectángulo elegido arrastrando (en datos). Sin esto, arrastrar no hace nada. `additive`: con Mayús (sumar a la
+   * selección vigente).
+   */
+  onSelectRect?(r: DataRect, additive: boolean): void;
   /** Selección vigente (en datos): queda dibujada hasta que el dueño la limpie. */
   selection?: DataRect | null;
+  /**
+   * Herramienta de selección al arrastrar (fase 8b, 0021): rectángulo (por defecto) o lazo a mano alzada. Con 'lasso'
+   * hace falta `onSelectLasso`.
+   */
+  selectTool?: 'rect' | 'lasso';
+  /** Lazo elegido arrastrando: polígono en datos (se cierra solo). `additive` con Mayús. */
+  onSelectLasso?(poly: DataPolygon, additive: boolean): void;
+  /** Formas de la selección vigente (rectángulos y lazos, en datos): contorno punteado en la capa de interacción. */
+  selectionShapes?: readonly SelectionShape[] | null;
+  /**
+   * Puntos resaltados de una capa densa (selección compartida): `mask[k] = 1` resalta el punto k de la capa
+   * `layerId`; el resto de esa capa se atenúa. Va en una capa propia entre la escena y la interacción: cambiar la
+   * máscara no redibuja la escena. No sale en la figura exportada.
+   */
+  emphasis?: { layerId: string; mask: Uint8Array } | null;
+  /** Clases del histograma marcadas (selección fija): franja tenue y borde. */
+  markedBins?: readonly number[] | null;
+  /** Clic sobre una clase del histograma (sin arrastre); `additive` con Mayús. */
+  onBarClick?(bin: number, additive: boolean): void;
+  /** Escape sin nada que cancelar en el gráfico (limpiar la selección). true si lo usó. */
+  onEscape?(): boolean;
   /**
    * Guía arrastrable (`draggable` con `id`) movida: 'preview' en cada movimiento, 'commit' al soltar (y con cada
    * tecla), 'cancel' con Escape durante el arrastre (volver al valor de antes).
@@ -104,6 +129,10 @@ const NO_GUIDES: readonly XYGuide[] = [];
 const NO_BARS: readonly XYBarLayer[] = [];
 const NO_HANDLES: readonly XYHandle[] = [];
 const GUIDE_HIT_PX = 6;
+/** Distancia mínima (px) entre vértices del lazo mientras se dibuja. */
+const LASSO_STEP_PX = 3;
+/** Opacidad de los puntos NO seleccionados de una nube con selección resaltada (el resto, atenuado). */
+const DIM_ALPHA = 0.16;
 
 /** Puntos interactivos en orden de x (para el teclado). */
 function keyboardOrder(layers: readonly XYPointLayer[]): Hover[] {
@@ -144,9 +173,11 @@ export function XYPlot(props: XYPlotProps) {
   const [hoverBin, setHoverBin] = useState<number | null>(null);
   const [focus, setFocus] = useState<Hover | null>(null);
   const [rect, setRect] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
+  /** Traza del lazo en curso (px). */
+  const [lasso, setLasso] = useState<{ x: number; y: number }[] | null>(null);
   const [dragGuide, setDragGuide] = useState<{ id: string; value: number; start: number } | null>(null);
   const [hoverGuide, setHoverGuide] = useState<string | null>(null);
-  const drag = useRef<{ x0: number; y0: number; pointerId: number; moved: boolean } | null>(null);
+  const drag = useRef<{ x0: number; y0: number; pointerId: number; moved: boolean; path: { x: number; y: number }[] } | null>(null);
   const guideDrag = useRef<{ id: string; pointerId: number; start: number; axis: 'x' | 'y' } | null>(null);
   const handleDrag = useRef<{ id: string; pointerId: number; start: { x: number; y: number }; p0: { x: number; y: number } } | null>(null);
   const [dragHandle, setDragHandle] = useState<string | null>(null);
@@ -154,6 +185,7 @@ export function XYPlot(props: XYPlotProps) {
   const order = useMemo(() => keyboardOrder(points), [points]);
   const ok = validAxis(xAxis) && validAxis(yAxis) && (!y2 || validAxis(y2));
   const { figureId, figureTitle, colorKey } = props;
+  const tool = props.selectTool ?? 'rect';
 
   // Guías con el valor del arrastre en curso (vista previa inmediata, sin esperar al dueño).
   const shownGuides = useMemo(() => (dragGuide ? guides.map((g) => (g.id === dragGuide.id ? { ...g, value: dragGuide.value } : g)) : guides), [guides, dragGuide]);
@@ -163,6 +195,11 @@ export function XYPlot(props: XYPlotProps) {
     return registerXYFigure({ id: figureId, title: figureTitle ?? figureId, x: xAxis, y: yAxis, points, lines, trends, guides, bars, ...(y2 ? { y2 } : {}), ...(colorKey ? { colorKey } : {}) });
   }, [figureId, figureTitle, ok, xAxis, yAxis, y2, points, lines, trends, guides, bars, colorKey]);
 
+  // Con una selección resaltada, su capa se dibuja atenuada en la escena. Solo cambia al prender o apagar el resaltado,
+  // no con cada selección nueva: la máscara va en la capa intermedia.
+  const emphLayer = props.emphasis?.layerId ?? null;
+  const scenePoints = useMemo(() => (emphLayer ? points.map((l) => (l.id === emphLayer && l.dense ? { ...l, alpha: DIM_ALPHA } : l)) : points), [points, emphLayer]);
+
   const canvasRef = useCanvas(
     (ctx, size, theme, ui) => {
       const m = xyMapping(xAxis, yAxis, plotRectFor(size.width, size.height, compact, ui, !!y2));
@@ -170,9 +207,46 @@ export function XYPlot(props: XYPlotProps) {
       gridRef.current = null;
       setGeom((g) => (g && g.x === m.rect.x && g.y === m.rect.y && g.width === m.rect.width && g.height === m.rect.height ? g : m.rect));
       if (!ok) return;
-      drawXYScene(ctx, m, xAxis, yAxis, { points, lines, trends, guides: shownGuides, bars, ...(y2 ? { y2 } : {}) }, theme, compact, ui);
+      drawXYScene(ctx, m, xAxis, yAxis, { points: scenePoints, lines, trends, guides: shownGuides, bars, ...(y2 ? { y2 } : {}) }, theme, compact, ui);
     },
-    [xAxis, yAxis, y2, points, lines, trends, shownGuides, bars, compact, ok],
+    [xAxis, yAxis, y2, scenePoints, lines, trends, shownGuides, bars, compact, ok],
+  );
+
+  // Capa intermedia: puntos de la selección a pleno y clases marcadas. Se redibuja con la selección, no con el puntero.
+  const emphasis = props.emphasis ?? null;
+  const markedBins = props.markedBins ?? null;
+  const midRef = useCanvas(
+    (ctx, size, theme, ui) => {
+      if (!ok || (!emphasis && !markedBins?.length)) return;
+      const m = xyMapping(xAxis, yAxis, plotRectFor(size.width, size.height, compact, ui, !!y2));
+      const r = m.rect;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(r.x, r.y, r.width, r.height);
+      ctx.clip();
+      const b0 = bars[0];
+      if (markedBins?.length && b0) {
+        for (const j of markedBins) {
+          const xa = m.x(b0.edges[j]!);
+          const xb = m.x(b0.edges[j + 1]!);
+          if (!Number.isFinite(xa) || !Number.isFinite(xb)) continue;
+          ctx.fillStyle = withAlpha(theme.color.accent, 0.1);
+          ctx.fillRect(Math.min(xa, xb), r.y, Math.abs(xb - xa), r.height);
+          ctx.strokeStyle = withAlpha(theme.color.accent, 0.85);
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([4, 3]);
+          ctx.strokeRect(Math.min(xa, xb) + 0.75, r.y + 0.75, Math.abs(xb - xa) - 1.5, r.height - 1.5);
+          ctx.setLineDash([]);
+        }
+      }
+      const l = emphasis ? points.find((q) => q.id === emphasis.layerId) : undefined;
+      if (l && emphasis) {
+        const mask = emphasis.mask;
+        drawDensePoints(ctx, m, l, theme, { only: (i) => mask[i] === 1, alpha: theme.name === 'dark' ? 0.95 : 0.9 });
+      }
+      ctx.restore();
+    },
+    [emphasis, markedBins, points, bars, xAxis, yAxis, y2, compact, ok],
   );
 
   const ext = props.highlight ?? null;
@@ -283,8 +357,53 @@ export function XYPlot(props: XYPlotProps) {
         ctx.stroke();
         ctx.restore();
       }
+      const shapes = props.selectionShapes;
+      if (shapes?.length && !rect && !lasso) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(r.x, r.y, r.width, r.height);
+        ctx.clip();
+        ctx.strokeStyle = theme.color.accent;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([5, 3]);
+        for (const q of shapes) {
+          ctx.beginPath();
+          if (q.kind === 'rect') {
+            const xa = m.x(q.rect.xMin);
+            const xb = m.x(q.rect.xMax);
+            const ya = m.y(q.rect.yMin);
+            const yb = m.y(q.rect.yMax);
+            if (![xa, xb, ya, yb].every(Number.isFinite)) continue;
+            ctx.rect(Math.min(xa, xb) + 0.5, Math.min(ya, yb) + 0.5, Math.abs(xb - xa), Math.abs(yb - ya));
+          } else {
+            const n = Math.min(q.poly.x.length, q.poly.y.length);
+            for (let k = 0; k < n; k++) {
+              const px = m.x(q.poly.x[k]!);
+              const py = m.y(q.poly.y[k]!);
+              if (k === 0) ctx.moveTo(px, py);
+              else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+          }
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+      if (lasso && lasso.length > 1) {
+        ctx.save();
+        ctx.fillStyle = withAlpha(theme.color.accent, 0.1);
+        ctx.strokeStyle = theme.color.accent;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        lasso.forEach((q, k) => (k === 0 ? ctx.moveTo(q.x, q.y) : ctx.lineTo(q.x, q.y)));
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
       const sel = props.selection;
-      if (sel && !rect) {
+      if (sel && !rect && !lasso) {
         const xa = m.x(sel.xMin);
         const xb = m.x(sel.xMax);
         const ya = m.y(sel.yMin);
@@ -312,7 +431,7 @@ export function XYPlot(props: XYPlotProps) {
         ctx.strokeRect(x + 0.5, y + 0.5, Math.abs(rect.x1 - rect.x0), Math.abs(rect.y1 - rect.y0));
       }
     },
-    [hover, focus, extHover, hoverBin, rect, dragGuide, hoverGuide, shownGuides, points, bars, ok, geom, xAxis, yAxis, props.selection, handles, dragHandle, hoverHandle],
+    [hover, focus, extHover, hoverBin, rect, lasso, dragGuide, hoverGuide, shownGuides, points, bars, ok, geom, xAxis, yAxis, props.selection, props.selectionShapes, handles, dragHandle, hoverHandle],
   );
 
   /** Grillas de búsqueda por capa interactiva (se arman la primera vez que hacen falta tras un dibujo). */
@@ -382,10 +501,10 @@ export function XYPlot(props: XYPlotProps) {
     setHoverPoint(null);
   };
 
-  const pickBin = (px: number, py: number): number | null => {
+  const pickBin = (px: number, py: number, forClick = false): number | null => {
     const m = mapRef.current;
     const b = bars[0];
-    if (!m || !b || !props.onBarHover) return null;
+    if (!m || !b || (!props.onBarHover && !forClick)) return null;
     const r = m.rect;
     if (px < r.x || px > r.x + r.width || py < r.y || py > r.y + r.height) return null;
     const v = m.xInv(px);
@@ -410,20 +529,23 @@ export function XYPlot(props: XYPlotProps) {
     return snapGuideValue(a, v);
   };
 
+  // Los avisos al dueño van FUERA de los actualizadores de estado: un actualizador corre durante el render y avisar
+  // desde ahí actualizaría otros componentes en pleno render (el visor y la barra leen la conexión con los gráficos).
+  const hoverRef = useRef<Hover | null>(null);
+  const binRef = useRef<number | null>(null);
   const setHoverPoint = (h: Hover | null) => {
-    setHover((prev) => {
-      if (prev?.layer === h?.layer && prev?.i === h?.i) return prev;
-      if (h) props.onPointHover?.(points[h.layer]!.id, h.i);
-      else if (prev) props.onPointLeave?.();
-      return h;
-    });
+    const prev = hoverRef.current;
+    if (prev?.layer === h?.layer && prev?.i === h?.i) return;
+    hoverRef.current = h;
+    setHover(h);
+    if (h) props.onPointHover?.(points[h.layer]!.id, h.i);
+    else if (prev) props.onPointLeave?.();
   };
   const setBin = (j: number | null) => {
-    setHoverBin((prev) => {
-      if (prev === j) return prev;
-      props.onBarHover?.(j);
-      return j;
-    });
+    if (binRef.current === j) return;
+    binRef.current = j;
+    setHoverBin(j);
+    props.onBarHover?.(j);
   };
 
   const onPointerDown = (e: PointerEvent<HTMLCanvasElement>) => {
@@ -442,7 +564,7 @@ export function XYPlot(props: XYPlotProps) {
       e.currentTarget.setPointerCapture?.(e.pointerId);
       return;
     }
-    drag.current = { x0: p.x, y0: p.y, pointerId: e.pointerId, moved: false };
+    drag.current = { x0: p.x, y0: p.y, pointerId: e.pointerId, moved: false, path: [p] };
     e.currentTarget.setPointerCapture?.(e.pointerId);
   };
   const onPointerMove = (e: PointerEvent<HTMLCanvasElement>) => {
@@ -460,14 +582,22 @@ export function XYPlot(props: XYPlotProps) {
       return;
     }
     const d = drag.current;
-    if (d && d.pointerId === e.pointerId && props.onSelectRect) {
+    const useLasso = tool === 'lasso' && !!props.onSelectLasso;
+    if (d && d.pointerId === e.pointerId && (useLasso || props.onSelectRect)) {
       if (!d.moved && Math.hypot(p.x - d.x0, p.y - d.y0) > DRAG_MIN_PX) d.moved = true;
       if (d.moved) {
         const r = mapRef.current?.rect;
         const cx = r ? Math.min(r.x + r.width, Math.max(r.x, p.x)) : p.x;
         const cy = r ? Math.min(r.y + r.height, Math.max(r.y, p.y)) : p.y;
-        setRect({ x0: d.x0, y0: d.y0, x1: cx, y1: cy });
+        if (useLasso) {
+          const last = d.path[d.path.length - 1]!;
+          if (Math.hypot(cx - last.x, cy - last.y) >= LASSO_STEP_PX) {
+            d.path.push({ x: cx, y: cy });
+            setLasso(d.path.slice());
+          }
+        } else setRect({ x0: d.x0, y0: d.y0, x1: cx, y1: cy });
         setHoverPoint(null);
+        setBin(null);
         return;
       }
     }
@@ -508,15 +638,29 @@ export function XYPlot(props: XYPlotProps) {
     const d = drag.current;
     drag.current = null;
     if (!d || d.pointerId !== e.pointerId) return;
-    if (d.moved && rect && mapRef.current && props.onSelectRect) {
-      props.onSelectRect(dataRectFromPx(mapRef.current, rect.x0, rect.y0, rect.x1, rect.y1));
+    const m = mapRef.current;
+    if (d.moved && tool === 'lasso' && m && props.onSelectLasso) {
+      const path = simplifyPath(d.path, 2);
+      setLasso(null);
+      if (path.length >= 3) props.onSelectLasso({ x: path.map((q) => m.xInv(q.x)), y: path.map((q) => m.yInv(q.y)) }, e.shiftKey);
+      return;
+    }
+    if (d.moved && rect && m && props.onSelectRect) {
+      props.onSelectRect(dataRectFromPx(m, rect.x0, rect.y0, rect.x1, rect.y1), e.shiftKey);
       setRect(null);
       return;
     }
     setRect(null);
+    setLasso(null);
+    if (d.moved) return;
     const p = local(e);
     const h = pick(p.x, p.y);
-    if (h && props.onPointClick) props.onPointClick(points[h.layer]!.id, h.i);
+    if (h && props.onPointClick) {
+      props.onPointClick(points[h.layer]!.id, h.i);
+      return;
+    }
+    const j = props.onBarClick ? pickBin(p.x, p.y, true) : null;
+    if (j !== null) props.onBarClick!(j, e.shiftKey);
   };
   const cancelGuideDrag = () => {
     const hd = handleDrag.current;
@@ -539,10 +683,13 @@ export function XYPlot(props: XYPlotProps) {
         e.preventDefault();
         return;
       }
-      if (rect || drag.current) {
+      if (rect || lasso || drag.current) {
         drag.current = null;
         setRect(null);
-      } else setFocus(null);
+        setLasso(null);
+      } else if (focus) setFocus(null);
+      // Sin nada propio que cancelar: el dueño (limpiar la selección); si tampoco, el evento sigue su camino.
+      else if (!props.onEscape?.()) return;
       e.preventDefault();
       return;
     }
@@ -568,9 +715,10 @@ export function XYPlot(props: XYPlotProps) {
     if (hoverHandle) return 'grab';
     const g = dragGuide ? { axis: guideDrag.current?.axis } : hoverGuide ? shownGuides.find((q) => q.id === hoverGuide) : null;
     if (g) return g.axis === 'y' ? 'ns-resize' : 'ew-resize';
-    if (rect) return 'crosshair';
+    if (rect || lasso) return 'crosshair';
     if (hover && props.onPointClick) return 'pointer';
-    return props.onSelectRect ? 'crosshair' : 'default';
+    if (hoverBin !== null && props.onBarClick) return 'pointer';
+    return props.onSelectRect || props.onSelectLasso ? 'crosshair' : 'default';
   };
 
   const tip = hover ?? focus;
@@ -588,6 +736,7 @@ export function XYPlot(props: XYPlotProps) {
   return (
     <div className={`xy-plot${props.className ? ` ${props.className}` : ''}`} style={{ height: height === 'fill' ? '100%' : scaledCss(height) }} data-testid={props['data-testid']}>
       <canvas ref={canvasRef} className="xy-plot__canvas" aria-hidden="true" />
+      <canvas ref={midRef} className="xy-plot__canvas xy-plot__mid" aria-hidden="true" />
       <canvas
         ref={topRef}
         className="xy-plot__canvas xy-plot__top"
@@ -609,6 +758,7 @@ export function XYPlot(props: XYPlotProps) {
         onPointerCancel={() => {
           drag.current = null;
           setRect(null);
+          setLasso(null);
           cancelGuideDrag();
         }}
         onKeyDown={onKeyDown}

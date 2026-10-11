@@ -11,11 +11,13 @@ import { useEffect, useMemo, useState } from 'react';
 import type { SourceRef } from '../../core/interpretation';
 import { HISTOGRAM_BINS, type HistogramConfig } from '../../core/plots';
 import { Button, Checkbox, DataTable, EmptyState, IconButton, NumberField, curveStyle, ensureContrast, fillColor, formatNumber, useThemeTokens } from '../../ui';
-import { ControlGroup, CurveSelect, DriverCallout, ScaleControl, ZoneFilterChips } from '../controls';
+import { ControlGroup, CurveSelect, DriverCallout, ScaleControl, SelectionSummary, ZoneFilterChips } from '../controls';
 import { CUTOFF_PASSES, cutoffParamFor, cutoffScope, normalizeCutoff, paramStep, resolveCutoffLine, type CutoffParamKey } from '../cutoffs';
 import { formatParam, grGuides, grWrite, inactiveDriver, paramChangeLabel, paramOfGuide, plotParamValue, plotScope, PLOT_PARAMS, type ParamWrite } from '../params';
 import { depthRuns, effectiveScale, keyForRole, plotCurveOptions, resolvePlotCurve, zoneFilter } from '../data';
-import { setPlotLink } from '../link';
+import { clearPlotSelection, getPlotLink, makeSelection, setPlotLink, setPlotSelection } from '../link';
+import { binsMask, sameEdges, toggleBin } from '../selection';
+import { usePlotSelection } from '../useLink';
 import type { SeriesContext } from '../trend/series';
 import { niceRange, type XYAxis } from '../xy/axes';
 import { XYPlot, type GuidePhase, type XYBarLayer, type XYGuide, type XYLineLayer } from '../xy/XYPlot';
@@ -37,6 +39,8 @@ export interface HistogramPanelProps {
 }
 
 const fmt = (v: number) => formatNumber(v, { significant: 3 });
+/** Id de la serie de la selección compartida. */
+const SEL_ID = '__selection';
 
 interface Series {
   id: string;
@@ -61,6 +65,8 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams,
 
   // Al desmontarse o cambiar de curva, el visor deja de marcar la clase.
   useEffect(() => () => setPlotLink({ hoverRuns: null }), []);
+  // Selección compartida (0021): su distribución se superpone y sus estadísticos van en una fila aparte.
+  const selection = usePlotSelection(depth);
 
   const model = useMemo(() => {
     if (!curve) return null;
@@ -81,20 +87,27 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams,
     } else {
       series.push({ id: 'all', name: filter.selected.length ? 'Zonas filtradas' : 'Todo el pozo', color: curveColor, include: filter.include, stats: sampleStats(data, scale, filter.include) });
     }
+    // La selección (de cualquier fuente) dentro del filtro de zonas: una serie más, superpuesta, con el acento.
+    const selMask = selection?.mask;
+    if (selMask) {
+      const include = (i: number) => selMask[i] === 1 && filter.include(i);
+      const stats = sampleStats(data, scale, include);
+      series.push({ id: SEL_ID, name: 'Selección', color: theme.color.accent, include, stats });
+    }
     const counts = series.map((s) => countBins(data, edges, scale, s.include));
     const values = counts.map((c) => (config.normalize ? toPercent(c.counts, c.n + c.below + c.above) : c.counts));
     let max = 0;
     for (const v of values) for (const x of v) if (x > max) max = x;
     const yr = niceRange([[0, max * 1.06]], 'linear', { zero: true, pad: 0 }) ?? { min: 0, max: 1 };
     const overlay = series.length > 1;
-    const bars: XYBarLayer[] = series.map((s, k) => ({ id: s.id, name: s.name, edges, values: values[k]!, color: s.color, fillAlpha: overlay ? 0.16 : 0.42 }));
+    const bars: XYBarLayer[] = series.map((s, k) => ({ id: s.id, name: s.name, edges, values: values[k]!, color: s.color, fillAlpha: s.id === SEL_ID ? 0.4 : overlay ? 0.16 : 0.42 }));
     const lines: XYLineLayer[] = config.cumulative
       ? series.map((s, k) => ({ id: `cum-${s.id}`, name: overlay ? undefined : 'Acumulada', x: Float64Array.from(edges.slice(1)), y: cumulativePercent(counts[k]!), color: s.color, width: 1.75, dash: [5, 3], y2: true }))
       : [];
-    const total = series.length > 1 ? sampleStats(data, scale, filter.include) : null;
+    const total = series.filter((s) => s.id !== SEL_ID).length > 1 ? sampleStats(data, scale, filter.include) : null;
     const outside = counts.reduce((a, c) => a + c.below + c.above, 0);
     return { curve, empty: false as const, edges, bins: range.bins, series, counts, values, bars, lines, yMax: yr.max, total, outside };
-  }, [curve, scale, filter, config.bins, config.byZone, config.normalize, config.cumulative, theme.name, ctx.catalog]);
+  }, [curve, scale, filter, config.bins, config.byZone, config.normalize, config.cumulative, theme.name, theme.color.accent, ctx.catalog, selection]);
 
   if (options.length === 0) return <EmptyState size="sm" icon="histogram" title="Sin curvas" description="El pozo no tiene curvas para graficar." />;
 
@@ -181,7 +194,7 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams,
     if (!model || model.empty) return '';
     const head = `${fmt(model.edges[j]!)}–${fmt(model.edges[j + 1]!)}${curve?.unitText ? ` ${curve.unitText}` : ''}`;
     const rows = model.series.map((s, k) => `${model.series.length > 1 ? `${s.name}: ` : ''}${config.normalize ? `${formatNumber(model.values[k]![j]!, { digits: 1 })} %` : `${model.counts[k]!.counts[j]} muestras`}`);
-    return [head, ...rows, 'Marcadas en el visor'].join('\n');
+    return [head, ...rows, 'Clic: seleccionar · Mayús + clic: sumar o quitar'].join('\n');
   };
   const onBarHover = (j: number | null) => {
     if (j === null || !model || model.empty || !curve) {
@@ -194,6 +207,23 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams,
     const d = curve.data;
     setPlotLink({ hoverRuns: depthRuns(depth, (i) => filter.include(i) && d[i]! >= lo && (last ? d[i]! <= hi : d[i]! < hi)) });
   };
+
+  /**
+   * Clic en una clase: sus muestras (dentro del filtro de zonas) pasan a ser LA selección. Mayús + clic suma la clase o la
+   * quita si ya estaba (mientras la selección sea de este histograma, con las mismas clases).
+   */
+  const onBarClick = (j: number, additive: boolean) => {
+    if (!model || model.empty || !curve) return;
+    const prev = selection?.detail.kind === 'bins' && selection.detail.curve === curve.key && sameEdges(selection.detail.edges, model.edges) ? selection.detail.bins : null;
+    const bins = additive && prev ? toggleBin(prev, j) : [j];
+    if (bins.length === 0) {
+      clearPlotSelection();
+      return;
+    }
+    const mask = binsMask(curve.data, model.edges, bins, filter.include);
+    setPlotSelection(makeSelection('histogram', depth, mask, { kind: 'bins', curve: curve.key, curveLabel: curve.short, edges: Array.from(model.edges), bins }));
+  };
+  const markedBins = model && !model.empty && curve && selection?.detail.kind === 'bins' && selection.detail.curve === curve.key && sameEdges(selection.detail.edges, model.edges) ? selection.detail.bins : null;
 
   const statsRows = model && !model.empty ? [...model.series.map((s) => ({ id: s.id, name: s.name, color: s.color, st: s.stats })), ...(model.total ? [{ id: 'total', name: 'Total', color: '', st: model.total }] : [])] : [];
   const geometric = scale === 'log';
@@ -253,6 +283,8 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams,
                 ) : (
                   <p className="plot-hint">Arrastrá las líneas (o usá las flechas en su manija): Vsh se recalcula en vivo. Valores {grScope.zoneId ? `de la ${grScope.text}` : 'globales'}.</p>
                 )}
+              </ControlGroup>
+            )}
             <ControlGroup title="Zonas">
               <ZoneFilterChips zones={filter.zones} selected={filter.selected} onChange={(ids) => onChange({ zones: ids }, 'Filtrar el histograma por zona')} />
               <Checkbox checked={config.byZone} onChange={(on) => onChange({ byZone: on }, on ? 'Superponer zonas' : 'Juntar zonas')} label="Un histograma por zona" />
@@ -279,10 +311,13 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams,
                   : 'Línea libre: no cambia la petrofísica. Arrastrala o movela con las flechas desde su manija.'}
               </p>
             </ControlGroup>
-              </ControlGroup>
-            )}
           </div>
           <aside className="plot-panel__aside" aria-label="Estadísticos">
+            {selection ? (
+              <SelectionSummary selection={selection} onClear={clearPlotSelection} />
+            ) : (
+              <p className="plot-hint">Clic en una clase marca sus tramos en el visor y sus puntos en el crossplot (Mayús suma o quita). En el visor, Mayús + arrastre marca un tramo.</p>
+            )}
             <div className="plot-group__title">Estadísticos{curve?.unitText ? ` (${curve.unitText})` : ''}</div>
             <DataTable
               dense
@@ -334,6 +369,13 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams,
               onGuideRemove={(id) => !paramOfGuide(id) && removeCutoff()}
               onBarHover={onBarHover}
               barLabel={barLabel}
+              onBarClick={onBarClick}
+              markedBins={markedBins}
+              onEscape={() => {
+                if (!getPlotLink().selection) return false;
+                clearPlotSelection();
+                return true;
+              }}
             />
           )}
           {model && !model.empty && model.series.length > 1 && (

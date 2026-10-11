@@ -19,18 +19,21 @@ import type { TrendSpec } from '../../core/trends';
 import type { TrendModel } from '../../petro/regression';
 import { registry } from '../../modules';
 import rwManual from '../../modules/rw-manual';
-import { Badge, Button, EmptyState, IconButton, Menu, SEQUENTIAL_PALETTE, curveStyle, ensureContrast, fillColor, formatNumber, rampColor, toast, useThemeTokens, type MenuEntry } from '../../ui';
+import { Badge, Button, EmptyState, IconButton, Menu, SEQUENTIAL_PALETTE, SegmentedControl, curveStyle, ensureContrast, fillColor, formatNumber, rampColor, toast, useThemeTokens, type MenuEntry } from '../../ui';
 import type { ThemeTokens } from '../../ui/tokens';
-import { ControlGroup, CurveSelect, DriverCallout, ScaleControl, ZoneFilterChips } from '../controls';
+import { ControlGroup, CurveSelect, DriverCallout, ScaleControl, SelectionSummary, ZoneFilterChips } from '../controls';
 import { CUTOFF_PASSES, cutoffParamFor, cutoffScope, normalizeCutoff, paramStep, resolveCutoffLine, type CutoffLine, type CutoffParamKey } from '../cutoffs';
-import { depthRuns, effectiveScale, engineInputData, keyForRole, plotCurveOptions, resolvePlotCurve, zoneFilter, type PlotCurve } from '../data';
+import { effectiveScale, engineInputData, keyForRole, plotCurveOptions, resolvePlotCurve, zoneFilter, type PlotCurve } from '../data';
 import { formatParam, grGuides, grWrite, inactiveDriver, normalizeParam, nudgeParam, paramChangeLabel, paramOfGuide, paramWrite, plotParamValue, plotScope, PLOT_PARAMS, RW_CORRECT_STORAGE, storedParamValue, type ParamWrite, type PlotScope } from '../params';
-import { setPlotLink } from '../link';
+import { clearPlotSelection, getPlotLink, makeSelection, setPlotLink, setPlotSelection } from '../link';
+import { cloudMask, maskFromCloud, pointsInShape, unionMask, type DataPolygon, type SelectionShape } from '../selection';
+import { usePlotSelection } from '../useLink';
+import { depthPointKey } from '../trend/series';
 import { evaluateTrend } from '../trend/compute';
 import { formatR2, MODEL_LABEL, trendEquation } from '../trend/format';
 import { trendColor } from '../trend/overlay';
 import type { SeriesContext } from '../trend/series';
-import { niceRange, pointsInRect, type DataRect, type XYAxis } from '../xy/axes';
+import { niceRange, type DataRect, type XYAxis } from '../xy/axes';
 import type { XYColorKey } from '../xy/figure';
 import { XYPlot, type GuidePhase, type XYGuide, type XYHandle, type XYLineLayer, type XYPointLayer, type XYTrendLayer } from '../xy/XYPlot';
 import { cutoffSplit } from '../histogram/histogram';
@@ -58,7 +61,16 @@ export interface CrossplotPanelProps {
   onShowDepth(depth: number): void;
   onAddTrend(spec: Omit<TrendSpec, 'id' | 'name'> & { name: string }): void;
   onRemoveTrend(id: string): void;
+  /** Sacar del ajuste de una tendencia los puntos con esas claves (o volver a incluir todos con `keys = null`). */
+  onExcludeFromTrend(id: string, keys: readonly string[] | null): void;
 }
+
+/** Herramienta de selección elegida (estado de interfaz de la sesión: sobrevive a cerrar y abrir la pestaña). */
+let lastSelectTool: 'rect' | 'lasso' = 'rect';
+const SELECT_TOOLS = [
+  { value: 'rect' as const, label: 'Rectángulo', title: 'Arrastrá un rectángulo para seleccionar (Mayús suma)' },
+  { value: 'lasso' as const, label: 'Lazo', title: 'Dibujá un lazo a mano alzada alrededor de los puntos (Mayús suma)' },
+];
 
 const fmt = (v: number) => formatNumber(v, { significant: 3 });
 const pct = (v: number) => `${formatNumber(v, { digits: 0 })} %`;
@@ -304,7 +316,11 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
   const { ctx, config, onChange } = props;
   const theme = useThemeTokens();
   const [preview, setPreview] = useState<{ id: string; value: number } | null>(null);
-  const [selection, setSelection] = useState<{ count: number; runs: number; rect: DataRect } | null>(null);
+  const [selectTool, setSelectToolState] = useState<'rect' | 'lasso'>(lastSelectTool);
+  const setSelectTool = (t: 'rect' | 'lasso') => {
+    lastSelectTool = t;
+    setSelectToolState(t);
+  };
   const [dragging, setDragging] = useState<{ id: string; x: number; y: number } | null>(null);
   const options = useMemo(() => plotCurveOptions(ctx), [ctx]);
   const depth = ctx.well.depth.values;
@@ -332,12 +348,20 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
     return { idx, pos, x: gather(cx.data, idx), y: gather(cy.data, idx), d: gather(depth, idx) };
   }, [cx, cy, filter, xScale, yScale, depth]);
 
-  useEffect(() => () => setPlotLink({ hoverDepth: null, selection: null }), []);
-  // La selección se refiere a la nube de antes: al cambiar los ejes o el filtro, se suelta.
-  useEffect(() => {
-    setSelection(null);
-    setPlotLink({ selection: null });
-  }, [cloud]);
+  // Al cerrarse el panel, el visor deja de marcar el punto bajo el puntero. La selección queda: es de todos los gráficos.
+  useEffect(() => () => setPlotLink({ hoverDepth: null }), []);
+
+  // Selección compartida (0021): máscara sobre las muestras; acá se resaltan sus puntos y se atenúa el resto. Sobrevive a
+  // cambiar los ejes o el filtro (un lazo en el densidad–neutrón se ve en el Pickett).
+  const selection = usePlotSelection(depth);
+  const emphasis = useMemo(() => (selection && cloud ? { layerId: 'cloud', mask: cloudMask(selection.mask, cloud.idx) } : null), [selection, cloud]);
+  const shownSel = useMemo(() => {
+    if (!emphasis) return 0;
+    let c = 0;
+    for (let k = 0; k < emphasis.mask.length; k++) c += emphasis.mask[k]!;
+    return c;
+  }, [emphasis]);
+  const selShapes = selection?.detail.kind === 'shapes' && cx && cy && selection.detail.x === cx.key && selection.detail.y === cy.key ? selection.detail.shapes : null;
 
   const xAxis = useMemo(() => (cx && cloud ? axisFor(cx, xScale, cloud.x, config.xRange, config.xReversed) : null), [cx, cloud, xScale, config.xRange, config.xReversed]);
   const yAxis = useMemo(() => (cy && cloud ? axisFor(cy, yScale, cloud.y, config.yRange, config.yReversed) : null), [cy, cloud, yScale, config.yRange, config.yReversed]);
@@ -574,19 +598,37 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
     const { [l.curveKey]: _gone, ...rest } = config.cutoffs;
     onChange({ cutoffs: rest }, 'Quitar cutoff del crossplot');
   };
-  const onRect = (r: DataRect) => {
-    if (!cloud) return;
-    const inside = pointsInRect(r, cloud.x, cloud.y);
-    if (inside.length === 0) {
-      setSelection(null);
-      setPlotLink({ selection: null });
+  /**
+   * Rectángulo o lazo elegido: sus muestras pasan a ser LA selección (reemplaza la de cualquier fuente). Con Mayús se
+   * suman a la selección vigente; las formas se conservan para dibujarlas si los ejes son los mismos.
+   */
+  const selectShape = (shape: SelectionShape, additive: boolean) => {
+    if (!cloud || !cx || !cy || !xAxis || !yAxis) return;
+    const inside = pointsInShape(shape, cloud.x, cloud.y, xAxis, yAxis);
+    let mask = maskFromCloud(depth.length, cloud.idx, inside);
+    let shapes: SelectionShape[] = [shape];
+    if (additive && selection) {
+      mask = unionMask(selection.mask, mask);
+      const d = selection.detail;
+      if (d.kind === 'shapes' && d.x === cx.key && d.y === cy.key) shapes = [...d.shapes, shape];
+    } else if (inside.length === 0) {
+      clearPlotSelection();
       return;
     }
-    const mark = new Uint8Array(depth.length);
-    for (const k of inside) mark[cloud.idx[k]!] = 1;
-    const runs = depthRuns(depth, (i) => mark[i] === 1, 1);
-    setSelection({ count: inside.length, runs: runs.length, rect: r });
-    setPlotLink({ selection: { runs, count: inside.length } });
+    setPlotSelection(makeSelection('crossplot', depth, mask, { kind: 'shapes', x: cx.key, y: cy.key, shapes }));
+  };
+  const onRect = (r: DataRect, additive: boolean) => selectShape({ kind: 'rect', rect: r }, additive);
+  const onLasso = (poly: DataPolygon, additive: boolean) => selectShape({ kind: 'lasso', poly }, additive);
+  /** Claves (de punto de la serie de la tendencia) de las muestras seleccionadas que están en esa serie. */
+  const selectedKeys = (series: { indexOfKey?(k: string): number } | null): string[] => {
+    if (!selection || !series?.indexOfKey) return [];
+    const out: string[] = [];
+    for (let i = 0; i < selection.mask.length; i++) {
+      if (!selection.mask[i]) continue;
+      const k = depthPointKey(depth[i]!);
+      if (series.indexOfKey(k) >= 0) out.push(k);
+    }
+    return out;
   };
   const addTrend = (model: TrendModel) => {
     if (!cx || !cy) return;
@@ -695,49 +737,54 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
                 <p className="plot-hint">Ajuste sobre los puntos visibles (zonas filtradas), con ecuación y R². Se edita en el panel Tendencias.</p>
               ) : (
                 <ul className="plot-legend">
-                  {trendRows.map((t) => (
-                    <li key={t.spec.id} title={t.result?.coeffs ? `${trendEquation(t.result, t.series)} · R² ${formatR2(t.result.r2)}` : (t.result?.problem ?? '')}>
-                      <span className="plot-dot" style={{ background: t.color }} aria-hidden="true" />
-                      <span className="plot-row__label">{MODEL_LABEL[t.spec.model]}</span>
-                      <span className="num">R² {t.result ? formatR2(t.result.r2) : '—'}</span>
-                      <IconButton size="sm" icon="trash" label={`Borrar la tendencia ${t.spec.name}`} onClick={() => props.onRemoveTrend(t.spec.id)} />
-                    </li>
-                  ))}
+                  {trendRows.map((t) => {
+                    const excluded = t.spec.selection.excluded.length;
+                    const fit = t.spec.mode === 'fit';
+                    return (
+                      <li key={t.spec.id} title={t.result?.coeffs ? `${trendEquation(t.result, t.series)} · R² ${formatR2(t.result.r2)}` : (t.result?.problem ?? '')}>
+                        <span className="plot-dot" style={{ background: t.color }} aria-hidden="true" />
+                        <span className="plot-row__label">
+                          {MODEL_LABEL[t.spec.model]}
+                          {excluded > 0 && <span className="plot-muted"> · {formatNumber(excluded, { digits: 0 })} excl.</span>}
+                        </span>
+                        <span className="num">R² {t.result ? formatR2(t.result.r2) : '—'}</span>
+                        {fit && selection && (
+                          <IconButton size="sm" icon="filter" label={`Excluir del ajuste de ${t.spec.name} los puntos seleccionados`} onClick={() => props.onExcludeFromTrend(t.spec.id, selectedKeys(t.series))} />
+                        )}
+                        {fit && excluded > 0 && <IconButton size="sm" icon="refresh" label={`Volver a incluir en el ajuste de ${t.spec.name} los ${excluded} puntos excluidos`} onClick={() => props.onExcludeFromTrend(t.spec.id, null)} />}
+                        <IconButton size="sm" icon="trash" label={`Borrar la tendencia ${t.spec.name}`} onClick={() => props.onRemoveTrend(t.spec.id)} />
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </ControlGroup>
           </div>
           <aside className="plot-panel__aside" aria-label="Leyenda y lecturas">
-            <div className="plot-aside-block">
-              <div className="plot-group__title">Puntos</div>
+            <div className="plot-aside-block" data-testid="crossplot-selection">
+              <div className="plot-group__head">
+                <span className="plot-group__title">Selección</span>
+                <SegmentedControl size="sm" aria-label="Herramienta de selección" value={selectTool} onChange={setSelectTool} options={SELECT_TOOLS} />
+              </div>
               <dl className="plot-kv num">
                 <dt>Visibles</dt>
                 <dd data-testid="crossplot-count">{formatNumber(n, { digits: 0 })}</dd>
                 {selection && (
                   <>
                     <dt>Seleccionados</dt>
-                    <dd>{formatNumber(selection.count, { digits: 0 })}</dd>
+                    <dd data-testid="crossplot-selected">
+                      {formatNumber(shownSel, { digits: 0 })}
+                      {shownSel !== selection.count ? <span className="plot-muted"> de {formatNumber(selection.count, { digits: 0 })}</span> : null}
+                    </dd>
                   </>
                 )}
               </dl>
               {selection ? (
-                <div className="plot-row">
-                  <span className="plot-row__label">
-                    {selection.runs} {selection.runs === 1 ? 'tramo marcado' : 'tramos marcados'} en el visor
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      setSelection(null);
-                      setPlotLink({ selection: null });
-                    }}
-                  >
-                    Limpiar
-                  </Button>
-                </div>
+                <SelectionSummary selection={selection} onClear={clearPlotSelection} />
               ) : (
-                <p className="plot-hint">Arrastrá un rectángulo para marcar esas muestras en el visor.</p>
+                <p className="plot-hint">
+                  Arrastrá un {selectTool === 'lasso' ? 'lazo' : 'rectángulo'} sobre los puntos para marcarlos en el visor y en el histograma (Mayús suma). En el visor, Mayús + arrastre marca un tramo.
+                </p>
               )}
             </div>
             {quad && (
@@ -801,10 +848,13 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
               ariaLabel={`Crossplot de ${cy.label} contra ${cx.label}, ${formatNumber(n, { digits: 0 })} puntos`}
               colorKey={coloring?.kind === 'curve' ? coloring.key : undefined}
               highlight={highlight}
-              selection={selection?.rect ?? null}
+              selectionShapes={selShapes}
+              emphasis={emphasis}
+              selectTool={selectTool}
               onGuideChange={onGuide}
               onGuideRemove={removeGuide}
               onSelectRect={onRect}
+              onSelectLasso={onLasso}
               depthOf={(k) => cloud!.d[k]!}
               onShowDepth={props.onShowDepth}
             />
@@ -892,10 +942,13 @@ interface CloudPlotProps {
   ariaLabel: string;
   colorKey: XYColorKey | undefined;
   highlight: { layerId: string; index: number } | null;
-  selection: DataRect | null;
+  selectionShapes: readonly SelectionShape[] | null;
+  emphasis: { layerId: string; mask: Uint8Array } | null;
+  selectTool: 'rect' | 'lasso';
   onGuideChange(id: string, value: number, phase: GuidePhase): void;
   onGuideRemove(id: string): void;
-  onSelectRect(r: DataRect): void;
+  onSelectRect(r: DataRect, additive: boolean): void;
+  onSelectLasso(poly: DataPolygon, additive: boolean): void;
   depthOf(k: number): number;
   onShowDepth(depth: number): void;
 }
@@ -921,10 +974,18 @@ const CloudPlot = memo(function CloudPlot(p: CloudPlotProps) {
       onHandleNudge={p.onHandleNudge}
       {...(p.colorKey ? { colorKey: p.colorKey } : {})}
       highlight={p.highlight}
-      selection={p.selection}
+      selectionShapes={p.selectionShapes}
+      emphasis={p.emphasis}
+      selectTool={p.selectTool}
       onGuideChange={p.onGuideChange}
       onGuideRemove={p.onGuideRemove}
       onSelectRect={p.onSelectRect}
+      onSelectLasso={p.onSelectLasso}
+      onEscape={() => {
+        if (!getPlotLink().selection) return false;
+        clearPlotSelection();
+        return true;
+      }}
       onPointHover={(layer, k) => layer === 'cloud' && setPlotLink({ hoverDepth: p.depthOf(k) })}
       onPointLeave={() => setPlotLink({ hoverDepth: null })}
       onPointClick={(layer, k) => layer === 'cloud' && p.onShowDepth(p.depthOf(k))}

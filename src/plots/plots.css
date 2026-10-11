@@ -75,6 +75,21 @@
 .plot-kv { display: grid; grid-template-columns: auto 1fr; gap: var(--space-1) var(--space-3); margin: 0; font-size: var(--text-xs); }
 .plot-kv dt { color: var(--color-text-muted); }
 .plot-kv dd { margin: 0; text-align: right; }
+/* Selección compartida (0021): de dónde viene, cuánto marca y «Limpiar». */
+.plot-selection {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0 var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-soft);
+  font-size: var(--text-xs);
+}
+.plot-selection__title { font-weight: var(--weight-semibold); color: var(--color-text); min-width: 0; overflow-wrap: anywhere; }
+.plot-selection .plot-muted { grid-column: 1; }
+.plot-selection > .ui-btn { grid-column: 2; grid-row: 1 / span 2; }
 .plot-quad { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; overflow: hidden; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-sm); background: var(--color-border-subtle); font-size: var(--text-xs); }
 .plot-quad > span { padding: var(--space-1) var(--space-2); background: var(--color-surface); text-align: center; }
 .plot-quad > span.is-pass { background: var(--color-ok-soft); color: var(--color-ok-text); font-weight: var(--weight-semibold); }

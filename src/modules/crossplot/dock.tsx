@@ -8,7 +8,7 @@ import { useViewer } from '../../app/store/viewer';
 import { commitTrends } from '../../app/trends/actions';
 import { useTrendsUi } from '../../app/trends/store';
 import { makeId } from '../../core/state/project';
-import { addTrend, removeTrend } from '../../core/state/trends';
+import { addTrend, excludeTrendPoints, includeAllTrendPoints, removeTrend } from '../../core/state/trends';
 import { nextTrendName } from '../../core/trends';
 import { CrossplotPanel } from '../../plots/crossplot/CrossplotPanel';
 import type { DockPanelDef } from '../../ui/dockPanel';
@@ -42,6 +42,9 @@ function CrossplotDock() {
               useTrendsUi.getState().set({ selectedId: id });
             }}
             onRemoveTrend={(id) => commitTrends('Borrar tendencia del crossplot', (p, w) => removeTrend(p, w, id))}
+            onExcludeFromTrend={(id, keys) =>
+              keys ? commitTrends('Excluir puntos seleccionados del ajuste', (p, w) => excludeTrendPoints(p, w, id, keys)) : commitTrends('Volver a incluir los puntos del ajuste', (p, w) => includeAllTrendPoints(p, w, id))
+            }
           />
         )
       }

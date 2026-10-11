@@ -37,6 +37,9 @@ import { useTrackUi } from '../tracks/store';
 import { RenameDialogs, SaveTemplateDialog, TemplateMenu } from '../tracks/Templates';
 import type { ViewerLayoutEditing } from '../../viewer/layoutEdit';
 import { TRACK_WIDTH_STEP } from '../../core/state/tracks';
+import { clearPlotSelection, getPlotLink, selectionTitle } from '../../plots/link';
+import { usePlotSelection } from '../../plots/useLink';
+import { formatNumber } from '../../ui';
 
 /**
  * Devuelve el foco después de mover con el teclado: el elemento enfocado puede volver a montarse en otra pista (una
@@ -86,6 +89,8 @@ export function ViewerSlot() {
   const dragTarget = useLayoutDrag((s) => s.target);
   const well = entry?.well ?? null;
   const qc = useWellQc(well);
+  // Selección compartida con los gráficos (0021): ficha en la barra con «Limpiar».
+  const plotSelection = usePlotSelection(well?.depth.values);
   const interpretation = entry?.interpretation;
 
   const computed = useMemo(() => (well ? computedCurves(result, well) : []), [result, well]);
@@ -200,7 +205,10 @@ export function ViewerSlot() {
   useEffect(() => {
     if (!marking) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !e.defaultPrevented) useUi.getState().set({ zoneMarking: false });
+      if (e.key === 'Escape' && !e.defaultPrevented) {
+        e.preventDefault();
+        useUi.getState().set({ zoneMarking: false });
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -209,7 +217,10 @@ export function ViewerSlot() {
   useEffect(() => {
     if (!trendTool) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !e.defaultPrevented && !useViewer.getState().dragging) stopTrendTool();
+      if (e.key === 'Escape' && !e.defaultPrevented && !useViewer.getState().dragging) {
+        e.preventDefault();
+        stopTrendTool();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -230,11 +241,30 @@ export function ViewerSlot() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented || useLayoutDrag.getState().payload) return;
       if (document.querySelector('[role="dialog"]') || (e.target instanceof HTMLInputElement && e.target.value)) return;
+      e.preventDefault();
       useUi.getState().set({ trackBuilder: false });
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [building]);
+
+  // Escape limpia la selección de los gráficos aunque el foco no esté en el visor ni en un gráfico (estos la limpian
+  // solos). Lo último: no si otro lo usó (modos del visor, menús, diálogos) ni con el foco en un campo de texto.
+  useEffect(() => {
+    if (!plotSelection) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || !getPlotLink().selection) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.closest('input, textarea, select, [contenteditable="true"]') || t.closest('[role="dialog"], [role="menu"], [role="listbox"]'))) return;
+      if (document.querySelector('[role="dialog"], [role="menu"]')) return;
+      const ui = useUi.getState();
+      if (ui.zoneMarking || ui.trackBuilder || useTrendsUi.getState().tool || useViewer.getState().dragging) return;
+      e.preventDefault();
+      clearPlotSelection();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [plotSelection]);
 
   if (!entry || !well || !data) {
     return (
@@ -287,6 +317,17 @@ export function ViewerSlot() {
           {well.name}
         </span>
       </button>
+      {/* La selección antes que las zonas: si la barra no alcanza, se recorta lo otro. */}
+      {plotSelection ? (
+        <Chip
+          selected
+          onRemove={clearPlotSelection}
+          removeLabel="Limpiar la selección (Esc)"
+          title={`${selectionTitle(plotSelection, (d) => formatNumber(d, { digits: 1 }))}: ${formatNumber(plotSelection.count, { digits: 0 })} muestras en ${plotSelection.runs.length} tramos, resaltadas en el crossplot y el histograma. Mayús + arrastre marca otro tramo.`}
+        >
+          {`Sel. ${formatNumber(plotSelection.count, { digits: 0 })}`}
+        </Chip>
+      ) : null}
       {data.zones.length === 0 ? (
         <span className="wv-chip" title="Definí zonas con «Marcar zona» o cargando un archivo con columna de zona">
           Sin zonas
@@ -394,6 +435,10 @@ export function ViewerSlot() {
           }
           if (useUi.getState().trackBuilder) {
             setUi({ trackBuilder: false });
+            return true;
+          }
+          if (getPlotLink().selection) {
+            clearPlotSelection();
             return true;
           }
           return false;
