@@ -182,6 +182,7 @@ export function XYPlot(props: XYPlotProps) {
   const handleDrag = useRef<{ id: string; pointerId: number; start: { x: number; y: number }; p0: { x: number; y: number } } | null>(null);
   const [dragHandle, setDragHandle] = useState<string | null>(null);
   const [hoverHandle, setHoverHandle] = useState<string | null>(null);
+  const [focusHandle, setFocusHandle] = useState<string | null>(null);
   const order = useMemo(() => keyboardOrder(points), [points]);
   const ok = validAxis(xAxis) && validAxis(yAxis) && (!y2 || validAxis(y2));
   const { figureId, figureTitle, colorKey } = props;
@@ -829,6 +830,7 @@ export function XYPlot(props: XYPlotProps) {
             const side = wantLeft ? ' is-left' : '';
             const below = wantBelow ? ' is-below' : '';
             const active = dragHandle === h.id || hoverHandle === h.id;
+            const showLabel = !h.labelOnActive || active || focusHandle === h.id;
             return (
               <div key={h.id} className="xy-plot__handle-host">
                 <div
@@ -851,6 +853,8 @@ export function XYPlot(props: XYPlotProps) {
                     const b = host.getBoundingClientRect();
                     startHandleDrag(h, e.pointerId, { x: e.clientX - b.left, y: e.clientY - b.top });
                   }}
+                  onFocus={() => setFocusHandle(h.id)}
+                  onBlur={() => setFocusHandle((v) => (v === h.id ? null : v))}
                   onPointerEnter={() => setHoverHandle(h.id)}
                   onPointerLeave={() => setHoverHandle((v) => (v === h.id && !handleDrag.current ? null : v))}
                   onKeyDown={(e) => {
@@ -864,10 +868,12 @@ export function XYPlot(props: XYPlotProps) {
                     } else if (k === 'Escape' && cancelGuideDrag()) e.preventDefault();
                   }}
                 />
-                <div className={`xy-plot__handle-label${side}${below}${active ? ' is-active' : ''}`} style={{ left, top, ['--grip' as string]: h.color }} aria-hidden="true">
-                  <span>{h.label}</span>
-                  {h.detail && <span className="xy-plot__handle-detail">{h.detail}</span>}
-                </div>
+                {showLabel && (
+                  <div className={`xy-plot__handle-label${side}${below}${active ? ' is-active' : ''}`} style={{ left, top, ['--grip' as string]: h.color }} aria-hidden="true">
+                    <span>{h.label}</span>
+                    {h.detail && <span className="xy-plot__handle-detail">{h.detail}</span>}
+                  </div>
+                )}
               </div>
             );
           })

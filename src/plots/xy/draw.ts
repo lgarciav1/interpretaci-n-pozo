@@ -315,10 +315,14 @@ export function drawDensePoints(ctx: CanvasRenderingContext2D, m: XYMapping, l: 
   ctx.save();
   ctx.globalAlpha = opts.alpha ?? l.alpha ?? (theme.name === 'dark' ? 0.8 : 0.72);
   // Con muchos puntos, cuadraditos (un `rect` cuesta una fracción de un `arc`; a 3 px no se distinguen).
-  const squares = n > DENSE_ARC_LIMIT;
+  // Anillos (`ring`): solo el contorno, sin tapar el color del punto de abajo (zona acuífera del Pickett).
+  const ring = !!l.ring;
+  const squares = !ring && n > DENSE_ARC_LIMIT;
   const side = r * 1.8;
+  if (ring) ctx.lineWidth = 1.25;
   for (const [c, g] of groups) {
     ctx.fillStyle = c;
+    ctx.strokeStyle = c;
     ctx.beginPath();
     for (let k = 0; k < g.length; k += 2) {
       if (squares) ctx.rect(g[k]! - side / 2, g[k + 1]! - side / 2, side, side);
@@ -327,7 +331,8 @@ export function drawDensePoints(ctx: CanvasRenderingContext2D, m: XYMapping, l: 
         ctx.arc(g[k]!, g[k + 1]!, r, 0, 2 * Math.PI);
       }
     }
-    ctx.fill();
+    if (ring) ctx.stroke();
+    else ctx.fill();
   }
   ctx.restore();
 }
