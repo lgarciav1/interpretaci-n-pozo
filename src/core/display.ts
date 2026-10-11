@@ -30,8 +30,11 @@ export interface CurveDisplayOverride {
 
 /** Qué curvas toma una entrada de pista. */
 export type CurveSelector =
-  /** Curvas medidas con ese rol + la salida activa del módulo que produce ese puerto. */
-  | { role: RoleId }
+  /**
+   * Curvas medidas con ese rol + la salida activa del módulo que produce ese puerto. Con `module`, solo la salida de
+   * ese módulo (activa o en comparación, sin la marca de «alternativa»): Archie, Simandoux e Indonesia lado a lado.
+   */
+  | { role: RoleId; module?: string }
   /** Una curva puntual del pozo. */
   | { curveId: string }
   /** Curvas medidas sin rol de esa magnitud (p. ej. AT10/AT30 en ohm·m). */
@@ -59,7 +62,12 @@ export type FillSpec =
    */
   | { kind: 'between'; a: RoleId; b: RoleId; aLeft?: FillRef; bLeft?: FillRef; compare?: 'screen' | 'value'; opacity?: number }
   /** Entre la curva y un valor fijo (línea base): `left` donde la curva queda a la izquierda del valor. */
-  | { kind: 'baseline'; curve: RoleId; value: number; left?: FillRef; right?: FillRef; opacity?: number };
+  | { kind: 'baseline'; curve: RoleId; value: number; left?: FillRef; right?: FillRef; opacity?: number }
+  /**
+   * Banda entre la mínima y la máxima, muestra a muestra, de todas las curvas de la pista con ese rol (modelos de Sw
+   * lado a lado: se ve dónde difieren). Con menos de dos curvas con dato en una muestra no hay banda.
+   */
+  | { kind: 'range'; curve: RoleId; fill: FillRef; opacity?: number };
 
 /**
  * 'overlay': pista propia de una superposición (presiones MDT…), sin curvas; la dibuja `overlayId`.
@@ -120,6 +128,22 @@ export interface TrackSpec {
   hideWhenEmpty?: boolean;
   /** Texto del estado vacío (qué falta para que aparezcan curvas). */
   emptyHint?: string;
+  /**
+   * Pista quitada por el usuario que no se borra de la lista: las pistas propias de superposiciones (MDT) se
+   * volverían a agregar solas si se borraran (docs/decisiones/0016, D3). No se dibuja ni entra en las figuras.
+   */
+  hidden?: boolean;
+}
+
+/** Plantilla de pistas guardada por el usuario (docs/decisiones/0016, D5). */
+export interface TrackTemplate {
+  id: string;
+  name: string;
+  /** Espacio de trabajo para el que se armó (el selector lista las del espacio activo). */
+  workspace: string;
+  tracks: TrackSpec[];
+  /** ISO 8601 del último guardado. */
+  savedAt?: string;
 }
 
 export interface DisplaySettings {
@@ -139,7 +163,23 @@ export interface DisplaySettings {
    * por defecto (proyectos guardados antes de la fase 7a).
    */
   plots?: Record<string, WellPlots>;
+  /**
+   * Plantillas de pistas propias con nombre (docs/decisiones/0016). Ausente = ninguna (proyectos anteriores a la
+   * fase 7b). Aplicar una copia sus pistas a `layouts[espacio]`.
+   */
+  trackTemplates?: TrackTemplate[];
 }
+
+/**
+ * Rango del ancho relativo de una pista (docs/decisiones/0016). Se acota al editar y al abrir un proyecto: un ancho
+ * enorme (1e6) armaría un lienzo de millones de px y dejaría el visor en blanco.
+ */
+export const TRACK_WIDTH_RANGE = { min: 0.4, max: 4 } as const;
+/** Paso de «más ancha / más angosta» (factor), igual en el menú, Alt+Mayús+flechas y el borde con el teclado. */
+export const TRACK_WIDTH_STEP = 1.25;
+
+/** Ancho relativo acotado a `TRACK_WIDTH_RANGE` y redondeado a centésimos. */
+export const clampTrackWidth = (w: number): number => Math.round(Math.min(TRACK_WIDTH_RANGE.max, Math.max(TRACK_WIDTH_RANGE.min, w)) * 100) / 100;
 
 export function emptyDisplay(): DisplaySettings {
   return { layouts: {}, roles: {}, curves: {} };
@@ -155,7 +195,7 @@ export function isEmptyOverride(o: CurveDisplayOverride | null | undefined): boo
 // con errores no debe tirar abajo el visor).
 
 const TRACK_KINDS = new Set<TrackKind>(['depth', 'curves', 'flags', 'overlay', 'stack']);
-const FILL_KINDS = new Set(['edge', 'between', 'baseline']);
+const FILL_KINDS = new Set(['edge', 'between', 'baseline', 'range']);
 const LINES = new Set<LineStyleId>(['solid', 'dashed', 'dotted', 'dashdot']);
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const isStr = (v: unknown): v is string => typeof v === 'string' && v.length > 0;
@@ -179,7 +219,7 @@ export function sanitizeOverride(raw: unknown): CurveDisplayOverride | null {
 
 function sanitizeSelector(raw: unknown): CurveSelector | null {
   if (!isObj(raw)) return null;
-  if (isStr(raw['role'])) return { role: raw['role'] };
+  if (isStr(raw['role'])) return { role: raw['role'], ...(isStr(raw['module']) ? { module: raw['module'] } : {}) };
   if (isStr(raw['curveId'])) return { curveId: raw['curveId'] };
   if (isStr(raw['unassigned'])) return { unassigned: raw['unassigned'] as DimensionId };
   return null;
@@ -192,6 +232,10 @@ function sanitizeFill(raw: unknown): FillSpec | null {
   if (raw['kind'] === 'edge') {
     if (!isStr(raw['curve']) || (raw['side'] !== 'left' && raw['side'] !== 'right') || !isStr(raw['fill'])) return null;
     return { kind: 'edge', curve: raw['curve'], side: raw['side'], fill: raw['fill'], ...opacity };
+  }
+  if (raw['kind'] === 'range') {
+    if (!isStr(raw['curve']) || !isStr(raw['fill'])) return null;
+    return { kind: 'range', curve: raw['curve'], fill: raw['fill'], ...opacity };
   }
   if (raw['kind'] === 'between') {
     if (!isStr(raw['a']) || !isStr(raw['b'])) return null;
@@ -245,7 +289,10 @@ function sanitizeTrack(raw: unknown, where: string, warn: (m: string) => void): 
     return null;
   }
   const t: TrackSpec = { id: raw['id'], title: raw['title'], kind, ...(stack ? { stack } : {}) };
-  if (isNum(raw['width']) && raw['width'] > 0) t.width = raw['width'];
+  if (isNum(raw['width']) && raw['width'] > 0) {
+    t.width = clampTrackWidth(raw['width']);
+    if (t.width !== raw['width']) warn(`${where}: la pista '${t.id}' tiene un ancho fuera de rango (${raw['width']}); se usa ${t.width}.`);
+  }
   if (Array.isArray(raw['curves'])) {
     t.curves = [];
     raw['curves'].forEach((c, i) => {
@@ -275,7 +322,61 @@ function sanitizeTrack(raw: unknown, where: string, warn: (m: string) => void): 
   if (raw['collect'] === 'computed' || raw['collect'] === 'flags') t.collect = raw['collect'];
   if (typeof raw['hideWhenEmpty'] === 'boolean') t.hideWhenEmpty = raw['hideWhenEmpty'];
   if (typeof raw['emptyHint'] === 'string') t.emptyHint = raw['emptyHint'];
+  if (raw['hidden'] === true) t.hidden = true;
   return t;
+}
+
+/** Lista de pistas validada: descarta las inválidas y las de id repetido (con aviso). */
+function sanitizeTrackList(tracks: unknown[], where: string, warn: (m: string) => void): TrackSpec[] {
+  const list = tracks.map((t, i) => sanitizeTrack(t, `${where}, pista ${i + 1}`, warn)).filter((t): t is TrackSpec => !!t);
+  const ids = new Set<string>();
+  return list.filter((t) => {
+    if (ids.has(t.id)) {
+      warn(`${where}: la pista '${t.id}' está repetida; se descarta la segunda.`);
+      return false;
+    }
+    ids.add(t.id);
+    return true;
+  });
+}
+
+/** Plantillas propias validadas: sin nombre, sin espacio o sin pistas válidas se descartan (con aviso). */
+function sanitizeTemplates(raw: unknown, warn: (m: string) => void): TrackTemplate[] | null {
+  if (raw === undefined || raw === null) return null;
+  if (!Array.isArray(raw)) {
+    warn('Las plantillas de pistas del proyecto no son una lista; se descartan.');
+    return null;
+  }
+  const out: TrackTemplate[] = [];
+  const ids = new Set<string>();
+  const names = new Set<string>();
+  raw.forEach((t, i) => {
+    if (!isObj(t) || !isStr(t['id']) || typeof t['name'] !== 'string' || !t['name'].trim() || !isStr(t['workspace']) || !Array.isArray(t['tracks'])) {
+      warn(`Plantilla de pistas ${i + 1}: le falta el id, el nombre, el espacio de trabajo o las pistas; se descarta.`);
+      return;
+    }
+    if (ids.has(t['id'])) {
+      warn(`Plantilla de pistas '${t['name']}': el id está repetido; se descarta la segunda.`);
+      return;
+    }
+    const nameKey = `${t['workspace']}|${t['name'].trim().toLocaleLowerCase('es')}`;
+    if (names.has(nameKey)) {
+      warn(`Plantilla de pistas '${t['name'].trim()}': ya hay otra con ese nombre en el mismo espacio de trabajo; se descarta la segunda.`);
+      return;
+    }
+    const tracks = sanitizeTrackList(t['tracks'], `Plantilla '${t['name']}'`, warn);
+    if (!tracks.length) {
+      warn(`Plantilla de pistas '${t['name']}': no tiene pistas válidas; se descarta.`);
+      return;
+    }
+    ids.add(t['id']);
+    names.add(nameKey);
+    const savedAt = t['savedAt'];
+    const validDate = typeof savedAt === 'string' && Number.isFinite(Date.parse(savedAt));
+    if (savedAt !== undefined && !validDate) warn(`Plantilla de pistas '${t['name'].trim()}': la fecha de guardado es inválida; se descarta la fecha.`);
+    out.push({ id: t['id'], name: t['name'].trim(), workspace: t['workspace'], tracks, ...(validDate ? { savedAt: savedAt as string } : {}) });
+  });
+  return out.length ? out : null;
 }
 
 /** Valida `display` leído de un archivo: devuelve solo lo válido y avisa lo que descartó. */
@@ -292,16 +393,7 @@ export function sanitizeDisplay(raw: unknown, warn: (message: string) => void = 
         warn(`Pistas de '${ws}': no es una lista; se usan las de fábrica.`);
         continue;
       }
-      const list = tracks.map((t, i) => sanitizeTrack(t, `Pistas de '${ws}', pista ${i + 1}`, warn)).filter((t): t is TrackSpec => !!t);
-      const ids = new Set<string>();
-      out.layouts[ws] = list.filter((t) => {
-        if (ids.has(t.id)) {
-          warn(`Pistas de '${ws}': la pista '${t.id}' está repetida; se descarta la segunda.`);
-          return false;
-        }
-        ids.add(t.id);
-        return true;
-      });
+      out.layouts[ws] = sanitizeTrackList(tracks, `Pistas de '${ws}'`, warn);
     }
   }
   const overrides = (v: unknown, where: string): Record<string, CurveDisplayOverride> => {
@@ -336,5 +428,7 @@ export function sanitizeDisplay(raw: unknown, warn: (message: string) => void = 
   }
   const plots = sanitizePlots(raw['plots'], warn);
   if (plots) out.plots = plots;
+  const templates = sanitizeTemplates(raw['trackTemplates'], warn);
+  if (templates) out.trackTemplates = templates;
   return out;
 }

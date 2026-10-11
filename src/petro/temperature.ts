@@ -91,3 +91,20 @@ export function arpsResistivityFInto(
   for (let i = start; i < end; i++) out[i] = arpsResistivityF(r1[i]!, t1F, t2F[i]!);
   return out;
 }
+
+/**
+ * Temperatura a la que una solución de resistividad R1 (medida a T1) tiene resistividad R2: inversa de Arps (°F).
+ * T2 + 6,77 = (R1/R2)·(T1 + 6,77). R1 y R2 > 0 y T1 > −6,77 °F; si no → NaN. Con R2 muy grande el resultado tiende
+ * a −6,77 °F (fuera de todo rango físico: el llamador valida).
+ */
+export function arpsTemperatureF(r1: number, t1F: number, r2: number): number {
+  const a = t1F + ARPS_F;
+  if (!(r1 > 0) || !(r2 > 0) || !(a > 0) || r1 === Infinity || r2 === Infinity) return NaN;
+  return (r1 / r2) * a - ARPS_F;
+}
+
+/** Inversa de Arps con temperaturas en °C (conversión interna a °F). */
+export function arpsTemperatureC(r1: number, t1C: number, r2: number): number {
+  const f = arpsTemperatureF(r1, celsiusToFahrenheit(t1C), r2);
+  return Number.isNaN(f) ? NaN : fahrenheitToCelsius(f);
+}

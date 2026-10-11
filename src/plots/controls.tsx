@@ -5,7 +5,7 @@
 import type { ReactNode } from 'react';
 import type { AxisScaleChoice } from '../core/plots';
 import type { Zone } from '../core/well';
-import { Chip, SegmentedControl, Select } from '../ui';
+import { Button, Callout, Chip, SegmentedControl, Select } from '../ui';
 import type { CurveOption } from './data';
 import './plots.css';
 
@@ -78,5 +78,26 @@ export function ControlGroup({ title, children, aside }: { title: string; childr
       </div>
       {children}
     </div>
+  );
+}
+
+/**
+ * Aviso de que un elemento arrastrable no cambiaría el resultado porque el módulo que usa su parámetro no alimenta la
+ * cadena (fase 7b, 0015), con la acción explícita que lo cambia («Usar Rw manual»).
+ */
+export function DriverCallout({ title, children, action, onAction }: { title: ReactNode; children?: ReactNode; action: string; onAction(): void }) {
+  return (
+    <Callout
+      tone="warn"
+      className="plot-driver"
+      title={title}
+      actions={
+        <Button size="sm" variant="secondary" onClick={onAction}>
+          {action}
+        </Button>
+      }
+    >
+      {children}
+    </Callout>
   );
 }

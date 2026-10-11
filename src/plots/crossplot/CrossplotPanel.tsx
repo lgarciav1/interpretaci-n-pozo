@@ -3,24 +3,28 @@
  * automática según el rol, color por una tercera curva (barra de color) o por zona (leyenda), filtro por zonas,
  * cutoffs arrastrables en X e Y (reales para VSH/PHIE/SW, libres para el resto), tendencias sobre los puntos visibles
  * (proveedor `crossplot`, ecuación y R²) y plantillas (densidad–neutrón, Pickett, φ–Sw, GR–Rt) con líneas guía
- * calculadas con los parámetros del proyecto.
+ * calculadas con los parámetros del proyecto. Fase 7b (0015): el punto de matriz del densidad–neutrón, la recta de agua
+ * del Pickett y las líneas de GR de la plantilla GR–Rt se arrastran y escriben sus parámetros (recálculo en vivo).
  *
  * Conectado con el visor: pasar sobre un punto marca su profundidad; el cursor del visor resalta el punto de esa
  * profundidad; la selección por rectángulo se ve como tramos; clic en un punto lo muestra en el visor.
  *
  * Presentación: no conoce los stores. Lo conecta `src/modules/crossplot/dock.tsx`.
  */
-import { memo, useEffect, useMemo, useState } from 'react';
+import { Fragment, memo, useEffect, useMemo, useState } from 'react';
+import type { SourceRef } from '../../core/interpretation';
 import type { CrossplotConfig, CrossplotTemplateId } from '../../core/plots';
 import type { ParamState } from '../../core/params';
 import type { TrendSpec } from '../../core/trends';
 import type { TrendModel } from '../../petro/regression';
+import { registry } from '../../modules';
 import rwManual from '../../modules/rw-manual';
 import { Badge, Button, EmptyState, IconButton, Menu, SEQUENTIAL_PALETTE, curveStyle, ensureContrast, fillColor, formatNumber, rampColor, toast, useThemeTokens, type MenuEntry } from '../../ui';
 import type { ThemeTokens } from '../../ui/tokens';
-import { ControlGroup, CurveSelect, ScaleControl, ZoneFilterChips } from '../controls';
-import { CUTOFF_PASSES, cutoffParamFor, cutoffScope, normalizeCutoff, paramStep, resolveCutoffLine, sharedParamValue, type CutoffLine, type CutoffParamKey } from '../cutoffs';
-import { depthRuns, effectiveScale, keyForRole, plotCurveOptions, resolvePlotCurve, zoneFilter, type PlotCurve } from '../data';
+import { ControlGroup, CurveSelect, DriverCallout, ScaleControl, ZoneFilterChips } from '../controls';
+import { CUTOFF_PASSES, cutoffParamFor, cutoffScope, normalizeCutoff, paramStep, resolveCutoffLine, type CutoffLine, type CutoffParamKey } from '../cutoffs';
+import { depthRuns, effectiveScale, engineInputData, keyForRole, plotCurveOptions, resolvePlotCurve, zoneFilter, type PlotCurve } from '../data';
+import { formatParam, grGuides, grWrite, inactiveDriver, normalizeParam, nudgeParam, paramChangeLabel, paramOfGuide, paramWrite, plotParamValue, plotScope, PLOT_PARAMS, RW_CORRECT_STORAGE, storedParamValue, type ParamWrite, type PlotScope } from '../params';
 import { setPlotLink } from '../link';
 import { evaluateTrend } from '../trend/compute';
 import { formatR2, MODEL_LABEL, trendEquation } from '../trend/format';
@@ -28,10 +32,12 @@ import { trendColor } from '../trend/overlay';
 import type { SeriesContext } from '../trend/series';
 import { niceRange, pointsInRect, type DataRect, type XYAxis } from '../xy/axes';
 import type { XYColorKey } from '../xy/figure';
-import { XYPlot, type GuidePhase, type XYGuide, type XYLineLayer, type XYPointLayer, type XYTrendLayer } from '../xy/XYPlot';
+import { XYPlot, type GuidePhase, type XYGuide, type XYHandle, type XYLineLayer, type XYPointLayer, type XYTrendLayer } from '../xy/XYPlot';
 import { cutoffSplit } from '../histogram/histogram';
 import { COLOR_LEVELS, colorLevel, gather, medianAt, plottableIndices, robustRange } from './crossplot';
 import { CROSSPLOT_PROVIDER_ID, crossplotSeries, crossplotSeriesKey, parseCrossplotSeriesKey } from './series';
+import { matrixParamsOf, matrixPointOf, mFromRotate, projectMatrixLine, representativeTemperature, rwAtFormation, rwAtReference, rwFromTranslate, snapMatrixToLithology, waterLineHandles, waterLineRt } from './drag';
+import { crossplotTemplatePatch } from './applyTemplate';
 import { BVW_LINES, CROSSPLOT_TEMPLATE_DEFS, DN_LITHOLOGIES, PICKETT_SW, bvwLine, densityNeutronLine, pickettLine, templateDef, type ArchieParams } from './templates';
 import '../plots.css';
 
@@ -40,6 +46,12 @@ export interface CrossplotPanelProps {
   config: CrossplotConfig;
   onChange(patch: Partial<CrossplotConfig>, label: string): void;
   onParamCutoff(key: CutoffParamKey, zoneId: string | null, value: number, phase: GuidePhase): void;
+  /** Parámetros elegidos sobre el gráfico (punto de matriz, recta de agua, GR): las escrituras de un movimiento. */
+  onParams(label: string, writes: readonly ParamWrite[], phase: GuidePhase): void;
+  /** Fuentes activas del motor (avisa si el módulo de un parámetro no alimenta la cadena); null sin resultado. */
+  sources: Readonly<Record<string, SourceRef>> | null;
+  /** Usar un módulo como fuente de un puerto («Usar Rw manual»). */
+  onUseModule(port: string, moduleId: string, label: string): void;
   /** Profundidad bajo el cursor del visor (resalta el punto). */
   cursorDepth: number | null;
   /** Mostrar una profundidad en el visor (clic en un punto). */
@@ -62,52 +74,215 @@ function axisFor(curve: PlotCurve, scale: 'linear' | 'log', values: Float64Array
   return { ...base, min: min ?? (scale === 'log' ? 0.1 : 0), max: nice?.max ?? (scale === 'log' ? 1000 : 1) };
 }
 
-/** Parámetros de Archie para el gráfico de Pickett: a, m, n del alcance; Rw = mediana de la curva RW en los puntos visibles. */
-function archieFor(ctx: SeriesContext, zoneId: string | null, idx: Int32Array): ArchieParams & { rwSource: string } {
-  const params: ParamState = ctx.interpretation.params;
-  const rwCurve = ctx.computed.find((c) => c.active && c.port === 'RW');
-  let rw = rwCurve ? medianAt(rwCurve.data, idx) : NaN;
-  let rwSource = 'mediana de la curva RW en los puntos visibles';
-  if (!(rw > 0)) {
-    const key = 'rw-manual.rwRef';
-    const z = zoneId ? params.zones[zoneId]?.[key] : undefined;
-    const g = params.global[key];
-    rw = typeof z === 'number' ? z : typeof g === 'number' ? g : (rwManual.params.rwRef.default as number);
-    rwSource = 'Rw conocida del módulo «Rw conocida»';
-  }
-  return { a: sharedParamValue(params, 'a', zoneId), m: sharedParamValue(params, 'm', zoneId), n: sharedParamValue(params, 'n', zoneId), rw, rwSource };
+/** Aviso de un módulo que no alimenta la cadena, con su acción («Usar Rw manual»). */
+interface DriverWarning {
+  id: string;
+  title: string;
+  text: string;
+  action: string;
+  port: string;
+  moduleId: string;
+}
+
+/** Valor leído para el panel aparte. */
+interface Readout {
+  label: string;
+  value: string;
+  color?: string;
+  /** Símbolo de la manija que lo mueve (rombo = matriz, círculo = recta de agua). */
+  point?: 'diamond' | 'circle';
+}
+
+/** Estado del gráfico de Pickett que hace falta para convertir un arrastre en parámetros. */
+interface PickettState extends ArchieParams {
+  /** Rw sale de `rw-manual` (si no, la recta usa la mediana de la curva RW activa y no se traslada). */
+  manual: boolean;
+  rwRef: number;
+  tRef: number;
+  /** Temperatura representativa de los puntos visibles (°C; mediana de TEMP). */
+  tRep: number;
+  correct: boolean;
 }
 
 interface TemplateDrawing {
   lines: XYLineLayer[];
   guides: XYGuide[];
   points: XYPointLayer[];
+  handles: XYHandle[];
   info: string | null;
+  readouts: Readout[];
+  warnings: DriverWarning[];
+  dn: { rhoMa: number; matrixOffset: number; rhoFl: number } | null;
+  pickett: PickettState | null;
 }
 
-/** Líneas guía de la plantilla, con colores del tema (la matemática está en `templates.ts`). */
-function templateDrawing(id: CrossplotTemplateId | null, ctx: SeriesContext, zoneId: string | null, idx: Int32Array, theme: ThemeTokens): TemplateDrawing {
-  const out: TemplateDrawing = { lines: [], guides: [], points: [], info: null };
+interface TemplateContext {
+  ctx: SeriesContext;
+  scope: PlotScope;
+  idx: Int32Array;
+  theme: ThemeTokens;
+  sources: Readonly<Record<string, SourceRef>> | null;
+  cx: PlotCurve;
+  cy: PlotCurve;
+  xAxis: XYAxis;
+  yAxis: XYAxis;
+  /** Posición de una manija durante su arrastre (sigue al puntero en vez de saltar al medio del tramo visible). */
+  dragging: { id: string; x: number; y: number } | null;
+}
+
+const signed = (s: string, v: number) => (v > 0 ? `+${s}` : s);
+const registryName = (moduleId: string) => registry.get(moduleId)?.name ?? moduleId;
+
+/**
+ * Parámetros de Archie para el gráfico de Pickett: a, m, n del alcance. Rw de la recta = Rw de formación de los
+ * puntos visibles: con `rw-manual` como fuente, la Rw de referencia del alcance llevada con Arps (la fórmula del
+ * motor) a la mediana de la temperatura de esos puntos; con otra fuente, la mediana de la curva RW activa (0014, D7).
+ */
+function pickettState(t: TemplateContext): PickettState & { rwSource: string } {
+  const params: ParamState = t.ctx.interpretation.params;
+  const z = t.scope.zoneId;
+  const base = { a: plotParamValue(params, PLOT_PARAMS.a, z), m: plotParamValue(params, PLOT_PARAMS.m, z), n: plotParamValue(params, PLOT_PARAMS.n, z) };
+  const rwRef = plotParamValue(params, PLOT_PARAMS.rwRef, z);
+  const tRef = plotParamValue(params, PLOT_PARAMS.tRef, z);
+  const correct = storedParamValue(params, RW_CORRECT_STORAGE, rwManual.params.correct, z) as boolean;
+  const manual = !inactiveDriver(t.sources, 'RW', 'rw-manual');
+  const temp = engineInputData(t.ctx, t.sources, 'TEMP');
+  const tRep = temp ? representativeTemperature(temp, t.idx) : NaN;
+  if (manual && (!correct || Number.isFinite(tRep))) {
+    return { ...base, rw: rwAtFormation(rwRef, tRef, tRep, correct), manual: true, rwRef, tRef, tRep, correct, rwSource: correct ? 'Rw conocida llevada a la temperatura de los puntos visibles' : 'Rw conocida, sin corrección por temperatura' };
+  }
+  const rwCurve = t.ctx.computed.find((c) => c.active && c.port === 'RW');
+  let rw = rwCurve ? medianAt(rwCurve.data, t.idx) : NaN;
+  let rwSource = 'mediana de la curva RW en los puntos visibles';
+  if (!(rw > 0)) {
+    rw = rwRef;
+    rwSource = 'Rw conocida del módulo «Rw conocida»';
+  }
+  return { ...base, rw, manual: false, rwRef, tRef, tRep, correct, rwSource };
+}
+
+/** Líneas guía y manijas de la plantilla, con colores del tema (la matemática está en `templates.ts` y `drag.ts`). */
+function templateDrawing(id: CrossplotTemplateId | null, t: TemplateContext): TemplateDrawing {
+  const { ctx, theme, scope } = t;
+  const out: TemplateDrawing = { lines: [], guides: [], points: [], handles: [], info: null, readouts: [], warnings: [], dn: null, pickett: null };
   const bg = theme.viewer.trackBg;
   const c = (hex: string) => ensureContrast(hex, bg, 3);
+  const params = ctx.interpretation.params;
   if (id === 'density-neutron') {
     const fills = { sandstone: 'sand', limestone: 'limestone', dolomite: 'dolomite' } as const;
     for (const lith of DN_LITHOLOGIES) {
       const l = densityNeutronLine(lith);
       const color = c(fillColor(fills[lith.id], theme.name).color);
-      out.lines.push({ id: `dn-${lith.id}`, name: lith.label, x: l.nphi, y: l.rhob, color, width: 1.75, label: lith.label, labelAt: 'start' });
+      out.lines.push({ id: `dn-${lith.id}`, name: lith.label, x: l.nphi, y: l.rhob, color, width: 1.5, label: lith.label, labelAt: 'start' });
       // Marcas cada 0,1 de porosidad (la de 0 es el punto de matriz).
       const ticks = l.phi.map((p, k) => (Math.abs(p * 10 - Math.round(p * 10)) < 1e-6 ? k : -1)).filter((k) => k >= 0);
       out.points.push({ id: `dn-ticks-${lith.id}`, x: ticks.map((k) => l.nphi[k]!), y: ticks.map((k) => l.rhob[k]!), color, radius: 2.6 });
     }
     out.info = 'Rectas de mezcla matriz–agua dulce (neutrón en unidades de caliza), marcas cada 0,1 de porosidad.';
+    if (t.cx.role === 'NPHI' && t.cy.role === 'RHOB') {
+      // Punto de matriz del proyecto (ρma de phi-density; corrección del neutrón de phi-neutron) y su línea.
+      const rhoMa = plotParamValue(params, PLOT_PARAMS.rhoMa, scope.zoneId);
+      const matrixOffset = plotParamValue(params, PLOT_PARAMS.matrixOffset, scope.zoneId);
+      const rhoFl = plotParamValue(params, PLOT_PARAMS.rhoFl, scope.zoneId);
+      out.dn = { rhoMa, matrixOffset, rhoFl };
+      const pt = matrixPointOf(rhoMa, matrixOffset);
+      const color = c(theme.color.accent);
+      const line = projectMatrixLine(rhoMa, matrixOffset, rhoFl);
+      out.lines.push({ id: 'dn-project', name: 'Matriz del proyecto', x: line.nphi, y: line.rhob, color, width: 2.25, label: 'Matriz del proyecto', labelAt: 'end' });
+      const ticks = line.phi.map((p, k) => (k > 0 && Math.abs(p * 10 - Math.round(p * 10)) < 1e-6 ? k : -1)).filter((k) => k >= 0);
+      out.points.push({ id: 'dn-project-ticks', x: ticks.map((k) => line.nphi[k]!), y: ticks.map((k) => line.rhob[k]!), color, radius: 3 });
+      const idleD = inactiveDriver(t.sources, 'PHID', 'phi-density');
+      const idleN = inactiveDriver(t.sources, 'PHIN', 'phi-neutron');
+      if (idleD) out.warnings.push({ id: 'phid', title: 'La porosidad por densidad no sale de ρma', text: 'Mover la matriz en vertical no cambiaría PHIE.', action: 'Usar porosidad por densidad', port: 'PHID', moduleId: 'phi-density' });
+      if (idleN) out.warnings.push({ id: 'phin', title: 'La porosidad neutrónica no usa esta corrección', text: 'Mover la matriz en horizontal no cambiaría PHIE.', action: 'Usar porosidad neutrónica', port: 'PHIN', moduleId: 'phi-neutron' });
+      const lith = DN_LITHOLOGIES.find((l) => Math.abs(l.rhoMa - rhoMa) < 1e-9 && Math.abs(l.phiNMa - pt.nphi) < 1e-9);
+      const rho = formatParam(PLOT_PARAMS.rhoMa, rhoMa);
+      const nphiText = signed(formatParam(PLOT_PARAMS.matrixOffset, pt.nphi), pt.nphi);
+      const corr = signed(formatParam(PLOT_PARAMS.matrixOffset, matrixOffset), matrixOffset);
+      out.handles.push({
+        id: 'matrix',
+        x: pt.nphi,
+        y: pt.rhob,
+        color,
+        shape: 'diamond',
+        label: `Matriz ${scope.text} · ${rho}${lith ? ` · ${lith.label.toLowerCase()}` : ''}`,
+        detail: `NPHI ${nphiText} · corrección ${corr}`,
+        ariaLabel: `Punto de matriz ${scope.text}. Flechas arriba y abajo cambian la densidad de la matriz; izquierda y derecha, la lectura del neutrón en la matriz. Mayús para pasos largos`,
+        valueText: `densidad de matriz ${rho}, neutrón en la matriz ${nphiText}`,
+        grabPath: { x: line.nphi, y: line.rhob },
+        // Debajo de la matriz (más densidad que la arenisca) no suele haber puntos.
+        labelAt: { x: 'right', y: 'below' },
+        ...(idleD && idleN ? { disabled: true } : {}),
+      });
+      out.readouts.push({ label: 'Densidad de la matriz', value: rho, color, point: 'diamond' }, { label: 'NPHI de la matriz', value: nphiText }, { label: 'Corrección del neutrón', value: corr });
+      out.info = 'Rombo = punto de matriz del proyecto: arrastralo (o la línea que sale de él) para elegir ρma y la corrección del neutrón; se pega a arenisca, caliza y dolomía. Las rectas finas son de referencia.';
+    }
   } else if (id === 'pickett') {
-    const p = archieFor(ctx, zoneId, idx);
+    const p = pickettState(t);
+    out.pickett = p;
     PICKETT_SW.forEach((sw, k) => {
       const l = pickettLine(sw, p, [0.005, 1]);
-      out.lines.push({ id: `pk-${sw}`, name: `Sw ${pct(sw * 100)}`, x: l.rt, y: l.phi, color: k === 0 ? c(theme.color.info) : c(theme.color.textMuted), width: k === 0 ? 1.75 : 1.25, dash: k === 0 ? [] : [6, 4], label: `Sw ${pct(sw * 100)}`, labelAt: 'start' });
+      out.lines.push({ id: `pk-${sw}`, name: `Sw ${pct(sw * 100)}`, x: l.rt, y: l.phi, color: k === 0 ? c(theme.color.info) : c(theme.color.textMuted), width: k === 0 ? 2 : 1.25, dash: k === 0 ? [] : [6, 4], label: `Sw ${pct(sw * 100)}`, labelAt: 'start' });
     });
-    out.info = `a ${fmt(p.a)} · m ${fmt(p.m)} · n ${fmt(p.n)} · Rw ${fmt(p.rw)} ohm·m (${p.rwSource}).`;
+    const water = out.lines[0]!;
+    const pivot = t.cx.role === 'RT' && t.cy.role === 'PHIE' && t.xAxis.kind === 'log' && t.yAxis.kind === 'log';
+    const rwRefText = formatParam(PLOT_PARAMS.rwRef, p.rwRef);
+    const rwFormText = `${fmt(p.rw)} ohm·m`;
+    const tRefText = `${fmt(p.tRef)} °C`;
+    if (pivot) {
+      const h = waterLineHandles(p, [t.xAxis.min, t.xAxis.max], [t.yAxis.min, t.yAxis.max]);
+      const color = c(theme.color.info);
+      const dm = t.dragging?.id === 'water-move' ? t.dragging : null;
+      const dr = t.dragging?.id === 'water-rotate' ? t.dragging : null;
+      // Durante el arrastre la manija queda bajo el puntero (sobre la recta ya redondeada al paso).
+      const move = dm && dm.y > 0 ? { rt: waterLineRt(dm.y, p), phi: dm.y } : h.translate;
+      out.handles.push({
+        id: 'water-move',
+        x: move.rt,
+        y: move.phi,
+        color,
+        label: p.manual ? `Rw ${scope.text} · ${rwRefText} a ${tRefText}` : `Rw de formación · ${rwFormText}`,
+        detail: p.manual ? (p.correct ? `${rwFormText} a ${fmt(p.tRep)} °C (formación)${p.tRep > ARPS_T_MAX_C ? ' · extrapolada: fuera de la carta' : ''}` : 'sin corrección por temperatura') : inactiveDriver(t.sources, 'RW', 'rw-manual') ? 'la Rw activa no es la manual' : 'sin temperatura de formación',
+        ariaLabel: `Recta de agua, trasladar: cambia Rw ${scope.text}. Flechas para mover, Mayús para pasos largos`,
+        valueText: p.manual ? `Rw ${rwRefText} a ${tRefText}; ${rwFormText} a temperatura de formación` : `Rw de formación ${rwFormText}`,
+        grabPath: { x: water.x, y: water.y },
+        labelAt: { x: 'left', y: 'below' },
+        ...(p.manual ? {} : { disabled: true }),
+      });
+      if (h.rotate) {
+        const rot = dr && dr.y > 0 && dr.y < 1 ? { rt: waterLineRt(dr.y, p), phi: dr.y } : h.rotate;
+        const mText = formatParam(PLOT_PARAMS.m, p.m);
+        out.handles.push({
+          id: 'water-rotate',
+          x: rot.rt,
+          y: rot.phi,
+          color,
+          shape: 'square',
+          cursor: 'crosshair',
+          labelAt: { x: 'left', y: 'below' },
+          label: `m ${scope.text} · ${mText}`,
+          detail: 'gira alrededor de φ = 1',
+          ariaLabel: `Recta de agua, rotar: cambia el exponente de cementación m ${scope.text}. Flechas para mover, Mayús para pasos largos`,
+          valueText: `m ${mText}`,
+        });
+      }
+      if (inactiveDriver(t.sources, 'RW', 'rw-manual')) {
+        const active = t.sources?.['RW'];
+        const from = active?.kind === 'module' ? `«${registryName(active.moduleId)}»` : active?.kind === 'curve' ? `la curva medida ${active.curveId}` : 'otra fuente';
+        out.warnings.push({ id: 'rw', title: `La Rw activa sale de ${from}`, text: `Trasladar la recta de agua no cambiaría Sw. Rotarla sí cambia m. Con Rw manual, la recta parte de Rw ${rwRefText} a ${tRefText}.`, action: 'Usar Rw manual', port: 'RW', moduleId: 'rw-manual' });
+      }
+    }
+    out.readouts.push(
+      ...(p.manual ? [{ label: `Rw a ${tRefText}`, value: rwRefText, color: c(theme.color.info), point: 'circle' as const }] : []),
+      { label: p.manual && p.correct ? `Rw a ${fmt(p.tRep)} °C` : 'Rw de formación', value: rwFormText },
+      { label: 'm', value: formatParam(PLOT_PARAMS.m, p.m) },
+      { label: 'a · n', value: `${fmt(p.a)} · ${fmt(p.n)}` },
+    );
+    out.info = pivot
+      ? p.manual
+        ? `Arrastrá la recta de agua (Sw 100 %) para elegir Rw y su manija cuadrada para rotarla y elegir m; las líneas de Sw se recalculan. Rw de la recta: ${p.rwSource}.`
+        : `La manija cuadrada rota la recta de agua y elige m. Rw de la recta: ${p.rwSource}.`
+      : `a ${fmt(p.a)} · m ${fmt(p.m)} · n ${fmt(p.n)} · Rw ${fmt(p.rw)} ohm·m (${p.rwSource}).`;
   } else if (id === 'phi-sw') {
     for (const bvw of BVW_LINES) {
       const l = bvwLine(bvw, 0.45);
@@ -115,12 +290,12 @@ function templateDrawing(id: CrossplotTemplateId | null, ctx: SeriesContext, zon
     }
     out.info = 'Hipérbolas de volumen de agua constante (BVW = φ·Sw): los puntos de una zona a saturación irreducible se alinean sobre una.';
   } else if (id === 'gr-rt') {
-    const params = ctx.interpretation.params;
-    const clean = sharedParamValue(params, 'grClean', zoneId);
-    const shale = sharedParamValue(params, 'grShale', zoneId);
-    out.guides.push({ axis: 'x', value: clean, color: c(fillColor('sand', theme.name).color), width: 1.5, dash: [3, 3], label: `GR limpia · ${fmt(clean)}` });
-    out.guides.push({ axis: 'x', value: shale, color: c(fillColor('shale', theme.name).color), width: 1.5, dash: [3, 3], label: `GR arcilla · ${fmt(shale)}` });
-    out.info = 'GR de arena limpia y de arcilla del paso Arcilla (de la zona si hay una sola filtrada).';
+    const draggable = t.cx.role === 'GR' && !inactiveDriver(t.sources, 'IGR', 'igr');
+    out.guides.push(...grGuides(params, scope, { clean: c(fillColor('sand', theme.name).color), shale: c(fillColor('shale', theme.name).color) }, draggable));
+    if (t.cx.role === 'GR' && inactiveDriver(t.sources, 'IGR', 'igr')) {
+      out.warnings.push({ id: 'igr', title: 'El índice de arcilla no sale de este GR', text: 'Mover las líneas no cambiaría Vsh.', action: 'Usar índice de arcilla por GR', port: 'IGR', moduleId: 'igr' });
+    }
+    out.info = draggable ? 'GR de arena limpia y de arcilla del paso Arcilla: arrastralas para elegirlas (Vsh se recalcula en vivo).' : 'GR de arena limpia y de arcilla del paso Arcilla (de la zona si hay una sola filtrada).';
   }
   return out;
 }
@@ -130,6 +305,7 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
   const theme = useThemeTokens();
   const [preview, setPreview] = useState<{ id: string; value: number } | null>(null);
   const [selection, setSelection] = useState<{ count: number; runs: number; rect: DataRect } | null>(null);
+  const [dragging, setDragging] = useState<{ id: string; x: number; y: number } | null>(null);
   const options = useMemo(() => plotCurveOptions(ctx), [ctx]);
   const depth = ctx.well.depth.values;
   const zones = ctx.interpretation.zones;
@@ -145,6 +321,7 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
   const yScale = effectiveScale(config.yScale, cy);
   const filter = useMemo(() => zoneFilter(depth, zones, config.zones), [depth, zones, config.zones]);
   const scope = cutoffScope(config.zones, zones);
+  const pscope = plotScope(config.zones, zones);
 
   // Muestras graficables y su posición en la nube (para el cursor del visor).
   const cloud = useMemo(() => {
@@ -190,7 +367,12 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
     return { kind: 'none' as const, color: () => single };
   }, [cloud, config.color.kind, cc, filter, theme, cy, ctx.catalog]);
 
-  const tpl = useMemo(() => (cloud ? templateDrawing(config.template, ctx, scope.zoneId, cloud.idx, theme) : null), [config.template, ctx, scope.zoneId, cloud, theme]);
+  const sources = props.sources;
+  const tpl = useMemo(
+    () => (cloud && cx && cy && xAxis && yAxis ? templateDrawing(config.template, { ctx, scope: pscope, idx: cloud.idx, theme, sources, cx, cy, xAxis, yAxis, dragging }) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [config.template, ctx, pscope.zoneId, pscope.text, cloud, theme, sources, cx, cy, xAxis, yAxis, dragging],
+  );
 
   // Cutoffs en X e Y.
   const params = ctx.interpretation.params;
@@ -303,29 +485,9 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
   const swap = () =>
     onChange({ x: yKey, y: xKey, xScale: config.yScale, yScale: config.xScale, xReversed: config.yReversed, yReversed: config.xReversed, xRange: config.yRange, yRange: config.xRange, template: null }, 'Intercambiar los ejes del crossplot');
   const applyTemplate = (id: CrossplotTemplateId) => {
-    const def = templateDef(id)!;
-    const x = keyForRole(ctx, def.x.role);
-    const y = keyForRole(ctx, def.y.role);
-    if (!x || !y) {
-      toast({ tone: 'warn', title: `No se puede armar «${def.label}»`, description: `Hace falta ${!x ? def.x.role : def.y.role} en el pozo (medida o calculada).` });
-      return;
-    }
-    const color = def.colorRole ? keyForRole(ctx, def.colorRole) : null;
-    onChange(
-      {
-        x,
-        y,
-        xScale: def.x.scale,
-        yScale: def.y.scale,
-        xReversed: !!def.x.reversed,
-        yReversed: !!def.y.reversed,
-        xRange: def.x.range,
-        yRange: def.y.range,
-        template: id,
-        ...(color ? { color: { kind: 'curve' as const, curve: color } } : {}),
-      },
-      `Usar la plantilla ${def.label}`,
-    );
+    const r = crossplotTemplatePatch(ctx, id);
+    if (!r.ok) toast({ tone: 'warn', title: r.title, description: r.description });
+    else onChange(r.patch, r.label);
   };
   const toggleCutoff = (c: PlotCurve | null) => {
     if (!c) return;
@@ -340,6 +502,12 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
     onChange({ cutoffs: { ...config.cutoffs, [c.key]: param ? true : +med.toPrecision(3) } }, param ? 'Mostrar cutoff en el crossplot' : 'Agregar cutoff libre');
   };
   const onGuide = (id: string, value: number, phase: GuidePhase) => {
+    const gp = paramOfGuide(id);
+    if (gp === 'grClean' || gp === 'grShale') {
+      const w = grWrite(gp, value, params, pscope);
+      props.onParams(paramChangeLabel(PLOT_PARAMS[gp]), w ? [w] : [], phase);
+      return;
+    }
     const l = cutLines.find((q) => q.id === id);
     if (!l) return;
     if (l.param) {
@@ -352,6 +520,52 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
     else {
       setPreview(null);
       if (phase === 'commit') onChange({ cutoffs: { ...config.cutoffs, [l.curveKey]: value } }, 'Mover cutoff libre');
+    }
+  };
+  // ── parámetros sobre el gráfico (fase 7b, 0015) ─────────────────────────────────────────────────────────────
+  /** Escrituras del punto de matriz en (nphi, rhob), acotadas y redondeadas al paso de cada parámetro. */
+  const matrixWrites = (nphi: number, rhob: number): ParamWrite[] => {
+    const v = matrixParamsOf({ nphi, rhob });
+    return [paramWrite(PLOT_PARAMS.rhoMa, normalizeParam(PLOT_PARAMS.rhoMa.spec, v.rhoMa), pscope), paramWrite(PLOT_PARAMS.matrixOffset, normalizeParam(PLOT_PARAMS.matrixOffset.spec, v.matrixOffset), pscope)];
+  };
+  /** Rw de referencia que pone la recta de agua por `pt` (Rw de formación → temperatura de referencia, como el motor). */
+  const rwWrite = (pt: { rt: number; phi: number }): ParamWrite[] => {
+    const p = tpl?.pickett;
+    if (!p || !p.manual) return [];
+    const rwRef = rwAtReference(rwFromTranslate(pt, p.a, p.m), p.tRef, p.tRep, p.correct);
+    return [paramWrite(PLOT_PARAMS.rwRef, normalizeParam(PLOT_PARAMS.rwRef.spec, rwRef), pscope)];
+  };
+  const mWrite = (pt: { rt: number; phi: number }): ParamWrite[] => {
+    const p = tpl?.pickett;
+    const m = p ? mFromRotate(pt, p.a, p.rw) : NaN;
+    return Number.isFinite(m) ? [paramWrite(PLOT_PARAMS.m, normalizeParam(PLOT_PARAMS.m.spec, m), pscope)] : [];
+  };
+  const MATRIX_LABEL = 'Mover el punto de matriz';
+  const onHandle = (id: string, pos: { x: number; y: number }, phase: GuidePhase) => {
+    setDragging(phase === 'preview' ? { id, ...pos } : null);
+    if (id === 'matrix' && xAxis && yAxis) {
+      const snap = snapMatrixToLithology({ nphi: pos.x, rhob: pos.y }, { x: xAxis.max - xAxis.min, y: yAxis.max - yAxis.min });
+      props.onParams(MATRIX_LABEL, matrixWrites(snap.point.nphi, snap.point.rhob), phase);
+    } else if (id === 'water-move') props.onParams(paramChangeLabel(PLOT_PARAMS.rwRef), rwWrite({ rt: pos.x, phi: pos.y }), phase);
+    else if (id === 'water-rotate') props.onParams(paramChangeLabel(PLOT_PARAMS.m), mWrite({ rt: pos.x, phi: pos.y }), phase);
+  };
+  /** Flechas sobre una manija: un paso del parámetro (Mayús ×10), en la dirección en pantalla. */
+  const onNudge = (id: string, dx: -1 | 0 | 1, dy: -1 | 0 | 1, big: boolean) => {
+    const z = pscope.zoneId;
+    if (id === 'matrix' && tpl?.dn) {
+      const writes: ParamWrite[] = [];
+      // Derecha = más NPHI de matriz = menos corrección; arriba = menos densidad si el eje está invertido.
+      if (dx) writes.push(paramWrite(PLOT_PARAMS.matrixOffset, nudgeParam(PLOT_PARAMS.matrixOffset.spec, tpl.dn.matrixOffset, (dx * (xAxis?.reversed ? 1 : -1)) as 1 | -1, big), pscope));
+      if (dy) writes.push(paramWrite(PLOT_PARAMS.rhoMa, nudgeParam(PLOT_PARAMS.rhoMa.spec, tpl.dn.rhoMa, (dy * (yAxis?.reversed ? -1 : 1)) as 1 | -1, big), pscope));
+      props.onParams(MATRIX_LABEL, writes, 'commit');
+      return;
+    }
+    // Recta de agua: derecha o arriba = más Rw (trasladar) o más m (rotar).
+    const dir = (dx || dy) as 1 | -1;
+    if (id === 'water-move' && tpl?.pickett?.manual) {
+      props.onParams(paramChangeLabel(PLOT_PARAMS.rwRef), [paramWrite(PLOT_PARAMS.rwRef, nudgeParam(PLOT_PARAMS.rwRef.spec, plotParamValue(params, PLOT_PARAMS.rwRef, z), dir, big), pscope)], 'commit');
+    } else if (id === 'water-rotate' && tpl?.pickett) {
+      props.onParams(paramChangeLabel(PLOT_PARAMS.m), [paramWrite(PLOT_PARAMS.m, nudgeParam(PLOT_PARAMS.m.spec, tpl.pickett.m, dir, big), pscope)], 'commit');
     }
   };
   const removeGuide = (id: string) => {
@@ -539,10 +753,29 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
               </div>
             )}
             {tplDef && tpl?.info && (
-              <div className="plot-aside-block">
+              <div className="plot-aside-block" data-testid="crossplot-template-info">
                 <div className="plot-group__title">
                   <Badge tone="accent">{tplDef.label}</Badge>
+                  {tpl.readouts.length > 0 && <span className="plot-muted"> {pscope.zoneId ? pscope.text : 'global'}</span>}
                 </div>
+                {tpl.readouts.length > 0 && (
+                  <dl className="plot-params">
+                    {tpl.readouts.map((r) => (
+                      <Fragment key={r.label}>
+                        <dt>
+                          {r.color && <span className={`plot-swatch${r.point ? ` is-${r.point}` : ''}`} style={{ ['--swatch' as string]: r.color }} aria-hidden="true" />}
+                          {r.label}
+                        </dt>
+                        <dd>{r.value}</dd>
+                      </Fragment>
+                    ))}
+                  </dl>
+                )}
+                {tpl.warnings.map((w) => (
+                  <DriverCallout key={w.id} title={w.title} action={w.action} onAction={() => props.onUseModule(w.port, w.moduleId, w.action)}>
+                    {w.text}
+                  </DriverCallout>
+                ))}
                 <p className="plot-hint">{tpl.info}</p>
               </div>
             )}
@@ -561,6 +794,9 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
               lines={tpl?.lines ?? NO_LINES}
               trends={trends}
               guides={guides}
+              handles={tpl?.handles ?? NO_HANDLES}
+              onHandleChange={onHandle}
+              onHandleNudge={onNudge}
               title={tplDef ? `Crossplot ${tplDef.label}` : `Crossplot ${cy.short} vs. ${cx.short}`}
               ariaLabel={`Crossplot de ${cy.label} contra ${cx.label}, ${formatNumber(n, { digits: 0 })} puntos`}
               colorKey={coloring?.kind === 'curve' ? coloring.key : undefined}
@@ -609,7 +845,11 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
   );
 }
 
+/** Temperatura más alta de la carta de Rw (Gen-9, ~400 °F): por encima, la corrección de Arps se extrapola. */
+const ARPS_T_MAX_C = 200;
+
 const NO_LINES: XYLineLayer[] = [];
+const NO_HANDLES: XYHandle[] = [];
 
 function quadrants(x: Float64Array, y: Float64Array, lx: CutoffLine, ly: CutoffLine, xName: string, yName: string) {
   const c = [0, 0, 0, 0]; // [arriba-izq, arriba-der, abajo-izq, abajo-der] en VALORES (≤ / >)
@@ -645,6 +885,9 @@ interface CloudPlotProps {
   lines: XYLineLayer[];
   trends: XYTrendLayer[];
   guides: XYGuide[];
+  handles: XYHandle[];
+  onHandleChange(id: string, pos: { x: number; y: number }, phase: GuidePhase): void;
+  onHandleNudge(id: string, dx: -1 | 0 | 1, dy: -1 | 0 | 1, big: boolean): void;
   title: string;
   ariaLabel: string;
   colorKey: XYColorKey | undefined;
@@ -673,6 +916,9 @@ const CloudPlot = memo(function CloudPlot(p: CloudPlotProps) {
       lines={p.lines}
       trends={p.trends}
       guides={p.guides}
+      handles={p.handles}
+      onHandleChange={p.onHandleChange}
+      onHandleNudge={p.onHandleNudge}
       {...(p.colorKey ? { colorKey: p.colorKey } : {})}
       highlight={p.highlight}
       selection={p.selection}

@@ -3,7 +3,7 @@
  * sus controles están en `src/plots/crossplot/`; acá solo se conectan con los stores (configuración, cutoffs,
  * tendencias, cursor del visor). Se descubre solo (`src/modules/<id>/dock.tsx`).
  */
-import { commitParamCutoff, commitPlotConfig, PlotDockGate, usePlotConfig } from '../../app/plots/connect';
+import { chooseModuleSource, commitParamCutoff, commitPlotConfig, commitPlotParams, PlotDockGate, useEngineSources, usePlotConfig } from '../../app/plots/connect';
 import { useViewer } from '../../app/store/viewer';
 import { commitTrends } from '../../app/trends/actions';
 import { useTrendsUi } from '../../app/trends/store';
@@ -18,6 +18,7 @@ export const CROSSPLOT_DOCK_ID = 'crossplot';
 function CrossplotDock() {
   const config = usePlotConfig('crossplot');
   const cursorDepth = useViewer((s) => s.cursorDepth);
+  const sources = useEngineSources();
   return (
     <PlotDockGate id={CROSSPLOT_DOCK_ID} icon="scatter">
       {(ctx) =>
@@ -28,6 +29,9 @@ function CrossplotDock() {
             cursorDepth={cursorDepth}
             onChange={(patch, label) => commitPlotConfig('crossplot', patch, label)}
             onParamCutoff={commitParamCutoff}
+            onParams={commitPlotParams}
+            sources={sources}
+            onUseModule={chooseModuleSource}
             onShowDepth={(d) => useTrendsUi.getState().requestRange(d - 15, d + 15)}
             onAddTrend={(spec) => {
               const id = makeId('tend');

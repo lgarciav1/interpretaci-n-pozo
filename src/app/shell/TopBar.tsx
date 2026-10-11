@@ -5,7 +5,7 @@
  */
 import { useRef } from 'react';
 import { WORKSPACES, type WorkspaceId } from '../../core/workspaces';
-import { BrandMark, Button, Icon, IconButton, Menu, SegmentedControl, Spinner, StatusDot, ThemeToggle, Tooltip, UiScaleToggle, formatNumber } from '../../ui';
+import { BrandMark, Button, Icon, IconButton, IS_MAC_PLATFORM, Menu, openCommandPalette, SegmentedControl, Spinner, StatusDot, ThemeToggle, Tooltip, UiScaleToggle, formatNumber } from '../../ui';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useResults } from '../store/results';
 import { useUi } from '../store/ui';
@@ -139,6 +139,7 @@ export function TopBar() {
       </div>
       <span className="shell-topbar__divider" aria-hidden="true" />
       <div className="shell-prefs">
+        <IconButton icon="search" label="Paleta de comandos" hint={IS_MAC_PLATFORM ? '⌘K' : 'Ctrl+K'} aria-keyshortcuts={IS_MAC_PLATFORM ? 'Meta+K' : 'Control+K'} onClick={openCommandPalette} data-testid="command-open" />
         <UiScaleToggle />
         <ThemeToggle />
       </div>

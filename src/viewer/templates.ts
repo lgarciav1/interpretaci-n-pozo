@@ -99,6 +99,15 @@ export const BUILTIN_LAYOUTS: Readonly<Record<WorkspaceId, readonly TrackSpec[]>
     { id: 'volumetric', title: 'Litología', kind: 'stack', width: 0.85, stack: VOLUMETRIC_STACK },
     { id: 'permeability', title: 'Permeabilidad', kind: 'curves', width: 0.8, scale: { kind: 'log', min: 0.01, max: 10000 }, curves: [{ select: { role: 'PERM' } }], hideWhenEmpty: true },
     { id: 'flags', title: 'Banderas', kind: 'flags', collect: 'flags', hideWhenEmpty: true },
+    {
+      id: 'indicators',
+      title: 'Indicadores',
+      kind: 'flags',
+      // Banderas de los indicadores automáticos (fase 7c, 0017): gas, arcilla, carbón y derrumbe. Van por rol, así
+      // el recolector de «Banderas» no las duplica.
+      curves: [{ select: { role: 'IND_GAS' } }, { select: { role: 'IND_SHALE' } }, { select: { role: 'IND_COAL' } }, { select: { role: 'IND_WASHOUT' } }],
+      hideWhenEmpty: true,
+    },
   ],
   geology: [
     {

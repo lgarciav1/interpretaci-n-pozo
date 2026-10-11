@@ -20,15 +20,15 @@ import { useCanvas } from '../../ui/canvas';
 import { withAlpha } from '../../ui/color';
 import { formatNumber } from '../../ui/format';
 import { getUiScaleFactor, scaledCss } from '../../ui/uiScale';
-import { axisFraction, dataRectFromPx, fractionValue, niceStep, plotRectFor, validAxis, xyMapping, type DataRect, type PlotRect, type XYAxis, type XYMapping } from './axes';
+import { axisFraction, dataRectFromPx, distanceToPolylinePx, fractionValue, movePointPx, niceStep, plotRectFor, validAxis, xyMapping, type DataRect, type PlotRect, type XYAxis, type XYMapping } from './axes';
 import { drawXYScene } from './draw';
 import type { XYColorKey } from './figure';
 import { registerXYFigure } from './figures';
-import type { XYBarLayer, XYGuide, XYLineLayer, XYPointLayer, XYTrendLayer } from './layers';
+import type { XYBarLayer, XYGuide, XYHandle, XYLineLayer, XYPointLayer, XYTrendLayer } from './layers';
 import { buildPointGrid, gridNearest, type PointGrid } from './pick';
 import './xy.css';
 
-export type { XYBarLayer, XYGuide, XYLineLayer, XYPointLayer, XYTrendLayer } from './layers';
+export type { XYBarLayer, XYGuide, XYHandle, XYLineLayer, XYPointLayer, XYTrendLayer } from './layers';
 
 export type GuidePhase = 'preview' | 'commit' | 'cancel';
 
@@ -65,12 +65,21 @@ export interface XYPlotProps {
   /** Selección vigente (en datos): queda dibujada hasta que el dueño la limpie. */
   selection?: DataRect | null;
   /**
-   * Guía arrastrable (`draggable` con `id`) movida: 'preview' en cada movimiento (y con cada tecla), 'commit' al soltar,
-   * 'cancel' con Escape durante el arrastre (volver al valor de antes).
+   * Guía arrastrable (`draggable` con `id`) movida: 'preview' en cada movimiento, 'commit' al soltar (y con cada
+   * tecla), 'cancel' con Escape durante el arrastre (volver al valor de antes).
    */
   onGuideChange?(id: string, value: number, phase: GuidePhase): void;
   /** Supr o Retroceso sobre la manija de una guía. */
   onGuideRemove?(id: string): void;
+  /** Manijas arrastrables en 2D (punto de matriz, recta de agua; docs/decisiones/0015). */
+  handles?: readonly XYHandle[];
+  /**
+   * Manija (o su `grabPath`) arrastrada: posición nueva en datos. 'preview' en cada movimiento, 'commit' al soltar,
+   * 'cancel' con Escape (vuelve a la posición de antes).
+   */
+  onHandleChange?(id: string, pos: { x: number; y: number }, phase: GuidePhase): void;
+  /** Flecha sobre una manija: dirección EN PANTALLA (derecha y arriba = +1); `big` con Mayús. */
+  onHandleNudge?(id: string, dx: -1 | 0 | 1, dy: -1 | 0 | 1, big: boolean): void;
   /** Texto si no hay nada para dibujar. */
   emptyText?: string;
   className?: string;
@@ -93,6 +102,7 @@ const NO_LINES: readonly XYLineLayer[] = [];
 const NO_TRENDS: readonly XYTrendLayer[] = [];
 const NO_GUIDES: readonly XYGuide[] = [];
 const NO_BARS: readonly XYBarLayer[] = [];
+const NO_HANDLES: readonly XYHandle[] = [];
 const GUIDE_HIT_PX = 6;
 
 /** Puntos interactivos en orden de x (para el teclado). */
@@ -126,7 +136,7 @@ export function nudgeGuideValue(a: XYAxis, v: number, steps: number): number {
 
 export function XYPlot(props: XYPlotProps) {
   // Capas ausentes = listas vacías CONSTANTES (un `[]` nuevo en cada render redibujaría toda la escena).
-  const { x: xAxis, y: yAxis, y2, points = NO_POINTS, lines = NO_LINES, trends = NO_TRENDS, guides = NO_GUIDES, bars = NO_BARS, height, compact = false } = props;
+  const { x: xAxis, y: yAxis, y2, points = NO_POINTS, lines = NO_LINES, trends = NO_TRENDS, guides = NO_GUIDES, bars = NO_BARS, handles = NO_HANDLES, height, compact = false } = props;
   const mapRef = useRef<XYMapping | null>(null);
   const gridRef = useRef<{ key: unknown; grids: (PointGrid | null)[] } | null>(null);
   const [geom, setGeom] = useState<PlotRect | null>(null);
@@ -138,6 +148,9 @@ export function XYPlot(props: XYPlotProps) {
   const [hoverGuide, setHoverGuide] = useState<string | null>(null);
   const drag = useRef<{ x0: number; y0: number; pointerId: number; moved: boolean } | null>(null);
   const guideDrag = useRef<{ id: string; pointerId: number; start: number; axis: 'x' | 'y' } | null>(null);
+  const handleDrag = useRef<{ id: string; pointerId: number; start: { x: number; y: number }; p0: { x: number; y: number } } | null>(null);
+  const [dragHandle, setDragHandle] = useState<string | null>(null);
+  const [hoverHandle, setHoverHandle] = useState<string | null>(null);
   const order = useMemo(() => keyboardOrder(points), [points]);
   const ok = validAxis(xAxis) && validAxis(yAxis) && (!y2 || validAxis(y2));
   const { figureId, figureTitle, colorKey } = props;
@@ -242,6 +255,34 @@ export function XYPlot(props: XYPlotProps) {
         }
         ctx.stroke();
       }
+      // Recta de una manija bajo el puntero o arrastrándose: trazo más grueso.
+      const hid = dragHandle ?? hoverHandle;
+      const hh = hid ? handles.find((q) => q.id === hid) : undefined;
+      if (hh?.grabPath) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(r.x, r.y, r.width, r.height);
+        ctx.clip();
+        ctx.strokeStyle = withAlpha(hh.color, 0.3);
+        ctx.lineWidth = 7;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        let pen = false;
+        const n = Math.min(hh.grabPath.x.length, hh.grabPath.y.length);
+        for (let k = 0; k < n; k++) {
+          const px = m.x(hh.grabPath.x[k]!);
+          const py = m.y(hh.grabPath.y[k]!);
+          if (!Number.isFinite(px) || !Number.isFinite(py)) {
+            pen = false;
+            continue;
+          }
+          if (pen) ctx.lineTo(px, py);
+          else ctx.moveTo(px, py);
+          pen = true;
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
       const sel = props.selection;
       if (sel && !rect) {
         const xa = m.x(sel.xMin);
@@ -271,7 +312,7 @@ export function XYPlot(props: XYPlotProps) {
         ctx.strokeRect(x + 0.5, y + 0.5, Math.abs(rect.x1 - rect.x0), Math.abs(rect.y1 - rect.y0));
       }
     },
-    [hover, focus, extHover, hoverBin, rect, dragGuide, hoverGuide, shownGuides, points, bars, ok, geom, xAxis, yAxis, props.selection],
+    [hover, focus, extHover, hoverBin, rect, dragGuide, hoverGuide, shownGuides, points, bars, ok, geom, xAxis, yAxis, props.selection, handles, dragHandle, hoverHandle],
   );
 
   /** Grillas de búsqueda por capa interactiva (se arman la primera vez que hacen falta tras un dibujo). */
@@ -314,6 +355,31 @@ export function XYPlot(props: XYPlotProps) {
       }
     }
     return best;
+  };
+
+  /** Manija cuya recta (`grabPath`) está bajo el puntero, dentro del área del gráfico. */
+  const pickHandlePath = (px: number, py: number): XYHandle | null => {
+    const m = mapRef.current;
+    if (!m || !props.onHandleChange) return null;
+    const r = m.rect;
+    if (px < r.x || px > r.x + r.width || py < r.y || py > r.y + r.height) return null;
+    let best: XYHandle | null = null;
+    let bestD = GUIDE_HIT_PX * getUiScaleFactor();
+    for (const h of handles) {
+      if (!h.grabPath || h.disabled) continue;
+      const d = distanceToPolylinePx(m, h.grabPath.x, h.grabPath.y, px, py);
+      if (d <= bestD) {
+        bestD = d;
+        best = h;
+      }
+    }
+    return best;
+  };
+
+  const startHandleDrag = (h: XYHandle, pointerId: number, p0: { x: number; y: number }) => {
+    handleDrag.current = { id: h.id, pointerId, start: { x: h.x, y: h.y }, p0 };
+    setDragHandle(h.id);
+    setHoverPoint(null);
   };
 
   const pickBin = (px: number, py: number): number | null => {
@@ -363,6 +429,12 @@ export function XYPlot(props: XYPlotProps) {
   const onPointerDown = (e: PointerEvent<HTMLCanvasElement>) => {
     if (e.button !== 0) return;
     const p = local(e);
+    const hp = pickHandlePath(p.x, p.y);
+    if (hp) {
+      startHandleDrag(hp, e.pointerId, p);
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+      return;
+    }
     const g = pickGuide(p.x, p.y);
     if (g) {
       guideDrag.current = { id: g.id!, pointerId: e.pointerId, start: g.value, axis: g.axis };
@@ -375,6 +447,11 @@ export function XYPlot(props: XYPlotProps) {
   };
   const onPointerMove = (e: PointerEvent<HTMLCanvasElement>) => {
     const p = local(e);
+    const hd = handleDrag.current;
+    if (hd && hd.pointerId === e.pointerId) {
+      if (mapRef.current) props.onHandleChange?.(hd.id, movePointPx(mapRef.current, hd.start, hd.p0, p), 'preview');
+      return;
+    }
     const gd = guideDrag.current;
     if (gd && gd.pointerId === e.pointerId) {
       const v = guideValueAt(gd.axis, p);
@@ -394,6 +471,14 @@ export function XYPlot(props: XYPlotProps) {
         return;
       }
     }
+    const hp = d ? null : pickHandlePath(p.x, p.y);
+    setHoverHandle(hp?.id ?? null);
+    if (hp) {
+      setHoverGuide(null);
+      setHoverPoint(null);
+      setBin(null);
+      return;
+    }
     const g = d ? null : pickGuide(p.x, p.y);
     setHoverGuide(g?.id ?? null);
     if (g) {
@@ -405,6 +490,13 @@ export function XYPlot(props: XYPlotProps) {
     setBin(pickBin(p.x, p.y));
   };
   const onPointerUp = (e: PointerEvent<HTMLCanvasElement>) => {
+    const hd = handleDrag.current;
+    if (hd && hd.pointerId === e.pointerId) {
+      handleDrag.current = null;
+      setDragHandle(null);
+      if (mapRef.current) props.onHandleChange?.(hd.id, movePointPx(mapRef.current, hd.start, hd.p0, local(e)), 'commit');
+      return;
+    }
     const gd = guideDrag.current;
     if (gd && gd.pointerId === e.pointerId) {
       guideDrag.current = null;
@@ -427,6 +519,13 @@ export function XYPlot(props: XYPlotProps) {
     if (h && props.onPointClick) props.onPointClick(points[h.layer]!.id, h.i);
   };
   const cancelGuideDrag = () => {
+    const hd = handleDrag.current;
+    if (hd) {
+      handleDrag.current = null;
+      setDragHandle(null);
+      props.onHandleChange?.(hd.id, hd.start, 'cancel');
+      return true;
+    }
     const gd = guideDrag.current;
     if (!gd) return false;
     guideDrag.current = null;
@@ -464,10 +563,22 @@ export function XYPlot(props: XYPlotProps) {
     }
   };
 
+  const canvasCursor = (): string => {
+    if (dragHandle) return 'grabbing';
+    if (hoverHandle) return 'grab';
+    const g = dragGuide ? { axis: guideDrag.current?.axis } : hoverGuide ? shownGuides.find((q) => q.id === hoverGuide) : null;
+    if (g) return g.axis === 'y' ? 'ns-resize' : 'ew-resize';
+    if (rect) return 'crosshair';
+    if (hover && props.onPointClick) return 'pointer';
+    return props.onSelectRect ? 'crosshair' : 'default';
+  };
+
   const tip = hover ?? focus;
   const tipLayer = tip ? points[tip.layer] : undefined;
   const tipText = tipLayer?.label?.(tip!.i) ?? null;
-  const m = mapRef.current;
+  // Mapeo de ESTE render (ejes actuales + rectángulo medido): el de `mapRef` es el del último dibujo, que todavía no
+  // corrió si los ejes acaban de cambiar (otra curva, otra plantilla) y dejaría las manijas en el lugar viejo.
+  const m = useMemo(() => (geom && ok ? xyMapping(xAxis, yAxis, geom) : null), [geom, ok, xAxis, yAxis]);
   const tipPos = tip && tipLayer && m ? { x: m.x(tipLayer.x[tip.i]!), y: m.y(tipLayer.y[tip.i]!) } : null;
   const barTip = hoverBin !== null && props.barLabel && m && bars[0] ? props.barLabel(hoverBin) : null;
   const barPos = barTip && m && bars[0] ? { x: Math.max(m.x(bars[0].edges[hoverBin!]!), m.x(bars[0].edges[hoverBin! + 1]!)), y: m.rect.y + 6 } : null;
@@ -484,21 +595,7 @@ export function XYPlot(props: XYPlotProps) {
         role="img"
         aria-label={props.ariaLabel}
         style={{
-          cursor: dragGuide
-            ? guideDrag.current?.axis === 'y'
-              ? 'ns-resize'
-              : 'ew-resize'
-            : hoverGuide
-              ? shownGuides.find((g) => g.id === hoverGuide)?.axis === 'y'
-                ? 'ns-resize'
-                : 'ew-resize'
-              : rect
-                ? 'crosshair'
-                : hover && props.onPointClick
-                  ? 'pointer'
-                  : props.onSelectRect
-                    ? 'crosshair'
-                    : 'default',
+          cursor: canvasCursor(),
         }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -507,6 +604,7 @@ export function XYPlot(props: XYPlotProps) {
           setHoverPoint(null);
           setBin(null);
           setHoverGuide(null);
+          setHoverHandle(null);
         }}
         onPointerCancel={() => {
           drag.current = null;
@@ -532,7 +630,7 @@ export function XYPlot(props: XYPlotProps) {
             tabIndex={0}
             className={`xy-plot__grip is-${g.axis}`}
             style={{ left: pos.left, top: pos.top, ['--grip' as string]: g.color }}
-            aria-label={`${name} (${a.label}). Flechas para mover, Mayús para pasos largos, Supr para quitar`}
+            aria-label={`${name} (${a.label}). Flechas para mover, Mayús para pasos largos${g.removable === false || !props.onGuideRemove ? '' : ', Supr para quitar'}`}
             aria-orientation={g.axis === 'x' ? 'horizontal' : 'vertical'}
             aria-valuemin={a.min}
             aria-valuemax={a.max}
@@ -554,10 +652,10 @@ export function XYPlot(props: XYPlotProps) {
                 const steps = (inc.includes(k) ? 1 : -1) * (e.shiftKey ? 10 : 1);
                 // Con paso propio (parámetro): en la dirección en pantalla, que en un eje invertido es la opuesta.
                 const v = g.step ? +(g.value + steps * g.step * (a.reversed ? -1 : 1)).toPrecision(12) : nudgeGuideValue(a, g.value, steps);
-                props.onGuideChange?.(g.id!, v, 'preview');
+                // Solo 'commit' (sin gesto): las teclas seguidas se agrupan en deshacer por la ventana de 800 ms.
                 props.onGuideChange?.(g.id!, v, 'commit');
                 e.preventDefault();
-              } else if ((k === 'Delete' || k === 'Backspace') && props.onGuideRemove) {
+              } else if ((k === 'Delete' || k === 'Backspace') && props.onGuideRemove && g.removable !== false) {
                 props.onGuideRemove(g.id!);
                 e.preventDefault();
               }
@@ -565,6 +663,65 @@ export function XYPlot(props: XYPlotProps) {
           />
         );
       })}
+      {props.onHandleChange && geom && m
+        ? handles.map((h) => {
+            const r = geom;
+            const rawX = m.x(h.x);
+            const rawY = m.y(h.y);
+            if (!Number.isFinite(rawX) || !Number.isFinite(rawY)) return null;
+            // Fuera del área (un valor fuera de los ejes): se muestra en el borde, igual se puede arrastrar.
+            const left = Math.min(r.x + r.width, Math.max(r.x, rawX));
+            const top = Math.min(r.y + r.height, Math.max(r.y, rawY));
+            const fx = (left - r.x) / r.width;
+            const fy = (top - r.y) / r.height;
+            const wantLeft = h.labelAt?.x === 'left' ? fx > 0.38 : fx > 0.62;
+            const wantBelow = h.labelAt?.y === 'below' ? fy < 0.8 : fy < 0.2;
+            const side = wantLeft ? ' is-left' : '';
+            const below = wantBelow ? ' is-below' : '';
+            const active = dragHandle === h.id || hoverHandle === h.id;
+            return (
+              <div key={h.id} className="xy-plot__handle-host">
+                <div
+                  role="slider"
+                  tabIndex={h.disabled ? -1 : 0}
+                  aria-roledescription="manija arrastrable"
+                  aria-label={h.ariaLabel}
+                  aria-valuetext={h.valueText}
+                  aria-disabled={h.disabled || undefined}
+                  data-testid={`xy-handle-${h.id}`}
+                  className={`xy-plot__handle is-${h.shape ?? 'circle'}${h.disabled ? ' is-disabled' : ''}${active ? ' is-active' : ''}`}
+                  style={{ left, top, ['--grip' as string]: h.color, cursor: h.disabled ? 'not-allowed' : dragHandle === h.id ? 'grabbing' : (h.cursor ?? 'move') }}
+                  onPointerDown={(e) => {
+                    if (h.disabled || e.button !== 0) return;
+                    e.preventDefault();
+                    (e.currentTarget as HTMLElement).focus();
+                    const host = (e.currentTarget.closest('.xy-plot')?.querySelector('.xy-plot__top') as HTMLCanvasElement | null) ?? null;
+                    if (!host) return;
+                    host.setPointerCapture?.(e.pointerId);
+                    const b = host.getBoundingClientRect();
+                    startHandleDrag(h, e.pointerId, { x: e.clientX - b.left, y: e.clientY - b.top });
+                  }}
+                  onPointerEnter={() => setHoverHandle(h.id)}
+                  onPointerLeave={() => setHoverHandle((v) => (v === h.id && !handleDrag.current ? null : v))}
+                  onKeyDown={(e) => {
+                    if (h.disabled) return;
+                    const k = e.key;
+                    const dx = k === 'ArrowRight' ? 1 : k === 'ArrowLeft' ? -1 : 0;
+                    const dy = k === 'ArrowUp' ? 1 : k === 'ArrowDown' ? -1 : 0;
+                    if (dx || dy) {
+                      props.onHandleNudge?.(h.id, dx, dy, e.shiftKey);
+                      e.preventDefault();
+                    } else if (k === 'Escape' && cancelGuideDrag()) e.preventDefault();
+                  }}
+                />
+                <div className={`xy-plot__handle-label${side}${below}${active ? ' is-active' : ''}`} style={{ left, top, ['--grip' as string]: h.color }} aria-hidden="true">
+                  <span>{h.label}</span>
+                  {h.detail && <span className="xy-plot__handle-detail">{h.detail}</span>}
+                </div>
+              </div>
+            );
+          })
+        : null}
       {!hasData && props.emptyText && <div className="xy-plot__empty">{props.emptyText}</div>}
       {tipText && tipPos && Number.isFinite(tipPos.x) && Number.isFinite(tipPos.y) && (
         <div className={`xy-plot__tip${tipPos.x > (m?.rect.x ?? 0) + (m?.rect.width ?? 0) * 0.6 ? ' is-left' : ''}`} style={{ left: tipPos.x, top: tipPos.y }} role="tooltip">

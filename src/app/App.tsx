@@ -8,7 +8,8 @@
  * cambio de tamaño por su ResizeObserver.
  */
 import { useLayoutEffect, useRef, useSyncExternalStore, type RefObject } from 'react';
-import { IconButton, ResizeHandle, Toaster, useUiScaleFactor } from '../ui';
+import { CommandLayer, IconButton, ResizeHandle, Toaster, useUiScaleFactor } from '../ui';
+import './commands';
 import { LoadWellDialog } from './components/LoadWellDialog';
 import { WellPanel } from './components/WellPanel';
 import { QcReportDialog, SnapshotsDialog } from './shell/Dialogs';
@@ -18,6 +19,7 @@ import { ExportDialog } from './export/ExportDialog';
 import { Inspector } from './shell/Inspector';
 import { TopBar } from './shell/TopBar';
 import { ViewerSlot } from './shell/ViewerSlot';
+import { TrackBuilderSlot } from './tracks/TrackBuilder';
 import { LAYOUT_LIMITS, shellSize, shellSizeCss, useUi, type ShellLayout, type ShellPart } from './store/ui';
 import './shell/shell.css';
 
@@ -97,13 +99,22 @@ export function App() {
   const setLayout = useUi((s) => s.setLayout);
   const loadDialog = useUi((s) => s.loadDialog);
   const setUi = useUi((s) => s.set);
+  // «Armar pistas»: el catálogo ocupa la columna izquierda (no le quita ancho al perfil). docs/decisiones/0016.
+  const building = useUi((s) => s.trackBuilder);
 
   return (
     <div className="shell" ref={ref}>
       <TopBar />
       <FlowBar />
       <div className="shell-main">
-        {leftCollapsed ? (
+        {building ? (
+          <>
+            <aside className="shell-side shell-side--left shell-side--builder" aria-label="Armar pistas">
+              <TrackBuilderSlot />
+            </aside>
+            <ShellHandle kind="left" />
+          </>
+        ) : leftCollapsed ? (
           <Rail side="left" onExpand={() => setLayout({ leftCollapsed: false })} />
         ) : (
           <>
@@ -144,6 +155,7 @@ export function App() {
       <SnapshotsDialog />
       <ExportDialog />
       <QcReportDialog />
+      <CommandLayer />
       <Toaster />
     </div>
   );

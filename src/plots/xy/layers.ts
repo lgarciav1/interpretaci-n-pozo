@@ -91,4 +91,45 @@ export interface XYGuide {
   draggable?: boolean;
   /** Paso del teclado en unidades del dato (p. ej. el paso del parámetro); por defecto, 1 % del eje. */
   step?: number;
+  /** false: Supr no la quita (líneas de parámetros como GR limpio, que siempre están). Por defecto, sí. */
+  removable?: boolean;
+}
+
+/**
+ * Manija arrastrable en dos dimensiones (fase 7b, docs/decisiones/0015): el punto de matriz del densidad–neutrón, las
+ * manijas de la recta de agua del Pickett. Es un elemento del DOM sobre el gráfico (Tab, flechas, `role="slider"`)
+ * con un rótulo visible; no sale en las figuras exportadas (las líneas que mueve sí, como capas `lines`).
+ *
+ * El dueño decide qué parámetro cambia: `XYPlot` le pasa la posición nueva en datos (`onHandleChange`) o la flecha
+ * apretada (`onHandleNudge`), y la manija se dibuja donde el dueño la vuelva a poner (redondeada al paso).
+ */
+export interface XYHandle {
+  id: string;
+  x: number;
+  y: number;
+  color: string;
+  /** Forma: círculo (por defecto), rombo (punto de matriz) o cuadrado (manija de rotar). */
+  shape?: 'circle' | 'diamond' | 'square';
+  /** Rótulo visible, primer renglón: valor y alcance («Rw global · 0,045 ohm·m a 24 °C»). */
+  label: string;
+  /** Segundo renglón (opcional). */
+  detail?: string;
+  /** Nombre accesible (qué es y cómo se mueve). */
+  ariaLabel: string;
+  /** Valor para lectores de pantalla (`aria-valuetext`). */
+  valueText: string;
+  /**
+   * Polilínea (en datos) por la que también se agarra: arrastrar la recta mueve la manija con el mismo desplazamiento
+   * en px (trasladar la recta de agua o la línea de la matriz).
+   */
+  grabPath?: { x: ArrayLike<number>; y: ArrayLike<number> };
+  /** Visible pero quieta (p. ej. el módulo que usa el parámetro no alimenta la cadena). */
+  disabled?: boolean;
+  /** Cursor sobre la manija (por defecto 'move'). */
+  cursor?: string;
+  /**
+   * Lado preferido del rótulo (por defecto arriba a la derecha): conviene el lado sin datos (en el Pickett, abajo a
+   * la izquierda de la recta de agua). Cerca de un borde del gráfico se da vuelta.
+   */
+  labelAt?: { x?: 'left' | 'right'; y?: 'above' | 'below' };
 }

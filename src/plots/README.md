@@ -73,10 +73,17 @@ import { XYPlot } from '../../plots/xy/XYPlot';
   `guides` (`XYGuide`: línea vertical u horizontal con rótulo de dos renglones; con `id` y `draggable`, arrastrable) y
   `trends`.
 - **Eje derecho** (`y2`): para la acumulada del histograma; `plotRectFor(…, rightAxis)` le reserva el margen.
-- **Guías arrastrables** (cutoffs): `onGuideChange(id, valor, 'preview' | 'commit' | 'cancel')` al arrastrar la línea o
-  su manija (un `role="slider"`: Tab, flechas —1 % del eje o `step`—, Mayús ×10, Supr = `onGuideRemove`). El valor se
-  redondea a un paso 1-2-5 de 1/400 del eje (3 cifras en log). La guía se ve en su nueva posición durante el arrastre
-  aunque el dueño todavía no la haya guardado.
+- **Guías arrastrables** (cutoffs, GR limpio/arcilla): `onGuideChange(id, valor, 'preview' | 'commit' | 'cancel')` al
+  arrastrar la línea o su manija (un `role="slider"`: Tab, flechas —1 % del eje o `step`—, Mayús ×10, Supr =
+  `onGuideRemove` salvo `removable: false`). Las flechas mandan solo `'commit'`. El valor se redondea a un paso 1-2-5 de
+  1/400 del eje (3 cifras en log). La guía se ve en su nueva posición durante el arrastre aunque el dueño todavía no la
+  haya guardado.
+- **Manijas 2D** (`handles: XYHandle[]`, fase 7b): punto con forma (círculo, rombo, cuadrado), rótulo visible de dos
+  renglones (`label`, `detail`, lado preferido `labelAt`), nombre accesible y `valueText`, y opcionalmente una
+  polilínea `grabPath` por la que también se agarra (trasladar una recta). `onHandleChange(id, {x, y}, fase)` da la
+  posición nueva en datos (`movePointPx`: conserva el desplazamiento puntero–manija y no sale del área);
+  `onHandleNudge(id, dx, dy, mayús)` las flechas en dirección de pantalla. `disabled` = visible pero quieta. El dueño
+  vuelve a ubicar la manija (redondeada al paso del parámetro). No salen en las figuras exportadas.
 - **Conexión con otros paneles**: `onPointHover`/`onPointLeave`, `onBarHover(clase)` + `barLabel(clase)` (tooltip de la
   clase), `highlight` (punto resaltado desde afuera: el cursor del visor) y `selection` (rectángulo vigente). Todo lo
   interactivo va en un segundo canvas: mover el puntero no redibuja la escena.
@@ -162,16 +169,37 @@ son de presentación: reciben el contexto del pozo, la configuración y callback
 |---|---|
 | `data.ts` | puro: curvas por clave `m:`/`r:` en unidad canónica con la escala de su rol (`resolvePlotCurve`, `plotCurveOptions`, `keyForRole`), filtro por zonas (`zoneFilter`), tramos de profundidad de un conjunto de muestras (`depthRuns`), muestra más cercana |
 | `cutoffs.ts` | puro: rol → parámetro del módulo de cutoffs (`cutoffParamFor`), alcance global o de una zona (`cutoffScope`), valor efectivo (`sharedParamValue`), redondeo al paso (`normalizeCutoff`), línea real o libre (`resolveCutoffLine`) |
+| `params.ts` | puro (fase 7b): parámetros que se eligen sobre un gráfico (`PLOT_PARAMS`: clave de almacenamiento, `módulo.clave` si no es compartido), alcance (`plotScope`), valor efectivo (`plotParamValue`), acotar y redondear como el slider (`normalizeParam`, `nudgeParam`), escrituras (`paramWrite`), fuente activa (`inactiveDriver`) y líneas de GR limpio/arcilla (`grGuides`, `grWrite`) |
 | `link.ts` | pub/sub sin React de lo que se señala en un gráfico (profundidad, tramos de una clase, selección); lo dibuja la superposición `plot-link` del módulo `crossplot` |
 | `controls.tsx`, `plots.css` | controles compartidos (curva, escala, filtro de zonas, grupos) y el armado del panel (controles · gráfico · panel aparte) |
 | `histogram/histogram.ts` | puro: Freedman–Diaconis/Sturges, bordes lineales o log, conteo, %, acumulada, rango robusto, estadísticos (n, media —geométrica en log—, P10/P50/P90), reparto a cada lado de un cutoff |
 | `histogram/HistogramPanel.tsx` | panel: curva, escala, clases, zonas superpuestas, normalizar, acumulada, cutoff, estadísticos |
 | `crossplot/crossplot.ts` | puro: muestras graficables, rango robusto, nivel de color de la rampa, mediana sobre índices |
 | `crossplot/templates.ts` | puro: líneas de las plantillas (densidad–neutrón, Pickett, φ–Sw, GR–Rt) y su definición |
+| `crossplot/drag.ts` | puro (fase 7b): punto de matriz ↔ (ρma, offset del neutrón), línea de la matriz del proyecto, imán a las litologías, recta de agua ↔ (Rw, m) al trasladar o rotar, ubicación de sus manijas, Rw entre temperatura de referencia y de formación (Arps, como el motor) |
 | `crossplot/series.ts` | proveedor de series `crossplot` (tendencias sobre la nube; clave `<x>\|<y>\|<zonas>`), registrado por `src/modules/crossplot/series.ts` |
 | `crossplot/CrossplotPanel.tsx` | panel: ejes, color, zonas, plantilla, cutoffs X/Y, tendencias, leyenda, cuadrantes, selección |
 
-Tests: `tests/plots/histogram.test.ts`, `tests/plots/crossplot.test.ts`, `tests/plots-state.test.ts`.
+Tests: `tests/plots/histogram.test.ts`, `tests/plots/crossplot.test.ts`, `tests/plots-state.test.ts`,
+`tests/plots/params-drag.test.ts`.
 
 La configuración de cada gráfico se guarda en el proyecto (`display.plots[pozo]`, `src/core/plots.ts`) con las
 recetas de `src/core/state/plots.ts` (`updatePlotConfig`, `setPlotCutoff`): entra en deshacer y viaja con el archivo.
+
+## Parámetros elegidos sobre los gráficos (fase 7b)
+
+Decisión: [`docs/decisiones/0015-parametros-sobre-graficos.md`](../../docs/decisiones/0015-parametros-sobre-graficos.md).
+
+| Gráfico | Elemento | Parámetro |
+|---|---|---|
+| Histograma de GR (y plantilla GR–Rt) | líneas de GR limpio y de arcilla | `grClean`, `grShale` |
+| Densidad–neutrón | punto de matriz (rombo) y la línea que sale de él | `phi-density.rhoMa`, `phi-neutron.matrixOffset` (offset = −NPHI de la matriz) |
+| Pickett | recta de agua: trasladar (círculo o la recta) / rotar (cuadrado) | `rw-manual.rwRef` (Rw a `tRef`, convertida desde la Rw de formación a la mediana de TEMP de los puntos visibles) / `m` |
+
+- Mismo alcance, vista previa y deshacer que los cutoffs reales: una zona filtrada → valor de la zona; si no, global.
+  Cada movimiento escribe con `commitPlotParams(etiqueta, escrituras, fase)` (`src/app/plots/connect.tsx`) y recalcula
+  en vivo; el arrastre entero es **un** Ctrl+Z (gesto: `commit(…, { group })`); Escape vuelve a antes del gesto.
+- Si el módulo que usa el parámetro no alimenta la cadena (`inactiveDriver` sobre `result.sources`), la manija queda
+  quieta y el panel muestra un aviso con la acción («Usar Rw manual»).
+- Para agregar otro: la ida y la vuelta puras en un `.ts` (con test), un `PlotParam` en `PLOT_PARAMS`, y una `XYGuide`
+  arrastrable o un `XYHandle` en el panel que convierta la posición en `ParamWrite[]`.

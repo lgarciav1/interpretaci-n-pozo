@@ -16,6 +16,7 @@ import { CurveLegend, formatNumber, getResolvedTheme, getUiScaleFactor, Icon, Ic
 import { THEMES } from '../ui/tokens';
 import { LOAD_ANIMATION_MS, revealAt } from './animation';
 import { layoutTracks, MIN_TRACK_WIDTH, trackAt } from './layout';
+import { DropLayer, ResizeEdge, type ViewerLayoutEditing } from './layoutEdit';
 import { PointerGestures, type HitResult } from './interaction';
 import { Minimap, type MinimapHandle } from './Minimap';
 import { pickMinimapCurve } from './minimap';
@@ -80,9 +81,24 @@ export interface WellViewerProps {
   onViewportChange?(range: { top: number; base: number }): void;
   /** Empieza o termina el arrastre de un elemento del perfil (tope, zona nueva…). */
   onDragChange?(dragging: boolean): void;
+  /**
+   * Modo «Armar pistas» (docs/decisiones/0016): manijas, menús y bordes de ancho en los encabezados y destinos de
+   * arrastre. Ausente = visor normal.
+   */
+  layoutEdit?: ViewerLayoutEditing | null;
+}
+
+/** Clases de un encabezado en modo «Armar pistas»: destino activo, rechazado o pista arrastrada. */
+function headEditClass(edit: ViewerLayoutEditing, t: ResolvedTrack): string {
+  const drag = edit.drag;
+  if (!drag) return ' is-editable';
+  if (drag.what === 'track') return drag.trackId === t.id ? ' is-editable is-dragging' : ' is-editable';
+  const active = edit.target?.kind === 'track' && edit.target.trackId === t.id;
+  return ` is-editable${active ? (edit.accepts(t) ? ' is-drop-target' : ' is-drop-refused') : ''}`;
 }
 
 const ZOOM_STEP = 1.25;
+
 const WHEEL_ZOOM = 0.0018;
 const LINE_PX = 16;
 /** Filas de leyenda por pista antes de agrupar el resto en «+N». */
@@ -101,7 +117,7 @@ interface Target {
 }
 
 export function WellViewer(props: WellViewerProps) {
-  const { tracks, wellKey, label, toolbarStart, toolbarEnd, header, notice, onEditCurve, onShowCurve } = props;
+  const { tracks, wellKey, label, toolbarStart, toolbarEnd, header, notice, onEditCurve, onShowCurve, layoutEdit } = props;
   const theme = useResolvedTheme();
   /** Tamaño de interfaz: anchos fijos y mínimos de pista, rótulos del canvas (las figuras exportadas usan 1). */
   const ui = useUiScaleFactor();
@@ -123,9 +139,21 @@ export function WellViewer(props: WellViewerProps) {
   const targetEls = useRef(new Map<string, HTMLButtonElement>());
 
   const [size, setSize] = useState({ width: 0, height: 0, heads: 0 });
+  /** Ancho que se está arrastrando en modo «Armar pistas» (vista previa hasta soltar). */
+  const [resizing, setResizing] = useState<{ id: string; width: number } | null>(null);
+  // Si el modo edición termina en medio del arrastre del borde, la vista previa no queda pegada.
+  useEffect(() => {
+    if (!layoutEdit) setResizing(null);
+  }, [layoutEdit]);
   const layout = useMemo(
-    () => layoutTracks(tracks.map((t) => ({ width: t.width, ...(t.fixed !== undefined ? { fixed: Math.round(t.fixed * ui) } : {}) })), size.width, Math.round(MIN_TRACK_WIDTH * ui)),
-    [tracks, size.width, ui],
+    () =>
+      layoutTracks(
+        tracks.map((t) => ({ width: resizing?.id === t.id ? resizing.width : t.width, ...(t.fixed !== undefined ? { fixed: Math.round(t.fixed * ui) } : {}) })),
+        size.width,
+        Math.round(MIN_TRACK_WIDTH * ui),
+        { weightedMin: true },
+      ),
+    [tracks, size.width, ui, resizing],
   );
   const layoutRef = useRef(layout);
   layoutRef.current = layout;
@@ -870,21 +898,29 @@ export function WellViewer(props: WellViewerProps) {
         value={<span ref={readoutRef(k)} />}
       />
     );
-    if (!onEditCurve) return <div key={c.key}>{body}</div>;
+    const edit = where === 'head' ? layoutEdit : null;
+    if (!onEditCurve && !edit) return <div key={c.key}>{body}</div>;
     const open = (el: HTMLElement) => {
+      if (!onEditCurve) return;
       setOverflow(null);
       onEditCurve({ track: t, curve: c }, where === 'pop' && overflowAnchor.current ? overflowAnchor.current : el);
     };
-    return (
+    const row = (
       <div
         key={c.key}
         role="button"
         tabIndex={0}
         className="wv-legend"
         aria-haspopup="dialog"
-        aria-label={`${c.name}${c.alternative ? ', alternativa' : ''}: editar escala y color`}
+        aria-label={`${c.name}${c.alternative ? ', alternativa' : ''}: editar escala y color${edit ? '. Alt y flechas la mueven' : ''}`}
+        {...(edit ? { 'aria-keyshortcuts': 'Alt+ArrowUp Alt+ArrowDown Alt+ArrowLeft Alt+ArrowRight' } : {})}
+        onPointerDown={edit ? (e) => edit.onCurvePointerDown(e, t, c) : undefined}
         onClick={(e) => open(e.currentTarget)}
         onKeyDown={(e) => {
+          if (edit && e.altKey) {
+            edit.onCurveKeyDown(e, t, c);
+            if (e.defaultPrevented) return;
+          }
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             open(e.currentTarget);
@@ -892,6 +928,25 @@ export function WellViewer(props: WellViewerProps) {
         }}
       >
         {body}
+      </div>
+    );
+    if (!edit) return row;
+    const target = edit.target;
+    const drop = target?.kind === 'track' && target.trackId === t.id && target.row?.curveKey === c.key && edit.accepts(t) ? target.row.side : null;
+    const dragging = edit.drag?.what !== 'track' && edit.drag?.trackId === t.id && edit.drag.curveKey === c.key;
+    return (
+      <div key={c.key} className={`wv-legend-row${drop ? ` is-drop-${drop}` : ''}${dragging ? ' is-dragging' : ''}`} data-drop-row={c.key}>
+        {row}
+        <Menu
+          aria-label={`Acciones de ${c.name}`}
+          minWidth={210}
+          items={edit.curveMenu(t, c)}
+          trigger={(tp) => (
+            <button {...tp} type="button" className="wv-legend-row__menu" aria-label={`Acciones de ${c.name}: mover o quitar`} title="Mover o quitar">
+              <Icon name="more" size={13} />
+            </button>
+          )}
+        />
       </div>
     );
   };
@@ -916,7 +971,8 @@ export function WellViewer(props: WellViewerProps) {
 
   const curvesHead = (t: ResolvedTrack) => {
     const list = [...t.curves].reverse(); // la de arriba (la última dibujada) primero
-    const shown = list.length > MAX_HEAD_ROWS ? list.slice(0, MAX_HEAD_ROWS - 1) : list;
+    // Armando pistas se ven todas las filas: cada una se arrastra.
+    const shown = list.length > MAX_HEAD_ROWS && !layoutEdit ? list.slice(0, MAX_HEAD_ROWS - 1) : list;
     const extra = list.length - shown.length;
     // Curvas con la MISMA escala (resistividades 0,2–2000): los extremos se muestran una vez abajo y cada fila queda
     // con todo el ancho para el nombre y la lectura (en pistas angostas no se corta el valor).
@@ -991,6 +1047,13 @@ export function WellViewer(props: WellViewerProps) {
   const depthIndex = tracks.findIndex((t) => t.kind === 'depth');
   const firstCurveBox = layout.boxes[tracks.findIndex((t, i) => i > depthIndex && t.kind !== 'depth')] ?? layout.boxes[0] ?? { x: 0, width: 0 };
   const overflowTrack = tracks.find((t) => t.id === overflow);
+  // Px y pesos de las pistas flexibles (para traducir el arrastre del borde a un ancho relativo).
+  const flexRoom = { room: 0, weights: 0 };
+  tracks.forEach((t, i) => {
+    if (t.fixed !== undefined) return;
+    flexRoom.room += layout.boxes[i]?.width ?? 0;
+    flexRoom.weights += resizing?.id === t.id ? resizing.width : t.width;
+  });
 
   return (
     <div className="wv" ref={rootRef}>
@@ -1011,10 +1074,40 @@ export function WellViewer(props: WellViewerProps) {
       <div className="wv-main">
         <div className="wv-scroll" ref={scrollRef}>
           <div className="wv-inner" style={{ width: layout.total || '100%' }}>
-            <div className="wv-heads" ref={headsRef} style={{ gridTemplateColumns: columns }}>
-              {tracks.map((t) => (
-                <div key={t.id} className={`wv-head wv-head--${t.kind}`}>
+            <div className={`wv-heads${layoutEdit ? ' wv-heads--edit' : ''}`} ref={headsRef} style={{ gridTemplateColumns: columns }}>
+              {tracks.map((t, ti) => (
+                <div
+                  key={t.id}
+                  className={`wv-head wv-head--${t.kind}${t.latent ? ' is-latent' : ''}${layoutEdit ? headEditClass(layoutEdit, t) : ''}`}
+                  data-track-id={t.id}
+                  {...(layoutEdit ? { 'data-drop-track': t.id } : {})}
+                >
                   <div className="wv-head__top">
+                    {layoutEdit && (
+                      <Menu
+                        aria-label={`Acciones de la pista ${t.title}`}
+                        align="start"
+                        minWidth={220}
+                        items={layoutEdit.trackMenu(t)}
+                        trigger={(tp) => (
+                          <button
+                            {...tp}
+                            type="button"
+                            className="wv-head__grip"
+                            aria-label={`Pista ${t.title}: arrastrá para moverla o abrí sus acciones. Alt y flechas la mueven`}
+                            aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight Alt+Shift+ArrowLeft Alt+Shift+ArrowRight Delete"
+                            title="Arrastrá para mover la pista · clic para más acciones"
+                            onPointerDown={(e) => layoutEdit.onTrackPointerDown(e, t)}
+                            onKeyDown={(e) => {
+                              layoutEdit.onTrackKeyDown(e, t);
+                              if (!e.defaultPrevented) tp.onKeyDown(e);
+                            }}
+                          >
+                            <Icon name="grip" size={12} />
+                          </button>
+                        )}
+                      />
+                    )}
                     <div className="wv-head__title" title={t.title}>
                       {t.title}
                     </div>
@@ -1032,11 +1125,23 @@ export function WellViewer(props: WellViewerProps) {
                     stackHead(t)
                   ) : t.curves.length === 0 ? (
                     <div className="wv-head__empty">
-                      <span>{t.hidden?.length ? 'Curvas ocultas' : 'Sin curvas'}</span>
+                      <span>{t.hidden?.length ? 'Curvas ocultas' : t.latent ? 'Aparece cuando haya curvas' : 'Sin curvas'}</span>
                       {t.emptyHint && !t.hidden?.length && <span className="wv-head__hint">{t.emptyHint}</span>}
                     </div>
                   ) : (
                     curvesHead(t)
+                  )}
+                  {layoutEdit && t.fixed === undefined && layout.boxes[ti] && (
+                    <ResizeEdge
+                      track={t}
+                      px={layout.boxes[ti]!.width}
+                      room={flexRoom.room}
+                      weights={flexRoom.weights}
+                      minPx={Math.round(MIN_TRACK_WIDTH * ui)}
+                      overflow={layout.total > size.width + 1}
+                      onPreview={(w) => setResizing(w === null ? null : { id: t.id, width: w })}
+                      onCommit={(w) => layoutEdit.onResize(t, w)}
+                    />
                   )}
                 </div>
               ))}
@@ -1074,6 +1179,7 @@ export function WellViewer(props: WellViewerProps) {
               <div className="wv-tip" ref={tipRef} role="tooltip" hidden />
               {notice && <div className="wv-notice">{notice}</div>}
             </div>
+            {layoutEdit?.drag && <DropLayer tracks={tracks} boxes={layout.boxes} heads={size.heads} edit={layoutEdit} ui={ui} />}
             {targets.length > 0 && (
               <div className="wv-targets" role="group" aria-label="Elementos editables del perfil" style={{ top: size.heads, left: firstCurveBox.x + 6 }}>
                 {targets.map((t) => {

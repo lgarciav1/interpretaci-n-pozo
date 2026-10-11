@@ -93,3 +93,13 @@
 .plot-keybar li { display: inline-flex; align-items: center; gap: var(--space-1); }
 .plot-keybar__title { color: var(--color-text); font-weight: var(--weight-medium); }
 .plot-keybar__ramp { width: calc(120px * var(--ui-scale)); height: calc(8px * var(--ui-scale)); border-radius: var(--radius-xs); }
+
+/* Parámetros sobre los gráficos (fase 7b, 0015). */
+.plot-driver { font-size: var(--text-xs); }
+.plot-driver .ui-callout__title { font-size: var(--text-xs); }
+.plot-params { display: grid; grid-template-columns: auto 1fr; gap: var(--space-1) var(--space-2); margin: 0; font-size: var(--text-xs); align-items: baseline; }
+.plot-params dt { display: flex; align-items: center; gap: var(--space-1-5); color: var(--color-text-muted); }
+.plot-params dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; color: var(--color-text); }
+.plot-swatch { display: inline-block; width: calc(10px * var(--ui-scale)); height: calc(3px * var(--ui-scale)); border-radius: 2px; background: var(--swatch, var(--color-accent)); flex: none; }
+.plot-swatch.is-diamond { width: calc(8px * var(--ui-scale)); height: calc(8px * var(--ui-scale)); transform: rotate(45deg); border-radius: 1px; }
+.plot-swatch.is-circle { width: calc(9px * var(--ui-scale)); height: calc(9px * var(--ui-scale)); border-radius: var(--radius-full); }

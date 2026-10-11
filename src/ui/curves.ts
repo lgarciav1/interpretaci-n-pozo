@@ -75,6 +75,11 @@ export const CURVE_PALETTE: Readonly<Record<RoleId, CurvePaletteEntry>> = {
   NET_RES: { light: '#e9b949', dark: '#d8a83a', line: 'solid', kind: 'band' },
   NET_PAY: { light: '#d9534f', dark: '#e0605b', line: 'solid', kind: 'band' },
   LITHO: { light: '#8b939d', dark: '#6b737e', line: 'solid', kind: 'band' },
+  // Indicadores automáticos (fase 7c): franjas de la pista «Indicadores»
+  IND_GAS: { light: '#e8a317', dark: '#f0b429', line: 'solid', kind: 'band' },
+  IND_SHALE: { light: '#8a6d4b', dark: '#a8895f', line: 'solid', kind: 'band' },
+  IND_COAL: { light: '#2b2b2b', dark: '#9aa0a8', line: 'solid', kind: 'band' },
+  IND_WASHOUT: { light: '#5f87a8', dark: '#7da5c6', line: 'solid', kind: 'band' },
 };
 
 /**
@@ -87,6 +92,7 @@ export const CURVE_SWATCHES: readonly string[] = (['RT', 'RM', 'NPHI', 'GR', 'TH
 export type FillId =
   | 'gasCrossover'
   | 'shaleCrossover'
+  | 'modelSpread'
   | 'shale'
   | 'sand'
   | 'limestone'
@@ -130,6 +136,8 @@ export const FILL_PALETTE: Readonly<Record<FillId, FillEntry>> = {
   washout: { label: 'Derrumbe', light: '#9aa1ab', dark: '#5b626b', alpha: 0.35 },
   netReservoir: { label: 'Reservorio neto', light: '#f0c43c', dark: '#c79f2c', alpha: 0.8 },
   netPay: { label: 'Pay neto', light: '#e0453f', dark: '#d0423c', alpha: 0.8 },
+  /** Banda entre la mínima y la máxima de varios modelos de la misma magnitud (modelos de Sw lado a lado). */
+  modelSpread: { label: 'Dispersión entre modelos', light: '#7c6bd6', dark: '#a99bf0', alpha: 0.5 },
   /** Porosidad sin partir (falta Sw): ni agua ni hidrocarburo. */
   pore: { label: 'Porosidad', light: '#bcdcec', dark: '#4f7f94', alpha: 0.75 },
   /** Resto de una columna que no se pudo partir (faltan entradas): neutro, para no inventar una matriz. */

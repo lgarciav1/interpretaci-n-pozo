@@ -3,10 +3,11 @@
 Webapp 100 % en el navegador (TypeScript + React + Vite) que se entrega como un único `dist/index.html`.
 Las decisiones con sus alternativas descartadas están en [`decisiones/`](decisiones/): núcleo y contrato de módulos
 (0001), lectura de datos (0002), control de calidad (0003), sistema de diseño, armazón y flujo guiado (0004), visor
-multipista (0005), deshacer y rehacer (0006), catálogo de módulos de la fase 6a con sus cambios de núcleo (0007),
+multipista (0005) con sus pistas armables y plantillas propias (0016), deshacer y rehacer (0006), catálogo de módulos de la fase 6a con sus cambios de núcleo (0007),
 tendencias y gradientes (0008), presiones MDT con los conjuntos de puntos del pozo (0009), datos de corona con
-puesta en profundidad y modelo k–φ (0010), exportación de datos (0011) y de figuras (0012), tamaño de interfaz (0013) e
-histograma y crossplot libre (0014).
+puesta en profundidad y modelo k–φ (0010), exportación de datos (0011) y de figuras (0012), tamaño de interfaz (0013),
+histograma y crossplot libre (0014), parámetros elegidos sobre los gráficos (0015), calculadora de agua de formación con
+indicadores automáticos (0017) y los modelos de Sw lado a lado, las fichas de zona y la paleta de comandos (0018).
 Este documento resume cómo encajan las piezas y cómo agregar un módulo.
 
 ## Ideas centrales
@@ -51,7 +52,7 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 
 | Carpeta | Qué hay | Puede importar React |
 |---|---|---|
-| `src/core/` | modelo (`well.ts`; conjuntos de puntos `pointSets.ts`), unidades, roles, parámetros, contrato de módulo, registro, motor (`engine/`), estado (`state/`: proyecto, snapshots, recetas de zonas `zones.ts`, de tendencias `trends.ts`, de conjuntos de puntos `pointSets.ts` y de gráficos `plots.ts`), configuración del visor que se guarda y su validación al abrir (`display.ts`, incluidas las pilas de la pista volumétrica), configuración del histograma y del crossplot (`plots.ts`), tendencias (`trends.ts`: `TrendSpec`, saneamiento), conversión a unidad canónica compartida (`canonical.ts`) | no |
+| `src/core/` | modelo (`well.ts`; conjuntos de puntos `pointSets.ts`), unidades, roles, parámetros, contrato de módulo, registro, motor (`engine/`), estado (`state/`: proyecto, snapshots, recetas de zonas `zones.ts`, de tendencias `trends.ts`, de conjuntos de puntos `pointSets.ts`, de gráficos `plots.ts` y de pistas y plantillas `tracks.ts`), configuración del visor que se guarda y su validación al abrir (`display.ts`, incluidas las pilas de la pista volumétrica), configuración del histograma y del crossplot (`plots.ts`), tendencias (`trends.ts`: `TrendSpec`, saneamiento), conversión a unidad canónica compartida (`canonical.ts`) | no |
 | `src/petro/` | funciones de cálculo puras, testeadas | no |
 | `src/modules/<id>/index.ts` | definición pura del módulo | no |
 | `src/modules/<id>/panel.tsx` | panel a medida (opcional) | sí |
@@ -59,18 +60,19 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 | `src/modules/index.ts` | **el registro** (una línea por módulo) | no |
 | `src/modules/sharedParams.ts` | catálogo canónico de parámetros compartidos | no |
 | `src/app/` | arranque, worker (`engine.worker.ts`), puente con el motor, stores (`store/viewer.ts`: cursor y tramo visible), descubrimiento de superposiciones (`viewerOverlays.ts`), pantallas | sí |
-| `src/app/shell/` | armazón: barra superior, flujo guiado, inspector, dock (`dockPanels.tsx`: una entrada por panel), `ViewerSlot` (conecta stores con el visor: edición de zonas, modo marcar zona, encabezado), `CurveEditor` (editor de escalas), diálogos | sí |
+| `src/app/shell/` | armazón: barra superior, flujo guiado, inspector, dock (`dockPanels.tsx`: una entrada por panel), `ViewerSlot` (conecta stores con el visor: edición de zonas, modo marcar zona, encabezado, «Armar pistas»), `viewerOverlayList.ts` (superposiciones del visor de la app), `CurveEditor` (editor de escalas), diálogos | sí |
+| `src/app/tracks/` | «Armar pistas» (0016): panel con el catálogo (`TrackBuilder.tsx`), plantillas y diálogos (`Templates.tsx`), arrastre con eventos de puntero (`dnd.ts`) y acciones que traducen gestos a recetas con `commit` (`actions.ts`) | sí |
 | `src/app/flow/` | flujo guiado: definición de pasos y evaluación de estados (`flow.ts`, puro y testeado) | `flow.ts` no |
 | `src/ui/` | sistema de diseño: tokens, tema, paleta de curvas, componentes, `useCanvas`; contrato de panel. Guía en `src/ui/README.md`; muestra en `#ui` | sí |
-| `src/viewer/` | visor multipista: plantillas, resolución de pistas, viewport, ticks, reducción M4, rellenos, pilas (`stack.ts`), lectura, contrato de superposiciones (con elementos del teclado), gestos (`interaction.ts`), dibujo en canvas (`*.ts`, puros o canvas) y los componentes `WellViewer.tsx`, `Minimap.tsx`, `WellHeader.tsx`. Guía en `src/viewer/README.md` | solo los `.tsx` |
+| `src/viewer/` | visor multipista: plantillas, resolución de pistas, viewport, ticks, reducción M4, rellenos, pilas (`stack.ts`), lectura, contrato de superposiciones (con elementos del teclado), gestos (`interaction.ts`), catálogo de herramientas y curvas para armar pistas (`catalog.ts`), dibujo en canvas (`*.ts`, puros o canvas) y los componentes `WellViewer.tsx`, `Minimap.tsx`, `WellHeader.tsx`, `layoutEdit.tsx` (modo «Armar pistas»: destinos y bordes de ancho). Guía en `src/viewer/README.md` | solo los `.tsx` |
 | `src/io/` | lectores Excel/LAS/CSV, mnemónicos, control de calidad, tablas de presiones (`pressures.ts`) (ver su README) | no |
 | `src/plots/xy/` | gráfico x–y base (ejes lineales o log, ticks, mapeo dato ↔ px puro en `axes.ts`, dibujo en `draw.ts` —barras, eje derecho, guías rotuladas, nube densa—, búsqueda por grilla `pick.ts`, componente `XYPlot.tsx` con guías arrastrables): lo usan el crossplot k–φ de la corona, el histograma y el crossplot libre. Guía en `src/plots/README.md` | solo `XYPlot.tsx` |
-| `src/plots/histogram/`, `src/plots/crossplot/`, `src/plots/*.ts` | histograma y crossplot libre (0014): lo puro en `.ts` (binning, estadísticos, plantillas, serie `crossplot`, curvas y zonas `data.ts`, cutoffs `cutoffs.ts`, enlace con el visor `link.ts`) y los paneles de presentación en `.tsx` (sin stores) | solo los `.tsx` |
-| `src/app/plots/` | conexión de los gráficos del dock con los stores: contexto del pozo, configuración, `commit`, cutoff real hacia los parámetros, montaje solo con la pestaña a la vista | sí |
+| `src/plots/histogram/`, `src/plots/crossplot/`, `src/plots/*.ts` | histograma y crossplot libre (0014): lo puro en `.ts` (binning, estadísticos, plantillas, serie `crossplot`, curvas y zonas `data.ts`, cutoffs `cutoffs.ts`, parámetros sobre los gráficos `params.ts` y `crossplot/drag.ts` (0015), enlace con el visor `link.ts`) y los paneles de presentación en `.tsx` (sin stores) | solo los `.tsx` |
+| `src/app/plots/` | conexión de los gráficos del dock con los stores: contexto del pozo, configuración, `commit`, cutoff real y parámetros elegidos sobre los gráficos (agrupados por gesto), fuentes activas y «Usar …», montaje solo con la pestaña a la vista | sí |
 | `src/plots/trend/` | tendencias: contrato y registro de proveedores de series (`series.ts`, proveedor `curve`), ajuste sobre la serie (`compute.ts`), dibujo independiente de los ejes (`draw.ts`), textos (`format.ts`) y superposición del visor sin stores (`overlay.ts`). Guía en `src/plots/README.md` | no |
 | `src/app/trends/` | estado de interfaz de las tendencias (herramienta, selección), proveedores de los módulos (`providers.ts`), conexión con los stores (`actions.ts`) y panel «Tendencias» del dock | sí |
 | `src/modules/<id>/series.ts` | proveedores de series para tendencias (opcional, `seriesProviders: TrendSeriesProvider[]`): MDT, plugs de corona…; el worker no lo importa | no |
-| `src/modules/<id>/dock.tsx` | paneles del dock aportados por un módulo (opcional, `dockPanels: DockPanelDef[]`, contrato en `src/ui/dockPanel.ts`): «Presiones MDT», «Corona», «Histograma», «Crossplot» | sí |
+| `src/modules/<id>/dock.tsx` | paneles del dock aportados por un módulo (opcional, `dockPanels: DockPanelDef[]`, contrato en `src/ui/dockPanel.ts`): «Presiones MDT», «Corona», «Histograma», «Crossplot», «Agua de formación» (0017: `formation-water`, con `model.ts` y `docs.ts` puros) | sí |
 | `ml` | fases siguientes (ver su README) | — |
 
 Un test (`tests/modules.test.ts`) falla si `core`, `petro` o una definición de módulo importan React, zustand o la
@@ -238,7 +240,9 @@ de otro.
 `serializeProject` / `deserializeProject` (`src/core/state/serialize.ts`): JSON con `format`, `version` (hoy 6: v2
 agregó el progreso del flujo, v3 la configuración del visor, v4 las tendencias de cada pozo y snapshot, v5 los
 conjuntos de puntos del pozo y las decisiones sobre ellos, v6 la configuración del histograma y del crossplot en
-`display.plots`) y migraciones. Al abrir, `display` (con `plots`), las tendencias, los
+`display.plots`) y migraciones. La fase 7b agregó dos campos opcionales sin cambiar la versión: `display.trackTemplates`
+(plantillas de pistas propias) y `TrackSpec.hidden` (pistas de superposición quitadas); un proyecto anterior se abre
+sin ellos. Al abrir, `display` (con `plots` y las plantillas), las tendencias, los
 conjuntos de puntos y sus decisiones se validan: lo inválido se descarta con aviso. Los arrays van como Float64 little-endian comprimidos con `CompressionStream('deflate')` (con o sin
 "byte shuffle", lo que salga más chico) en base64: exactos bit a bit. Los perfiles del TP quedan en menos de la
 mitad del binario sin comprimir.
@@ -267,9 +271,10 @@ mitad del binario sin comprimir.
 | Excluir o incluir muchos puntos a la vez (lazo en el crossplot) | fase 7b | Receta nueva en `src/core/state/trends.ts`; hoy se alterna de a uno (el panel «Corona» lo resuelve para sus plugs con el rectángulo de `XYPlot`, escribiendo `selection.excluded` de la tendencia). El crossplot libre (7a) ya tiene selección por rectángulo, que hoy solo marca tramos en el visor. |
 | Corrección de Klinkenberg y de presión de confinamiento de los plugs | cuando haya datos reales de laboratorio | El lector (`src/io/core.ts`) elige la columna (Klinkenberg antes que aire) pero no corrige; sumar la columna de presión de confinamiento y un factor opcional. |
 | Modelo k–φ por litofacies o capa (hoy global o por zona) | fase 7b | Una tendencia por capa sobre la serie `core` y «Aplicar» a la zona que corresponda; el módulo `perm-core` ya tiene a y b por zona. El crossplot libre filtra por zona y ajusta tendencias, pero sobre curvas del perfil, no sobre plugs. |
-| Arrastrar el punto de matriz (densidad–neutrón), la recta de agua (Pickett) y las líneas de GR limpio/arcilla | fase 7b | Las líneas ya salen de funciones de sus parámetros (`src/plots/crossplot/templates.ts`); arrastrar = guía o manija nueva que escribe el parámetro con `setParam`, como el cutoff real (0014, D3/D7). |
+| Rw con valores propios por zona y alcance global en el Pickett (la recta usa y escribe la Rw global; las zonas con valor propio no cambian, igual que los cutoffs) | cuando se pida | Avisar en el rótulo cuántas zonas visibles tienen valor propio, u ofrecer escribirlo en todas (0015). |
+| Matriz del densidad–neutrón con las cartas CP-1 (curvas) en vez de rectas de mezcla | cuando se pida | Tabular la carta por litología; imán hacia la curva más cercana (`snapMatrixToLithology`, 0015). |
 | Líneas de litología curvas en densidad–neutrón (hoy rectas de mezcla matriz–agua) | cuando se pida | Tabular la carta CP-1 del fabricante por litología y dibujarla como `XYLineLayer`. |
-| Arrastre de un cutoff real: una sola entrada de deshacer aunque se pause más de 800 ms | antes de la fase 12 | Agrupar por «gesto» (abrir un grupo al empezar el arrastre y cerrarlo al soltar) en `history.ts`; vale también para los sliders. |
+| Sliders del inspector: una sola entrada de deshacer aunque se pause más de 800 ms con el botón apretado | antes de la fase 12 | Usar el gesto de `history.ts` (0015, D2.1: `commit(…, { group })`, `cancelGroup`) desde `Slider` (abrir al bajar el puntero, cerrar al soltar). Los arrastres de los gráficos ya lo usan. |
 | Rangos de ejes del crossplot editables a mano (hoy automáticos o de la plantilla) | cuando se pida | `xRange`/`yRange` ya se guardan; falta el editor (como el de escalas del visor). |
 | La densidad de grano de los plugs no alimenta ρma de la porosidad por densidad | cuando se pida | Parámetro de `phi-density` que tome la mediana de ρg de la corona (en la zona) como densidad de matriz sugerida. |
 | Puesta en profundidad de la corona en pozos desviados (hoy en MD) | cuando haya un pozo desviado | Igual que los gradientes MDT: variable independiente TVD con la pista ubicada por MD. |
@@ -319,6 +324,27 @@ Decisión y catálogo completo: [`docs/decisiones/0007-modulos-fase-6a.md`](deci
 - Al abrir un proyecto, `display` se valida: lo inválido se descarta con un aviso.
 - El cursor publica su profundidad en `useViewer.cursorDepth`; clic en la franja de zonas fija
   `useUi.editingZoneId`.
+
+## Pistas armables y plantillas propias (fase 7b)
+
+Decisión: [`docs/decisiones/0016-pistas-armables.md`](decisiones/0016-pistas-armables.md).
+
+- **Modo «Armar pistas»** (botón «Pistas» de la barra del visor): el catálogo ocupa la columna izquierda y el visor
+  muestra manijas, menús y bordes de ancho en los encabezados, y las pistas que se ocultan vacías (latentes). Se
+  arrastra una herramienta o curva a una pista (agregar) o entre pistas (pista nueva); filas y encabezados se
+  arrastran para mover o reordenar. Sin mouse: «Agregar a pista…» en cada elemento del catálogo, menú de la manija y
+  de cada fila, Alt+flechas y Supr.
+- **Catálogo** (`src/viewer/catalog.ts`, puro): grupos por herramienta con la pista completa de fábrica y sus curvas
+  (color, escala y rellenos de convención); lo que el pozo no tiene, deshabilitado; los roles de módulos nuevos caen
+  en su familia. Pistas especiales: profundidad y zonas, columna volumétrica y las pistas propias de superposiciones.
+- **Recetas** (`src/core/state/tracks.ts`): sobre la lista materializada (propias o de fábrica + superposiciones) y
+  por id; un `commit` con etiqueta propia por gesto. Las curvas son entradas con selector: soltar del catálogo agrega,
+  arrastrar una fila mueve; un grupo (`unassigned`) se expande en curvas puntuales para mover una sola; los rellenos
+  de una curva viajan con ella.
+- **Plantillas propias** en `display.trackTemplates` (nombre y espacio de trabajo): guardar (reemplaza por nombre),
+  aplicar, restablecer la de fábrica, renombrar y borrar. El selector de la barra muestra la aplicada.
+- La figura del perfil (0012) resuelve las mismas pistas armadas.
+
 
 ## Tendencias y gradientes (fase 6b-1)
 
@@ -415,6 +441,29 @@ obligatorios del profesor como pestañas del dock (aportadas por `src/modules/hi
 - **Rendimiento**: nube en lotes por color, grilla de búsqueda, capa de interacción aparte; 50 000 muestras siguen
   fluidas al pasar el puntero.
 
+### Parámetros elegidos sobre los gráficos (fase 7b)
+
+Decisión: [`docs/decisiones/0015-parametros-sobre-graficos.md`](decisiones/0015-parametros-sobre-graficos.md). GR limpio
+y de arcilla en el histograma de GR, punto de matriz en el densidad–neutrón (ρma y corrección del neutrón) y recta de
+agua del Pickett (trasladar = Rw de referencia convertida con Arps desde la mediana de TEMP de los puntos visibles;
+rotar = m). Misma regla de alcance, vista previa en vivo y deshacer que los cutoffs, con agrupado por **gesto** en el
+historial (un Ctrl+Z por arrastre; Escape vuelve a antes del gesto). Si el módulo del parámetro no alimenta la cadena,
+aviso y acción explícita («Usar Rw manual»). Lo puro en `src/plots/params.ts` y `src/plots/crossplot/drag.ts`; las
+manijas 2D son una capa genérica de `XYPlot` (`XYHandle`).
+
+## Modelos de Sw, fichas de zona y paleta de comandos (fase 7c)
+
+Decisión: [`docs/decisiones/0018-sw-lado-a-lado-fichas-y-comandos.md`](decisiones/0018-sw-lado-a-lado-fichas-y-comandos.md).
+
+- **Pista «Modelos de Sw»** (`src/viewer/swModels.ts`): Archie, Simandoux e Indonesia como entradas `{ role: 'SW', module }` con
+  estilo propio y una banda entre la mínima y la máxima (relleno `range`); «Ver modelos de Sw lado a lado» activa la comparación
+  y agrega la pista en un solo `commit`.
+- **Fichas de zona** (`src/modules/zone-cards/`): pestaña «Zonas» del dock con espesores, φ y Sw del pay, volumen in situ, semáforo
+  de pay y minigráficos, leídos del sumario y del volumétrico; clic lleva el visor a la zona.
+- **Paleta de comandos** (`src/ui/commands.ts`, `CommandPalette.tsx`): Ctrl/Cmd+K, búsqueda difusa sin acentos y hoja de atajos
+  («?»). Un archivo `commands.ts` en una carpeta de `src/app/` o de un módulo exporta `commands: CommandSource` y se descubre solo,
+  como `dock.tsx`.
+
 ## Deshacer y rehacer
 
 Decisión: [`docs/decisiones/0006-deshacer-rehacer.md`](decisiones/0006-deshacer-rehacer.md).
@@ -426,6 +475,9 @@ Decisión: [`docs/decisiones/0006-deshacer-rehacer.md`](decisiones/0006-deshacer
   que conserva el proyecto previo al primero (un slider arrastrado, ↑/↓ en un campo, un tope movido con el
   teclado: un Ctrl+Z vuelve al valor inicial). Deshacer o rehacer corta el grupo. Un arrastre del visor ya es un
   solo `commit` al soltar.
+- **Gesto** (0015, D2.1): `commit(etiqueta, receta, { group })` funde los cambios del mismo gesto sin límite de tiempo
+  (los arrastres de los gráficos recalculan en vivo y siguen siendo un Ctrl+Z aunque se pause); un gesto abre siempre
+  su propia entrada y `cancelGroup(group)` (Escape) vuelve al proyecto de antes del gesto sin dejar entrada.
 - **Qué entra**: todo `commit` (parámetros, fuentes, zonas, roles, display de curvas, snapshots, cargar o cambiar de
   pozo). `replace` (abrir un proyecto) vacía el historial. El motor recalcula solo, porque cambia la interpretación.
 - **Store**: `useProject` expone `undo()`, `redo()`, `canUndo`, `canRedo`, `undoLabel`, `redoLabel`.
