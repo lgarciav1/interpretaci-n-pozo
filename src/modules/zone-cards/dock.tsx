@@ -102,9 +102,9 @@ function ZoneCardView({ card, phi, sw, phiScale, swScale, colors }: { card: Zone
           <dt>Neto reservorio</dt>
           <dd className="num">{m(card.netRes)} m</dd>
           <dt>Neto pay</dt>
-          <dd className="num">
-            {m(card.netPay)} m{card.ntgPay !== null && <span className="zc-unit"> · N/G {pct(card.ntgPay, 0)} %</span>}
-          </dd>
+          <dd className="num">{m(card.netPay)} m</dd>
+          <dt>N/G pay</dt>
+          <dd className="num">{pct(card.ntgPay, 0)} %</dd>
           <dt>φ pay</dt>
           <dd className="num">{pct(card.phiPay)} %</dd>
           <dt>Sw pay</dt>
