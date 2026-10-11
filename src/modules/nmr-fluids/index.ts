@@ -31,7 +31,7 @@ export default defineModule({
     tolerance: param.number({
       label: 'Tolerancia de la diferencia de porosidad',
       tooltip:
-        'Se marca déficit de RMN donde la porosidad de RMN queda por debajo de la de densidad–neutrón en más que este valor. Es un criterio práctico: combina la incertidumbre de las dos mediciones; subila si las curvas son ruidosas.',
+        'Se marca déficit de RMN donde la porosidad de RMN queda por debajo de la de densidad–neutrón en más que este valor. Es un criterio práctico: combina la incertidumbre de las dos mediciones; conviene subirla si las curvas son ruidosas.',
       default: NMR_DEFICIT_TOLERANCE_DEFAULT,
       min: 0,
       max: 0.1,

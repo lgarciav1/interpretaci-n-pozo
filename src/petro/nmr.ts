@@ -34,18 +34,18 @@
  *    hidrógeno bajo (HI < 1) y un T1 largo, así que con tiempo de espera corto la polarización es incompleta;
  *    ambos efectos hacen que la RMN subestime la porosidad. El crudo muy viscoso también la subestima (T2 tan corto
  *    que cae bajo el eco más corto o bajo el corte de arcilla). La microporosidad con T2 < 3 ms (carbonatos,
- *    areniscas arcillosas) es el tercer motivo: está en PHIT_NMR y no en PHIE_NMR (Coates et al. 1999; Asquith y
- *    Krygowski 2004, sección de perfiles de resonancia magnética). El indicador es una ALERTA, no un diagnóstico: hay que contrastarlo con el
+ *    areniscas arcillosas) es el tercer motivo: está en PHIT_NMR y no en PHIE_NMR (Coates et al. 1999). El indicador es una ALERTA, no un diagnóstico: hay que contrastarlo con el
  *    crossover densidad–neutrón (`IND_GAS`) y con la resistividad.
- *  - Δφ > 0 (RMN lee MÁS): no se marca. Suele indicar una matriz mal elegida en densidad–neutrón (densidad de
- *    matriz demasiado alta, porosidad subestimada) o arcilla mal corregida, no un fluido.
+ *  - Δφ > 0 (RMN lee MÁS): no se marca. Puede indicar una matriz mal elegida en densidad–neutrón (densidad de
+ *    matriz demasiado alta, porosidad subestimada), un Vsh sobrecorregido en PHIE o un corte de arcilla de T2 mal
+ *    calibrado; no se interpreta como fluido.
  *  - El signo se define como RMN − densidad–neutrón (y no al revés) para que el «déficit de RMN» sea negativo y la
  *    bandera se dispare con Δφ < −tol, igual que se lee la curva en la pista.
  *  - Se compara PHIE_NMR con la porosidad EFECTIVA (PHIE) porque ambas excluyen el agua ligada a la arcilla; comparar
  *    PHIT_NMR con la efectiva sumaría el CBW al Δφ.
  *
  * Tolerancia por defecto (0,03 v/v): criterio práctico, NO un valor de libro. Combina la incertidumbre de la RMN
- * (del orden de ±1 p.u.) con la de densidad–neutrón (del orden de ±2 p.u., sobre todo por la matriz) en cuadratura,
+ * (del orden de ±1 p.u.) con la de densidad–neutrón (del orden de ±2 p.u., sobre todo por la matriz) en cuadratura (órdenes de magnitud típicos, sin referencia puntual),
  * ≈ 2–3 p.u., y coincide con el cruce mínimo del indicador de gas de densidad–neutrón (GAS_CROSSOVER_MIN). Se
  * ajusta por zona con el ruido real de las curvas.
  * Borde: Δφ = −tol NO marca (desigualdad estricta, como se pidió); para que no decida el redondeo binario
@@ -53,9 +53,9 @@
  *
  * Referencias: Coates, G.R., Xiao, L. y Prammer, M.G. (1999), «NMR Logging: Principles and Applications»,
  * Halliburton Energy Services (partición CBW/BVI/FFI, efecto del gas y del crudo pesado, cortes de T2);
- * Asquith, G. y Krygowski, D. (2004), «Basic Well Log Analysis», 2.ª ed., AAPG Methods in Exploration 16 (perfiles de
- * resonancia magnética); la herramienta CMR de Schlumberger reporta estas curvas como TCMR (total), CMRP_3MS/MPHI
- * (efectiva), MBVI (irreducible) y MFFI (libre).
+ * Asquith, G. y Krygowski, D. (2004), «Basic Well Log Analysis», 2.ª ed., AAPG Methods in Exploration 16 (introducción
+ * a los perfiles de RMN). Nombres de curvas: el CMR de Schlumberger reporta TCMR (total), CMRP_3MS (efectiva), BFV
+ * (irreducible) y CMFF (libre); la MRIL de Halliburton, MPHI, MBVI y MFFI.
  */
 
 /** Tolerancia por defecto del indicador de déficit de RMN (v/v). */
