@@ -57,6 +57,11 @@ export const CURVE_PALETTE: Readonly<Record<RoleId, CurvePaletteEntry>> = {
   PHIT_NMR: { light: '#4338ca', dark: '#9b95ff', line: 'solid' },
   PHIE_NMR: { light: '#0369a1', dark: '#58b7ec', line: 'dashed' },
   BVI_NMR: { light: '#64748b', dark: '#a3b1c4', line: 'dotted' },
+  FFI_NMR: { light: '#0b6bcb', dark: '#5fb0ff', line: 'solid' },
+  CBW_NMR: { light: '#6b7280', dark: '#aab2bd', line: 'dotted' },
+  SWIRR_NMR: { light: '#1b7f74', dark: '#52d1c0', line: 'dashed' },
+  DPHI_NMR: { light: '#b91c1c', dark: '#ff7b72', line: 'solid' },
+  IND_NMR_DEFICIT: { light: '#a21caf', dark: '#e879f9', line: 'solid', kind: 'band' },
   // Calculadas
   IGR: { light: '#1f9d55', dark: '#4cd17f', line: 'dashed' },
   VSH: { light: '#8a5a2b', dark: '#d6a36b', line: 'solid', width: 1.5 },

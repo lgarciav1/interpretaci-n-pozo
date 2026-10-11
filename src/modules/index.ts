@@ -26,6 +26,7 @@ import swIndonesia from './sw-indonesia';
 import bvwSh from './bvw-sh';
 import permTimur from './perm-timur';
 import permCoates from './perm-coates';
+import nmrFluids from './nmr-fluids';
 import permCore from './perm-core';
 import cutoffs from './cutoffs';
 import cutoffSensitivity from './cutoff-sensitivity';
@@ -57,6 +58,7 @@ export const MODULES = [
   bvwSh,
   permTimur,
   permCoates,
+  nmrFluids,
   permCore,
   cutoffs,
   cutoffSensitivity,
