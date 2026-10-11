@@ -241,7 +241,7 @@ function templateDrawing(id: CrossplotTemplateId | null, t: TemplateContext): Te
         y: move.phi,
         color,
         label: p.manual ? `Rw ${scope.text} · ${rwRefText} a ${tRefText}` : `Rw de formación · ${rwFormText}`,
-        detail: p.manual ? (p.correct ? `${rwFormText} a ${fmt(p.tRep)} °C (formación)` : 'sin corrección por temperatura') : inactiveDriver(t.sources, 'RW', 'rw-manual') ? 'la Rw activa no es la manual' : 'sin temperatura de formación',
+        detail: p.manual ? (p.correct ? `${rwFormText} a ${fmt(p.tRep)} °C (formación)${p.tRep > ARPS_T_MAX_C ? ' · extrapolada: fuera de la carta' : ''}` : 'sin corrección por temperatura') : inactiveDriver(t.sources, 'RW', 'rw-manual') ? 'la Rw activa no es la manual' : 'sin temperatura de formación',
         ariaLabel: `Recta de agua, trasladar: cambia Rw ${scope.text}. Flechas para mover, Mayús para pasos largos`,
         valueText: p.manual ? `Rw ${rwRefText} a ${tRefText}; ${rwFormText} a temperatura de formación` : `Rw de formación ${rwFormText}`,
         grabPath: { x: water.x, y: water.y },
@@ -863,6 +863,9 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
     </div>
   );
 }
+
+/** Temperatura más alta de la carta de Rw (Gen-9, ~400 °F): por encima, la corrección de Arps se extrapola. */
+const ARPS_T_MAX_C = 200;
 
 const NO_LINES: XYLineLayer[] = [];
 const NO_HANDLES: XYHandle[] = [];
