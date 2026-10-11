@@ -60,8 +60,8 @@ describe('CSV del TP (datos/pozo_tp_perfiles.csv)', () => {
       AT60: 'RM', AT90: 'RT', URAN: 'URAN', THOR: 'THOR', POTA: 'POTA',
       PHI_BVI: 'BVI_NMR', PHIE_CMR: 'PHIE_NMR', PHIT_CMR: 'PHIT_NMR',
     });
-    expect(roles['AT10']).toBeNull();
-    expect(roles['AT30']).toBeNull();
+    expect(roles['AT10']).toBe('RA10');
+    expect(roles['AT30']).toBe('RA30');
     const units = Object.fromEntries(well.curves.map((c) => [c.id, c.unit]));
     expect(units).toMatchObject({ ZDEN: 'g/cm3', DT: 'us/ft', AT90: 'ohm.m', POTA: 'wt%', NPHI: 'v/v', CAL: 'in' });
   });

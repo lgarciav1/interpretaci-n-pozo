@@ -35,6 +35,7 @@ import indGasCrossover from './ind-gas-crossover';
 import indShale from './ind-shale';
 import indCoal from './ind-coal';
 import indWashout from './ind-washout';
+import invasionStep from './invasion-step';
 import { SHARED_PARAMS } from './sharedParams';
 
 export const MODULES = [
@@ -66,6 +67,7 @@ export const MODULES = [
   indShale,
   indCoal,
   indWashout,
+  invasionStep,
 ];
 
 /** Parámetros compartidos: ver sharedParams.ts (el registro exige que coincidan con ese catálogo). */

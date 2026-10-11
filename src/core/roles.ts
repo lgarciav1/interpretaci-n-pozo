@@ -70,6 +70,10 @@ export const BUILTIN_ROLES: readonly RoleDef[] = [
   { id: 'RM', label: 'Resistividad media', unit: 'ohm.m', family: 'resistivity', origin: 'measured', display: { color: '#ff7f0e', scale: 'log', min: 0.2, max: 2000 } },
   { id: 'RS', label: 'Resistividad somera', unit: 'ohm.m', family: 'resistivity', origin: 'measured', display: { color: '#2ca02c', scale: 'log', min: 0.2, max: 2000 } },
   { id: 'RXO', label: 'Resistividad de zona lavada (Rxo)', unit: 'ohm.m', family: 'resistivity', origin: 'measured', display: { color: '#17becf', scale: 'log', min: 0.2, max: 2000 } },
+  // Inducción de arreglo (AT10/AT20/AT30; AT60 es RM y AT90 es RT). El número es la profundidad mediana de investigación en pulgadas.
+  { id: 'RA10', label: 'Inducción de arreglo 10 in (AT10)', unit: 'ohm.m', family: 'resistivity', origin: 'measured', display: { color: '#b45309', scale: 'log', min: 0.2, max: 2000 } },
+  { id: 'RA20', label: 'Inducción de arreglo 20 in (AT20)', unit: 'ohm.m', family: 'resistivity', origin: 'measured', display: { color: '#4d7c0f', scale: 'log', min: 0.2, max: 2000 } },
+  { id: 'RA30', label: 'Inducción de arreglo 30 in (AT30)', unit: 'ohm.m', family: 'resistivity', origin: 'measured', display: { color: '#6d28d9', scale: 'log', min: 0.2, max: 2000 } },
   // Rayos gamma espectral
   { id: 'URAN', label: 'Uranio', unit: 'ppm', family: 'spectral', origin: 'measured', display: { color: '#bcbd22', scale: 'linear', min: 0, max: 20 } },
   { id: 'THOR', label: 'Torio', unit: 'ppm', family: 'spectral', origin: 'measured', display: { color: '#7f7f7f', scale: 'linear', min: 0, max: 30 } },
@@ -94,6 +98,9 @@ export const BUILTIN_ROLES: readonly RoleDef[] = [
   // Agua de formación (fase 6a): Rw a temperatura de formación, por muestra, y Rw aparente
   { id: 'RW', label: 'Resistividad del agua (Rw)', unit: 'ohm.m', family: 'resistivity', origin: 'computed', display: { color: '#0b5394', scale: 'log', min: 0.01, max: 10 } },
   { id: 'RWA', label: 'Resistividad aparente del agua (Rwa)', unit: 'ohm.m', family: 'resistivity', origin: 'computed', display: { color: '#3d85c6', scale: 'log', min: 0.01, max: 10 } },
+  // Perfil de invasión escalonada (fase 8b): diámetro de invasión (convención de la industria: 2·ri) y calidad del ajuste
+  { id: 'DI', label: 'Diámetro de invasión', unit: 'in', family: 'resistivity', origin: 'computed', display: { color: '#0f766e', scale: 'linear', min: 0, max: 100 } },
+  { id: 'INV_MISFIT', label: 'Desajuste del perfil de invasión', unit: 'unitless', family: 'other', origin: 'computed', display: { color: '#be185d', scale: 'linear', min: 0, max: 0.5 } },
   { id: 'PERM', label: 'Permeabilidad', unit: 'mD', family: 'permeability', origin: 'computed', display: { color: '#ff7f0e', scale: 'log', min: 0.01, max: 10000 } },
   { id: 'NET_RES', label: 'Bandera de reservorio neto', unit: 'unitless', family: 'flag', origin: 'computed', display: { color: '#f1c40f', scale: 'linear', min: 0, max: 1 } },
   { id: 'NET_PAY', label: 'Bandera de pay neto', unit: 'unitless', family: 'flag', origin: 'computed', display: { color: '#e74c3c', scale: 'linear', min: 0, max: 1 } },

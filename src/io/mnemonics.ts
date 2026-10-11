@@ -51,13 +51,15 @@ add('NPHI', 'v/v', 'medium', ['CNL', 'NEU', 'NEUT', 'NEUTRON']);
 add('DT', 'us/ft', 'high', ['DT', 'DTC', 'DTCO', 'DTP', 'DT4P', 'DTCOMP']);
 add('DT', 'us/ft', 'medium', ['AC', 'SONIC', 'DELTAT']);
 add('DTS', 'us/ft', 'high', ['DTS', 'DTSM', 'DTSH', 'DT4S', 'DTSHEAR']);
-// Resistividad. AT90 = Rt, AT60 = Rm (datos/README.md). AT10 y AT30 no tienen rol propio: ver el informe de la fase.
+// Resistividad. AT90 = Rt, AT60 = Rm (datos/README.md). La inducción de arreglo más somera tiene roles propios (RA10/20/30, fase 8b).
 add('RT', 'ohm.m', 'high', ['RT', 'AT90', 'ILD', 'LLD', 'RDEP', 'RILD', 'LLDC', 'RLLD', 'AHT90', 'AF90', 'M2R9', 'RLA5', 'HDRS', 'RT90']);
 add('RT', 'ohm.m', 'medium', ['RD', 'RESD', 'RESDEEP', 'RES_DEEP']);
 add('RM', 'ohm.m', 'high', ['RM', 'AT60', 'ILM', 'RILM', 'AHT60', 'AF60', 'M2R6', 'RLA3', 'RMED', 'LLM']);
 add('RS', 'ohm.m', 'high', ['RS', 'SFL', 'SFLU', 'RSFL', 'RESS']);
 add('RXO', 'ohm.m', 'high', ['RXO', 'MSFL', 'RMSFL', 'MCFL', 'RXOZ', 'RXO8', 'MLL', 'PROX']);
-add(null, 'ohm.m', 'low', ['AT10', 'AT20', 'AT30', 'AHT10', 'AHT20', 'AHT30', 'AF10', 'AF20', 'AF30', 'M2R1', 'M2R2', 'M2R3']);
+add('RA10', 'ohm.m', 'high', ['AT10', 'AHT10', 'AF10', 'M2R1']);
+add('RA20', 'ohm.m', 'high', ['AT20', 'AHT20', 'AF20', 'M2R2']);
+add('RA30', 'ohm.m', 'high', ['AT30', 'AHT30', 'AF30', 'M2R3']);
 // Espectral
 add('URAN', 'ppm', 'high', ['URAN', 'UR', 'URANIUM']);
 add('THOR', 'ppm', 'high', ['THOR', 'TH', 'THORIUM']);

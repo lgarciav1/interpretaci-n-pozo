@@ -61,7 +61,7 @@ export const BUILTIN_LAYOUTS: Readonly<Record<WorkspaceId, readonly TrackSpec[]>
       title: 'Resistividad',
       kind: 'curves',
       scale: RESISTIVITY_SCALE,
-      curves: [{ select: { role: 'RXO' } }, { select: { unassigned: 'resistivity' } }, { select: { role: 'RS' } }, { select: { role: 'RM' } }, { select: { role: 'RT' } }],
+      curves: [{ select: { role: 'RXO' } }, { select: { unassigned: 'resistivity' } }, { select: { role: 'RA10' } }, { select: { role: 'RA20' } }, { select: { role: 'RA30' } }, { select: { role: 'RS' } }, { select: { role: 'RM' } }, { select: { role: 'RT' } }],
       emptyHint: 'Sin resistividades: asigná Rt (AT90, ILD…) en la lista de curvas.',
     },
     {

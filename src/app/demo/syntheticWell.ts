@@ -5,6 +5,7 @@
  */
 import { createWell, type Curve, type Well, type Zone } from '../../core/well';
 import type { UnitId } from '../../core/units';
+import { forwardStepProfile } from '../../petro/invasion';
 
 function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
@@ -82,7 +83,32 @@ export function syntheticWell(n = 5810, seed = 2026): { well: Well; zones: Zone[
     const rSand = hydrocarbon ? 25 : 0.9;
     return Math.exp(Math.log(rSand) * (1 - v) + Math.log(2.2) * v) * Math.exp(gauss() * 0.08);
   });
-  const rs = make((v, k) => rt[k]! * (0.6 + 0.4 * v));
+  // Inducción de arreglo (fase 8b): perfil escalonado plausible por zona, leído con el modelo directo de
+  // src/petro/invasion.ts. En la arcilla no hay invasión (Rxo = Rt, diámetro = trépano); en la arena el contraste
+  // Rxo/Rt y el diámetro de invasión crecen con la limpieza. La zona C con hidrocarburo tiene Rxo < Rt (lodo dulce
+  // que invade un reservorio resistivo); el resto, Rxo > Rt. AT90 es la lectura de 90 in del mismo modelo.
+  const INVASION: Record<string, { ratio: number; di: number }> = {
+    'zone-a': { ratio: 3.0, di: 30 },
+    'zone-b': { ratio: 2.5, di: 36 },
+    'zone-c': { ratio: 2.0, di: 48 },
+    'zone-d': { ratio: 2.0, di: 28 },
+    'zone-e': { ratio: 1.8, di: 22 },
+  };
+  const R50 = [10, 30, 60, 90];
+  const at = [new Float64Array(n), new Float64Array(n), new Float64Array(n), new Float64Array(n)];
+  for (let k = 0; k < n; k++) {
+    const v = 1 - smooth[k]!;
+    const zone = ZONES.find((zz) => depth[k]! >= zz.top && depth[k]! <= zz.base);
+    const inv = (zone && INVASION[zone.id]) || { ratio: 1, di: 8.5 };
+    const hydrocarbon = inZone(k, 'zone-c') && v < 0.4;
+    const ratio = hydrocarbon ? 0.3 : inv.ratio;
+    const sandness = 1 - v;
+    const rxo = rt[k]! * Math.pow(ratio, sandness);
+    const di = 8.5 + (inv.di - 8.5) * sandness;
+    const reading = forwardStepProfile(di, rxo, rt[k]!, R50);
+    for (let q = 0; q < 4; q++) at[q]![k] = reading[q]!;
+  }
+  const [at10, at30, at60, at90] = at as [Float64Array, Float64Array, Float64Array, Float64Array];
   // SP casi vacía, como en el TP.
   const sp = make((v, k) => (k % 500 === 0 ? -40 + 50 * v : NaN));
 
@@ -115,8 +141,10 @@ export function syntheticWell(n = 5810, seed = 2026): { well: Well; zones: Zone[
       c('PE', 'PEF', 'b/e', pef, 'Factor fotoeléctrico'),
       c('DT', 'DT', 'us/ft', dt, 'Sónico'),
       c('NPHI', 'NPHI', 'v/v', nphi, 'Porosidad neutrónica'),
-      c('AT10', 'RS', 'ohm.m', rs, 'Inducción 10 in'),
-      c('AT90', 'RT', 'ohm.m', rt, 'Inducción 90 in'),
+      c('AT10', 'RA10', 'ohm.m', at10, 'Inducción 10 in'),
+      c('AT30', 'RA30', 'ohm.m', at30, 'Inducción 30 in'),
+      c('AT60', 'RM', 'ohm.m', at60, 'Inducción 60 in'),
+      c('AT90', 'RT', 'ohm.m', at90, 'Inducción 90 in'),
     ],
   });
   return { well, zones: ZONES.map((z) => ({ ...z })) };

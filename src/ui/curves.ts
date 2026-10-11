@@ -48,6 +48,10 @@ export const CURVE_PALETTE: Readonly<Record<RoleId, CurvePaletteEntry>> = {
   RM: { light: '#2563eb', dark: '#6b9bff', line: 'dashed' },
   RS: { light: '#c76a04', dark: '#ffb547', line: 'dotted', width: 1.5 },
   RXO: { light: '#0f8b8d', dark: '#3fd0c9', line: 'dashdot' },
+  // Inducción de arreglo: de la más somera (ocre) a la más profunda de las sin rol clásico (violeta); AT60 (RM) es azul y AT90 (RT) roja
+  RA10: { light: '#b45309', dark: '#f0a35e', line: 'solid', width: 1.25 },
+  RA20: { light: '#4d7c0f', dark: '#a3d65c', line: 'solid', width: 1.25 },
+  RA30: { light: '#6d28d9', dark: '#a78bfa', line: 'solid', width: 1.25 },
   // Rayos gamma espectral
   URAN: { light: '#9333ea', dark: '#c4a1ff', line: 'solid' },
   THOR: { light: '#0e7c66', dark: '#3fd6b0', line: 'solid' },
@@ -71,6 +75,9 @@ export const CURVE_PALETTE: Readonly<Record<RoleId, CurvePaletteEntry>> = {
   SH: { light: '#4d7c0f', dark: '#a3d65c', line: 'solid' },
   RW: { light: '#0b5394', dark: '#6fa8f5', line: 'solid', width: 1.5 },
   RWA: { light: '#0e7490', dark: '#5fd3e8', line: 'dashed' },
+  // Perfil de invasión escalonada (fase 8b)
+  DI: { light: '#0f766e', dark: '#2dd4bf', line: 'solid', width: 1.5 },
+  INV_MISFIT: { light: '#be185d', dark: '#f472b6', line: 'dotted', width: 1.25 },
   PERM: { light: '#c2410c', dark: '#ff9a5c', line: 'solid', width: 1.5 },
   NET_RES: { light: '#e9b949', dark: '#d8a83a', line: 'solid', kind: 'band' },
   NET_PAY: { light: '#d9534f', dark: '#e0605b', line: 'solid', kind: 'band' },

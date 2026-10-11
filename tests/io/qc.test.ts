@@ -62,9 +62,9 @@ describe('QC del CSV del TP (datos/README.md)', () => {
     expect(reason.message).toContain('3,317 v/v');
   });
 
-  it('AT10 (sin rol): aislados de hasta 110 ohm·m con percentil 99 ≈ 6,7', () => {
+  it('AT10 (rol RA10): aislados de hasta 110 ohm·m con percentil 99 ≈ 6,7', () => {
     const at10 = q('AT10');
-    expect(at10.role).toBeNull();
+    expect(at10.role).toBe('RA10');
     expect(at10.stats!.max).toBeCloseTo(109.967, 3);
     expect(at10.stats!.p99).toBeGreaterThan(6.6);
     expect(at10.stats!.p99).toBeLessThan(6.8);

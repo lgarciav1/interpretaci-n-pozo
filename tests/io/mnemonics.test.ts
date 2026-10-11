@@ -20,9 +20,15 @@ describe('suggestRole', () => {
     expect(suggestRole(mnemonic).role).toBe(role);
   });
 
-  it('AT10 y AT30 no tienen rol propio pero sí unidad', () => {
-    expect(suggestRole('AT10')).toMatchObject({ role: null, unit: 'ohm.m' });
-    expect(suggestRole('AT30')).toMatchObject({ role: null, unit: 'ohm.m' });
+  it('la inducción de arreglo somera tiene roles propios (RA10, RA20, RA30) con confianza alta; AT60 sigue siendo RM y AT90 RT', () => {
+    for (const [m, role] of [
+      ['AT10', 'RA10'], ['AHT10', 'RA10'], ['AF10', 'RA10'], ['M2R1', 'RA10'],
+      ['AT20', 'RA20'], ['AHT20', 'RA20'], ['AF20', 'RA20'], ['M2R2', 'RA20'],
+      ['AT30', 'RA30'], ['AHT30', 'RA30'], ['AF30', 'RA30'], ['M2R3', 'RA30'],
+      ['AT60', 'RM'], ['AT90', 'RT'],
+    ] as const) {
+      expect(suggestRole(m), m).toMatchObject({ role, unit: 'ohm.m', confidence: 'high' });
+    }
   });
 
   it('normaliza mayúsculas, espacios y sufijos :1', () => {
@@ -61,7 +67,7 @@ describe('suggestRole', () => {
   it('la confianza baja para mnemónicos ambiguos', () => {
     expect(suggestRole('AT90').confidence).toBe('high');
     expect(suggestRole('DEN').confidence).toBe('medium');
-    expect(suggestRole('AT10').confidence).toBe('low');
+    expect(suggestRole('XYZ').confidence).toBe('none');
   });
 
   it('todo rol sugerido existe y su unidad es compatible con la canónica', () => {
