@@ -305,8 +305,10 @@ export function resolveTracks(fullLayout: readonly TrackSpec[], src: ViewerSourc
       : c.active
         ? `${def?.label ?? c.label} (calculada)`
         : `${def?.label ?? c.label} · alternativa (${c.label}): calculada para comparar, no alimenta la cadena`;
+    // Con módulo nombrado, el encabezado dice qué modelo es («Archie», no tres veces «SW»): lo que sigue a «Sw — ».
+    const name = explicitModule ? (c.label.replace(/^.*?\s[—–-]\s+/, '') || c.port) : c.port;
     return makeCurve(
-      { key, name: c.port, role: c.port, unit: def?.unit ?? 'unitless', origin: 'computed', alternative, data: c.data, moduleId: c.moduleId, title },
+      { key, name, role: c.port, unit: def?.unit ?? 'unitless', origin: 'computed', alternative, data: c.data, moduleId: c.moduleId, title },
       catalog,
       track,
       layers,

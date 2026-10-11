@@ -1079,6 +1079,7 @@ export function WellViewer(props: WellViewerProps) {
                 <div
                   key={t.id}
                   className={`wv-head wv-head--${t.kind}${t.latent ? ' is-latent' : ''}${layoutEdit ? headEditClass(layoutEdit, t) : ''}`}
+                  data-track-id={t.id}
                   {...(layoutEdit ? { 'data-drop-track': t.id } : {})}
                 >
                   <div className="wv-head__top">

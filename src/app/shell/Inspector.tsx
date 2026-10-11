@@ -293,8 +293,8 @@ function ModulesView({ state }: { state: StepState }) {
   return (
     <>
       {swModels && (
-        <div className="inspector-row">
-          <Button size="sm" icon="compare" onClick={() => showSwModels()}>
+        <div className="method-list">
+          <Button size="sm" icon="compare" block onClick={() => showSwModels()} data-testid="sw-models-show">
             Ver modelos de Sw lado a lado
           </Button>
         </div>

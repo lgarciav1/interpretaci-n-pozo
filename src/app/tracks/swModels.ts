@@ -22,6 +22,16 @@ export function hasSwModelsTrack(): boolean {
   return materializedLayout(project, useUi.getState().workspace, OVERLAYS).some(isSwModelsTrack);
 }
 
+/** Lleva la pista de modelos de Sw a la vista (el visor se desplaza en horizontal cuando no entran todas). */
+function revealSwModelsTrack(): void {
+  const t = materializedLayout(useProject.getState().project, useUi.getState().workspace, OVERLAYS).find(isSwModelsTrack);
+  if (!t) return;
+  // El visor arma el encabezado en el cuadro siguiente al cambio del proyecto.
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => document.querySelector(`.wv-head[data-track-id="${CSS.escape(t.id)}"]`)?.scrollIntoView({ inline: 'center', block: 'nearest' })),
+  );
+}
+
 /** Muestra la pista «Modelos de Sw» y pone en comparación los módulos que faltan. false si no hay pozo. */
 export function showSwModels(): boolean {
   const entry = activeWellEntry(useProject.getState().project);
@@ -36,8 +46,10 @@ export function showSwModels(): boolean {
   useProject.getState().commit('Mostrar modelos de Sw', (p) => showSwModelsRecipe(p, wellId, workspace, materializedLayout(p, workspace, OVERLAYS), active));
   if (useProject.getState().project === before) {
     toast({ tone: 'info', title: 'Los modelos de Sw ya se están mostrando' });
+    revealSwModelsTrack();
     return true;
   }
   announce('Pista Modelos de Sw agregada; se calculan Archie, Simandoux e Indonesia.');
+  revealSwModelsTrack();
   return true;
 }

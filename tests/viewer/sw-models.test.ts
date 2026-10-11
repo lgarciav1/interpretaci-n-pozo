@@ -14,7 +14,8 @@ import { isSwModelsTrack, SW_MODEL_IDS, SW_MODELS, SW_MODELS_TRACK, showSwModels
 import { BUILTIN_LAYOUTS } from '../../src/viewer/templates';
 
 const depth = Float64Array.from({ length: 5 }, (_, i) => 1000 + i);
-const sw = (moduleId: string, values: number[], active = false): ComputedCurve => ({ port: 'SW', moduleId, label: moduleId, data: Float64Array.from(values), active });
+const LABELS: Record<string, string> = { 'sw-archie': 'Sw — Archie', 'sw-simandoux': 'Sw — Simandoux', 'sw-indonesia': 'Sw — Indonesia' };
+const sw = (moduleId: string, values: number[], active = false): ComputedCurve => ({ port: 'SW', moduleId, label: LABELS[moduleId] ?? moduleId, data: Float64Array.from(values), active });
 const resolve = (computed: ComputedCurve[], layout: readonly TrackSpec[] = [SW_MODELS_TRACK], curves: Curve[] = []) =>
   resolveTracks(layout, { depth, curves, computed, catalog: defaultRoleCatalog });
 
@@ -56,6 +57,14 @@ describe('qué curvas entran en la pista', () => {
     // Ninguna se marca «alternativa»: en esta pista son tres curvas de primera.
     expect(t.curves.every((c) => !c.alternative)).toBe(true);
     expect(t.curves.every((c) => c.origin === 'computed')).toBe(true);
+  });
+
+  it('cada encabezado dice qué modelo es, no tres veces «SW»', () => {
+    const t = resolve(all)[0]!;
+    expect(t.curves.map((c) => c.name)).toEqual(['Archie', 'Simandoux', 'Indonesia']);
+    expect(t.curves.every((c) => c.role === 'SW')).toBe(true);
+    expect(t.curves[0]!.title).toMatch(/Archie.*alimenta la cadena/);
+    expect(t.curves[1]!.title).toMatch(/Simandoux.*para comparar/);
   });
 
   it('colores y trazos distinguibles, y escala 1 → 0 como la pista de Sw', () => {

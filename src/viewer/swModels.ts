@@ -41,6 +41,7 @@ export const SW_MODELS_TRACK: TrackSpec = {
   id: SW_MODELS_TRACK_ID,
   title: 'Modelos de Sw',
   kind: 'curves',
+  width: 1.2,
   scale: { kind: 'linear', min: 0, max: 1, reversed: true },
   curves: SW_MODELS.map((m) => ({ select: { role: 'SW', module: m.moduleId }, style: { color: m.color, line: m.line, width: 1.6 } })),
   fills: [{ kind: 'range', curve: 'SW', fill: 'modelSpread', opacity: 1 }],
