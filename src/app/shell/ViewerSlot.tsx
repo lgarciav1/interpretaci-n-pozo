@@ -19,7 +19,7 @@ import { patchOverride } from '../../viewer/curveEdit';
 import type { ViewerData, ViewerZone } from '../../viewer/overlay';
 import { resolveTracks, type HiddenCurve, type ResolvedTrack } from '../../viewer/resolve';
 import { layoutFor, STACK_ROLE_HINTS, withOverlayTracks } from '../../viewer/templates';
-import { WellHeader } from '../../viewer/WellHeader';
+import { WellHeader } from '../../viewer/WellHeaderView';
 import { WellViewer } from '../../viewer/WellViewer';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useWellQc } from '../store/qc';

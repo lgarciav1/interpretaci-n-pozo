@@ -18,7 +18,7 @@ import { LOAD_ANIMATION_MS, revealAt } from './animation';
 import { layoutTracks, MIN_TRACK_WIDTH, trackAt } from './layout';
 import { DropLayer, ResizeEdge, type ViewerLayoutEditing } from './layoutEdit';
 import { PointerGestures, type HitResult } from './interaction';
-import { Minimap, type MinimapHandle } from './Minimap';
+import { Minimap, type MinimapHandle } from './MinimapView';
 import { pickMinimapCurve } from './minimap';
 import { guard, type OverlayHit, type OverlayPointer, type ViewerData, type ViewerOverlay } from './overlay';
 import { formatDepth, formatReadout, nearestIndex, valueAt } from './readout';

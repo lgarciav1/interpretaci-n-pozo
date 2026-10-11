@@ -28,7 +28,7 @@ Lo monta `src/app/shell/ViewerSlot.tsx`, que conecta los stores; el componente n
 | `render.ts` | dibujo en canvas 2D (base y cursor; pilas; frente de la animación) | no |
 | `figure.ts`, `figureInput.ts` | figura de publicación del perfil (marco, encabezados de pista, zonas, sumario, créditos) y armado del pedido | no |
 | `WellViewer.tsx`, `viewer.css` | componente: encabezados (editables), dos canvas, interacción, elementos del teclado, accesibilidad | sí |
-| `Minimap.tsx`, `WellHeader.tsx` | minimapa navegable y encabezado de pozo | sí |
+| `MinimapView.tsx`, `WellHeaderView.tsx` | minimapa navegable y encabezado de pozo | sí |
 
 Tests: `tests/viewer/` (geometría, resolución con el pozo del TP, configuración guardada, superposiciones). Un test
 exige que los `.ts` de esta carpeta no importen React, zustand ni `src/app`.
