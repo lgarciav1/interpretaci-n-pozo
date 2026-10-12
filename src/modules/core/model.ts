@@ -29,7 +29,7 @@ export const MATCH_CURVE_SETTING = 'matchCurve';
 export const DEFAULT_MATCH_CURVE = 'PHIE';
 
 /** Columnas del conjunto (las llena `src/io/core.ts` y el ejemplo). */
-export const COL = { phi: 'phi', k: 'k', rhog: 'rhog', run: RUN_COLUMN, description: 'description' } as const;
+export const COL = { phi: 'phi', k: 'k', rhog: 'rhog', ff: 'ff', run: RUN_COLUMN, description: 'description' } as const;
 
 export const kphiSeriesKey = (setId: string) => `${setId}:${KPHI}`;
 

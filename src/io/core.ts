@@ -7,7 +7,7 @@
  *
  * Columnas reconocidas (por nombre sin tildes; si no alcanza, por unidad): profundidad (DEPTH, PROF, MD…),
  * porosidad (PHI, POR, POROSIDAD, CPOR, PHIHE…; en % o v/v), permeabilidad (K, PERM, KAIR, KLINK, KH…; mD o D),
- * densidad de grano (RHOG, GD, GRAIN DENSITY, DENSIDAD DE GRANO…), número de corona o corrida (CORE, CORONA, RUN,
+ * densidad de grano (RHOG, GD, GRAIN DENSITY, DENSIDAD DE GRANO…), factor de formación (FF, F, FORMATION FACTOR…), número de corona o corrida (CORE, CORONA, RUN,
  * CORRIDA), id del plug (PLUG, MUESTRA, SAMPLE, ID) y descripción (DESC, LITOLOGIA, OBS…). Si dos columnas dicen
  * ser permeabilidad, gana la de mayor confianza (Klinkenberg antes que aire; la vertical se ignora).
  *
@@ -21,25 +21,28 @@ import type { Confidence } from './mnemonics';
 import { normalizeColumnName, splitUnitSuffix, unitTextOf } from './pressures';
 import type { RawColumn, RawTable } from './table';
 
-export type CoreField = 'depth' | 'phi' | 'k' | 'rhog' | 'run' | 'plug' | 'description' | 'ignore';
+export type CoreField = 'depth' | 'phi' | 'k' | 'rhog' | 'ff' | 'run' | 'plug' | 'description' | 'ignore';
 
 /** Claves de columna del conjunto (las usa el módulo de corona). La profundidad va en `PointSet.depth`. */
 export const CORE_COLUMNS = {
   phi: 'phi',
   k: 'k',
   rhog: 'rhog',
+  /** Factor de formación F = Ro/Rw del ensayo eléctrico (adimensional; opcional, fase 8 N). */
+  ff: 'ff',
   run: RUN_COLUMN,
   description: 'description',
 } as const;
 
 export const CORE_SET_KIND = 'core';
-export const CORE_UNITS = { depth: 'm', phi: 'v/v', k: 'mD', rhog: 'g/cm3' } as const satisfies Record<string, UnitId>;
+export const CORE_UNITS = { depth: 'm', phi: 'v/v', k: 'mD', rhog: 'g/cm3', ff: 'unitless' } as const satisfies Record<string, UnitId>;
 
 export const CORE_FIELD_LABEL: Readonly<Record<CoreField, string>> = {
   depth: 'Profundidad',
   phi: 'Porosidad',
   k: 'Permeabilidad',
   rhog: 'Densidad de grano',
+  ff: 'Factor de formación (F)',
   run: 'Corona / corrida',
   plug: 'Id del plug',
   description: 'Descripción',
@@ -51,6 +54,7 @@ export const CORE_FIELD_DIMENSION: Partial<Record<CoreField, DimensionId>> = {
   phi: 'fraction',
   k: 'permeability',
   rhog: 'density',
+  ff: 'dimensionless',
 };
 
 const TEXT_FIELDS: ReadonlySet<CoreField> = new Set(['run', 'plug', 'description']);
@@ -74,6 +78,9 @@ function fieldByName(name: string): { field: CoreField; confidence: Confidence }
   const t = new Set(n.split(/[_/]+/).filter(Boolean));
   const has = (...w: string[]) => w.some((x) => t.has(x));
   const starts = (...w: string[]) => w.some((x) => n.startsWith(x));
+  // Factor de formación (ensayo eléctrico): antes que porosidad («FF», «Formation factor», «Factor de formación»).
+  if (has('FF', 'FRF', 'FORMATIONFACTOR', 'FACTORFORMACION') || starts('FORMATION_FACTOR', 'FACTOR_DE_FORMACION', 'FACTOR_FORMACION', 'FORM_FACTOR')) return { field: 'ff', confidence: 'high' };
+  if (has('F') && t.size === 1) return { field: 'ff', confidence: 'medium' };
   // Densidad de grano antes que profundidad o porosidad («GRAIN DENSITY», «Densidad de grano»).
   if (has('RHOG', 'GD', 'GDEN', 'RHOMA', 'DGRANO', 'GRAIN', 'GRANO', 'RHO_G', 'MATRIX') || starts('RHOG', 'RHO_G', 'GRAIN_DEN', 'DENSIDAD_DE_GRANO', 'DENS_GRANO')) return { field: 'rhog', confidence: 'high' };
   if (has('DEPTH', 'DEPT', 'MD', 'PROF', 'PROFUNDIDAD', 'COTA', 'MDKB') || starts('PROFUND', 'MEASURED')) return { field: 'depth', confidence: 'high' };
@@ -220,6 +227,7 @@ export function buildCoreSet(table: RawTable, mapping: readonly CoreColumnMappin
     ['phi', CORE_COLUMNS.phi, CORE_UNITS.phi, 'Porosidad'],
     ['k', CORE_COLUMNS.k, CORE_UNITS.k, 'Permeabilidad'],
     ['rhog', CORE_COLUMNS.rhog, CORE_UNITS.rhog, 'Densidad de grano'],
+    ['ff', CORE_COLUMNS.ff, CORE_UNITS.ff, 'Factor de formación'],
   ];
   for (const [field, key, unit, label] of numericFields) {
     const m = byField.get(field);

@@ -10,6 +10,8 @@
  * - k = 10^(a + b·φ + ε), a = −1,7 y b = 22 (arenisca típica: 1 mD con φ ≈ 0,08 y 60 mD con φ ≈ 0,16), ε ~ N(0; 0,22)
  *   en log10 (ruido log-normal).
  * - Densidad de grano 2,65 ± 0,02 g/cm³ (cuarzo).
+ * - Factor de formación F = a/φ^m con a = 1 y m = 1,85 (`EXAMPLE_M`) y ruido log-normal σ = 0,03 en log10, con OTRA
+ *   semilla (docs/decisiones/0023, D8): agregar F no cambia φ, k, ρg ni las profundidades del ejemplo.
  * - Puesta en profundidad conocida: el archivo tiene la profundidad del perforador, 2,4 m MÁS ARRIBA que la del perfil
  *   en la corona 1 y 1,6 m en la corona 2. La correcta es +2,4 m y +1,6 m (`EXAMPLE_SHIFTS`): la sugerencia por
  *   correlación debe recuperarlas.
@@ -27,6 +29,8 @@ import { COL, CORE_KIND, CORE_PROVIDER_ID, kphiSeriesKey } from './model';
 
 export const EXAMPLE_A = -1.7;
 export const EXAMPLE_B = 22;
+/** Exponente de cementación de diseño del factor de formación de los plugs (a = 1). */
+export const EXAMPLE_M = 1.85;
 /** Puesta en profundidad correcta de cada corona (m): la que tiene que recuperar la sugerencia. */
 export const EXAMPLE_SHIFTS: Readonly<Record<string, number>> = { '1': 2.4, '2': 1.6 };
 const CORES = [
@@ -52,10 +56,12 @@ const describe = (phi: number) => (phi >= 0.12 ? 'Arenisca media, bien seleccion
  */
 export function exampleCoreSet(id: string, log: { depth: ArrayLike<number>; phie: ArrayLike<number> }): PointSet | null {
   const rnd = gaussian(20261010);
+  const rndF = gaussian(20261012);
   const depth: number[] = [];
   const phi: number[] = [];
   const k: number[] = [];
   const rhog: number[] = [];
+  const ff: number[] = [];
   const run: string[] = [];
   const desc: string[] = [];
   const ids: string[] = [];
@@ -83,6 +89,8 @@ export function exampleCoreSet(id: string, log: { depth: ArrayLike<number>; phie
       phi.push(+p.toFixed(4));
       k.push(+Math.pow(10, logk).toPrecision(3));
       rhog.push(+(2.65 + 0.02 * e3).toFixed(3));
+      const eF = rndF();
+      ff.push(p > 0.02 && p < 0.45 ? +Math.pow(10, -EXAMPLE_M * Math.log10(p) + 0.03 * eF).toPrecision(4) : NaN);
       run.push(c.run);
       desc.push(d);
       ids.push(`C${c.run}-${String(n).padStart(2, '0')}`);
@@ -100,6 +108,7 @@ export function exampleCoreSet(id: string, log: { depth: ArrayLike<number>; phie
       [COL.phi]: { label: 'Porosidad', unit: 'v/v', values: Float64Array.from(phi) },
       [COL.k]: { label: 'Permeabilidad', unit: 'mD', values: Float64Array.from(k) },
       [COL.rhog]: { label: 'Densidad de grano', unit: 'g/cm3', values: Float64Array.from(rhog) },
+      [COL.ff]: { label: 'Factor de formación', unit: 'unitless', values: Float64Array.from(ff) },
       [COL.run]: { label: 'Corona', values: run },
       [COL.description]: { label: 'Descripción', values: desc },
     },

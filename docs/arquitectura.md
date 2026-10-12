@@ -9,8 +9,8 @@ puesta en profundidad y modelo k–φ (0010), exportación de datos (0011) y de 
 histograma y crossplot libre (0014), parámetros elegidos sobre los gráficos (0015), calculadora de agua de formación con
 indicadores automáticos (0017), los modelos de Sw lado a lado, las fichas de zona y la paleta de comandos (0018), el
 módulo de RMN con su pista y su crossplot (0019, `0019-rmn.md`), capacidad de flujo, incertidumbre y lectura automática
-(0019, `0019-reservorio-e-incertidumbre.md`), el perfil radial de invasión (0020) y los gráficos conectados al perfil
-con el Pickett interactivo (0021).
+(0019, `0019-reservorio-e-incertidumbre.md`), el perfil radial de invasión (0020), los gráficos conectados al perfil
+con el Pickett interactivo (0021), el informe automático (0022) y la calibración con corona (0023).
 Este documento resume cómo encajan las piezas y cómo agregar un módulo.
 
 ## Ideas centrales
@@ -280,7 +280,7 @@ mitad del binario sin comprimir.
 | Líneas de litología curvas en densidad–neutrón (hoy rectas de mezcla matriz–agua) | cuando se pida | Tabular la carta CP-1 del fabricante por litología y dibujarla como `XYLineLayer`. |
 | Sliders del inspector: una sola entrada de deshacer aunque se pause más de 800 ms con el botón apretado | antes de la fase 12 | Usar el gesto de `history.ts` (0015, D2.1: `commit(…, { group })`, `cancelGroup`) desde `Slider` (abrir al bajar el puntero, cerrar al soltar). Los arrastres de los gráficos ya lo usan. |
 | Rangos de ejes del crossplot editables a mano (hoy automáticos o de la plantilla) | cuando se pida | `xRange`/`yRange` ya se guardan; falta el editor (como el de escalas del visor). |
-| La densidad de grano de los plugs no alimenta ρma de la porosidad por densidad | cuando se pida | Parámetro de `phi-density` que tome la mediana de ρg de la corona (en la zona) como densidad de matriz sugerida. |
+| Corrección de φ perfil → corona aplicada a la cadena (hoy la calibración es diagnóstica; 0023) | cuando se pida | Módulo alternativo de `PHIE` con la recta RMA por zona que escribe el panel «Calibración». |
 | Puesta en profundidad de la corona en pozos desviados (hoy en MD) | cuando haya un pozo desviado | Igual que los gradientes MDT: variable independiente TVD con la pista ubicada por MD. |
 
 ## Petrofísica en módulos (fase 6a)
@@ -546,3 +546,23 @@ Decisión: [`docs/decisiones/0019-rmn.md`](decisiones/0019-rmn.md). Módulo `nmr
 de déficit; motor `src/petro/nmr.ts`). Pista «RMN» (`NMR_TRACK`): escala 0,5 → 0 compartida, rellenos BVI / FFI / CBW
 desde el borde derecho y la PHIE de densidad–neutrón en rojo encima; de fábrica en Geología y como herramienta del
 catálogo. La bandera va a «Indicadores». Plantilla de crossplot `nmr-dn` con la recta 1:1 y el umbral de déficit.
+
+## Calibración con corona (fase 8, función N)
+
+Decisión: [`docs/decisiones/0023-calibracion-con-corona.md`](decisiones/0023-calibracion-con-corona.md). Una carpeta,
+`src/modules/core-calibration/`, sobre el motor puro `src/petro/coreCalibration.ts` y los plugs de la 6b-3.
+
+- **Módulo del motor** `core-calibration` (categoría Porosidad): curva `RHOMAA` = (ρb − φt·ρf)/(1 − φt) con PHIT de
+  densidad–neutrón (no PHIE: el agua ligada contaría como matriz), tabla `RHOMAA_ZONES` (mediana, P10, P90 de las
+  muestras con Vsh ≤ Vsh máx., y el pozo completo) y valor por zona `RHOMAA_ZONE`. Avisa si PHIT sale solo de la
+  densidad (ρmaa circular). La curva entra sola en el visor, el catálogo de pistas, el histograma y el crossplot libres.
+- **Panel «Calibración»** del dock (`dock.tsx`, lógica pura en `model.ts`): plugs incluidos en su profundidad corregida
+  (`shiftedDepth`; nunca recalcula desplazamientos), φ perfil vs. φ corona con 1:1, RMA y OLS, n, sesgo, RMSE y R²
+  (curva y ventana ±h en los ajustes del conjunto); densidad de matriz (grano, ρma que iguala φD con φ corona, ρmaa de
+  la zona con su histograma) con «Aplicar» a `phi-density.rhoMa`; exponente m desde F de los plugs (a fija y libre) o
+  desde Rt y Rw vigentes en zonas acuíferas (mediana), con «Aplicar» a a y m de Archie. Alcance global o de una zona
+  (por defecto la de los plugs); cada «Aplicar» es una receta y un Ctrl+Z.
+- **Lector y ejemplo**: columna opcional `ff` (factor de formación) en `src/io/core.ts`; los plugs de ejemplo la traen
+  con m = 1,85 (otra semilla: el resto del ejemplo no cambia).
+- Tests: `tests/modules-8n-core-calibration.test.ts` (módulo, cadena con el motor en el demo y el TP, modelo del panel,
+  lector y ejemplo).

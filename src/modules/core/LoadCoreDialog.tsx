@@ -44,7 +44,7 @@ const STEPS: Array<{ id: Step; label: string }> = [
 ];
 const CONFIDENCE_LABEL: Record<Confidence, string> = { high: 'alta', medium: 'media', low: 'baja', none: '—' };
 const CONFIDENCE_TONE: Record<Confidence, Tone> = { high: 'ok', medium: 'warn', low: 'error', none: 'neutral' };
-const NUMERIC_FIELDS: CoreField[] = ['depth', 'phi', 'k', 'rhog'];
+const NUMERIC_FIELDS: CoreField[] = ['depth', 'phi', 'k', 'rhog', 'ff'];
 const TEXT_FIELDS: CoreField[] = ['run', 'plug', 'description'];
 const PREVIEW_ROWS = 8;
 
@@ -179,6 +179,7 @@ export function LoadCoreDialog({ onClose, onExample }: { onClose: () => void; on
   const phi = num('phi');
   const perm = num('k');
   const rhog = num('rhog');
+  const ff = num('ff');
   const runs = set ? (set.columns['run']?.values as readonly string[] | undefined) : undefined;
   const previewRows = set ? Array.from({ length: Math.min(PREVIEW_ROWS, set.pointIds.length) }, (_, i) => i) : [];
   const previewColumns: Column<number>[] = [
@@ -188,6 +189,7 @@ export function LoadCoreDialog({ onClose, onExample }: { onClose: () => void; on
     { key: 'phi', header: 'φ (v/v)', align: 'num', render: (i) => formatNumber(phi?.[i], { digits: 3 }) },
     { key: 'k', header: 'k (mD)', align: 'num', render: (i) => formatNumber(perm?.[i], { significant: 3 }) },
     { key: 'rhog', header: 'ρg (g/cm³)', align: 'num', render: (i) => formatNumber(rhog?.[i], { digits: 2 }) },
+    ...(ff ? [{ key: 'ff', header: 'F', title: 'Factor de formación', align: 'num' as const, render: (i: number) => formatNumber(ff[i], { significant: 3 }) }] : []),
   ];
 
   const footer =
