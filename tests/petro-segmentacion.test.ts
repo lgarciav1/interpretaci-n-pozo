@@ -515,7 +515,12 @@ describe('pozo del TP (datos/pozo_tp_perfiles.csv)', () => {
       expect(e.interpretation).toMatch(/Rider/);
       if (e.shape === 'funnel' && !e.serrated) expect(e.slope).toBeGreaterThan(0);
       if (e.shape === 'bell' && !e.serrated) expect(e.slope).toBeLessThan(0);
-      if (e.shape === 'cylinder') expect(Math.abs(e.slope)).toBeLessThan(ELECTROSEQUENCE_DEFAULTS.slopeThreshold + 1);
+      // Cilindro = sin tendencia significativa: pendiente bajo el umbral o variación neta bajo minTrendChange.
+      if (e.shape === 'cylinder')
+        expect(
+          Math.abs(e.slope) < ELECTROSEQUENCE_DEFAULTS.slopeThreshold ||
+            Math.abs(e.slope) * e.thickness < ELECTROSEQUENCE_DEFAULTS.minTrendChange,
+        ).toBe(true);
     }
   });
 

@@ -1176,19 +1176,19 @@ function describe(seg: CurveSegment, cls: Classified, delta: number, ep: Readonl
       description = `${range}: embudo${serTxt}; el GR disminuye hacia arriba de ${fmt(seg.valueBase, 0)} a ${fmt(seg.valueTop, 0)} ${u} (${stat})${contactTxt}.`;
       core =
         'Engrosamiento (y limpieza) hacia arriba: sucesión progradante, de aporte creciente de arena. Compatible con barra de desembocadura o frente deltaico, playa o shoreface, lóbulo de abanico submarino, abanico de rotura (crevasse splay) o relleno de lago somerizante (Rider y Kennedy 2011; Serra 1985; Cant 1992).';
-      if (sharpTop) core += ' El techo neto sugiere una superficie de inundación o de abandono sobre la barra.';
+      if (sharpTop && topC < 0) core += ' El techo neto (lutita encima) sugiere una superficie de inundación o de abandono sobre la barra.';
       break;
     case 'bell':
       description = `${range}: campana${serTxt}; el GR aumenta hacia arriba de ${fmt(seg.valueBase, 0)} a ${fmt(seg.valueTop, 0)} ${u} (${stat})${contactTxt}.`;
       core =
         'Afinamiento (y ensuciamiento) hacia arriba: energía decreciente. Compatible con relleno de canal fluvial o de marea (barra de meandro), relleno de canal turbidítico, o ciclo retrogradante/transgresivo (Rider y Kennedy 2011; Serra 1985; Cant 1992).';
-      if (sharpBase) core += ' La base neta es consistente con una superficie erosiva de canal.';
+      if (sharpBase && baseC > 0) core += ' La base neta (lutita debajo) es consistente con una superficie erosiva de canal.';
       break;
     case 'cylinder':
       if (cls.level === 'low') {
         description = `${range}: cilindro de GR bajo (media ${fmt(seg.mean, 0)} ${u}, nivel ${lv}), liso y sin tendencia (${stat})${contactTxt}.`;
         core =
-          'Bloque limpio y homogéneo de arena: aporte uniforme o apilamiento de canales amalgamados, barra o duna eólica masiva; también carbonato limpio. Los contactos netos indican cambios bruscos de energía (Rider y Kennedy 2011; Cant 1992).';
+          'Bloque limpio y homogéneo de arena, de apilamiento agradacional: aporte uniforme o apilamiento de canales amalgamados, barra o duna eólica masiva; también carbonato limpio. Los contactos netos indican cambios bruscos de energía (Rider y Kennedy 2011; Cant 1992).';
       } else if (cls.level === 'high') {
         description = `${range}: cilindro de GR alto (media ${fmt(seg.mean, 0)} ${u}, nivel ${lv}), liso y sin tendencia (${stat})${contactTxt}.`;
         core =
@@ -1206,8 +1206,8 @@ function describe(seg: CurveSegment, cls: Classified, delta: number, ep: Readonl
     case 'symmetric':
       description =
         cls.symmetry === 'sandCenter'
-          ? `${range}: simétrico con GR mínimo en el medio; baja hacia el centro y vuelve a subir hacia el techo (variación neta ${fmtSigned(delta, 0)} ${u})${contactTxt}.`
-          : `${range}: simétrico con GR máximo en el medio; sube hacia el centro y vuelve a bajar hacia el techo (variación neta ${fmtSigned(delta, 0)} ${u})${contactTxt}.`;
+          ? `${range}: simétrico con GR mínimo en el medio; leído de base a techo, baja hacia el centro y vuelve a subir hacia el techo (variación neta ${fmtSigned(delta, 0)} ${u})${contactTxt}.`
+          : `${range}: simétrico con GR máximo en el medio; leído de base a techo, sube hacia el centro y vuelve a bajar hacia el techo (variación neta ${fmtSigned(delta, 0)} ${u})${contactTxt}.`;
       core =
         cls.symmetry === 'sandCenter'
           ? 'Embudo en la mitad inferior y campana en la superior: progradación seguida de retrogradación (ciclo regresivo–transgresivo completo), con la arena más limpia en el centro. Compatible con barra marina o de plataforma, lóbulo de abanico o delta con retrabajo (Rider y Kennedy 2011; Serra 1985).'
