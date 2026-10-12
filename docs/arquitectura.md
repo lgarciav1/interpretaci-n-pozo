@@ -7,8 +7,8 @@ multipista (0005) con sus pistas armables y plantillas propias (0016), deshacer 
 tendencias y gradientes (0008), presiones MDT con los conjuntos de puntos del pozo (0009), datos de corona con
 puesta en profundidad y modelo k–φ (0010), exportación de datos (0011) y de figuras (0012), tamaño de interfaz (0013),
 histograma y crossplot libre (0014), parámetros elegidos sobre los gráficos (0015), calculadora de agua de formación con
-indicadores automáticos (0017), los modelos de Sw lado a lado, las fichas de zona y la paleta de comandos (0018) y los
-gráficos conectados al perfil con el Pickett interactivo (0021).
+indicadores automáticos (0017), los modelos de Sw lado a lado, las fichas de zona y la paleta de comandos (0018), el
+perfil radial de invasión (0020) y los gráficos conectados al perfil con el Pickett interactivo (0021).
 Este documento resume cómo encajan las piezas y cómo agregar un módulo.
 
 ## Ideas centrales
@@ -474,6 +474,23 @@ Decisión: [`docs/decisiones/0021-graficos-conectados-y-pickett.md`](decisiones/
   las zonas con valor propio.
 - Ampliaciones aditivas de `src/plots/xy/`: `selectTool`/`onSelectLasso`/`selectionShapes`, `emphasis`, `markedBins`/
   `onBarClick`, `onEscape`, `XYHandle.labelOnActive`, `XYPointLayer.ring`, `XYLineLayer.preview` (no sale en la figura).
+
+## Perfil radial de invasión (fase 8b)
+
+Decisión: [`docs/decisiones/0020-perfil-radial-de-invasion.md`](decisiones/0020-perfil-radial-de-invasion.md).
+
+- **Motor** `src/petro/invasion.ts`: perfil escalonado (Rxo, di, Rt) en conductividad, ajustado a la inducción de arreglo
+  (AT10…AT90, roles `RA10`/`RA20`/`RA30`, `RM` = AT60, `RT` = AT90) con factores geométricos radiales aproximados
+  (logística en ln r) y mínimos cuadrados separables. Estados por muestra: ajuste bueno, di mal determinado (con intervalo
+  `diLow`–`diHigh`), no resuelto (borde de la grilla o σ en su cota), sin invasión visible e insuficiente. di es orden de
+  magnitud; Rt de los ajustes interiores es lo más robusto.
+- **Módulo** `invasion-step` (categoría «Resistividad»): curvas `RXO`, `RT` (alternativa a la medida, que sigue ganando
+  por defecto), `DI` e `INV_MISFIT`; en las curvas, RXO y DI quedan sin dato si di no está bien determinado. Trépano de la
+  curva BS o del parámetro.
+- **Vista**: pestaña «Perfil radial» del dock (`invasion-step/dock.tsx`; lógica pura en `radial.ts`, dibujo en
+  `draw.ts`): a la profundidad del cursor (o fijada, con línea en el visor), corte pozo / zona lavada / formación virgen
+  con las campanas de sensibilidad de cada curva, lecturas medidas y modeladas sobre el perfil ajustado (eje radial log de
+  2 a 200 in) y resumen con estado. Mismas entradas y parámetros por zona que el módulo; se exporta como figura.
 
 ## Modelos de Sw, fichas de zona y paleta de comandos (fase 7c)
 
