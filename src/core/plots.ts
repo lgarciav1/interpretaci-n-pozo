@@ -38,7 +38,7 @@ export interface HistogramConfig {
   cutoffs: PlotCutoffs;
 }
 
-export const CROSSPLOT_TEMPLATES = ['density-neutron', 'pickett', 'phi-sw', 'gr-rt', 'nmr-dn'] as const;
+export const CROSSPLOT_TEMPLATES = ['density-neutron', 'pickett', 'phi-sw', 'gr-rt', 'nmr-dn', 'th-k', 'pe-density'] as const;
 export type CrossplotTemplateId = (typeof CROSSPLOT_TEMPLATES)[number];
 
 export type CrossplotColor = { kind: 'none' } | { kind: 'zone' } | { kind: 'curve'; curve: PlotCurveKey };
@@ -166,3 +166,4 @@ export function sanitizePlots(raw: unknown, warn: (m: string) => void = () => {}
   }
   return Object.keys(out).length ? out : undefined;
 }
+

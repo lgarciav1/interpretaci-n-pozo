@@ -375,3 +375,4 @@ export function trackForCurve(c: CatalogCurve, title: string): TrackDraft {
         emptyHint: 'Arrastrá curvas a esta pista desde el catálogo.',
       };
 }
+

@@ -44,6 +44,8 @@ import wellReading from './well-reading';
 import invasionStep from './invasion-step';
 import zoneSuggestions from './zone-suggestions';
 import electrosequences from './electrosequences';
+import clayTyping from './clay-typing';
+import mineralInversion from './mineral-inversion';
 import { SHARED_PARAMS } from './sharedParams';
 
 export const MODULES = [
@@ -84,7 +86,10 @@ export const MODULES = [
   invasionStep,
   zoneSuggestions,
   electrosequences,
+  clayTyping,
+  mineralInversion,
 ];
 
 /** Parámetros compartidos: ver sharedParams.ts (el registro exige que coincidan con ese catálogo). */
 export const registry = createRegistry(MODULES, { sharedParams: SHARED_PARAMS });
+

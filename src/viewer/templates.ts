@@ -207,6 +207,12 @@ const scaleSpec = (sc: { kind: 'linear' | 'log'; min: number; max: number; rever
  * que esta versión no tiene). Con `ctx`, las pistas con `track.resolve` toman su escala, unidad y título del pozo
  * (si `resolve` devuelve null, la pista no se muestra). Puro.
  */
+/** Genera cualquier pista aportada por un módulo, sin conocer su identidad ni importar su carpeta. */
+export function contributedTrack(overlay: ViewerOverlay): TrackSpec {
+  const d = overlay.track!;
+  return d.spec ?? { id: overlayTrackId(overlay.id), title: d.title, kind: 'overlay', overlayId: overlay.id, width: d.width ?? 1, scale: scaleSpec(d.scale), ...(d.unit !== undefined ? { unit: d.unit } : {}) };
+}
+
 export function withOverlayTracks(layout: readonly TrackSpec[], overlays: readonly ViewerOverlay[], workspace: string, ctx?: OverlayTracksContext): TrackSpec[] {
   const ids = new Set(overlays.map((o) => o.id));
   /** Estado dinámico por superposición (undefined = sin `resolve` o sin contexto; null = ocultar la pista). */
@@ -221,28 +227,27 @@ export function withOverlayTracks(layout: readonly TrackSpec[], overlays: readon
   }
   const out: TrackSpec[] = [];
   for (const t of layout) {
-    if (t.kind !== 'overlay') {
+    const owner = overlays.find(o => o.track?.spec?.id === t.id);
+    if (t.kind !== 'overlay' && !owner) {
       out.push(t);
       continue;
     }
-    if (t.overlayId === undefined || !ids.has(t.overlayId)) continue;
-    const st = states.get(t.overlayId);
+    const ownerId = owner?.id ?? t.overlayId;
+    if (ownerId === undefined || !ids.has(ownerId)) continue;
+    const st = states.get(ownerId);
     if (st === null) continue;
     out.push(st ? { ...t, scale: scaleSpec(st.scale), ...(st.unit !== undefined ? { unit: st.unit } : {}), ...(st.title ? { title: st.title } : {}) } : t);
   }
   for (const o of overlays) {
     const d = o.track;
     if (!d || (d.workspaces && !d.workspaces.includes(workspace))) continue;
-    if (layout.some((t) => t.kind === 'overlay' && t.overlayId === o.id)) continue;
+    if (layout.some((t) => t.id === contributedTrack(o).id || (t.kind === 'overlay' && t.overlayId === o.id))) continue;
     const st = states.get(o.id);
     if (st === null) continue;
     const unit = st?.unit ?? d.unit;
     const spec: TrackSpec = {
-      id: overlayTrackId(o.id),
-      title: st?.title ?? d.title,
-      kind: 'overlay',
-      overlayId: o.id,
-      width: d.width ?? 1,
+      ...contributedTrack(o),
+      title: st?.title ?? contributedTrack(o).title,
       scale: scaleSpec(st?.scale ?? d.scale),
       ...(unit !== undefined ? { unit } : {}),
     };

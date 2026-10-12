@@ -7,6 +7,8 @@
  * fase 7b arrastrar un elemento cambia el parámetro y la vuelve a llamar (las inversas están en `drag.ts`; 0015).
  */
 import type { CrossplotTemplateId } from '../../core/plots';
+import { CLAY_REGIONS, MINERALS, mineralMixLine } from '../../petro/mineralogy';
+import type { XYLineLayer, XYPointLayer, XYPolygonLayer } from '../xy/layers';
 
 // ── densidad–neutrón ──────────────────────────────────────────────────────────────────────────────────────────
 
@@ -194,6 +196,68 @@ export const CROSSPLOT_TEMPLATE_DEFS: readonly CrossplotTemplate[] = [
     y: { role: 'PHIE_NMR', scale: 'linear', range: [NMR_DN_RANGE[0], NMR_DN_RANGE[1]] },
     colorRole: 'SWIRR_NMR',
   },
+  {
+    id: 'th-k',
+    label: 'Torio–potasio',
+    description: 'Minerales arcillosos orientativos y cocientes Th/K',
+    x: { role: 'POTA', scale: 'linear', range: [0, 6] },
+    y: { role: 'THOR', scale: 'linear', range: [0, 30] },
+  },
+  {
+    id: 'pe-density',
+    label: 'PE–densidad',
+    description: 'Puntos minerales y mezcla matriz–agua dulce',
+    x: { role: 'PEF', scale: 'linear', range: [0, 8] },
+    y: { role: 'RHOB', scale: 'linear', range: [1.3, 3.2] },
+  },
 ];
 
 export const templateDef = (id: CrossplotTemplateId | null): CrossplotTemplate | undefined => CROSSPLOT_TEMPLATE_DEFS.find((t) => t.id === id);
+
+
+/** Capas reutilizables por los módulos Geo-2/Geo-3 y el crossplot libre. */
+export function mineralogyTemplateLayers(
+  id: 'th-k' | 'pe-density',
+  contrast: (color: string) => string = (color) => color,
+): { polygons: XYPolygonLayer[]; lines: XYLineLayer[]; points: XYPointLayer[]; info: string } {
+  if (id === 'th-k') {
+    // Cocientes de referencia geométrica, elegidos para lectura visual; no son umbrales de clasificación.
+    const ratios = [1, 2, 4, 8];
+    // Posiciones de rótulos para lectura: no alteran los campos ni la clasificación.
+    const labels: Record<string, [number, number]> = { kaolinite: [0.55, 27], smectite: [1.65, 25], 'mixed-layer': [4.4, 22], illite: [4.3, 11], chlorite: [0.42, 5.5], mica: [4.8, 4.6], glauconite: [2.9, 6.1], 'k-feldspar': [4.8, 1.5] };
+    return {
+      polygons: CLAY_REGIONS.map((region) => ({
+        id: `clay-${region.id}`, name: region.label, vertices: region.vertices,
+        color: contrast(region.color), fillAlpha: 0.09, label: region.label, labelPosition: labels[region.id],
+      })),
+      lines: ratios.map((ratio) => ({
+        id: `th-k-${ratio}`, x: [0, Math.min(6, 30 / ratio)], y: [0, Math.min(30, 6 * ratio)],
+        color: contrast('#78828f'), dash: [4, 4], width: 1, label: `Th/K ${ratio}`, labelAt: 'end',
+      })),
+      points: [],
+      info: 'Regiones orientativas aproximadas de CP-19: límites SIN VERIFICAR y superpuestos. La clasificación es una hipótesis mineralógica; confirmar con corona o difracción de rayos X.',
+    };
+  }
+  const lines: XYLineLayer[] = [];
+  const points: XYPointLayer[] = [];
+  for (const mineral of MINERALS) {
+    const color = contrast(mineral.color);
+    points.push({ id: `mineral-${mineral.id}`, name: mineral.label, x: [mineral.pe], y: [mineral.rho], color, radius: 4.5, interactive: true, label: () => `${mineral.label} · PE ${mineral.pe} b/e · densidad ${mineral.rho} g/cm³` });
+    if (['quartz', 'calcite', 'dolomite'].includes(mineral.id)) {
+      const mix = mineralMixLine(mineral);
+      lines.push({ id: `mix-${mineral.id}`, ...mix, color, width: 1.5, label: mineral.label, labelAt: 'start' });
+      // Cinco marcas desde matriz pura hasta 40 %: pasos de 0,1 v/v sobre el muestreo del motor.
+      const ticks = [0, 1, 2, 3, 4].map((step) => Math.round((mix.x.length - 1) * step / 4));
+      points.push({ id: `mix-ticks-${mineral.id}`, x: ticks.map((index) => mix.x[index]!), y: ticks.map((index) => mix.y[index]!), color, radius: 2.5 });
+    }
+  }
+  return {
+    polygons: [], lines, points,
+    info: 'Mezclas matriz–agua dulce hasta 40 % de porosidad; marcas cada 10 %. El PE se mezcla mediante absorción volumétrica y densidad electrónica. Barita y pirita pueden quedar fuera del rango inicial; usá «Ver todos los minerales». Arcillas y carbón son referencias variables.',
+  };
+}
+
+/** Rango ampliado para minerales pesados: se deriva de la tabla y no agrega constantes petrofísicas. */
+export function mineralogyFullRange(): { xRange: [number, number]; yRange: [number, number] } {
+  return { xRange: [0, Math.ceil(Math.max(...MINERALS.map((mineral) => mineral.pe)) * 1.05)], yRange: [1, Math.ceil(Math.max(...MINERALS.map((mineral) => mineral.rho)) * 1.05 * 10) / 10] };
+}

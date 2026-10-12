@@ -24,12 +24,12 @@ import { axisFraction, dataRectFromPx, distanceToPolylinePx, fractionValue, move
 import { drawDensePoints, drawXYScene } from './draw';
 import type { XYColorKey } from './figure';
 import { registerXYFigure } from './figures';
-import type { XYBarLayer, XYGuide, XYHandle, XYLineLayer, XYPointLayer, XYTrendLayer } from './layers';
+import type { XYBarLayer, XYGuide, XYHandle, XYLineLayer, XYPointLayer, XYPolygonLayer, XYTrendLayer } from './layers';
 import { buildPointGrid, gridNearest, type PointGrid } from './pick';
 import { simplifyPath, type DataPolygon, type SelectionShape } from '../selection';
 import './xy.css';
 
-export type { XYBarLayer, XYGuide, XYHandle, XYLineLayer, XYPointLayer, XYTrendLayer } from './layers';
+export type { XYBarLayer, XYGuide, XYHandle, XYLineLayer, XYPointLayer, XYPolygonLayer, XYTrendLayer } from './layers';
 
 export type GuidePhase = 'preview' | 'commit' | 'cancel';
 
@@ -40,6 +40,7 @@ export interface XYPlotProps {
   y2?: XYAxis;
   points?: readonly XYPointLayer[];
   lines?: readonly XYLineLayer[];
+  polygons?: readonly XYPolygonLayer[];
   trends?: readonly XYTrendLayer[];
   guides?: readonly XYGuide[];
   bars?: readonly XYBarLayer[];
@@ -124,6 +125,7 @@ interface Hover {
 const DRAG_MIN_PX = 5;
 const NO_POINTS: readonly XYPointLayer[] = [];
 const NO_LINES: readonly XYLineLayer[] = [];
+const NO_POLYGONS: readonly XYPolygonLayer[] = [];
 const NO_TRENDS: readonly XYTrendLayer[] = [];
 const NO_GUIDES: readonly XYGuide[] = [];
 const NO_BARS: readonly XYBarLayer[] = [];
@@ -165,7 +167,7 @@ export function nudgeGuideValue(a: XYAxis, v: number, steps: number): number {
 
 export function XYPlot(props: XYPlotProps) {
   // Capas ausentes = listas vacías CONSTANTES (un `[]` nuevo en cada render redibujaría toda la escena).
-  const { x: xAxis, y: yAxis, y2, points = NO_POINTS, lines = NO_LINES, trends = NO_TRENDS, guides = NO_GUIDES, bars = NO_BARS, handles = NO_HANDLES, height, compact = false } = props;
+  const { x: xAxis, y: yAxis, y2, points = NO_POINTS, lines = NO_LINES, polygons = NO_POLYGONS, trends = NO_TRENDS, guides = NO_GUIDES, bars = NO_BARS, handles = NO_HANDLES, height, compact = false } = props;
   const mapRef = useRef<XYMapping | null>(null);
   const gridRef = useRef<{ key: unknown; grids: (PointGrid | null)[] } | null>(null);
   const [geom, setGeom] = useState<PlotRect | null>(null);
@@ -193,8 +195,8 @@ export function XYPlot(props: XYPlotProps) {
 
   useEffect(() => {
     if (!figureId || !ok) return;
-    return registerXYFigure({ id: figureId, title: figureTitle ?? figureId, x: xAxis, y: yAxis, points, lines: lines.some((l) => l.preview) ? lines.filter((l) => !l.preview) : lines, trends, guides, bars, ...(y2 ? { y2 } : {}), ...(colorKey ? { colorKey } : {}) });
-  }, [figureId, figureTitle, ok, xAxis, yAxis, y2, points, lines, trends, guides, bars, colorKey]);
+    return registerXYFigure({ id: figureId, title: figureTitle ?? figureId, x: xAxis, y: yAxis, points, polygons, lines: lines.some((l) => l.preview) ? lines.filter((l) => !l.preview) : lines, trends, guides, bars, ...(y2 ? { y2 } : {}), ...(colorKey ? { colorKey } : {}) });
+  }, [figureId, figureTitle, ok, xAxis, yAxis, y2, points, lines, polygons, trends, guides, bars, colorKey]);
 
   // Con una selección resaltada, su capa se dibuja atenuada en la escena. Solo cambia al prender o apagar el resaltado,
   // no con cada selección nueva: la máscara va en la capa intermedia.
@@ -208,9 +210,9 @@ export function XYPlot(props: XYPlotProps) {
       gridRef.current = null;
       setGeom((g) => (g && g.x === m.rect.x && g.y === m.rect.y && g.width === m.rect.width && g.height === m.rect.height ? g : m.rect));
       if (!ok) return;
-      drawXYScene(ctx, m, xAxis, yAxis, { points: scenePoints, lines, trends, guides: shownGuides, bars, ...(y2 ? { y2 } : {}) }, theme, compact, ui);
+      drawXYScene(ctx, m, xAxis, yAxis, { points: scenePoints, lines, polygons, trends, guides: shownGuides, bars, ...(y2 ? { y2 } : {}) }, theme, compact, ui);
     },
-    [xAxis, yAxis, y2, scenePoints, lines, trends, shownGuides, bars, compact, ok],
+    [xAxis, yAxis, y2, scenePoints, lines, polygons, trends, shownGuides, bars, compact, ok],
   );
 
   // Capa intermedia: puntos de la selección a pleno y clases marcadas. Se redibuja con la selección, no con el puntero.
@@ -731,7 +733,7 @@ export function XYPlot(props: XYPlotProps) {
   const tipPos = tip && tipLayer && m ? { x: m.x(tipLayer.x[tip.i]!), y: m.y(tipLayer.y[tip.i]!) } : null;
   const barTip = hoverBin !== null && props.barLabel && m && bars[0] ? props.barLabel(hoverBin) : null;
   const barPos = barTip && m && bars[0] ? { x: Math.max(m.x(bars[0].edges[hoverBin!]!), m.x(bars[0].edges[hoverBin! + 1]!)), y: m.rect.y + 6 } : null;
-  const hasData = points.some((l) => l.x.length > 0) || lines.length > 0 || trends.length > 0 || bars.some((b) => b.values.length > 0);
+  const hasData = points.some((l) => l.x.length > 0) || lines.length > 0 || polygons.length > 0 || trends.length > 0 || bars.some((b) => b.values.length > 0);
   const draggable = props.onGuideChange && geom && m ? shownGuides.filter((g) => g.draggable && g.id) : [];
 
   return (
@@ -895,3 +897,4 @@ export function XYPlot(props: XYPlotProps) {
     </div>
   );
 }
+
