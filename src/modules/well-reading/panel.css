@@ -1,0 +1,96 @@
+/* Panel de lectura automática del pozo (prefijo wrd-). Solo tokens del sistema de diseño; el color de fluido llega
+   por --fluid / --fluid-soft / --fluid-text (FILL_PALETTE: gas, oil, water, undivided). */
+.wrd { display: flex; flex-direction: column; gap: var(--space-4); }
+.wrd-title { color: var(--color-text-muted); font-size: var(--text-xs); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-wide); text-transform: uppercase; }
+.wrd-note { color: var(--color-text-muted); font-size: var(--text-xs); }
+
+.wrd-lead { display: flex; flex-direction: column; gap: var(--space-1-5); padding: var(--space-2-5) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-subtle); }
+.wrd-lead__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.wrd-lead__text { color: var(--color-text); font-size: var(--text-sm); line-height: 1.55; text-wrap: pretty; }
+.wrd-lead__link {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: underline dotted;
+  text-decoration-color: var(--color-text-subtle);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.wrd-lead__link:hover { color: var(--color-accent); text-decoration-style: solid; text-decoration-color: currentColor; }
+.wrd-lead__link:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
+
+.wrd-list { display: flex; flex-direction: column; gap: var(--space-2-5); }
+.wrd-filters { display: flex; flex-direction: column; gap: var(--space-1-5); }
+.wrd-cards { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+
+.wrd-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+  width: 100%;
+  padding: var(--space-2-5) var(--space-3) var(--space-2-5) calc(var(--space-3) + 4px * var(--ui-scale));
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
+}
+.wrd-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: calc(4px * var(--ui-scale));
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+  background: var(--fluid);
+}
+.wrd-card:hover { border-color: var(--fluid); background: var(--color-surface-hover); box-shadow: 0 0 0 1px var(--fluid); }
+.wrd-card:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+.wrd-card.is-low::before { opacity: 0.45; }
+.wrd-card.is-low .wrd-card__text { color: var(--color-text-muted); }
+
+.wrd-card__head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-1-5) var(--space-2); min-width: 0; }
+.wrd-card__rank { min-width: 1.5em; color: var(--color-text-muted); font-size: var(--text-xs); font-weight: var(--weight-semibold); }
+.wrd-fluid {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--fluid-soft);
+  color: var(--fluid-text);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+.wrd-fluid__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--fluid); }
+.wrd-card.is-low .wrd-conf { opacity: 0.8; }
+.wrd-card__where { display: inline-flex; align-items: baseline; gap: var(--space-1-5); margin-left: auto; min-width: 0; white-space: nowrap; }
+.wrd-card__depth { font-size: var(--text-sm); font-weight: var(--weight-semibold); }
+.wrd-card__zone { color: var(--color-text-muted); font-size: var(--text-xs); overflow: hidden; text-overflow: ellipsis; }
+.wrd-card__text { font-size: var(--text-sm); line-height: 1.5; text-wrap: pretty; }
+.wrd-card__evidence { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.wrd-ev {
+  padding: 0 var(--space-1-5);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-subtle);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wrd-card { transition: none; }
+}
