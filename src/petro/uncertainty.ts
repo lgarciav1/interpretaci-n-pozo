@@ -18,7 +18,7 @@
  * Qué es común y qué es por zona: los multiplicadores y los corrimientos de cutoffs son GLOBALES (un sorteo por
  * iteración, igual para todas las zonas: error sistemático del método). Área y B tienen una distribución por zona;
  * `zoneCorrelation = 'full'` (defecto) usa el MISMO cuantil en todas las zonas (correlación perfecta: suma conservadora,
- * los percentiles del total son la suma de los de las zonas) y `'independent'` un sorteo por zona (el total se
+ * los percentiles del total son ≈ la suma de los de las zonas; exacta solo si un único parámetro varía) y `'independent'` un sorteo por zona (el total se
  * «diversifica»: P90 total > ΣP90 zonas y P10 total < ΣP10 zonas).
  *
  * Distribuciones: por parámetro, mínimo / más probable (moda) / máximo.
@@ -377,7 +377,7 @@ export function perturbedHphiSh(
     const w0 = sw[i]!;
     if (Number.isNaN(w0)) continue; // reservorio sin dato de pay
     nPayKnown++;
-    const w = w0 * swMult > 1 ? 1 : w0 * swMult;
+    const w = clamp(w0 * swMult, 0, 1); // NaN se propaga
     if (w <= swMax) sum += h[i]! * p * (1 - w);
   }
   if (nClassified === 0) return NaN;
@@ -513,6 +513,8 @@ interface Var {
   param: UncertainParam;
   zone: number; // índice en `active`, -1 = global
   dist: Dist;
+  /** false si el parámetro no varía en ninguna zona (no entra en Spearman). */
+  informative: boolean;
 }
 
 /**
@@ -541,6 +543,8 @@ export function runUncertainty(config: UncertaintyConfig): UncertaintyResult {
     }
     checkDist(z.area, `Área de ${z.name}`);
     checkDist(z.b, `Factor de volumen de ${z.name}`);
+    if (!(z.area.min >= 0)) throw new RangeError(`Área de ${z.name}: el mínimo no puede ser negativo.`);
+    if (!(z.b.min > 0)) throw new RangeError(`Factor de volumen de ${z.name}: el mínimo debe ser positivo.`);
     const h0 = perturbedHphiSh(z.h, z.vsh, z.phi, z.sw, z.cutoffs, NEUTRAL_FACTORS);
     if (Number.isNaN(h0)) {
       skipped.push({ id: z.id, name: z.name, reason: 'no-data' });
@@ -565,14 +569,15 @@ export function runUncertainty(config: UncertaintyConfig): UncertaintyResult {
 
   // Variables sorteadas, en orden fijo: factores globales, luego área, luego B.
   const vars: Var[] = [];
-  for (const k of SAMPLE_KEYS) if (factorDists[k]) vars.push({ param: k, zone: -1, dist: factorDists[k]! });
+  for (const k of SAMPLE_KEYS) if (factorDists[k]) vars.push({ param: k, zone: -1, dist: factorDists[k]!, informative: !isDegenerate(factorDists[k]!) });
   if (nz > 0) {
     if (correlation === 'full') {
-      vars.push({ param: 'area', zone: -1, dist: active[0]!.area });
-      vars.push({ param: 'b', zone: -1, dist: active[0]!.b });
+      // un único sorteo compartido: informativo si varía en ALGUNA zona (la de referencia puede ser fija y otra no)
+      vars.push({ param: 'area', zone: -1, dist: active[0]!.area, informative: active.some((z) => !isDegenerate(z.area)) });
+      vars.push({ param: 'b', zone: -1, dist: active[0]!.b, informative: active.some((z) => !isDegenerate(z.b)) });
     } else {
-      active.forEach((z, zi) => vars.push({ param: 'area', zone: zi, dist: z.area }));
-      active.forEach((z, zi) => vars.push({ param: 'b', zone: zi, dist: z.b }));
+      active.forEach((z, zi) => vars.push({ param: 'area', zone: zi, dist: z.area, informative: !isDegenerate(z.area) }));
+      active.forEach((z, zi) => vars.push({ param: 'b', zone: zi, dist: z.b, informative: !isDegenerate(z.b) }));
     }
   }
 
@@ -708,7 +713,7 @@ export function runUncertainty(config: UncertaintyConfig): UncertaintyResult {
   }
 
   // --- resumen ---------------------------------------------------------------------------------------------------------
-  const informative = vars.map((v) => !isDegenerate(v.dist));
+  const informative = vars.map((v) => v.informative);
   const uRanks = U.map((u, v) => (informative[v] ? ranks(u) : null));
   const targets: UncertaintyTarget[] = defs.map((d, ti) => {
     const stats = describeSample(results[ti]!, bins)!;

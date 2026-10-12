@@ -657,3 +657,15 @@ describe('módulo uncertainty sobre el pozo del TP (datos/pozo_tp_perfiles.csv)'
     expect(med).toBeLessThan(1000);
   });
 });
+
+describe('revisión independiente: Spearman con sorteo compartido (zoneCorrelation = full)', () => {
+  it('si el área es fija en la primera zona pero varía en otra, igual aparece en Spearman (antes quedaba vacío) y coincide con el tornado', () => {
+    const z1 = handZone({ id: 'a', name: 'A', area: fixedDist(1e6) });
+    const z2 = handZone({ id: 'b', name: 'B', area: uni(1e6, 2e6, 3e6) });
+    const tot = target(runUncertainty({ zones: [z1, z2], iterations: 2000, seed: 5, zoneCorrelation: 'full' }), 'TOTAL_OIL');
+    expect(tot.tornado.map((t) => t.param)).toEqual(['area']);
+    // V_total = (A_a + A_b)·hφSh/B con A_b creciente en u → ρ(área) = +1 (solo varía el área)
+    expect(tot.spearman.map((s) => s.param)).toEqual(['area']);
+    expect(tot.spearman[0]!.rho).toBeCloseTo(1, 10);
+  });
+});
