@@ -1,0 +1,120 @@
+/* Panel «Tipos de roca» del dock (prefijo rtyp-). Solo tokens del sistema de diseño. Barra fija, pestañas y, en cada
+   pestaña, el gráfico a la izquierda y los controles, la tabla y «Llevar al pozo» a la derecha. */
+.shell-dock__panel:has(> .rtyp) { height: 100%; }
+.rtyp { display: flex; flex-direction: column; height: 100%; min-height: 0; container: rtyp / inline-size; }
+
+.rtyp-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-subtle);
+}
+.rtyp-bar__set { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.rtyp-bar__name { font-weight: var(--weight-semibold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: calc(260px * var(--ui-scale)); }
+.rtyp-bar__item { color: var(--color-text-muted); font-size: var(--text-xs); }
+.rtyp-bar__hint { color: var(--color-text-muted); font-size: var(--text-xs); }
+.rtyp-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-accent-text);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.rtyp-link:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
+
+.rtyp-tabs { flex: none; padding: 0 var(--space-4); border-bottom: 1px solid var(--color-border-subtle); }
+.rtyp-panel { flex: 1; min-height: 0; overflow: auto; outline: none; }
+.rtyp-panel:focus-visible { box-shadow: inset 0 0 0 2px var(--color-focus); }
+
+.rtyp-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(calc(270px * var(--ui-scale)), 1fr);
+  min-height: 100%;
+}
+.rtyp-main { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; padding: var(--space-3) var(--space-4); }
+.rtyp-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2-5);
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  border-left: 1px solid var(--color-border-subtle);
+}
+.rtyp-h {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.rtyp-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); }
+.rtyp-field { display: inline-flex; align-items: center; gap: var(--space-1-5); color: var(--color-text-muted); font-size: var(--text-xs); white-space: nowrap; }
+.rtyp-plot { flex: none; }
+.rtyp-empty { margin: 0; color: var(--color-text-muted); font-size: var(--text-sm); }
+.rtyp-warn { margin: 0; color: var(--color-warn-text); font-size: var(--text-xs); }
+.rtyp-note { margin: 0; color: var(--color-text-muted); font-size: var(--text-xs); line-height: var(--leading-normal); }
+.rtyp-apply { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: auto; padding-top: var(--space-1); }
+
+/* Muestra de color de clase */
+.rtyp-swatch {
+  flex: none;
+  display: inline-block;
+  width: calc(10px * var(--ui-scale));
+  height: calc(10px * var(--ui-scale));
+  border-radius: var(--radius-sm);
+  background: var(--mark);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-text) 14%, transparent);
+}
+.rtyp-cell { display: inline-flex; align-items: center; gap: var(--space-1-5); font-weight: var(--weight-medium); white-space: nowrap; }
+
+/* Clases de garganta */
+.rtyp-classes { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.rtyp-class {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+  font-size: var(--text-sm);
+}
+.rtyp-class__name { font-weight: var(--weight-medium); }
+.rtyp-class__range { color: var(--color-text-muted); font-size: var(--text-xs); }
+.rtyp-class__n { min-width: calc(24px * var(--ui-scale)); text-align: right; font-weight: var(--weight-semibold); }
+
+/* Datos destacados */
+.rtyp-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-1-5); }
+.rtyp-kpi { padding: var(--space-1-5) var(--space-2); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-subtle); min-width: 0; }
+.rtyp-kpi__label { color: var(--color-text-muted); font-size: var(--text-xs); }
+.rtyp-kpi__value { font-size: var(--text-lg); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-tight); }
+.rtyp-bounds { display: flex; flex-wrap: wrap; gap: var(--space-1-5) var(--space-3); }
+
+/* Leyenda */
+.rtyp-legend, .rtyp-pc__legend { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-1) var(--space-3); color: var(--color-text-muted); font-size: var(--text-xs); }
+.rtyp-legend__item { display: inline-flex; align-items: center; gap: var(--space-1-5); white-space: nowrap; }
+.rtyp-legend__mark { display: inline-block; width: calc(16px * var(--ui-scale)); height: 0; border-top: 2px solid var(--mark); }
+.rtyp-legend__mark.is-dash { border-top-style: dashed; }
+.rtyp-legend__mark.is-dot { width: calc(7px * var(--ui-scale)); height: calc(7px * var(--ui-scale)); border: 0; border-radius: var(--radius-full); background: var(--mark); opacity: 0.6; }
+
+/* Presión capilar */
+.rtyp-pc { display: flex; flex-direction: column; gap: var(--space-2-5); padding: var(--space-3) var(--space-4); }
+.rtyp-pc__plots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
+.rtyp-pc__fig { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; margin: 0; }
+.rtyp-pc__fig figcaption { color: var(--color-text-muted); font-size: var(--text-xs); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-wide); text-transform: uppercase; }
+.rtyp-source { margin: 0; color: var(--color-text-subtle); font-size: var(--text-xs); }
+
+/* Dock angosto: una columna con desplazamiento único. */
+@container rtyp (max-width: 760px) {
+  .rtyp-grid { grid-template-columns: minmax(0, 1fr); }
+  .rtyp-side { border-left: 0; border-top: 1px solid var(--color-border-subtle); }
+  .rtyp-pc__plots { grid-template-columns: minmax(0, 1fr); }
+}

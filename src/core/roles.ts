@@ -107,6 +107,12 @@ export const BUILTIN_ROLES: readonly RoleDef[] = [
   // Perfil de invasión escalonada (fase 8b): diámetro de invasión (convención de la industria: 2·ri) y calidad del ajuste
   { id: 'DI', label: 'Diámetro de invasión', unit: 'in', family: 'resistivity', origin: 'computed', display: { color: '#0f766e', scale: 'linear', min: 0, max: 200 } },
   { id: 'INV_MISFIT', label: 'Desajuste del perfil de invasión', unit: 'unitless', family: 'other', origin: 'computed', display: { color: '#be185d', scale: 'linear', min: 0, max: 0.5 } },
+  // Calibración con corona (fase 8, función N): densidad de matriz aparente con la porosidad total independiente
+  { id: 'RHOMAA', label: 'Densidad de matriz aparente (ρmaa)', unit: 'g/cm3', family: 'lithology', origin: 'computed', display: { color: '#a16207', scale: 'linear', min: 2.4, max: 3.0 } },
+  // Tipos de roca (fase 8, función P): FZI y R35 de Winland con φ y k del perfil, y la clase (unidad de flujo o clase de garganta)
+  { id: 'FZI', label: 'Indicador de zona de flujo (FZI)', unit: 'um', family: 'permeability', origin: 'computed', display: { color: '#0f766e', scale: 'log', min: 0.01, max: 100 } },
+  { id: 'R35', label: 'Radio de garganta R35 (Winland)', unit: 'um', family: 'permeability', origin: 'computed', display: { color: '#7c3aed', scale: 'log', min: 0.01, max: 100 } },
+  { id: 'ROCK_TYPE', label: 'Tipo de roca', unit: 'unitless', family: 'lithology', origin: 'computed', display: { color: '#3e4989', scale: 'linear', min: 0, max: 6 } },
   { id: 'PERM', label: 'Permeabilidad', unit: 'mD', family: 'permeability', origin: 'computed', display: { color: '#ff7f0e', scale: 'log', min: 0.01, max: 10000 } },
   { id: 'NET_RES', label: 'Bandera de reservorio neto', unit: 'unitless', family: 'flag', origin: 'computed', display: { color: '#f1c40f', scale: 'linear', min: 0, max: 1 } },
   { id: 'NET_PAY', label: 'Bandera de pay neto', unit: 'unitless', family: 'flag', origin: 'computed', display: { color: '#e74c3c', scale: 'linear', min: 0, max: 1 } },

@@ -74,8 +74,8 @@ function useLogSeries(well: Well | null, interp: Interpretation | null, key: str
   }, [well, interp, result, key]);
 }
 
-/** Carga el ejemplo sintético (con la PHIE calculada del pozo activo) y su modelo k–φ. */
-function loadExample(): void {
+/** Carga el ejemplo sintético (con la PHIE calculada del pozo activo) y su modelo k–φ. También lo usa el panel «Calibración». */
+export function loadExample(): void {
   const entry = activeWellEntry(useProject.getState().project);
   if (!entry) return;
   const computed = computedCurves(useResults.getState().result, entry.well);
@@ -209,6 +209,7 @@ function PlugsTable({ set, interp, selected, onSelect }: { set: PointSet; interp
   const phi = pointNumbers(set, COL.phi);
   const k = pointNumbers(set, COL.k);
   const rhog = pointNumbers(set, COL.rhog);
+  const ff = pointNumbers(set, COL.ff);
   const runs = pointTexts(set, COL.run);
   const desc = pointTexts(set, COL.description);
   const rows = set.pointIds.map((id, i) => ({ id, i }));
@@ -238,6 +239,7 @@ function PlugsTable({ set, interp, selected, onSelect }: { set: PointSet; interp
     { key: 'phi', header: 'φ', title: 'Porosidad (v/v)', align: 'num', render: (r) => formatNumber(phi?.[r.i], { digits: 3 }) },
     { key: 'k', header: 'k (mD)', title: 'Permeabilidad', align: 'num', render: (r) => formatNumber(k?.[r.i], { significant: 3 }) },
     ...(rhog ? [{ key: 'g', header: 'ρg', title: 'Densidad de grano (g/cm³)', align: 'num' as const, render: (r: { i: number }) => formatNumber(rhog[r.i], { digits: 2 }) }] : []),
+    ...(ff ? [{ key: 'ff', header: 'F', title: 'Factor de formación (ensayo eléctrico)', align: 'num' as const, render: (r: { i: number }) => formatNumber(ff[r.i], { significant: 3 }) }] : []),
     {
       key: 'q',
       header: 'Calidad',

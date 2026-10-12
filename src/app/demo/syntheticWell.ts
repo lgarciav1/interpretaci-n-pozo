@@ -6,6 +6,10 @@
 import { createWell, type Curve, type Well, type Zone } from '../../core/well';
 import type { UnitId } from '../../core/units';
 import { forwardStepProfile } from '../../petro/invasion';
+import { arpsResistivityC, formationTemperature } from '../../petro/temperature';
+import { EXAMPLE_M } from '../../modules/core/example';
+import rwManual from '../../modules/rw-manual';
+import tempGradient from '../../modules/temp-gradient';
 
 function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
@@ -25,6 +29,22 @@ const ZONES: Zone[] = [
   { id: 'zone-d', name: 'D', top: 7970.06, base: 8246.97, color: '#b8d98b', kind: 'formation' },
   { id: 'zone-e', name: 'E', top: 8247.13, base: 8518.55, color: '#c9a3d9', kind: 'formation' },
 ];
+
+/** Exponente de cementación de diseño del agua de formación del demo (a = 1): el de los plugs de ejemplo. */
+export const DEMO_M = EXAMPLE_M;
+/** Resistividad de la arcilla (ohm·m). */
+const R_SHALE = 2.2;
+
+/**
+ * Rw a la profundidad z con los valores POR DEFECTO de la app (módulos `rw-manual` y `temp-gradient`): la que va a
+ * usar la interpretación del demo mientras el usuario no los cambie.
+ */
+export function demoRw(z: number): number {
+  const t = tempGradient.params;
+  const w = rwManual.params;
+  const temp = formationTemperature(z - t.datum.default, t.tSurface.default, t.gradient.default / 100);
+  return w.correct.default ? arpsResistivityC(w.rwRef.default, w.tRef.default, temp) : w.rwRef.default;
+}
 
 /** Proporción de arena por zona (para que las zonas se distingan). */
 const SAND_RATIO: Record<string, number> = { 'zone-a': 0.35, 'zone-b': 0.55, 'zone-c': 0.75, 'zone-d': 0.45, 'zone-e': 0.3 };
@@ -78,10 +98,18 @@ export function syntheticWell(n = 5810, seed = 2026): { well: Well; zones: Zone[
   const pef = make((v) => 2.0 + 1.3 * v + gauss() * 0.1);
   const cal = make((v) => 8.6 + 0.9 * v * v + Math.abs(gauss()) * 0.05);
   const bs = make(() => 8.5);
+  // Rt. Con hidrocarburo (zona C limpia): mezcla logarítmica arena 25 ohm·m – arcilla 2,2 ohm·m, como siempre.
+  // Acuífero (Sw = 1, docs/decisiones/0023 D8): Archie con a = 1 y m = DEMO_M sobre la porosidad efectiva de la
+  // muestra (densidad–neutrón de las curvas generadas, matriz 2,65 y fluido 1, por 1 − Vsh) y la Rw que calcula la app
+  // con sus valores por defecto (Rw conocida llevada a la temperatura del gradiente), más la conducción de la arcilla
+  // en paralelo (Vsh/Rsh). Así m desde el perfil en las zonas acuíferas recupera ≈ DEMO_M, el mismo m con el que se
+  // generó el F de los plugs de ejemplo (src/modules/core/example.ts).
   const rt = make((v, k) => {
-    const hydrocarbon = inZone(k, 'zone-c') && v < 0.4;
-    const rSand = hydrocarbon ? 25 : 0.9;
-    return Math.exp(Math.log(rSand) * (1 - v) + Math.log(2.2) * v) * Math.exp(gauss() * 0.08);
+    const noise = Math.exp(gauss() * 0.08);
+    if (inZone(k, 'zone-c') && v < 0.4) return Math.exp(Math.log(25) * (1 - v) + Math.log(R_SHALE) * v) * noise;
+    const phiD = (2.65 - rhob[k]!) / 1.65;
+    const phiE = Math.max(0, ((phiD + nphi[k]!) / 2) * (1 - v));
+    return noise / (Math.pow(phiE, DEMO_M) / demoRw(depth[k]!) + v / R_SHALE);
   });
   // Inducción de arreglo (fase 8b): perfil escalonado plausible por zona, leído con el modelo directo de
   // src/petro/invasion.ts. En la arcilla no hay invasión (Rxo = Rt, diámetro = trépano); en la arena el contraste

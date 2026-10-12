@@ -93,6 +93,8 @@ const BUILTIN_UNITS: UnitDef[] = [
   { id: 'in', label: 'in', dimension: 'length', factor: 0.0254 },
   { id: 'cm', label: 'cm', dimension: 'length', factor: 0.01 },
   { id: 'mm', label: 'mm', dimension: 'length', factor: 0.001 },
+  // Radios de garganta poral y FZI (rock typing, fase 8 P)
+  { id: 'um', label: 'µm', dimension: 'length', factor: 1e-6 },
   // Densidad (base: g/cm³)
   { id: 'g/cm3', label: 'g/cm³', dimension: 'density', factor: 1 },
   { id: 'kg/m3', label: 'kg/m³', dimension: 'density', factor: 0.001 },
@@ -160,7 +162,7 @@ const BUILTIN_ALIASES: Record<string, UnitId> = {
   M: 'm', METER: 'm', METERS: 'm', METRES: 'm',
   FT: 'ft', F: 'ft', FEET: 'ft',
   IN: 'in', INCH: 'in', INCHES: 'in', '"': 'in',
-  CM: 'cm', MM: 'mm',
+  CM: 'cm', MM: 'mm', UM: 'um', 'µM': 'um', MICRON: 'um', MICRONS: 'um',
   'G/CM3': 'g/cm3', 'G/CC': 'g/cm3', 'G/C3': 'g/cm3', 'GR/CC': 'g/cm3', 'GM/CC': 'g/cm3', 'G/CM³': 'g/cm3',
   'KG/M3': 'kg/m3', 'K/M3': 'kg/m3', 'KG/M³': 'kg/m3',
   'US/FT': 'us/ft', 'US/F': 'us/ft', 'USEC/FT': 'us/ft', 'µS/FT': 'us/ft', 'MICROS/FT': 'us/ft',

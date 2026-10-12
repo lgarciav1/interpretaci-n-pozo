@@ -16,6 +16,7 @@ import phiSonicRaymer from './phi-sonic-raymer';
 import phit from './phit';
 import phieVsh from './phie-vsh';
 import phieShaleCorrected from './phie-shale-corrected';
+import coreCalibration from './core-calibration';
 import tempGradient from './temp-gradient';
 import rwManual from './rw-manual';
 import rwSp from './rw-sp';
@@ -28,6 +29,7 @@ import permTimur from './perm-timur';
 import permCoates from './perm-coates';
 import nmrFluids from './nmr-fluids';
 import permCore from './perm-core';
+import rockTyping from './rock-typing';
 import cutoffs from './cutoffs';
 import cutoffSensitivity from './cutoff-sensitivity';
 import zoneSummary from './zone-summary';
@@ -52,6 +54,7 @@ export const MODULES = [
   phit,
   phieVsh,
   phieShaleCorrected,
+  coreCalibration,
   tempGradient,
   rwManual,
   rwSp,
@@ -64,6 +67,7 @@ export const MODULES = [
   permCoates,
   nmrFluids,
   permCore,
+  rockTyping,
   cutoffs,
   cutoffSensitivity,
   zoneSummary,
