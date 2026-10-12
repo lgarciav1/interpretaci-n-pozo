@@ -19,16 +19,25 @@ import { useResults } from './store/results';
 
 let started = false;
 
-export function startEngineBridge(registry: Registry): EngineSupervisor {
-  if (started) throw new Error('El puente del motor ya está iniciado.');
-  started = true;
-
-  const supervisor = new EngineSupervisor({
-    createWorker: () => new EngineWorker({ name: 'motor' }) as unknown as WorkerLike,
+/**
+ * Supervisor de un motor en su propio Web Worker (con alternativa en proceso). Lo usan el motor principal y el de
+ * comparación de snapshots (src/app/snapshots/snapshotEngine.ts, docs/decisiones/0026), que corre aparte para no
+ * tocar la caché ni el estado del principal.
+ */
+export function createEngineSupervisor(registry: Registry, name = 'motor'): EngineSupervisor {
+  return new EngineSupervisor({
+    createWorker: () => new EngineWorker({ name }) as unknown as WorkerLike,
     // En desarrollo el motor verifica que ningún módulo escriba en sus entradas.
     createInProcess: () => createInProcessClient(registry, { checkInputs: import.meta.env.DEV }),
     log: (msg) => console.warn(msg),
   });
+}
+
+export function startEngineBridge(registry: Registry): EngineSupervisor {
+  if (started) throw new Error('El puente del motor ya está iniciado.');
+  started = true;
+
+  const supervisor = createEngineSupervisor(registry);
 
   supervisor.subscribe((e) => {
     switch (e.type) {

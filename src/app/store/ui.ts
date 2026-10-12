@@ -116,9 +116,16 @@ export interface UiStore {
   /** Asistente de carga abierto (con `tp` arranca leyendo los datos del TP). */
   loadDialog: null | { source?: 'tp' };
   snapshotsOpen: boolean;
+  /**
+   * Cortina antes/después en el visor (docs/decisiones/0026): snapshot que se dibuja del lado «antes». Estado de
+   * interfaz: no entra en el proyecto, en deshacer/rehacer ni en el archivo.
+   */
+  curtain: null | { snapshotId: string };
   /** Diálogo «Exportar» abierto. */
   exportOpen: boolean;
   qcReportOpen: boolean;
+  /** Pantalla «Ecuaciones» abierta, con el módulo elegido al abrir (null = el primero). Ver app/ecuaciones/open.ts. */
+  equations: null | { moduleId: string | null };
   layout: ShellLayout;
   set(patch: Partial<Omit<UiStore, 'set' | 'setLayout' | 'layout'>>): void;
   setLayout(patch: Partial<ShellLayout>): void;
@@ -134,8 +141,10 @@ export const useUi = create<UiStore>()((set) => ({
   trackBuilder: false,
   loadDialog: null,
   snapshotsOpen: false,
+  curtain: null,
   exportOpen: false,
   qcReportOpen: false,
+  equations: null,
   layout: loadLayout(),
   set: (patch) => set(patch),
   setLayout: (patch) => set((s) => ({ layout: { ...s.layout, ...patch } })),

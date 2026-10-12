@@ -7,7 +7,8 @@ import { portOf, type AnyModule } from '../../core/module';
 import { paramScope, paramStorageKey, type ParamValue } from '../../core/params';
 import { clearParam, setCompare, setParam, setSource } from '../../core/state/project';
 import { registry } from '../../modules';
-import { Badge, Field, SegmentedControl, Section, Select, StatusDot, Switch, Tooltip, formatNumber } from '../../ui';
+import { Badge, Field, IconButton, SegmentedControl, Section, Select, StatusDot, Switch, Tooltip, formatNumber } from '../../ui';
+import { openEquations } from '../ecuaciones/open';
 import { collectPanels } from '../modulePanels';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useResults } from '../store/results';
@@ -80,6 +81,7 @@ export function ModulePanelView({ module }: { module: AnyModule }) {
             </span>
           </Tooltip>
         )}
+        <IconButton icon="sigma" size="sm" label={`Ver las ecuaciones de ${module.name}`} onClick={() => openEquations(module.id)} data-testid="module-equations" />
       </header>
 
       {alternatives.length > 0 && (

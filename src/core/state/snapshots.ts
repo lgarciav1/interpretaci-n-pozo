@@ -117,7 +117,8 @@ export function diffInterpretations(a: Interpretation, b: Interpretation, regist
 /** Texto en español de una diferencia (para la interfaz). */
 export function describeDiff(entry: DiffEntry, ctx: { registry?: Registry; zones?: readonly Zone[] } = {}): string {
   const zoneName = (id: string | null) => (id === null ? 'global' : ctx.zones?.find((z) => z.id === id)?.name ?? id);
-  const fmt = (v: unknown) => (v === undefined ? '—' : typeof v === 'number' ? String(+v.toPrecision(6)) : String(v));
+  // Coma decimal, como el resto de la interfaz (sin depender de src/ui).
+  const fmt = (v: unknown) => (v === undefined ? '—' : typeof v === 'number' ? String(+v.toPrecision(6)).replace('.', ',') : String(v));
   const src = (s: SourceRef | undefined) =>
     !s ? 'por defecto' : s.kind === 'curve' ? `curva ${s.curveId}` : ctx.registry?.get(s.moduleId)?.name ?? s.moduleId;
   switch (entry.kind) {

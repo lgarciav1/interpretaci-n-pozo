@@ -9,18 +9,23 @@
  * - Tendencias (`src/app/trends/`): herramienta «elegir tramo» / «dibujar a mano» y sus avisos en la barra.
  * - Encabezado de pozo, editor de escalas (popover anclado a la curva) y modo «marcar zona».
  * - Publica el cursor y el tramo visible en `useViewer` para otros paneles.
+ * - Cortina antes/después (docs/decisiones/0026): con `useUi.curtain`, las mismas pistas resueltas con las curvas
+ *   calculadas del snapshot (corrida aislada, en caché) van al visor como lado «antes».
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { setCurveDisplay, setRoleDisplay } from '../../core/state/project';
 import type { Well } from '../../core/well';
 import { registry } from '../../modules';
-import { Button, Chip, EmptyState, getResolvedTheme, Icon } from '../../ui';
+import { Button, Chip, EmptyState, getResolvedTheme, Icon, Spinner } from '../../ui';
 import { patchOverride } from '../../viewer/curveEdit';
 import type { ViewerData, ViewerZone } from '../../viewer/overlay';
 import { resolveTracks, type HiddenCurve, type ResolvedTrack } from '../../viewer/resolve';
 import { layoutFor, STACK_ROLE_HINTS, withOverlayTracks } from '../../viewer/templates';
 import { WellHeader } from '../../viewer/WellHeaderView';
-import { WellViewer } from '../../viewer/WellViewer';
+import { WellViewer, type ViewerCurtain } from '../../viewer/WellViewer';
+import { alignCurtainTracks } from '../../viewer/curtain';
+import { closeCurtain } from '../snapshots/actions';
+import { useSnapshotRun } from '../snapshots/snapshotEngine';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useWellQc } from '../store/qc';
 import { useResults } from '../store/results';
@@ -94,17 +99,34 @@ export function ViewerSlot() {
   const interpretation = entry?.interpretation;
 
   const computed = useMemo(() => (well ? computedCurves(result, well) : []), [result, well]);
+  // Pistas propias con escala según los datos (presiones MDT) y los ajustes guardados (unidad).
+  const layoutSpec = useMemo(
+    () => (well ? withOverlayTracks(layoutFor(workspace, display.layouts), OVERLAYS, workspace, { well, ...(display.overlays ? { settings: display.overlays } : {}) }) : []),
+    [well, workspace, display.layouts, display.overlays],
+  );
+  const overrides = useMemo(() => (well ? { roles: display.roles, ...(display.curves[well.id] ? { curves: display.curves[well.id] } : {}) } : {}), [well, display.roles, display.curves]);
   const tracks = useMemo(() => {
     if (!well) return [];
     return resolveTracks(
-      // Pistas propias con escala según los datos (presiones MDT) y los ajustes guardados (unidad).
-      withOverlayTracks(layoutFor(workspace, display.layouts), OVERLAYS, workspace, { well, ...(display.overlays ? { settings: display.overlays } : {}) }),
+      layoutSpec,
       { depth: well.depth.values, curves: well.curves, computed, catalog: registry.roles },
-      { roles: display.roles, ...(display.curves[well.id] ? { curves: display.curves[well.id] } : {}) },
+      overrides,
       // Armando pistas se ven también las que se ocultan vacías (para moverlas o quitarlas).
       { keepEmpty: building },
     );
-  }, [well, computed, workspace, display, building]);
+  }, [well, computed, layoutSpec, overrides, building]);
+
+  // Cortina antes/después: el snapshot se calcula una vez al elegirlo (caché compartida con el diálogo); arrastrar la
+  // línea solo redibuja. Las curvas medidas son las del pozo activo en los dos lados.
+  const curtainId = useUi((s) => s.curtain?.snapshotId ?? null);
+  const curtainSnap = useProject((s) => (curtainId ? (s.project.snapshots.find((x) => x.id === curtainId) ?? null) : null));
+  const curtainRun = useSnapshotRun(curtainSnap, well);
+  const curtainResult = curtainRun?.status === 'ready' ? curtainRun.result : null;
+  const curtain = useMemo<ViewerCurtain | null>(() => {
+    if (!well || !curtainSnap || !curtainResult) return null;
+    const before = resolveTracks(layoutSpec, { depth: well.depth.values, curves: well.curves, computed: computedCurves(curtainResult, well), catalog: registry.roles }, overrides, { keepEmpty: true });
+    return { before: alignCurtainTracks(tracks, before), beforeLabel: `Antes: ${curtainSnap.name}`, afterLabel: 'Después: actual' };
+  }, [well, curtainSnap, curtainResult, layoutSpec, overrides, tracks]);
 
   // «Armar pistas» (docs/decisiones/0016): acciones sobre las pistas que se ven, publicadas para el panel.
   const editor = useMemo(() => (well ? createLayoutEditor({ workspace, overlays: OVERLAYS, displayed: tracks, curves: well.curves }) : null), [well, workspace, tracks]);
@@ -213,6 +235,18 @@ export function ViewerSlot() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [marking]);
+  // Escape cierra la cortina (si no lo usó antes otro modo, un menú o un diálogo).
+  useEffect(() => {
+    if (!curtainId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || useViewer.getState().dragging) return;
+      if (document.querySelector('[role="dialog"], [role="menu"]')) return;
+      e.preventDefault();
+      closeCurtain();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [curtainId]);
   // Lo mismo para la herramienta de tendencias (elegir tramo o dibujar a mano).
   useEffect(() => {
     if (!trendTool) return;
@@ -346,6 +380,11 @@ export function ViewerSlot() {
 
   const toolbarEnd = (
     <>
+      {curtainId && (
+        <Button size="sm" variant="primary" icon="curtain" aria-pressed title="Cerrar la cortina antes/después (Esc)" onClick={closeCurtain} data-testid="curtain-close">
+          Cortina
+        </Button>
+      )}
       <TemplateMenu workspace={workspace} overlays={OVERLAYS} />
       <Button
         size="sm"
@@ -399,6 +438,18 @@ export function ViewerSlot() {
               <Icon name="zone-add" size={14} />
               Arrastrá sobre el perfil para marcar una zona · <kbd>Esc</kbd> para salir
             </>
+          ) : curtainId && !curtain ? (
+            curtainRun?.status === 'error' ? (
+              <>
+                <Icon name="warning" size={14} />
+                {`No se pudo calcular «${curtainSnap?.name ?? 'el snapshot'}»: ${curtainRun.message}`} · <kbd>Esc</kbd> para salir
+              </>
+            ) : (
+              <>
+                <Spinner size={12} />
+                {`Calculando «${curtainSnap?.name ?? 'el snapshot'}» para la cortina…`}
+              </>
+            )
           ) : trendTool ? (
             <>
               <Icon name={trendTool.kind === 'manual' ? 'pen' : 'trend'} size={14} />
@@ -421,6 +472,10 @@ export function ViewerSlot() {
         }}
         onShowCurve={showCurve}
         onEscape={() => {
+          if (useUi.getState().curtain) {
+            closeCurtain();
+            return true;
+          }
           if (useTrendsUi.getState().tool) {
             stopTrendTool();
             return true;
@@ -447,6 +502,7 @@ export function ViewerSlot() {
         onViewportChange={onViewportChange}
         onDragChange={onDragChange}
         layoutEdit={layoutEdit}
+        curtain={curtain}
       />
       {editing && editingCurve && <CurveEditor key={`${editing.trackId}|${editing.key}`} wellId={well.id} curve={editingCurve} anchorRef={anchorRef} onClose={() => setEditing(null)} />}
       <SaveTemplateDialog workspace={workspace} overlays={OVERLAYS} />

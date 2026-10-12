@@ -50,6 +50,12 @@ export interface FrameInput {
    * en pantalla. Ausente = 1 (las figuras exportadas no lo pasan: salen iguales con cualquier tamaño).
    */
   uiScale?: number;
+  /**
+   * Cortina antes/después (docs/decisiones/0026): a la izquierda de `x` (px CSS) cada pista se dibuja con su versión
+   * de `before` (alineada con `tracks`; null = sin versión «antes», queda el fondo); a la derecha, con `tracks`. Es un
+   * recorte del mismo cuadro: fondo, grilla, superposiciones y profundidad se dibujan una vez. Ausente = sin cortina.
+   */
+  curtain?: { x: number; before: readonly (ResolvedTrack | null)[] };
 }
 
 const FONT = BASE_TOKENS.font.sans;
@@ -129,6 +135,8 @@ export class ViewerRenderer {
   private xb = new Float32Array(1024);
   private va = new Float32Array(1024);
   private vb = new Float32Array(1024);
+  /** Prefijo de las claves de buffers mientras se dibuja el lado «antes» de la cortina. */
+  private keyPrefix = '';
 
   /** Olvida los buffers (al cambiar de pozo). */
   reset(): void {
@@ -163,7 +171,9 @@ export class ViewerRenderer {
     return { i0, i1, rows, decimated, y, n, bounds };
   }
 
-  private rows(key: string, values: Float32Array | Float64Array, s: Sampling): RowBuffers {
+  private rows(rawKey: string, values: Float32Array | Float64Array, s: Sampling): RowBuffers {
+    // Las pistas «antes» de la cortina tienen las mismas claves con otros datos: buffers aparte.
+    const key = this.keyPrefix + rawKey;
     const cached = this.rowBufs.get(key);
     if (cached && this.rowStamp.get(key) === this.frameId) return cached;
     this.rowStamp.set(key, this.frameId);
@@ -495,28 +505,25 @@ export class ViewerRenderer {
     // Animación de carga: las pistas se "registran" de arriba hacia abajo hasta `reveal`.
     const reveal = f.reveal !== undefined && f.reveal < 1 ? Math.max(0, f.reveal) : null;
     const clipH = reveal === null ? h : h * reveal;
+    const cut = f.curtain;
     f.tracks.forEach((t, i) => {
       const b = f.boxes[i]!;
       if (t.kind === 'depth' || t.kind === 'overlay') return;
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(b.x, 0, b.width, t.kind === 'stack' && t.stack?.empty ? h : clipH);
-      ctx.clip();
-      if (t.kind === 'stack') {
-        this.drawStack(ctx, t, b, f, s);
-      } else if (t.curves.length === 0) {
-        ctx.fillStyle = v.axisText;
-        ctx.font = labelFont(f.uiScale ?? 1);
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('Sin curvas', b.x + b.width / 2, h / 2);
-      } else if (t.kind === 'flags') {
-        this.drawFlags(ctx, t, b, f, s);
-      } else {
-        this.drawFills(ctx, t, b, f, s);
-        this.drawCurves(ctx, t, b, f, s);
+      const right = b.x + b.width;
+      // Cortina: [b.x, x) con la versión «antes», [x, right) con la actual.
+      const split = cut ? Math.min(right, Math.max(b.x, cut.x)) : b.x;
+      if (split > b.x) {
+        const before = cut!.before[i];
+        if (before) {
+          this.keyPrefix = 'before|';
+          try {
+            this.drawTrackContent(ctx, before, b, f, s, b.x, split, clipH);
+          } finally {
+            this.keyPrefix = '';
+          }
+        }
       }
-      ctx.restore();
+      if (split < right) this.drawTrackContent(ctx, t, b, f, s, split, right, clipH);
     });
 
     if (reveal !== null) this.drawRevealFront(ctx, f, clipH);
@@ -544,6 +551,30 @@ export class ViewerRenderer {
       }
     }
     return performance.now() - t0;
+  }
+
+  /** Contenido de una pista (pila, banderas o rellenos y curvas), recortado a [x0, x1) y al alto de la carga. */
+  private drawTrackContent(ctx: CanvasRenderingContext2D, t: ResolvedTrack, b: TrackBox, f: FrameInput, s: Sampling, x0: number, x1: number, clipH: number): void {
+    const h = f.viewport.height;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x0, 0, x1 - x0, t.kind === 'stack' && t.stack?.empty ? h : clipH);
+    ctx.clip();
+    if (t.kind === 'stack') {
+      this.drawStack(ctx, t, b, f, s);
+    } else if (t.curves.length === 0) {
+      ctx.fillStyle = f.theme.viewer.axisText;
+      ctx.font = labelFont(f.uiScale ?? 1);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('Sin curvas', b.x + b.width / 2, h / 2);
+    } else if (t.kind === 'flags') {
+      this.drawFlags(ctx, t, b, f, s);
+    } else {
+      this.drawFills(ctx, t, b, f, s);
+      this.drawCurves(ctx, t, b, f, s);
+    }
+    ctx.restore();
   }
 
   /** Frente de la animación de carga: una línea de acento con un halo que se desvanece hacia arriba. */
@@ -588,23 +619,29 @@ export class ViewerRenderer {
 
     const idx = nearestIndex(f.depth, depth);
     if (idx >= 0) {
-      f.tracks.forEach((t, i) => {
-        if (t.kind !== 'curves') return;
-        const b = f.boxes[i]!;
-        for (const c of t.curves) {
-          if (c.kind !== 'line') continue;
-          const fr = valueToFraction(c.data[idx]!, c.axis);
-          if (!(fr >= 0 && fr <= 1)) continue;
-          const x = b.x + fr * b.width;
-          ctx.beginPath();
-          ctx.arc(x, y, 3.25, 0, Math.PI * 2);
-          ctx.fillStyle = c.styles[f.theme.name].color;
-          ctx.fill();
-          ctx.lineWidth = 1.5;
-          ctx.strokeStyle = v.trackBg;
-          ctx.stroke();
-        }
-      });
+      // Con cortina, cada punto sale de la versión de la pista que se ve de su lado.
+      const cut = f.curtain;
+      const dots = (tracks: readonly (ResolvedTrack | null)[], side: 'before' | 'after') =>
+        tracks.forEach((t, i) => {
+          if (!t || t.kind !== 'curves') return;
+          const b = f.boxes[i]!;
+          for (const c of t.curves) {
+            if (c.kind !== 'line') continue;
+            const fr = valueToFraction(c.data[idx]!, c.axis);
+            if (!(fr >= 0 && fr <= 1)) continue;
+            const x = b.x + fr * b.width;
+            if (cut && (side === 'before' ? x >= cut.x : x < cut.x)) continue;
+            ctx.beginPath();
+            ctx.arc(x, y, 3.25, 0, Math.PI * 2);
+            ctx.fillStyle = c.styles[f.theme.name].color;
+            ctx.fill();
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = v.trackBg;
+            ctx.stroke();
+          }
+        });
+      dots(f.tracks, 'after');
+      if (cut) dots(cut.before, 'before');
     }
 
     // Rótulo de profundidad en la pista de profundidad (o a la izquierda si no hay).
