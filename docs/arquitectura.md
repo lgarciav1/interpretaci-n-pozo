@@ -566,3 +566,19 @@ Decisión: [`docs/decisiones/0023-calibracion-con-corona.md`](decisiones/0023-ca
   con m = 1,85 (otra semilla: el resto del ejemplo no cambia).
 - Tests: `tests/modules-8n-core-calibration.test.ts` (módulo, cadena con el motor en el demo y el TP, modelo del panel,
   lector y ejemplo).
+
+## Tipos de roca (fase 8, función P)
+
+Decisión: [`docs/decisiones/0024-rock-typing.md`](decisiones/0024-rock-typing.md). Una carpeta,
+`src/modules/rock-typing/`, sobre el motor puro `src/petro/rockTyping.ts` y los plugs de la 6b-3.
+
+- **Módulo del motor** `rock-typing` (categoría Permeabilidad): con PHIE y la PERM vigente, curvas `FZI` y `R35` (µm,
+  unidad `um` nueva) y `ROCK_TYPE` (clase: unidad de flujo por bandas de FZI o clase de garganta de Winland), tabla
+  `ROCK_TYPES` por clase. Parámetros globales: método, número de unidades (2–6) y límites de FZI.
+- **Panel «Tipos de roca»** (`dock.tsx`, lógica pura en `model.ts`): Winland/Pittman (k–φ con isolíneas de radio),
+  unidades de flujo (RQI–φz, Fisher–Jenks o manual, tabla) y presión capilar del EJEMPLO DE LIBRO (Pc–Sw, J de
+  Leverett, gargantas de Washburn). «Llevar al pozo» escribe método y límites (una receta, un Ctrl+Z); avisa si PERM no
+  sale del modelo k–φ de corona. Preparado para Pc–Sw digitalizado (`kind: 'capillary'`, sin lector todavía).
+- **Pista «Tipo de roca»**: superposición con pista propia (`overlay.ts`), sin tocar el núcleo del visor; colores de
+  clase compartidos con el panel (`draw.ts`, rampa viridis).
+- Tests: `tests/modules-8p-rock-typing.test.ts`.

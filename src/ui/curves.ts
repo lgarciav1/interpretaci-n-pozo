@@ -87,6 +87,9 @@ export const CURVE_PALETTE: Readonly<Record<RoleId, CurvePaletteEntry>> = {
   INV_MISFIT: { light: '#be185d', dark: '#f472b6', line: 'dotted', width: 1.25 },
   // Calibración con corona (fase 8, N): ámbar, distinta de RHOB (rojo), VSH (marrón) y PERM (naranja)
   RHOMAA: { light: '#a16207', dark: '#f2c14e', line: 'solid', width: 1.5 },
+  FZI: { light: '#0f766e', dark: '#2dd4bf', line: 'solid', width: 1.25 },
+  R35: { light: '#7c3aed', dark: '#b28cff', line: 'dashed', width: 1.25 },
+  ROCK_TYPE: { light: '#3e4989', dark: '#5b7fc4', line: 'solid', kind: 'band' },
   PERM: { light: '#c2410c', dark: '#ff9a5c', line: 'solid', width: 1.5 },
   NET_RES: { light: '#e9b949', dark: '#d8a83a', line: 'solid', kind: 'band' },
   NET_PAY: { light: '#d9534f', dark: '#e0605b', line: 'solid', kind: 'band' },
