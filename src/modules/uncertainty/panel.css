@@ -1,0 +1,39 @@
+/* Panel de incertidumbre del volumen (prefijo unc-). Mismo lenguaje que el de capacidad de flujo (fcap-). Solo tokens. */
+.unc { display: flex; flex-direction: column; gap: var(--space-4); }
+.unc-body { display: flex; flex-direction: column; gap: var(--space-4); transition: opacity var(--dur-fast) var(--ease-standard); }
+.unc-body.is-stale { opacity: 0.6; }
+.unc-status { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.unc-status__text { color: var(--color-text-muted); font-size: var(--text-xs); }
+.unc-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+.unc-kpi { padding: var(--space-2) var(--space-2-5); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-subtle); min-width: 0; }
+.unc-kpi--p50 { border-color: var(--color-accent-border); background: var(--color-accent-soft); }
+.unc-kpi__label { color: var(--color-text-muted); font-size: var(--text-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.unc-kpi__value { font-size: var(--text-xl); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-tight); white-space: nowrap; }
+.unc-kpi__unit { color: var(--color-text-muted); font-size: var(--text-sm); font-weight: var(--weight-regular); }
+.unc-kpi__sub { color: var(--color-text-muted); font-size: var(--text-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.unc-block { display: flex; flex-direction: column; gap: var(--space-1-5); }
+.unc-block__title { color: var(--color-text-muted); font-size: var(--text-xs); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-wide); text-transform: uppercase; }
+.unc-block__unit { text-transform: none; letter-spacing: normal; font-weight: var(--weight-regular); }
+.unc-legend { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-1-5) var(--space-3); color: var(--color-text-muted); font-size: var(--text-xs); }
+.unc-legend__item { display: inline-flex; align-items: center; gap: var(--space-1-5); white-space: nowrap; }
+.unc-legend__bar { display: inline-block; width: 12px; height: 10px; border: 1px solid; border-radius: var(--radius-xs); }
+.unc-note { color: var(--color-text-muted); font-size: var(--text-xs); }
+.unc-note strong { color: var(--color-text); font-weight: var(--weight-semibold); }
+.unc-nowrap { white-space: nowrap; }
+.unc-table tbody tr[data-total] td { font-weight: var(--weight-semibold); background: var(--color-surface-subtle); border-top: 1px solid var(--color-border); }
+
+/* Tornado: por parámetro, rótulo y semiamplitud arriba y la barra a todo el ancho; los valores del parámetro van a
+   los lados de cada barra y una línea vertical marca el caso base. */
+.unc-legend__rule { display: inline-block; width: 1px; height: 12px; background: var(--color-text); }
+.unc-muted { color: var(--color-text-muted); font-size: var(--text-xs); }
+.unc-tornado { position: relative; display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--text-xs); }
+.unc-tornado__row { display: flex; flex-direction: column; gap: var(--space-1); }
+.unc-tornado__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+.unc-tornado__label { color: var(--color-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.unc-tornado__swing { color: var(--color-text-muted); white-space: nowrap; }
+.unc-tornado__track { position: relative; }
+.unc-tornado__track svg { display: block; border-radius: var(--radius-xs); }
+.unc-tornado__val { position: absolute; top: 50%; transform: translateY(-50%); padding: 0 var(--space-1); color: var(--color-text-muted); white-space: nowrap; }
+.unc-tornado__base { position: absolute; top: 0; bottom: calc(var(--text-xs) + var(--space-3)); width: 1px; background: var(--color-text); pointer-events: none; }
+.unc-tornado__ticks { position: relative; display: flex; justify-content: space-between; padding-top: var(--space-0-5); border-top: 1px solid var(--color-border); color: var(--color-text-muted); }
+.unc-tornado__tick-base { position: absolute; top: var(--space-0-5); transform: translateX(-50%); color: var(--color-text); }
