@@ -193,7 +193,7 @@ export function XYPlot(props: XYPlotProps) {
 
   useEffect(() => {
     if (!figureId || !ok) return;
-    return registerXYFigure({ id: figureId, title: figureTitle ?? figureId, x: xAxis, y: yAxis, points, lines, trends, guides, bars, ...(y2 ? { y2 } : {}), ...(colorKey ? { colorKey } : {}) });
+    return registerXYFigure({ id: figureId, title: figureTitle ?? figureId, x: xAxis, y: yAxis, points, lines: lines.some((l) => l.preview) ? lines.filter((l) => !l.preview) : lines, trends, guides, bars, ...(y2 ? { y2 } : {}), ...(colorKey ? { colorKey } : {}) });
   }, [figureId, figureTitle, ok, xAxis, yAxis, y2, points, lines, trends, guides, bars, colorKey]);
 
   // Con una selección resaltada, su capa se dibuja atenuada en la escena. Solo cambia al prender o apagar el resaltado,

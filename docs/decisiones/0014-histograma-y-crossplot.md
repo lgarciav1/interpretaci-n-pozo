@@ -164,7 +164,7 @@ crossplot k–φ de la corona sigue igual.
 
 ## Pendiente
 
-- Selección por lazo y «excluir del ajuste los puntos del rectángulo» para las tendencias del crossplot.
+- ~~Selección por lazo y «excluir del ajuste los puntos del rectángulo» para las tendencias del crossplot.~~ Hecho: 0021.
 - ~~Arrastre de matriz, recta de agua y líneas de GR (fase 7b).~~ Hecho: 0015.
 - Líneas de litología curvas (cartas CP-1 tabuladas) en vez de rectas de mezcla.
 - Rangos de ejes editables a mano (hoy: automáticos o los de la plantilla).

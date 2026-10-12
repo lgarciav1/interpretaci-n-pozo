@@ -373,7 +373,7 @@ function pickettDrawing(out: TemplateDrawing, t: TemplateContext, c: (hex: strin
       if (w.storage === PLOT_PARAMS.rwRef.storage) after.rw = rwAtFormation(w.value, p0.tRef, p0.tRep, p0.correct);
     }
     const l = pickettLine(1, after, [0.005, 1]);
-    out.lines.push({ id: 'pk-fit', name: 'Ajuste a la zona acuífera', x: l.rt, y: l.phi, color: c(theme.color.accent), width: 2, dash: [3, 3], label: 'Ajuste zona acuífera', labelAt: 'end' });
+    out.lines.push({ id: 'pk-fit', name: 'Ajuste a la zona acuífera', x: l.rt, y: l.phi, color: c(theme.color.accent), width: 2, dash: [3, 3], label: 'Ajuste zona acuífera', labelAt: 'end', preview: true });
   }
 
   if (byZone) {
@@ -975,7 +975,7 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
               <div className="plot-aside-block" data-testid="crossplot-template-info">
                 <div className="plot-group__title">
                   <Badge tone="accent">{tplDef.label}</Badge>
-                  {tpl.readouts.length > 0 && <span className="plot-muted"> {pscope.zoneId ? pscope.text : 'global'}</span>}
+                  {tpl.readouts.length > 0 && <span className="plot-muted"> {tpl.pickett.length > 1 || tpl.pickett[0]?.key ? 'una recta por zona' : pscope.zoneId ? pscope.text : 'global'}</span>}
                 </div>
                 {tpl.readouts.length > 0 && (
                   <dl className="plot-params">

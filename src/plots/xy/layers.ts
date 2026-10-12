@@ -48,6 +48,8 @@ export interface XYLineLayer {
   label?: string;
   /** Extremo donde va el rótulo: el del final de la polilínea (por defecto) o el del comienzo, ya recortado al área. */
   labelAt?: 'start' | 'end';
+  /** Vista previa de una acción (la recta que dejaría un ajuste): se ve en pantalla, no sale en la figura exportada. */
+  preview?: boolean;
 }
 
 /** Barras de un histograma: clases con bordes en x (`edges`, n + 1) y altura en y (`values`, n). */

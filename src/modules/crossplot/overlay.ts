@@ -57,12 +57,14 @@ function intervalMarks(frame: OverlayFrame, top: number, base: number, text: str
     ctx.stroke();
   }
   ctx.setLineDash([]);
-  // Rótulo junto al tope (o arriba del todo si el tope quedó fuera de la vista).
+  // Rótulo junto al tope (o arriba del todo si el tope quedó fuera de la vista), a la derecha de la pista de
+  // profundidad para no tapar sus números.
   const y = Math.max(v.yOf(Math.max(top, v.top)), 0) + scalePx(4, ui);
   ctx.font = canvasFont(BASE_TOKENS.text.xs, 600, ui);
   const w = ctx.measureText(text).width + scalePx(10, ui);
   const h = scalePx(18, ui);
-  const x = x0 + scalePx(8, ui);
+  const depthTrack = frame.tracks.find((t) => t.kind === 'depth');
+  const x = (depthTrack ? depthTrack.x + depthTrack.width : x0) + scalePx(8, ui);
   ctx.fillStyle = withAlpha(theme.viewer.trackBg, 0.92);
   ctx.fillRect(x, y, w, h);
   ctx.strokeStyle = withAlpha(accent, 0.7);

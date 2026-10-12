@@ -319,7 +319,7 @@ export function drawDensePoints(ctx: CanvasRenderingContext2D, m: XYMapping, l: 
   const ring = !!l.ring;
   const squares = !ring && n > DENSE_ARC_LIMIT;
   const side = r * 1.8;
-  if (ring) ctx.lineWidth = 1.25;
+  if (ring) ctx.lineWidth = 1.5;
   for (const [c, g] of groups) {
     ctx.fillStyle = c;
     ctx.strokeStyle = c;
