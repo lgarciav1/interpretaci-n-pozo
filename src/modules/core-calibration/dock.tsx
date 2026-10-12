@@ -49,6 +49,7 @@ import {
   DEFAULT_WINDOW,
   depthMatchState,
   includedPlugs,
+  fitsParam,
   isApplied,
   lineOver,
   logCementation,
@@ -421,22 +422,30 @@ function DensitySection({ set, well, interp, ctx, zoneId }: { set: PointSet; wel
   const pick: MatrixChoice = Number.isFinite(candidates[choice]) ? choice : firstAvailable;
   const value = candidates[pick];
   const rounded = roundedParam(CALIB_PARAMS.rhoMa, value);
+  const fits = fitsParam(CALIB_PARAMS.rhoMa, value);
   const applied = isApplied(interp.params, CALIB_PARAMS.rhoMa, zoneId, value);
 
   // Histograma de ρmaa en el alcance (muestras limpias, como el valor por zona del módulo).
   const vshMax = paramValue(interp.params, CALIB_PARAMS.vshMax, zoneId);
   const hist = useMemo(() => {
     if (!rhomaa) return null;
-    const layout = zoneId ? layoutZones(depth, zones) : null;
-    const zi = layout ? layout.spans.findIndex((s) => s.id === zoneId) : -1;
-    const include = (i: number) => (!layout || layout.zoneIndex[i] === zi) && (!vsh || vsh[i]! <= vshMax);
+    const layout = layoutZones(depth, zones);
+    const zi = zoneId ? layout.spans.findIndex((s) => s.id === zoneId) : -1;
+    // Vsh máxima de la zona de cada muestra (el parámetro es por zona), como el valor por zona del módulo.
+    const limits = layout.spans.map((s) => paramValue(interp.params, CALIB_PARAMS.vshMax, s.id));
+    const outside = paramValue(interp.params, CALIB_PARAMS.vshMax, null);
+    const include = (i: number) => {
+      const j = layout.zoneIndex[i]!;
+      if (zoneId && j !== zi) return false;
+      return !vsh || vsh[i]! <= (j >= 0 ? limits[j]! : outside);
+    };
     const r = autoRange(rhomaa, 'linear', include, null);
     if (!r) return null;
     const edges = binEdges(Math.min(r.lo, 2.45), Math.max(r.hi, 2.95), Math.max(12, Math.min(40, r.bins)), 'linear');
     const c = countBins(rhomaa, edges, 'linear', include);
     const total = c.n + c.below + c.above;
     return { edges, values: Float64Array.from(c.counts, (v) => (total > 0 ? (100 * v) / total : 0)), n: c.n };
-  }, [rhomaa, depth, zones, zoneId, vsh, vshMax]);
+  }, [rhomaa, depth, zones, zoneId, vsh, interp.params]);
 
   const grainColor = ensureContrast('#0f766e', theme.viewer.trackBg, 3);
   const fitColor = theme.color.accent;
@@ -498,8 +507,13 @@ function DensitySection({ set, well, interp, ctx, zoneId }: { set: PointSet; wel
       </div>
       {est.fit?.clamped && <p className="ccal-warn">La densidad que iguala la corona cae fuera de 2,50–3,00 g/cm³: se acotó. Revisá la puesta en profundidad o la densidad del fluido.</p>}
       {Math.abs(rhomaaFl - rhoFl) > 1e-9 && <p className="ccal-warn">ρmaa usa ρf {f2(rhomaaFl)} y la porosidad por densidad {f2(rhoFl)} g/cm³: igualalas para compararlas.</p>}
+      {Number.isFinite(value) && !fits && (
+        <p className="ccal-warn">
+          {f3(value)} g/cm³ queda fuera del rango del control ({f2(CALIB_PARAMS.rhoMa.spec.min)}–{f2(CALIB_PARAMS.rhoMa.spec.max)}): no se puede aplicar. Elegí otra estimación.
+        </p>
+      )}
       <div className="ccal-apply">
-        <Button size="sm" variant={applied ? 'secondary' : 'primary'} icon="check" disabled={!Number.isFinite(rounded) || applied} onClick={apply} title={`Escribe la densidad de matriz de «Porosidad por densidad» en ${target}`}>
+        <Button size="sm" variant={applied ? 'secondary' : 'primary'} icon="check" disabled={!Number.isFinite(rounded) || !fits || applied} onClick={apply} title={`Escribe la densidad de matriz de «Porosidad por densidad» en ${target}`}>
           {applied ? 'Aplicada' : `Aplicar ${Number.isFinite(rounded) ? f2(rounded) : '—'} g/cm³`}
         </Button>
         <span className="ccal-apply__now num">
@@ -523,7 +537,7 @@ function DensitySection({ set, well, interp, ctx, zoneId }: { set: PointSet; wel
           <div className="ccal-row">
             <Legend
               items={[
-                { color: barColor, label: `ρmaa ${zoneId ? 'de la zona' : 'del pozo'} (Vsh ≤ ${f2(vshMax)})` },
+                { color: barColor, label: zoneId ? `ρmaa de la zona (Vsh ≤ ${f2(vshMax)})` : 'ρmaa del pozo (Vsh ≤ el máximo de cada zona)' },
                 { color: grainColor, label: 'grano' },
                 { color: fitColor, label: 'iguala corona', dash: true },
                 { color: curColor, label: 'vigente', dash: true },
@@ -560,12 +574,13 @@ function CementationSection({ set, well, interp, ctx, zoneId }: { set: PointSet;
   const rt = curveData(ctx, 'RT');
   const rw = curveData(ctx, 'RW');
   const vsh = curveData(ctx, 'VSH');
-  const vshMax = paramValue(interp.params, CALIB_PARAMS.vshMax, null);
+  const vshMaxOf = (id: string) => paramValue(interp.params, CALIB_PARAMS.vshMax, id);
+  const vshText = [...new Set(waterZones.map((id) => f2(vshMaxOf(id))))].join(' – ');
   const plugs = useMemo(() => plugCementation(set, dec, a), [set, dec, a]);
   const fromLog = useMemo(
-    () => (phi && rt && rw ? logCementation({ depth: well.depth.values, zones, waterZones, phi, rt, rw, vsh, vshMax, a }) : null),
+    () => (phi && rt && rw ? logCementation({ depth: well.depth.values, zones, waterZones, phi, rt, rw, vsh, vshMax: vshMaxOf, a }) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [phi, rt, rw, vsh, vshMax, a, well, zones, waterZones.join('|')],
+    [phi, rt, rw, vsh, interp.params, a, well, zones, waterZones.join('|')],
   );
   const runs = pointTexts(set, COL.run);
   const idx = useMemo(() => includedPlugs(set, dec).idx, [set, dec]);
@@ -577,6 +592,11 @@ function CementationSection({ set, well, interp, ctx, zoneId }: { set: PointSet;
   const fixed = plugs?.fixedA ?? null;
   const free = plugs?.freeA ?? null;
   const mLog = fromLog && fromLog.perSample.n > 0 ? fromLog.perSample.median : NaN;
+  const mRange = `${f2(CALIB_PARAMS.m.spec.min)}–${f2(CALIB_PARAMS.m.spec.max)}`;
+  const aRange = `${f2(CALIB_PARAMS.a.spec.min)}–${f2(CALIB_PARAMS.a.spec.max)}`;
+  const fixedFits = !!fixed && fitsParam(CALIB_PARAMS.m, fixed.m);
+  const freeFits = !!free && fitsParam(CALIB_PARAMS.m, free.m) && fitsParam(CALIB_PARAMS.a, free.a);
+  const logFits = fitsParam(CALIB_PARAMS.m, mLog);
 
   const commitM = (fit: { m: number; a?: number }, what: string) => {
     const w = activeWellId();
@@ -656,11 +676,14 @@ function CementationSection({ set, well, interp, ctx, zoneId }: { set: PointSet;
               ) : (
                 <div className="ccal-mcard__row ui-text-muted">a libre: hacen falta al menos 3 plugs con F.</div>
               )}
+              {fixed && !fixedFits && <p className="ccal-warn">m {f2(fixed.m)} queda fuera del rango del control ({mRange}): no se puede aplicar. Revisá F y la porosidad de los plugs.</p>}
+              {free && !freeFits && <p className="ccal-warn">a {f2(free.a)} · m {f2(free.m)} quedan fuera del rango del control (a {aRange}, m {mRange}): no se pueden aplicar con a libre.</p>}
+              {fixed && fixedFits && (fixed.m < 1.3 || fixed.m > 3) && <p className="ccal-warn">m fuera de 1,3–3: revisá F y la porosidad de los plugs (unidad, puesta en profundidad).</p>}
               <div className="ccal-mcard__actions">
-                <Button size="sm" variant={fixed && Math.abs(roundedParam(CALIB_PARAMS.m, fixed.m) - mNow) < 1e-9 ? 'secondary' : 'primary'} disabled={!fixed} onClick={() => fixed && commitM({ m: fixed.m }, 'm de la corona')}>
+                <Button size="sm" variant={fixed && Math.abs(roundedParam(CALIB_PARAMS.m, fixed.m) - mNow) < 1e-9 ? 'secondary' : 'primary'} disabled={!fixedFits} onClick={() => fixed && commitM({ m: fixed.m }, 'm de la corona')}>
                   Aplicar m {fixed ? f2(roundedParam(CALIB_PARAMS.m, fixed.m)) : ''}
                 </Button>
-                <Button size="sm" variant="secondary" disabled={!free} onClick={() => free && commitM({ m: free.m, a: free.a }, 'a y m de la corona')} title="Escribe a y m del ajuste con a libre">
+                <Button size="sm" variant="secondary" disabled={!freeFits} onClick={() => free && commitM({ m: free.m, a: free.a }, 'a y m de la corona')} title="Escribe a y m del ajuste con a libre">
                   Aplicar a y m
                 </Button>
               </div>
@@ -679,7 +702,7 @@ function CementationSection({ set, well, interp, ctx, zoneId }: { set: PointSet;
           ) : fromLog && fromLog.perSample.n > 0 ? (
             <>
               <div className="ccal-mcard__row num">
-                <span title={`Mediana de m por muestra con la Rt y la Rw vigentes, en muestras con Vsh ≤ ${f2(vshMax)}`}>
+                <span title={`Mediana de m por muestra con la Rt y la Rw vigentes, en muestras con Vsh ≤ ${vshText} (máximo de cada zona)`}>
                   mediana <strong>m {f2(fromLog.perSample.median)}</strong> · P10–P90 {f2(fromLog.perSample.p10)}–{f2(fromLog.perSample.p90)} · n {fromLog.perSample.n}
                 </span>
               </div>
@@ -688,15 +711,16 @@ function CementationSection({ set, well, interp, ctx, zoneId }: { set: PointSet;
                   ajuste con a {f2(a)}: m {f2(fromLog.fit.fixedA.m)} · R² {r2Text(fromLog.fit.fixedA.r2)}
                 </div>
               )}
-              {(fromLog.perSample.median < 1.3 || fromLog.perSample.median > 3) && <p className="ccal-warn">m fuera de 1,3–3: la zona probablemente no es acuífera o tiene arcilla conductiva.</p>}
+              {(fromLog.perSample.median < 1.3 || fromLog.perSample.median > 3) && <p className="ccal-warn">m fuera de 1,3–3: la zona probablemente no es acuífera, tiene arcilla conductiva o la Rw vigente no corresponde.</p>}
+              {!logFits && <p className="ccal-warn">m {f2(mLog)} queda fuera del rango del control ({mRange}): no se puede aplicar.</p>}
               <div className="ccal-mcard__actions">
-                <Button size="sm" variant={Math.abs(roundedParam(CALIB_PARAMS.m, mLog) - mNow) < 1e-9 ? 'secondary' : 'primary'} onClick={() => commitM({ m: mLog }, 'm del perfil')}>
+                <Button size="sm" disabled={!logFits} variant={Math.abs(roundedParam(CALIB_PARAMS.m, mLog) - mNow) < 1e-9 ? 'secondary' : 'primary'} onClick={() => commitM({ m: mLog }, 'm del perfil')}>
                   Aplicar m {f2(roundedParam(CALIB_PARAMS.m, mLog))}
                 </Button>
               </div>
             </>
           ) : (
-            <p className="ccal-empty is-tight">Ninguna muestra válida en esas zonas (porosidad, Rt, Rw y Vsh ≤ {f2(vshMax)}).</p>
+            <p className="ccal-empty is-tight">Ninguna muestra válida en esas zonas (porosidad, Rt, Rw y Vsh ≤ {vshText}).</p>
           )}
         </div>
       </div>

@@ -26,6 +26,7 @@ import {
   calibWindow,
   DEFAULT_WINDOW,
   depthMatchState,
+  fitsParam,
   includedPlugs,
   isApplied,
   logCementation,
@@ -152,6 +153,31 @@ describe('módulo core-calibration: valores (pozo sintético)', () => {
     const w = warnings(r2).filter((m) => m.includes('sale solo de la densidad'));
     expect(w).toHaveLength(1);
     expect(w[0]).toContain('zona ZB');
+  });
+});
+
+describe('módulo core-calibration: zonas sin datos y muestras fuera de las zonas', () => {
+  // Una sola zona sobre las muestras 0–5 y otra (ZC) fuera del perfil: las muestras 6–11 quedan fuera de toda zona.
+  const zonesGap: Zone[] = [ZONES[0]!, zone('zc', 2000, 2001)];
+  const r = (() => {
+    const engine = new Engine(registry, { checkInputs: true });
+    engine.setWell(well(allCurves(), N, 1000, 0.5));
+    return engine.run(emptyInterpretation(zonesGap));
+  })();
+
+  it('la zona sin muestras no tiene dato (NaN en el valor por zona, n = 0 y celdas vacías en la tabla)', () => {
+    const per = out<Record<string, number>>(r, RHOMAA_ZONE);
+    expect(per['za']).toBeCloseTo(2.65, 12);
+    expect(per['zc']).toBeNaN();
+    const rows = out<TableValue>(r, RHOMAA_ZONES).rows;
+    expect(rows[1]).toMatchObject({ zoneId: 'zc', n: 0, median: null, p10: null, p90: null });
+  });
+
+  it('la fila del pozo completo incluye las muestras limpias fuera de las zonas', () => {
+    // Limpias: zona A 2,60 2,64 2,66 2,68 y las cuatro de 2,71 fuera de zona → 8 valores, mediana (2,68 + 2,71)/2.
+    const rows = out<TableValue>(r, RHOMAA_ZONES).rows;
+    expect(rows[2]).toMatchObject({ zoneId: '', n: 8 });
+    expect(rows[2]!['median'] as number).toBeCloseTo(2.695, 12);
   });
 });
 
@@ -367,6 +393,37 @@ describe('panel: exponente de cementación m', () => {
     expect(both.perSample.p90).toBeGreaterThan(2.5);
   });
 
+  it('con a ≠ 1 y Rw por muestra: m = ln(a·Rw/Rt)/ln φ (cuenta a mano: sin la a vigente, m sale 1,9 − ln a/ln φ)', () => {
+    const depth = LOG_DEPTH;
+    const zones = [zone('z1', 1000, 1040)];
+    const phi = new Float64Array(depth.length).fill(0.2);
+    const rw = Float64Array.from(depth, (_, i) => 0.03 + 0.02 * (i % 3));
+    // Archie con a = 0,62 y m = 1,9 en φ = 0,2: Rt = a·Rw/φ^m.
+    const rt = Float64Array.from(rw, (r) => (0.62 * r) / 0.2 ** 1.9);
+    const ok = logCementation({ depth, zones, waterZones: ['z1'], phi, rt, rw, vshMax: 0.3, a: 0.62 })!;
+    expect(ok.perSample.median).toBeCloseTo(1.9, 10);
+    expect(ok.perSample.p10).toBeCloseTo(1.9, 10);
+    expect(ok.perSample.p90).toBeCloseTo(1.9, 10);
+    // F = Rt/Rw = 0,62/0,2^1,9 ≈ 13,2 en todas las muestras.
+    expect(ok.F[0]).toBeCloseTo(0.62 / 0.2 ** 1.9, 10);
+    // Con a = 1: ln(0,62)/ln(0,2) = 0,2970 menos.
+    const a1 = logCementation({ depth, zones, waterZones: ['z1'], phi, rt, rw, vshMax: 0.3, a: 1 })!;
+    expect(a1.perSample.median).toBeCloseTo(1.9 - 0.297025, 5);
+  });
+
+  it('la Vsh máxima es por zona: con una función se usa la de la zona de cada muestra', () => {
+    const depth = LOG_DEPTH;
+    const zones = [zone('z1', 1000, 1019.95), zone('z2', 1020, 1040)];
+    const rw = new Float64Array(depth.length).fill(0.05);
+    const rt = Float64Array.from(LOG_PHI, (p) => 0.05 / p ** 2);
+    const vsh = new Float64Array(depth.length).fill(0.4);
+    const run2 = (vshMax: number | ((id: string) => number)) => logCementation({ depth, zones, waterZones: ['z1', 'z2'], phi: LOG_PHI, rt, rw, vsh, vshMax, a: 1 })!;
+    expect(run2(0.3).perSample.n).toBe(0);
+    expect(run2(0.5).perSample.n).toBe(401);
+    // z1 admite 0,5 (200 muestras: 1000–1019,9 m) y z2 solo 0,3 (ninguna con Vsh = 0,4).
+    expect(run2((id) => (id === 'z1' ? 0.5 : 0.3)).perSample.n).toBe(200);
+  });
+
   it('recta de Archie F = a/φ^m en dos puntos', () => {
     const l = archieLine(1, 2, 0.1, 0.4);
     expect([...l.y]).toEqual([expect.closeTo(100, 9), expect.closeTo(6.25, 9)]);
@@ -407,6 +464,19 @@ describe('panel: recetas «Aplicar» y valores vigentes', () => {
     const p2 = applyCementation(p0, W, { m: 2.2 }, null);
     expect(getWellEntry(p2, W).interpretation.params.global).toEqual({ m: 2.2 });
     expect(paramValue(getWellEntry(p0, W).interpretation.params, CALIB_PARAMS.m, null)).toBe(2);
+  });
+
+  it('un valor fuera del rango del control no se escribe (no se aplica una versión acotada del ajuste)', () => {
+    expect(fitsParam(CALIB_PARAMS.m, 3.504)).toBe(true); // se redondea a 3,50
+    expect(fitsParam(CALIB_PARAMS.m, 3.51)).toBe(false);
+    expect(fitsParam(CALIB_PARAMS.m, NaN)).toBe(false);
+    const p0 = project(plugSet());
+    expect(applyCementation(p0, W, { m: 4.6 }, 'z1')).toBe(p0);
+    expect(applyCementation(p0, W, { m: 0.59 }, null)).toBe(p0);
+    // a libre fuera de 0,3–2,5: no escribe ni m (el par ya no sería el ajustado).
+    expect(applyCementation(p0, W, { m: 2.1, a: 43 }, 'z1')).toBe(p0);
+    expect(applyMatrixDensity(p0, W, 3.5, null)).toBe(p0);
+    expect(getWellEntry(applyCementation(p0, W, { m: 3.504 }, null), W).interpretation.params.global).toEqual({ m: 3.5 });
   });
 
   it('el valor vigente respeta los valores de fábrica y los propios de la zona', () => {

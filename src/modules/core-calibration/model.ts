@@ -203,7 +203,8 @@ export interface LogCementation {
 /**
  * Exponente de cementación desde el perfil en zonas acuíferas (Sw = 1 ⇒ Rt = Ro): m por muestra con la Rt y la Rw
  * vigentes (Rw por muestra, ya corregida por temperatura), en las muestras de las zonas elegidas con φ, Rt y Rw
- * válidas y, si hay VSH, con Vsh ≤ `vshMax`. null si no hay zonas elegidas.
+ * válidas y, si hay VSH, con Vsh ≤ `vshMax` (el de la zona de la muestra si se da una función). null si no hay zonas
+ * elegidas.
  */
 export function logCementation(input: {
   depth: ArrayLike<number>;
@@ -213,7 +214,8 @@ export function logCementation(input: {
   rt: ArrayLike<number>;
   rw: ArrayLike<number>;
   vsh?: ArrayLike<number> | null;
-  vshMax: number;
+  /** Vsh máxima de las muestras limpias: un número, o una función de la zona (el parámetro `vshMax` es por zona). */
+  vshMax: number | ((zoneId: string) => number);
   a: number;
 }): LogCementation | null {
   const { depth, zones, waterZones, phi, rt, rw, vsh, vshMax, a } = input;
@@ -222,6 +224,7 @@ export function logCementation(input: {
   const layout = layoutZones(depth, zones);
   const water = new Set(valid.map((z) => z.id));
   const allowed = layout.spans.map((sp) => water.has(sp.id));
+  const vshLimit = layout.spans.map((sp) => (typeof vshMax === 'function' ? vshMax(sp.id) : vshMax));
   const ms: number[] = [];
   const ps: number[] = [];
   const Fs: number[] = [];
@@ -229,7 +232,7 @@ export function logCementation(input: {
   for (let i = 0; i < n; i++) {
     const zi = layout.zoneIndex[i]!;
     if (zi < 0 || !allowed[zi]) continue;
-    if (vsh && !(vsh[i]! <= vshMax)) continue;
+    if (vsh && !(vsh[i]! <= vshLimit[zi]!)) continue;
     const m = cementationExponentFromRt(phi[i]!, rt[i]!, rw[i]!, a);
     if (!Number.isFinite(m)) continue;
     ms.push(m);
@@ -297,6 +300,16 @@ export function roundedParam(p: CalibParam, v: number): number {
   return Math.min(max, Math.max(min, snapped));
 }
 
+/**
+ * ¿El valor cabe en el rango del control (con media vuelta de paso de tolerancia, que el redondeo absorbe)? Si no,
+ * `roundedParam` lo acotaría y se escribiría un número que no es el ajustado: las recetas «Aplicar» no lo escriben.
+ */
+export function fitsParam(p: CalibParam, v: number): boolean {
+  if (!Number.isFinite(v)) return false;
+  const tol = (p.spec.step ?? 0) / 2 + 1e-9;
+  return v >= p.spec.min - tol && v <= p.spec.max + tol;
+}
+
 /** ¿El valor vigente en el alcance ya es el que se aplicaría? */
 export function isApplied(params: ParamState, p: CalibParam, zoneId: string | null, v: number): boolean {
   const r = roundedParam(p, v);
@@ -313,13 +326,19 @@ export function zonesWithOwnValue(interp: Pick<Interpretation, 'params' | 'zones
 
 /** «Aplicar ρma»: densidad de matriz de la porosidad por densidad (global o de una zona). Una receta. */
 export function applyMatrixDensity(project: Project, wellId: string, rhoMa: number, zoneId: string | null): Project {
+  if (!fitsParam(CALIB_PARAMS.rhoMa, rhoMa)) return project;
   const v = roundedParam(CALIB_PARAMS.rhoMa, rhoMa);
   if (!Number.isFinite(v)) return project;
   return setParam(project, wellId, CALIB_PARAMS.rhoMa.storage, v, zoneId);
 }
 
-/** «Aplicar m» (y a, si se da): exponentes de Archie compartidos por los modelos de Sw (global o de una zona). Una receta. */
+/**
+ * «Aplicar m» (y a, si se da): exponentes de Archie compartidos por los modelos de Sw (global o de una zona). Una receta.
+ * Si m, o a cuando se da, cae fuera del rango del control no se escribe nada (acotar uno de los dos dejaría un par que
+ * ya no es el ajustado).
+ */
 export function applyCementation(project: Project, wellId: string, fit: { m: number; a?: number }, zoneId: string | null): Project {
+  if (!fitsParam(CALIB_PARAMS.m, fit.m) || (fit.a !== undefined && !fitsParam(CALIB_PARAMS.a, fit.a))) return project;
   const m = roundedParam(CALIB_PARAMS.m, fit.m);
   if (!Number.isFinite(m)) return project;
   let p = setParam(project, wellId, CALIB_PARAMS.m.storage, m, zoneId);
