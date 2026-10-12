@@ -7,7 +7,8 @@ multipista (0005) con sus pistas armables y plantillas propias (0016), deshacer 
 tendencias y gradientes (0008), presiones MDT con los conjuntos de puntos del pozo (0009), datos de corona con
 puesta en profundidad y modelo k–φ (0010), exportación de datos (0011) y de figuras (0012), tamaño de interfaz (0013),
 histograma y crossplot libre (0014), parámetros elegidos sobre los gráficos (0015), calculadora de agua de formación con
-indicadores automáticos (0017) y los modelos de Sw lado a lado, las fichas de zona y la paleta de comandos (0018).
+indicadores automáticos (0017), los modelos de Sw lado a lado, las fichas de zona y la paleta de comandos (0018) y
+el módulo de RMN con su pista y su crossplot (0019).
 Este documento resume cómo encajan las piezas y cómo agregar un módulo.
 
 ## Ideas centrales
@@ -435,7 +436,7 @@ obligatorios del profesor como pestañas del dock (aportadas por `src/modules/hi
   P10/P50/P90 en un panel aparte.
 - **Crossplot**: dos clics, escala log por rol, color por tercera curva (viridis) o por zona, filtro por zonas,
   tendencias sobre la nube (proveedor `crossplot`), plantillas densidad–neutrón, Pickett (a, m, n y Rw del proyecto),
-  φ–Sw y GR–Rt.
+  φ–Sw, GR–Rt y RMN vs. densidad–neutrón (0019).
 - **Visor**: punto o clase bajo el puntero y selección por rectángulo se marcan en el visor (superposición `plot-link`,
   estado en `src/plots/link.ts`); el cursor del visor resalta el punto de esa profundidad (`useViewer.cursorDepth`).
 - **Rendimiento**: nube en lotes por color, grilla de búsqueda, capa de interacción aparte; 50 000 muestras siguen
@@ -494,3 +495,10 @@ Decisión: [`docs/decisiones/0006-deshacer-rehacer.md`](decisiones/0006-deshacer
   necesita correr en paralelo con la interacción, usar un segundo worker con su propio `Engine`.
 - Enlazar el valor de un parámetro a un escalar calculado (hoy un escalar puede ser entrada de un módulo, no el
   valor de un slider).
+
+## Resonancia magnética (fase 8a)
+
+Decisión: [`docs/decisiones/0019-rmn.md`](decisiones/0019-rmn.md). Módulo `nmr-fluids` (FFI, CBW, Swirr, Δφ y bandera
+de déficit; motor `src/petro/nmr.ts`). Pista «RMN» (`NMR_TRACK`): escala 0,5 → 0 compartida, rellenos BVI / FFI / CBW
+desde el borde derecho y la PHIE de densidad–neutrón en rojo encima; de fábrica en Geología y como herramienta del
+catálogo. La bandera va a «Indicadores». Plantilla de crossplot `nmr-dn` con la recta 1:1 y el umbral de déficit.

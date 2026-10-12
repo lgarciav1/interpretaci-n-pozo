@@ -113,6 +113,26 @@ export function bvwLine(bvw: number, phiMax = 0.4, samples = 48): { phi: number[
   return { phi, sw };
 }
 
+// ── RMN vs. densidad–neutrón ──────────────────────────────────────────────────────────────────────────────────
+
+/** Rango de porosidad de la plantilla RMN vs. densidad–neutrón (v/v, los dos ejes). */
+export const NMR_DN_RANGE: readonly [number, number] = [0, 0.4];
+
+/**
+ * Recta 1:1 (PHIE_NMR = PHIE) y recta del umbral del déficit de RMN (PHIE_NMR = PHIE − tol), en todo el rango.
+ * La RMN no depende de la matriz: con la matriz bien elegida y sin hidrocarburos livianos los puntos caen sobre la
+ * 1:1; por debajo de la del umbral el módulo `nmr-fluids` marca IND_NMR_DEFICIT (desigualdad estricta, 0019).
+ */
+export function nmrDnLines(tol: number, range: readonly [number, number] = NMR_DN_RANGE): { oneToOne: { x: number[]; y: number[] }; deficit: { x: number[]; y: number[] } } {
+  const [lo, hi] = range;
+  const t = Math.max(0, tol);
+  return {
+    oneToOne: { x: [lo, hi], y: [lo, hi] },
+    // Desde donde PHIE − tol = lo (corta el borde inferior) hasta el borde derecho.
+    deficit: { x: [lo + t, hi], y: [lo, hi - t] },
+  };
+}
+
 // ── definición de las plantillas ──────────────────────────────────────────────────────────────────────────────
 
 export interface TemplateAxis {
@@ -165,6 +185,14 @@ export const CROSSPLOT_TEMPLATE_DEFS: readonly CrossplotTemplate[] = [
     description: 'Rt contra GR con las lecturas de arena limpia y de arcilla',
     x: { role: 'GR', scale: 'linear' },
     y: { role: 'RT', scale: 'log' },
+  },
+  {
+    id: 'nmr-dn',
+    label: 'RMN vs. densidad–neutrón',
+    description: 'PHIE de RMN contra PHIE de densidad–neutrón con la recta 1:1 y el umbral de déficit',
+    x: { role: 'PHIE', scale: 'linear', range: [NMR_DN_RANGE[0], NMR_DN_RANGE[1]] },
+    y: { role: 'PHIE_NMR', scale: 'linear', range: [NMR_DN_RANGE[0], NMR_DN_RANGE[1]] },
+    colorRole: 'SWIRR_NMR',
   },
 ];
 

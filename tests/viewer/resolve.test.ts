@@ -192,11 +192,12 @@ describe('pistas del pozo del TP (datos/pozo_tp_perfiles.csv)', () => {
     expect(t[0]!.grid).toEqual(t[0]!.curves[0]!.axis);
   });
 
-  it('geología: GR espectral, litología con cruce y RMN con agua ligada y libre', () => {
+  it('geología: GR espectral, litología con cruce y RMN con agua ligada, irreducible y libre', () => {
     const g = resolveTracks(BUILTIN_LAYOUTS.geology, src);
     expect(track(g, 'spectral').curves.map((c) => c.name)).toEqual(['POTA', 'THOR', 'URAN', 'GR']);
-    expect(track(g, 'nmr').curves.map((c) => c.name)).toEqual(['PHI_BVI', 'PHIE_CMR', 'PHIT_CMR']);
-    expect(track(g, 'nmr').fills.map((f) => f.aLeft ?? f.bLeft)).toEqual(['boundWater', 'water']);
+    // Sin PHIE calculada (este `src` no corre el motor) la pista muestra solo las tres de RMN; PHIE_NMR encima.
+    expect(track(g, 'nmr').curves.map((c) => c.name)).toEqual(['PHI_BVI', 'PHIT_CMR', 'PHIE_CMR']);
+    expect(track(g, 'nmr').fills.map((f) => f.aLeft ?? f.bLeft)).toEqual(['capillaryWater', 'freeFluid', 'clayBoundWater']);
     expect(track(g, 'lithology').fills).toHaveLength(1);
   });
 

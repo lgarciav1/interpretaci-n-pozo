@@ -38,7 +38,7 @@ import { COLOR_LEVELS, colorLevel, gather, medianAt, plottableIndices, robustRan
 import { CROSSPLOT_PROVIDER_ID, crossplotSeries, crossplotSeriesKey, parseCrossplotSeriesKey } from './series';
 import { matrixParamsOf, matrixPointOf, mFromRotate, projectMatrixLine, representativeTemperature, rwAtFormation, rwAtReference, rwFromTranslate, snapMatrixToLithology, waterLineHandles, waterLineRt } from './drag';
 import { crossplotTemplatePatch } from './applyTemplate';
-import { BVW_LINES, CROSSPLOT_TEMPLATE_DEFS, DN_LITHOLOGIES, PICKETT_SW, bvwLine, densityNeutronLine, pickettLine, templateDef, type ArchieParams } from './templates';
+import { BVW_LINES, CROSSPLOT_TEMPLATE_DEFS, DN_LITHOLOGIES, PICKETT_SW, bvwLine, densityNeutronLine, nmrDnLines, pickettLine, templateDef, type ArchieParams } from './templates';
 import '../plots.css';
 
 export interface CrossplotPanelProps {
@@ -296,6 +296,16 @@ function templateDrawing(id: CrossplotTemplateId | null, t: TemplateContext): Te
       out.warnings.push({ id: 'igr', title: 'El índice de arcilla no sale de este GR', text: 'Mover las líneas no cambiaría Vsh.', action: 'Usar índice de arcilla por GR', port: 'IGR', moduleId: 'igr' });
     }
     out.info = draggable ? 'GR de arena limpia y de arcilla del paso Arcilla: arrastralas para elegirlas (Vsh se recalcula en vivo).' : 'GR de arena limpia y de arcilla del paso Arcilla (de la zona si hay una sola filtrada).';
+  } else if (id === 'nmr-dn') {
+    const tol = plotParamValue(params, PLOT_PARAMS.nmrTolerance, scope.zoneId);
+    const l = nmrDnLines(tol);
+    const tolText = formatParam(PLOT_PARAMS.nmrTolerance, tol);
+    out.lines.push(
+      { id: 'nmr-1to1', name: 'Recta 1:1', x: l.oneToOne.x, y: l.oneToOne.y, color: c(theme.color.textMuted), width: 1.5, label: '1:1', labelAt: 'end' },
+      { id: 'nmr-deficit', name: `Umbral de déficit (−${tolText})`, x: l.deficit.x, y: l.deficit.y, color: c(curveStyle('IND_NMR_DEFICIT', theme.name, ctx.catalog).color), width: 1.5, dash: [6, 4], label: `−${tolText}`, labelAt: 'end' },
+    );
+    out.readouts.push({ label: `Tolerancia ${scope.text}`, value: tolText });
+    out.info = `La RMN no depende de la matriz: sin hidrocarburos livianos los puntos caen sobre la 1:1. Debajo de la recta punteada (RMN lee más de ${tolText} menos que densidad–neutrón) se marca el déficit de RMN: gas, crudo pesado o microporosidad. Sobre la 1:1, revisar la matriz.`;
   }
   return out;
 }
