@@ -220,7 +220,7 @@ export function createLayoutEditor(ctx: LayoutEditorContext) {
     /** Agrega una herramienta o pista especial antes de `beforeId` (null = al final). */
     addTool(draft: TrackDraft, name: string, beforeId: string | null, overlayId?: string) {
       edit(`Agregar pista ${name}`, (tracks) => {
-        const existing = overlayId ? tracks.find((t) => t.kind === 'overlay' && t.overlayId === overlayId) : undefined;
+        const existing = overlayId ? tracks.find((t) => (t.kind === 'overlay' && t.overlayId === overlayId) || (draft.id !== undefined && t.id === draft.id)) : undefined;
         if (existing) return showTrack(tracks, existing.id, beforeId);
         return addTrack(tracks, newTrackFrom(tracks, draft), beforeId);
       }, `Pista ${name} agregada`);

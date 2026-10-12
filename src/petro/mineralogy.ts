@@ -94,9 +94,9 @@ export function uraniumFlag(uranium: number, threshold = 5): number {
  * of X-ray litho-density logging, Nuclear Science and Techniques, ec. (2).
  * https://www.nst.sinap.ac.cn/article/id/5292 */
 export function electronDensity(rho: number): number { return (rho + 0.1883) / 1.0704; }
-export interface Mineral { id: string; label: string; rho: number; pe: number; rhoE: number; nphi: number; gr: number; color: string }
-function mineral(id: string, label: string, rho: number, pe: number, nphi: number, gr: number, color: string): Mineral {
-  return { id, label, rho, pe, rhoE: electronDensity(rho), nphi, gr, color };
+export interface Mineral { id: string; label: string; rho: number; pe: number; rhoE: number; nphi: number; gr: number; color: string; tabulatedU?: number }
+function mineral(id: string, label: string, rho: number, pe: number, nphi: number, gr: number, color: string, tabulatedU?: number): Mineral {
+  return { id, label, rho, pe, rhoE: electronDensity(rho), nphi, gr, color, ...(tabulatedU !== undefined ? { tabulatedU } : {}) };
 }
 // Schlumberger 2013, Appendix B p. 279 (cuarzo, calcita, dolomita, siderita),
 // p. 280 (resto). GR limpio=0: SIN VERIFICAR, hipótesis ajustable de fondo.
@@ -105,21 +105,30 @@ export const MINERALS: readonly Mineral[] = [
   mineral('quartz', 'Cuarzo', 2.64, 1.8, -0.02, 0, '#eab308'),
   mineral('calcite', 'Calcita', 2.71, 5.1, 0, 0, '#38bdf8'),
   mineral('dolomite', 'Dolomita', 2.85, 3.1, 0.01, 0, '#a78bfa'),
-  mineral('illite', 'Illita', 2.77, 2.33, 0.30, 275, '#8b5a2b'),
-  mineral('kaolinite', 'Caolinita', 2.62, 1.48, 0.37, 105, '#facc15'),
+  // SLB 2013, Appendix B p.280, fila Illite: columnas ρlog=2.77, Pe=2.33, U=6.45, φCNL≈30 p.u.
+  // Son respuestas del perfil (no densidad de grano seco); otra tabla/edición puede usar otros extremos.
+  mineral('illite', 'Illita', 2.77, 2.33, 0.30, 275, '#8b5a2b', 6.45),
+  // SLB 2013, Appendix B p.280, fila Kaolinite: ρlog=2.62, Pe=1.48, U=3.87, φCNL≈37 p.u.
+  mineral('kaolinite', 'Caolinita', 2.62, 1.48, 0.37, 105, '#facc15', 3.87),
   mineral('chlorite', 'Clorita', 2.76, 6.3, 0.52, 215, '#14b8a6'),
-  mineral('smectite', 'Esmectita', 2.12, 2, 0.60, 175, '#d8b4fe'),
+  // SLB 2013, Appendix B p.280, fila Montmorillonite: ρlog=2.12, Pe=2.0, Utab=4.0.
+  // La conversión afín aproximada de ρlog a ρe produce Umodelo≈4.313; no es Utab ni simple redondeo.
+  // Se conserva Pe de la tabla; los parámetros de arcilla permiten calibrar este extremo.
+  mineral('smectite', 'Esmectita', 2.12, 2, 0.60, 175, '#d8b4fe', 4.0),
   mineral('anhydrite', 'Anhidrita', 2.98, 5.1, -0.02, 0, '#f97316'),
   mineral('gypsum', 'Yeso', 2.35, 4, 0.60, 0, '#f9a8d4'),
   mineral('halite', 'Halita', 2.04, 4.7, -0.03, 0, '#94a3b8'),
   mineral('barite', 'Barita', 4.09, 267, -0.02, 0, '#dc2626'),
   mineral('siderite', 'Siderita', 3.89, 15, 0.12, 0, '#b45309'),
   mineral('pyrite', 'Pirita', 4.99, 17, -0.03, 0, '#ca8a04'),
-  mineral('coal', 'Carbón (antracita)', 1.47, 0.16, 0.38, 0, '#64748b'),
+  // SLB 2013, Appendix B p.280, fila Anthracite: Pe=.16, Utab=.23; Lignite tiene Pe=.20.
+  mineral('coal', 'Carbón (antracita)', 1.47, 0.16, 0.38, 0, '#64748b', 0.23),
+  // SLB 2013, Appendix B p.279, fila Orthoclase: ρlog=2.52, Pe=2.9 (precisión publicada), Utab=7.2, φCNL=-3 p.u., GR≈220.
+  mineral('k-feldspar', 'Feldespato K (ortoclasa)', 2.52, 2.9, -0.03, 220, '#f472b6', 7.2),
 ];
 
 export type ToolWeights = { rho: number; u: number; nphi: number; gr: number };
-export interface MineralOptions { weights?: ToolWeights; clay?: 'illite' | 'kaolinite' | 'chlorite' | 'smectite'; clayGr?: number; cleanGr?: number; fluidRho?: number; fluidPe?: number }
+export interface MineralOptions { weights?: ToolWeights; clay?: 'illite' | 'kaolinite' | 'chlorite' | 'smectite'; clayRho?: number; clayPe?: number; clayNphi?: number; clayGr?: number; cleanGr?: number; fluidRho?: number; fluidPe?: number }
 export type MineralVolumes = [number, number, number, number, number];
 export interface MineralObservation { rho: number; pe: number; nphi: number; gr: number }
 export interface MineralResult { volumes: MineralVolumes; residual: number; residuals: { rho: number; u: number; nphi: number; gr: number }; valid: boolean }
@@ -133,7 +142,8 @@ function endmembers(options: MineralOptions): Mineral[] {
   // Agua dulce ρ=1: SLB 2013 Lith-3 p.196. NPHI=1, PE=.36:
   // SIN VERIFICAR página primaria; hipótesis de fluido fresco, sin gas, ajustable.
   const water = mineral('fluid', 'Fluido', options.fluidRho ?? 1, options.fluidPe ?? 0.36, 1, clean, '#2563eb');
-  return [...MINERALS.slice(0, 3).map(m => ({ ...m, gr: clean })), { ...clay, gr: options.clayGr ?? clay.gr }, water];
+  const calibrated = mineral(clay.id, clay.label, options.clayRho ?? clay.rho, options.clayPe ?? clay.pe, options.clayNphi ?? clay.nphi, options.clayGr ?? clay.gr, clay.color);
+  return [...MINERALS.slice(0, 3).map(m => ({ ...m, gr: clean })), calibrated, water];
 }
 function responses(m: Mineral): number[] { return [m.rho, m.pe * m.rhoE, m.nphi, m.gr]; }
 export function forwardMinerals(volumes: MineralVolumes, options: MineralOptions = {}): MineralObservation {

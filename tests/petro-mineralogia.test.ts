@@ -94,3 +94,29 @@ it('corrida completa del TP sin NaN espurios; cierre y residuos por muestra',()=
   }
   expect(valid).toBeGreaterThan(5500);
 },30000);
+
+// Valores verificados en la columna ρlog (no densidad de grano seco), Pe y φCNL
+// de SLB Log Interpretation Charts, edición2013, Appendix B, pp.279–280.
+describe('Referencias minerales explícitas',()=>{
+ it.each([
+  ['illite',2.77,2.33,.30,6.45],
+  ['kaolinite',2.62,1.48,.37,3.87],
+ ] as const)('%s conserva la fila de la tabla2013', (id,rho,pe,nphi,u)=>{
+  expect(MINERALS.find(m=>m.id===id)).toMatchObject({rho,pe,nphi,tabulatedU:u});
+ });
+ it('distingue U tabulado de la aproximación electrónica de montmorillonita',()=>{
+  const m=MINERALS.find(m=>m.id==='smectite')!;
+  expect(m.tabulatedU).toBe(4);expect(m.pe*m.rhoE).toBeCloseTo(4.31297,4);
+ });
+ it('antracita conserva PE.16; ortoclasa tiene la precisión publicada de la tabla2013',()=>{
+  expect(MINERALS.find(m=>m.id==='coal')).toMatchObject({label:'Carbón (antracita)',pe:.16,tabulatedU:.23});
+  expect(MINERALS.find(m=>m.id==='k-feldspar')).toMatchObject({rho:2.52,pe:2.9,nphi:-.03,gr:220,tabulatedU:7.2});
+ });
+ it('la calibración de cuatro herramientas se propaga al forward e inverse',()=>{
+  const opts={clayRho:2.52,clayPe:3.45,clayNphi:.25,clayGr:180};
+  const v:MineralVolumes=[.35,.1,.1,.3,.15];
+  closeVolumes(invertMinerals(forwardMinerals(v,opts),opts).volumes,v);
+  const pure=forwardMinerals([0,0,0,1,0],opts);
+  expect(pure).toMatchObject({rho:2.52,pe:3.45,nphi:.25,gr:180});
+ });
+});

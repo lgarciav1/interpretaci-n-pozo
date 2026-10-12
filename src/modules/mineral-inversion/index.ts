@@ -1,6 +1,7 @@
 /** Geo-3: inversión mineral restringida; definición pura que publica volúmenes bulk independientes. */
 import { defineModule, input, output, type TableCell } from '../../core/module';
 import { param } from '../../core/params';
+import { CLAY_PARAMS, clayCalibration } from './calibration';
 import { prepareMineralInversion } from '../../petro/mineralogy';
 
 export const MINERAL_ZONES = 'MINERAL_ZONES';
@@ -24,11 +25,10 @@ export default defineModule({
     // Umbral práctico del residuo normalizado; no tolerancia de fabricante.
     residualLimit: param.number({ label: 'Avisar sobre residuo', default: 2, min: 0.1, max: 20, step: 0.1, group: 'Calidad del ajuste', scope: 'zone' }),
     clay: param.enum({ label: 'Extremo de arcilla', default: 'illite', options: [{ value: 'illite', label: 'Illita' }, { value: 'kaolinite', label: 'Caolinita' }, { value: 'chlorite', label: 'Clorita' }, { value: 'smectite', label: 'Esmectita' }], group: 'Hipótesis', scope: 'zone' }),
-    // Schlumberger, Log Interpretation Charts, 2013, apéndice B, p. 280: illita 250–300 gAPI; centro ajustable.
-    clayGr: param.number({ label: 'GR del extremo arcilloso', default: 275, min: 1, max: 350, step: 1, unit: 'gAPI', group: 'Hipótesis', scope: 'zone' }),
+    ...CLAY_PARAMS,
     cleanGr: param.number({ label: 'GR de matriz limpia', default: 0, min: 0, max: 100, step: 1, unit: 'gAPI', group: 'Hipótesis', scope: 'zone' }),
     fluidRho: param.number({ label: 'Densidad del fluido', default: 1, min: 0.1, max: 1.3, step: 0.01, unit: 'g/cm3', group: 'Hipótesis', scope: 'zone' }),
-    // Schlumberger, Log Interpretation Charts, 2013, apéndice B, p. 280: agua dulce.
+    // SIN VERIFICAR: página primaria de PE=.36 para agua dulce; hipótesis ajustable, no fila de Appendix B p.280.
     fluidPe: param.number({ label: 'PE del fluido', default: 0.36, min: 0, max: 2, step: 0.01, unit: 'b/e', group: 'Hipótesis', scope: 'zone' }),
   },
   outputs: {
@@ -44,8 +44,9 @@ export default defineModule({
     let fitted = 0, highResidual = 0, invalidNeutron = 0;
     for (const s of segments) {
       const p = s.params;
-      if (p.clayGr <= p.cleanGr) warn('El GR arcilloso debe superar al GR limpio; revisá los extremos de la inversión.');
-      const invert = prepareMineralInversion({ weights: { rho: p.rhoWeight, u: p.uWeight, nphi: p.nphiWeight, gr: p.grWeight }, clay: p.clay, clayGr: p.clayGr, cleanGr: p.cleanGr, fluidRho: p.fluidRho, fluidPe: p.fluidPe });
+      const calibration = clayCalibration(p);
+      if (calibration.clayGr! <= p.cleanGr) warn('El GR arcilloso debe superar al GR limpio; revisá los extremos de la inversión.');
+      const invert = prepareMineralInversion({ weights: { rho: p.rhoWeight, u: p.uWeight, nphi: p.nphiWeight, gr: p.grWeight }, ...calibration, cleanGr: p.cleanGr, fluidRho: p.fluidRho, fluidPe: p.fluidPe });
       for (let i = s.start; i < s.end; i++) {
         const r = invert({ rho: inputs.rho[i], pe: inputs.pe[i], nphi: inputs.nphi[i], gr: inputs.gr[i] });
         if (!r.valid) continue;

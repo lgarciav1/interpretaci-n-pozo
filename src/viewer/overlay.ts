@@ -19,6 +19,7 @@
  *   tendencia, elegir un tramo) y mover con ↑/↓ el elemento activo (`nudge`);
  * - pedir redibujo (`frame.invalidate()` durante una vista previa, o `subscribe` si lee un store propio).
  */
+import type { TrackSpec } from '../core/display';
 import type { Interpretation } from '../core/interpretation';
 import type { Project } from '../core/state/project';
 import type { Well } from '../core/well';
@@ -206,6 +207,8 @@ export interface OverlayTrackState {
 
 /** Pista propia de una superposición (p. ej. presión vs. profundidad). El visor la agrega a las pistas activas. */
 export interface OverlayTrackDecl {
+  /** Pista declarativa opcional: usa el renderizador nativo (pila, curvas, banderas) en lugar de dibujo propio. */
+  spec?: TrackSpec;
   title: string;
   /** Escala horizontal de la pista (grilla, extremos del encabezado, `xOf(null, v)`). Respaldo de `resolve`. */
   scale: { kind: 'linear' | 'log'; min: number; max: number; reversed?: boolean };

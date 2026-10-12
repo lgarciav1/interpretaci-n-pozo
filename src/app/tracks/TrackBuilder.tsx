@@ -12,7 +12,7 @@ import { Button, curveStyle, dashPattern, FILL_PALETTE, formatNumber, Icon, Icon
 import { buildTrackCatalog, filterCatalog, type CatalogCurve, type CatalogGroup, type CatalogOverlayTrack, type CatalogTrack } from '../../viewer/catalog';
 import { guard, type ViewerOverlay } from '../../viewer/overlay';
 import type { ComputedCurve } from '../../viewer/resolve';
-import { overlayTrackId } from '../../viewer/templates';
+import { contributedTrack } from '../../viewer/templates';
 import { computedCurves } from '../computed';
 import { UNDO_SHORTCUT } from '../shell/historyActions';
 import { OVERLAYS } from '../shell/viewerOverlayList';
@@ -48,7 +48,7 @@ function overlayCatalog(overlays: readonly ViewerOverlay[], workspace: string, w
       overlayId: o.id,
       title: d.title,
       description: `${o.label}${d.unit ? ` · ${d.unit}` : ''}`,
-      track: { id: overlayTrackId(o.id), title: d.title, kind: 'overlay', overlayId: o.id, width: d.width ?? 1, scale: { ...d.scale }, ...(d.unit !== undefined ? { unit: d.unit } : {}) },
+      track: contributedTrack(o),
       available,
       ...(available ? {} : { reason: 'El pozo no tiene estos datos.' }),
     });
@@ -168,7 +168,7 @@ export function TrackBuilder({ workspace, well, computed, overlays, editor }: Tr
       }
     }
     const overlaysShown = new Set(tracks.filter((t) => t.kind === 'overlay' && !t.hidden).map((t) => t.overlayId));
-    return { curves, overlaysShown };
+    return { curves, overlaysShown, trackIds: new Set(tracks.filter(t => !t.hidden).map(t => t.id)) };
     // display: cambia cuando cambian las pistas guardadas.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [display, workspace, overlays]);
@@ -213,7 +213,7 @@ export function TrackBuilder({ workspace, well, computed, overlays, editor }: Tr
       : [];
 
   const renderTool = (t: CatalogTrack, special: boolean) => {
-    const shownAlready = t.overlayId ? placed.overlaysShown.has(t.overlayId) : false;
+    const shownAlready = t.overlayId ? placed.overlaysShown.has(t.overlayId) || placed.trackIds.has(t.track.id!) : false;
     return (
       <div
         key={t.id}

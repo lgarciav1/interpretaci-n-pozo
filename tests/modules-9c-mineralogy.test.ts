@@ -8,6 +8,10 @@ import { registry } from '../src/modules';
 import { MINERAL_TRACK } from '../src/modules/mineral-inversion/track';
 import { stackFillColor } from '../src/viewer/render';
 import { THEMES } from '../src/ui/tokens';
+import catalogSource from '../src/viewer/catalog.ts?raw';
+import { moduleOverlays } from '../src/app/viewerOverlays';
+import { withOverlayTracks, contributedTrack } from '../src/viewer/templates';
+import { CLAY_PARAMS, clayCalibration } from '../src/modules/mineral-inversion/calibration';
 import { computeStack } from '../src/viewer/stack';
 
 const { well, zones } = readWellFile(csvText,'pozo_tp_perfiles.csv');
@@ -38,5 +42,35 @@ describe('Geo-2 y Geo-3 integrados con el motor y el visor',()=>{
   expect(stack.missing).toEqual([]);expect(stack.layers).toHaveLength(5);
   for(const theme of [THEMES.light,THEMES.dark]) expect(new Set(stack.layers.map(l=>stackFillColor(l.fill,theme))).size).toBe(5);
   expect(stack.layers.at(-1)!.right[200]).toBeCloseTo(1,6);
+ });
+});
+
+
+describe('Calibración por arcilla y extensión genérica de pistas',()=>{
+ it.each([
+  ['illite',2.77,2.33,.30,275],['kaolinite',2.62,1.48,.37,105],
+  ['chlorite',2.76,6.3,.52,215],['smectite',2.12,2,.60,175],
+ ] as const)('%s toma cuatro defaults de la tabla', (clay,rho,pe,nphi,gr)=>{
+  const values=Object.fromEntries(Object.entries(CLAY_PARAMS).map(([key,spec])=>[key,spec.default]));
+  expect(clayCalibration({...values,clay})).toEqual({clay,clayRho:rho,clayPe:pe,clayNphi:nphi,clayGr:gr});
+ });
+ it('calibrar illita no altera los defaults de caolinita al seleccionarla',()=>{
+  const values={illiteRho:2.52,illitePe:3.45,illiteNphi:.25,clayGr:180};
+  expect(clayCalibration({...values,clay:'illite'})).toMatchObject({clayRho:2.52,clayPe:3.45,clayNphi:.25,clayGr:180});
+  expect(clayCalibration({...values,clay:'kaolinite'})).toMatchObject({clayRho:2.62,clayPe:1.48,clayNphi:.37,clayGr:105});
+ });
+ it('la pista se descubre sola y reutiliza su pila, sin importarla desde el visor',()=>{
+  const overlays=moduleOverlays([]),overlay=overlays.find(o=>o.id==='mineral-volumetric')!;
+  expect(overlay).toBeDefined();expect(contributedTrack(overlay)).toEqual(MINERAL_TRACK);
+  const tracks=withOverlayTracks([],overlays,'geology',{well});
+  expect(tracks.filter(t=>t.id===MINERAL_TRACK.id)).toHaveLength(1);
+  expect(tracks.find(t=>t.id===MINERAL_TRACK.id)?.kind).toBe('stack');
+  expect(catalogSource).not.toMatch(/from ['"][^'"]*modules\//);
+ });
+ it('la pista guardada no se duplica y desaparece si faltan entradas',()=>{
+  const overlays=moduleOverlays([]);
+  expect(withOverlayTracks([MINERAL_TRACK],overlays,'geology',{well}).filter(t=>t.id===MINERAL_TRACK.id)).toHaveLength(1);
+  const missing={...well,curves:well.curves.filter(c=>c.role==='GR')};
+  expect(withOverlayTracks([MINERAL_TRACK],overlays,'geology',{well:missing}).some(t=>t.id===MINERAL_TRACK.id)).toBe(false);
  });
 });

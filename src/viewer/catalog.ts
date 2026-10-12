@@ -13,7 +13,6 @@ import type { RoleCatalog, RoleDef } from '../core/roles';
 import { getUnit } from '../core/units';
 import type { Curve } from '../core/well';
 import { SW_MODELS_TRACK } from './swModels';
-import { MINERAL_TRACK } from '../modules/mineral-inversion/track';
 import { BUILTIN_LAYOUTS, NMR_SCALE, NMR_TRACK, VOLUMETRIC_STACK } from './templates';
 
 /** Pista sin id (la receta le pone uno único al crearla). */
@@ -222,7 +221,6 @@ const TOOLS: Readonly<Record<string, ReturnType<typeof tool>[]>> = {
 };
 
 const SPECIALS: readonly { id: string; name: string; description: string; track: TrackDraft }[] = [
-  { id: 'special:mineral-volumetric', name: 'Columna mineral', description: 'Cuarzo, calcita, dolomita, arcilla y porosidad de la inversión, con cierre volumétrico', track: MINERAL_TRACK },
   { id: 'special:depth', name: 'Profundidad y zonas', description: 'Escala de profundidad con la franja de zonas', track: { title: 'Prof.', kind: 'depth' } },
   {
     id: 'special:volumetric',

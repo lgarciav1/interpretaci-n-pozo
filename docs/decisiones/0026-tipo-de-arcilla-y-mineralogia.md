@@ -53,8 +53,10 @@ El fluido por defecto es agua dulce. Las mezclas son lineales en densidad y
 absorción volumétrica U = PE·ρe; al pasar a PE se dibujan curvas y marcas cada
 0,1 v/v hasta 0,4. La densidad electrónica se calcula mediante la calibración
 afinada ρe=(ρlog+0,1883)/1,0704, documentada por Yu et al. (2020), ec. (2).
-Los U tabulados redondeados no se usan para reconstruir rhoe: forward e inverse
-emplean la misma calibración para evitar inconsistencias de redondeo.
+Los U tabulados se conservan como `tabulatedU`, separados del U del modelo.
+La conversión afín aproxima la densidad electrónica; para montmorillonita da
+U≈4,313 frente a Utab=4,0. La diferencia no se atribuye a simple redondeo.
+Forward e inverse usan la misma aproximación; se pueden calibrar rho y PE.
 
 La plantilla tiene un rango principal y una acción «Ver todos los minerales»
 para referencias con PE y densidad mayores, especialmente barita y pirita.
@@ -77,8 +79,10 @@ No hay caché mutable global ni efectos en entradas.
 
 Cada herramienta tiene un peso configurable por zona mediante el formulario
 de sliders existente, con mínimo 0,1. Arcilla seleccionable: illita, caolinita,
-clorita o esmectita. GR de arcilla, GR limpio, densidad y PE del fluido son
-ajustables por zona. Por defecto: illita, GR 275 gAPI (punto medio del intervalo
+clorita o esmectita. Densidad, PE, respuesta neutrónica y GR de cada arcilla son ajustables por
+zona, con cuatro controles para la arcilla seleccionada y presets independientes.
+Cambiar de arcilla conserva las calibraciones de las otras. GR limpio, densidad
+y PE del fluido también son ajustables por zona. Por defecto: illita, GR 275 gAPI (punto medio del intervalo
 250–300 de Appendix B), GR limpio 0, fluido ρ=1 y PE=0,36.
 
 Se publica un residuo normalizado por muestra, además de los residuos por
@@ -88,16 +92,24 @@ con cierre y sin negativos **no garantiza compatibilidad con la geología**.
 
 ## D4. Integración mínima
 
-Dos carpetas y registros en `src/modules/index.ts`. Las curvas minerales
-alimentan el contrato de pila volumétrica que ya utiliza `special:volumetric`.
-Se añade la herramienta `special:mineral-volumetric` al catálogo y el botón
-«Ver columna mineral» inserta la pista en Geología con un commit/deshacer.
-Se conserva la columna tradicional porque depende de VSH, PHIE y Sw: las
-nuevas curvas no sustituyen esas fuentes ni alteran pay/volumetría de reservas.
+Dos carpetas y registros en `src/modules/index.ts`. La pista mineral se registra
+con `src/modules/mineral-inversion/overlay.ts`, descubierto por el glob de
+superposiciones existente. El visor **no importa módulos**.
+
+El punto de extensión genérico `OverlayTrackDecl.spec` permite aportar un
+`TrackSpec` declarativo; `contributedTrack` lo resuelve y la pila nativa lo dibuja
+con su leyenda, cursor y exportación. El catálogo recibe esas aportaciones
+como datos desde la app, sin conocer nombres de módulos. Se evita duplicar
+una pista aportada que ya está guardada y se respeta `track.resolve` sin entradas.
+El botón «Ver columna mineral» utiliza la misma pista. Se conserva la columna
+tradicional `special:volumetric` y las fuentes VSH/PHIE/Sw: no se altera pay ni
+volumetría de reservas.
 
 Única ampliación de `src/core`: dos ids en `CROSSPLOT_TEMPLATES`, necesarios
 para guardar y sanear las plantillas nuevas. No cambia el formato de proyecto.
-En el visor solo se amplía el catálogo; no se modifica renderizado ni estado.
+La extensión de pistas es genérica en `viewer/overlay.ts` y `viewer/templates.ts`;
+no se modifica el renderizador ni el estado del núcleo. El import de un módulo
+en `viewer/catalog.ts` se eliminó en la revisión.
 
 XYPolygonLayer es una capa pequeña genérica de contorno y relleno, usada por
 el mismo dibujo de pantalla y figuras SVG/PNG/PDF. Se dibuja detrás de los
@@ -153,9 +165,9 @@ ni ocultaron datos originales. Se mantienen los avisos y el residuo visible.
 - Revisión independiente:8.000 observaciones contrastadas con el sistema KKT
   anterior; máximo Δvolúmenes 7,08×10⁻¹³. Comparación adicional con SciPy SLSQP;
   sin bloqueantes después de corregir el desempate de glauconita.
-- `npx vitest run`: 117 archivos, 2.049 pruebas aprobadas.
+- `npx vitest run`: 117 archivos, 2.061 pruebas aprobadas.
 - `npx tsc --noEmit`: sin errores.
-- `npm run build`: un único `dist/index.html`, 2.474,58 kB sin comprimir.
+- `npm run build`: un único `dist/index.html`, 2.479,03 kB sin comprimir.
 - Capturas Chromium en `docs/capturas/9c/`, claro y oscuro, pozo del TP.
 
 ## Abierto
@@ -164,3 +176,31 @@ Digitalizar y revisar CP-19 con precisión, confirmar límites Th/U y PE del
 fluido, comprobar matriz del neutrón del TP y calibrar extremos con corona.
 El ajuste no incorpora gas, barita, evaporitas ni metales como componentes.
 No se ha probado esta fase en Safari/Firefox ni con entrada táctil.
+
+
+## Revisión de los cuatro puntos del PR #21
+
+Se inspeccionó visualmente Appendix B, edición 2013, páginas impresas 279–280
+(PDF 291–292). La columna es **ρlog**, dentro de «Logging Tool Response in
+Sedimentary Minerals»; no densidad de grano seco. Por eso se mantienen los
+extremos de esa edición y se fija su valor en tests.
+
+| Mineral/fila | Valores del PR anterior → revisión | Fuente exacta |
+| --- | --- | --- |
+| Illite | ρ 2,77 →2,77; PE 2,33 →2,33; φCNL 0,30; Utab 6,45 agregado | SLB 2013 Appendix B p. 280, columnas ρlog, Pe, U, φCNL |
+| Kaolinite | ρ 2,62 →2,62; PE1,48 →1,48; φCNL 0,37; Utab 3,87 agregado | Misma página y columnas |
+| Montmorillonite | ρ 2,12 y PE 2,0 conservados; Utab 4,0 separado de Umodelo≈4,313 | Misma página, fila Montmorillonite |
+| Anthracite | PE 0,16 →0,16; Utab 0,23 agregado; lignito tiene PE 0,20 | Misma página, filas Anthracite y Lignite |
+| Orthoclase | Sin referencia →ρ 2,52, PE 2,9, Utab 7,2, φCNL−0,03, GR≈220 | SLB 2013 Appendix B p. 279, fila Orthoclase |
+
+PE 2,9 es la precisión publicada para ortoclasa en la edición verificada; no
+se inventan dos decimales para asignar 2,86 a esa fuente. Los valores clásicos
+alternativos del brief no se atribuyen a esta página. Los controles nuevos
+permiten adoptar y calibrar extremos diferentes con la fuente elegida por el
+intérprete. GR es el centro del intervalo de arcilla; φCNL se convierte de p.u.
+a v/v. La tabla avisa que las arcillas son valores medios variables por muestra.
+
+La revisión independiente de los overrides comprobó 10.000 mezclas,
+cuatro arcillas y 100 calibraciones: error máximo de volúmenes 2,65×10⁻¹³,
+sin inválidas. `rhoE` se recalcula cuando cambia la densidad de arcilla;
+`tabulatedU` es referencia documental y no entra en la matriz del ajuste.

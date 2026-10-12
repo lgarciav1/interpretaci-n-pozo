@@ -7,12 +7,15 @@ import { Button, Callout, EmptyState, formatNumber } from '../../ui';
 import type { ModulePanel, ModulePanelProps } from '../../ui/modulePanel';
 import { MineralCrossplotButton } from '../clay-typing/panel';
 import { MINERAL_ZONES, VOLUME_ROLES, VOLUME_LABELS } from './index';
+import { MineralParameters } from './parameters';
 import { MINERAL_TRACK } from './track';
 
-function MineralPanel({ module, result }: ModulePanelProps) {
+function MineralPanel(props: ModulePanelProps) {
+  const { module, result } = props;
   const rows = (result?.outputs.find(o => o.moduleId === module.id && o.port === MINERAL_ZONES)?.value as TableValue | undefined)?.rows ?? [];
   const fmt = (v: unknown) => typeof v === 'number' ? formatNumber(100*v, { digits: 1 }) : '—';
   return <div className="mineral-panel">
+    <MineralParameters {...props} />
     <div className="mineral-panel__actions">
       <MineralCrossplotButton template="pe-density">Ver PE–densidad</MineralCrossplotButton>
       <Button size="sm" variant="secondary" onClick={() => {
@@ -32,4 +35,4 @@ function MineralPanel({ module, result }: ModulePanelProps) {
     <p className="mineral-panel__note">La columna conserva el cierre de los cinco componentes. El residuo es normalizado por herramienta; revisalo junto con el control de calidad y la corona.</p>
   </div>;
 }
-export const panel: ModulePanel = { moduleId: 'mineral-inversion', component: MineralPanel };
+export const panel: ModulePanel = { moduleId: 'mineral-inversion', component: MineralPanel, mode: 'replace' };
