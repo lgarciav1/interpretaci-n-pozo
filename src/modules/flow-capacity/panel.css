@@ -1,0 +1,21 @@
+/* Panel de capacidad de flujo y Lorenz (prefijo fcap-). Solo tokens del sistema de diseño. */
+.fcap { display: flex; flex-direction: column; gap: var(--space-4); }
+.fcap-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+.fcap-kpi { padding: var(--space-2) var(--space-2-5); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-subtle); min-width: 0; }
+.fcap-kpi__label { color: var(--color-text-muted); font-size: var(--text-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fcap-kpi__value { font-size: var(--text-xl); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-tight); white-space: nowrap; }
+.fcap-kpi__unit { color: var(--color-text-muted); font-size: var(--text-sm); font-weight: var(--weight-regular); }
+.fcap-kpi__sub { color: var(--color-text-muted); font-size: var(--text-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fcap-block { display: flex; flex-direction: column; gap: var(--space-1-5); }
+.fcap-block__title { color: var(--color-text-muted); font-size: var(--text-xs); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-wide); text-transform: uppercase; }
+.fcap-block__unit { text-transform: none; letter-spacing: normal; font-weight: var(--weight-regular); }
+.fcap-legend { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-1-5) var(--space-3); color: var(--color-text-muted); font-size: var(--text-xs); }
+.fcap-legend__item { display: inline-flex; align-items: center; gap: var(--space-1-5); white-space: nowrap; }
+.fcap-readout { min-height: calc(2 * var(--text-xs)); color: var(--color-text); font-size: var(--text-xs); }
+.fcap-readout__hint { color: var(--color-text-muted); }
+.fcap-table tbody tr[data-total] td { font-weight: var(--weight-semibold); background: var(--color-surface-subtle); border-top: 1px solid var(--color-border); }
+.fcap-zone { white-space: nowrap; }
+.fcap-lc { font-weight: var(--weight-semibold); }
+.fcap-more { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.fcap-note { color: var(--color-text-muted); font-size: var(--text-xs); }
+.fcap-depth { white-space: nowrap; }
