@@ -60,15 +60,12 @@ export interface ThroatCoefficients {
 export const WINLAND_R35: ThroatCoefficients = { a: 0.732, b: 0.588, c: -0.864 };
 
 /**
- * Pittman (1992), AAPG Bulletin 76(2): log Rx = a + b·log k + c·log φ%, con Rx el radio de garganta (µm) al x % de
- * saturación de mercurio (x = 10…75), k en mD aire y φ en %. Regresión de 202 plugs de areniscas. R35 de Pittman
- * (0,255; 0,565; −0,523) difiere del de Winland porque se ajustó con otra muestra: no mezclarlos.
- *
- * ADVERTENCIA: los coeficientes se transcribieron de memoria de la tabla publicada y NO se pudieron contrastar con el
- * artículo original (sin acceso a internet en la verificación). Se comprueban sus propiedades estructurales (R decrece
- * con x y el cociente entre percentiles vecinos es suave en pares (φ, k) típicos de φ ≥ 10 %; por debajo de ~8 % las
- * regresiones, ajustadas por separado, llegan a cruzarse, lo que es esperable fuera de su rango de calibración) pero
- * hay que contrastarlos con el paper antes de citarlos. Los más usados (R25, R35, R50) deberían revisarse primero.
+ * Pittman (1992), AAPG Bulletin 76(2):191–198, Table 1 (p. 196): log Rx = a + b·log k + c·log φ%, con Rx el radio de
+ * garganta (µm) al x % de saturación de mercurio (x = 10…75), k en mD aire y φ en %. Regresión de 202 muestras de
+ * areniscas (multiple regression, SAS). Coeficientes verificados fila por fila contra la tabla publicada. Para x = 10…35
+ * el término de φ es estadísticamente insignificante según el paper (asterisco en la tabla); una regresión sin φ da
+ * esencialmente lo mismo, pero se mantiene la ecuación completa tal como se publicó. R35 de Pittman (0,255; 0,565;
+ * −0,523) difiere del de Winland porque se ajustó con otra muestra: no mezclarlos.
  */
 export const PITTMAN_COEFFICIENTS: Readonly<Record<number, ThroatCoefficients>> = {
   10: { a: 0.459, b: 0.5, c: -0.385 },
