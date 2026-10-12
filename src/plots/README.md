@@ -170,13 +170,15 @@ son de presentación: reciben el contexto del pozo, la configuración y callback
 | `data.ts` | puro: curvas por clave `m:`/`r:` en unidad canónica con la escala de su rol (`resolvePlotCurve`, `plotCurveOptions`, `keyForRole`), filtro por zonas (`zoneFilter`), tramos de profundidad de un conjunto de muestras (`depthRuns`), muestra más cercana |
 | `cutoffs.ts` | puro: rol → parámetro del módulo de cutoffs (`cutoffParamFor`), alcance global o de una zona (`cutoffScope`), valor efectivo (`sharedParamValue`), redondeo al paso (`normalizeCutoff`), línea real o libre (`resolveCutoffLine`) |
 | `params.ts` | puro (fase 7b): parámetros que se eligen sobre un gráfico (`PLOT_PARAMS`: clave de almacenamiento, `módulo.clave` si no es compartido), alcance (`plotScope`), valor efectivo (`plotParamValue`), acotar y redondear como el slider (`normalizeParam`, `nudgeParam`), escrituras (`paramWrite`), fuente activa (`inactiveDriver`) y líneas de GR limpio/arcilla (`grGuides`, `grWrite`) |
-| `link.ts` | pub/sub sin React de lo que se señala en un gráfico (profundidad, tramos de una clase, selección); lo dibuja la superposición `plot-link` del módulo `crossplot` |
+| `link.ts` | pub/sub sin React de lo que se señala en un gráfico (profundidad, tramos de una clase) y de la SELECCIÓN única compartida (máscara de muestras; fase 8b, 0021); lo dibuja la superposición `plot-link` del módulo `crossplot`, que también marca el tramo con Mayús + arrastre |
+| `selection.ts`, `useLink.ts` | puro (8b): lazo (punto en polígono en fracciones de eje), tramo del visor → muestras, clases → muestras, máscara → tramos y → puntos de una nube; `usePlotSelection` para leerla desde React |
 | `controls.tsx`, `plots.css` | controles compartidos (curva, escala, filtro de zonas, grupos) y el armado del panel (controles · gráfico · panel aparte) |
 | `histogram/histogram.ts` | puro: Freedman–Diaconis/Sturges, bordes lineales o log, conteo, %, acumulada, rango robusto, estadísticos (n, media —geométrica en log—, P10/P50/P90), reparto a cada lado de un cutoff |
 | `histogram/HistogramPanel.tsx` | panel: curva, escala, clases, zonas superpuestas, normalizar, acumulada, cutoff, estadísticos |
 | `crossplot/crossplot.ts` | puro: muestras graficables, rango robusto, nivel de color de la rampa, mediana sobre índices |
 | `crossplot/templates.ts` | puro: líneas de las plantillas (densidad–neutrón, Pickett, φ–Sw, GR–Rt) y su definición |
 | `crossplot/drag.ts` | puro (fase 7b): punto de matriz ↔ (ρma, offset del neutrón), línea de la matriz del proyecto, imán a las litologías, recta de agua ↔ (Rw, m) al trasladar o rotar, ubicación de sus manijas, Rw entre temperatura de referencia y de formación (Arps, como el motor) |
+| `crossplot/pickett.ts` | puro (8b, 0021): ajuste de la recta de agua a la zona acuífera (`fitWaterLine`), valores propios por zona, una recta por zona, escrituras del arrastre con su alcance |
 | `crossplot/series.ts` | proveedor de series `crossplot` (tendencias sobre la nube; clave `<x>\|<y>\|<zonas>`), registrado por `src/modules/crossplot/series.ts` |
 | `crossplot/CrossplotPanel.tsx` | panel: ejes, color, zonas, plantilla, cutoffs X/Y, tendencias, leyenda, cuadrantes, selección |
 

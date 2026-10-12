@@ -5,7 +5,8 @@
 import type { ReactNode } from 'react';
 import type { AxisScaleChoice } from '../core/plots';
 import type { Zone } from '../core/well';
-import { Button, Callout, Chip, SegmentedControl, Select } from '../ui';
+import { Button, Callout, Chip, SegmentedControl, Select, formatNumber } from '../ui';
+import { selectionTitle, type PlotSelection } from './link';
 import type { CurveOption } from './data';
 import './plots.css';
 
@@ -99,5 +100,24 @@ export function DriverCallout({ title, children, action, onAction }: { title: Re
     >
       {children}
     </Callout>
+  );
+}
+
+/**
+ * Resumen de la selección compartida (fase 8b, 0021) en el panel aparte de un gráfico: de dónde viene («Lazo en el
+ * crossplot», «Tramo 7 800,0–7 850,0 m»), cuántas muestras y tramos marca en el visor, y «Limpiar» (también Escape).
+ */
+export function SelectionSummary({ selection, onClear }: { selection: PlotSelection; onClear(): void }) {
+  const runs = selection.runs.length;
+  return (
+    <div className="plot-selection" data-testid="plot-selection">
+      <span className="plot-selection__title">{selectionTitle(selection, (d) => formatNumber(d, { digits: 1 }))}</span>
+      <span className="plot-muted num">
+        {formatNumber(selection.count, { digits: 0 })} muestras · {runs} {runs === 1 ? 'tramo' : 'tramos'} en el visor
+      </span>
+      <Button size="sm" variant="ghost" icon="x" onClick={onClear} title="Limpiar la selección (Esc)">
+        Limpiar
+      </Button>
+    </div>
   );
 }

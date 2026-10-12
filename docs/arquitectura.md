@@ -7,7 +7,8 @@ multipista (0005) con sus pistas armables y plantillas propias (0016), deshacer 
 tendencias y gradientes (0008), presiones MDT con los conjuntos de puntos del pozo (0009), datos de corona con
 puesta en profundidad y modelo k–φ (0010), exportación de datos (0011) y de figuras (0012), tamaño de interfaz (0013),
 histograma y crossplot libre (0014), parámetros elegidos sobre los gráficos (0015), calculadora de agua de formación con
-indicadores automáticos (0017) y los modelos de Sw lado a lado, las fichas de zona y la paleta de comandos (0018).
+indicadores automáticos (0017), los modelos de Sw lado a lado, las fichas de zona y la paleta de comandos (0018) y los
+gráficos conectados al perfil con el Pickett interactivo (0021).
 Este documento resume cómo encajan las piezas y cómo agregar un módulo.
 
 ## Ideas centrales
@@ -268,10 +269,11 @@ mitad del binario sin comprimir.
 | psia y psig se tratan como psi | cuando haya datos reales | Guardar la referencia por columna y avisar en el asistente si se mezclan (desplaza ~14,7 psi la regla «presión ≥ lodo»). |
 | Gradientes de presión en pozos desviados (hoy contra MD; el panel avisa si TVD difiere de MD) | cuando haya un pozo desviado | Serie `mdt` con x = TVD (columna `tvd`) y la pista ubicada por MD. |
 | «Usar un contacto como tope de zona» (opcional del pedido MDT) | cuando se pida | Receta que parta la zona que contiene el contacto (`createZone`, `src/core/state/zones.ts`). |
-| Excluir o incluir muchos puntos a la vez (lazo en el crossplot) | fase 7b | Receta nueva en `src/core/state/trends.ts`; hoy se alterna de a uno (el panel «Corona» lo resuelve para sus plugs con el rectángulo de `XYPlot`, escribiendo `selection.excluded` de la tendencia). El crossplot libre (7a) ya tiene selección por rectángulo, que hoy solo marca tramos en el visor. |
 | Corrección de Klinkenberg y de presión de confinamiento de los plugs | cuando haya datos reales de laboratorio | El lector (`src/io/core.ts`) elige la columna (Klinkenberg antes que aire) pero no corrige; sumar la columna de presión de confinamiento y un factor opcional. |
 | Modelo k–φ por litofacies o capa (hoy global o por zona) | fase 7b | Una tendencia por capa sobre la serie `core` y «Aplicar» a la zona que corresponda; el módulo `perm-core` ya tiene a y b por zona. El crossplot libre filtra por zona y ajusta tendencias, pero sobre curvas del perfil, no sobre plugs. |
-| Rw con valores propios por zona y alcance global en el Pickett (la recta usa y escribe la Rw global; las zonas con valor propio no cambian, igual que los cutoffs) | cuando se pida | Avisar en el rótulo cuántas zonas visibles tienen valor propio, u ofrecer escribirlo en todas (0015). |
+| Lazo y tramo del visor sin mouse (tacto, teclado) | antes de la fase 12 | Botón «Seleccionar tramo» que arme un modo en la barra del visor; tope y base con el cursor del teclado (0021). |
+| Vista previa de arrastres de superposiciones sin redibujar el canvas base («Marcar zona», tramo del visor) | cuando moleste | Capa de interacción para superposiciones (`frame.invalidateTop()`), como la de `XYPlot` (0021). |
+| Pickett sin zona acuífera | cuando se pida | «Ajustar a la envolvente» (percentil bajo de los residuos de ln Rt) como alternativa explícita al ajuste por mediana (0021, D9). |
 | Matriz del densidad–neutrón con las cartas CP-1 (curvas) en vez de rectas de mezcla | cuando se pida | Tabular la carta por litología; imán hacia la curva más cercana (`snapMatrixToLithology`, 0015). |
 | Líneas de litología curvas en densidad–neutrón (hoy rectas de mezcla matriz–agua) | cuando se pida | Tabular la carta CP-1 del fabricante por litología y dibujarla como `XYLineLayer`. |
 | Sliders del inspector: una sola entrada de deshacer aunque se pause más de 800 ms con el botón apretado | antes de la fase 12 | Usar el gesto de `history.ts` (0015, D2.1: `commit(…, { group })`, `cancelGroup`) desde `Slider` (abrir al bajar el puntero, cerrar al soltar). Los arrastres de los gráficos ya lo usan. |
@@ -450,6 +452,28 @@ rotar = m). Misma regla de alcance, vista previa en vivo y deshacer que los cuto
 historial (un Ctrl+Z por arrastre; Escape vuelve a antes del gesto). Si el módulo del parámetro no alimenta la cadena,
 aviso y acción explícita («Usar Rw manual»). Lo puro en `src/plots/params.ts` y `src/plots/crossplot/drag.ts`; las
 manijas 2D son una capa genérica de `XYPlot` (`XYHandle`).
+
+### Gráficos conectados y Pickett interactivo (fase 8b)
+
+Decisión: [`docs/decisiones/0021-graficos-conectados-y-pickett.md`](decisiones/0021-graficos-conectados-y-pickett.md).
+
+- **Una sola selección compartida** (`src/plots/link.ts`): máscara sobre las muestras del pozo con su fuente y detalle; la
+  crean el crossplot (Rectángulo o Lazo, Mayús suma), el histograma (clic en una clase, Mayús + clic suma o quita) y el
+  visor (**Mayús + arrastre** marca un tramo; `OverlayPointer.shiftKey`, aditivo). El visor la marca como tramos, el
+  crossplot resalta sus puntos y atenúa el resto (capa intermedia de `XYPlot`: el puntero no redibuja nada) y el
+  histograma superpone su distribución con una fila de estadísticos. Lo puro en `src/plots/selection.ts` (punto en
+  polígono en fracciones de eje, tramo → muestras, clases → muestras, máscara → tramos y → puntos de una nube).
+- Estado de interfaz, no pasa por `commit`. Se limpia con Escape (visor, gráfico o sin foco), «Limpiar», la ficha «Sel.»
+  de la barra del visor, la paleta de comandos y al cambiar de pozo (`uiSync`).
+- «Excluir del ajuste los puntos seleccionados» en las tendencias del crossplot (`excludeTrendPoints`, un Ctrl+Z).
+- **Pickett**: zona acuífera elegida en el gráfico (`CrossplotConfig.pickettWaterZones`, aditivo en `src/core/plots.ts`;
+  `ZoneKind` no cambia); «Ajustar recta a la zona acuífera» (`src/plots/crossplot/pickett.ts`): puntos limpios, m por
+  mínimos cuadrados recortados de ln Rt sobre ln φ, Rw tal que la mediana de Sw de Archie en la zona sea 1; si la zona no
+  determina m, se conserva. Misma regla de alcance, vista previa rayada y un Ctrl+Z. Con dos o más zonas filtradas y
+  alguna con valores propios, una recta de agua por zona que escribe solo su zona; con alcance global el rótulo avisa
+  las zonas con valor propio.
+- Ampliaciones aditivas de `src/plots/xy/`: `selectTool`/`onSelectLasso`/`selectionShapes`, `emphasis`, `markedBins`/
+  `onBarClick`, `onEscape`, `XYHandle.labelOnActive`, `XYPointLayer.ring`, `XYLineLayer.preview` (no sale en la figura).
 
 ## Modelos de Sw, fichas de zona y paleta de comandos (fase 7c)
 

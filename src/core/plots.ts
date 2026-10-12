@@ -59,6 +59,12 @@ export interface CrossplotConfig {
   /** Plantilla aplicada (líneas guía calculadas en vivo con los parámetros del proyecto); null = ninguna. */
   template: CrossplotTemplateId | null;
   cutoffs: PlotCutoffs;
+  /**
+   * Zonas que el usuario toma como ACUÍFERAS (Sw = 1) en el Pickett (fase 8b, docs/decisiones/0021, G): sus puntos se
+   * resaltan y «Ajustar recta a la zona acuífera» estima m y Rw de ellos. Ausente o vacío = ninguna. Es una elección del
+   * gráfico, no un tipo de zona del núcleo (`ZoneKind` no cambia).
+   */
+  pickettWaterZones?: string[];
 }
 
 export interface WellPlots {
@@ -136,6 +142,7 @@ export function sanitizeCrossplot(raw: unknown): CrossplotConfig {
     zones: strings(raw['zones']),
     template: CROSSPLOT_TEMPLATES.includes(t as CrossplotTemplateId) ? (t as CrossplotTemplateId) : null,
     cutoffs: sanitizeCutoffs(raw['cutoffs']),
+    ...(strings(raw['pickettWaterZones']).length ? { pickettWaterZones: [...new Set(strings(raw['pickettWaterZones']))] } : {}),
   };
 }
 

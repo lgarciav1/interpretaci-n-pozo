@@ -296,12 +296,14 @@ export function drawBars(ctx: CanvasRenderingContext2D, m: XYMapping, l: XYBarLa
 export const DENSE_ARC_LIMIT = 12000;
 
 /** Nube densa: puntos sin halo agrupados por color (un trazado por color). */
-function drawDensePoints(ctx: CanvasRenderingContext2D, m: XYMapping, l: XYPointLayer, theme: ThemeTokens): void {
+export function drawDensePoints(ctx: CanvasRenderingContext2D, m: XYMapping, l: XYPointLayer, theme: ThemeTokens, opts: { only?: (i: number) => boolean; alpha?: number } = {}): void {
   const n = Math.min(l.x.length, l.y.length);
   const r = l.radius ?? 2.2;
   const groups = new Map<string, number[]>();
   const fixed = typeof l.color === 'string' ? l.color : null;
+  const only = opts.only;
   for (let i = 0; i < n; i++) {
+    if (only && !only(i)) continue;
     const px = m.x(l.x[i]!);
     const py = m.y(l.y[i]!);
     if (!Number.isFinite(px) || !Number.isFinite(py)) continue;
@@ -311,12 +313,16 @@ function drawDensePoints(ctx: CanvasRenderingContext2D, m: XYMapping, l: XYPoint
     g.push(px, py);
   }
   ctx.save();
-  ctx.globalAlpha = l.alpha ?? (theme.name === 'dark' ? 0.8 : 0.72);
+  ctx.globalAlpha = opts.alpha ?? l.alpha ?? (theme.name === 'dark' ? 0.8 : 0.72);
   // Con muchos puntos, cuadraditos (un `rect` cuesta una fracción de un `arc`; a 3 px no se distinguen).
-  const squares = n > DENSE_ARC_LIMIT;
+  // Anillos (`ring`): solo el contorno, sin tapar el color del punto de abajo (zona acuífera del Pickett).
+  const ring = !!l.ring;
+  const squares = !ring && n > DENSE_ARC_LIMIT;
   const side = r * 1.8;
+  if (ring) ctx.lineWidth = 1.5;
   for (const [c, g] of groups) {
     ctx.fillStyle = c;
+    ctx.strokeStyle = c;
     ctx.beginPath();
     for (let k = 0; k < g.length; k += 2) {
       if (squares) ctx.rect(g[k]! - side / 2, g[k + 1]! - side / 2, side, side);
@@ -325,7 +331,8 @@ function drawDensePoints(ctx: CanvasRenderingContext2D, m: XYMapping, l: XYPoint
         ctx.arc(g[k]!, g[k + 1]!, r, 0, 2 * Math.PI);
       }
     }
-    ctx.fill();
+    if (ring) ctx.stroke();
+    else ctx.fill();
   }
   ctx.restore();
 }
