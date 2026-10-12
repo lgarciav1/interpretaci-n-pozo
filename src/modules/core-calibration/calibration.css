@@ -16,6 +16,10 @@
 .ccal-bar__name { font-weight: var(--weight-semibold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: calc(260px * var(--ui-scale)); }
 .ccal-bar__hint { color: var(--color-text-muted); font-size: var(--text-xs); }
 .ccal-bar__warn { color: var(--color-text-muted); font-size: var(--text-xs); }
+/* Plugs en el alcance de «Aplicar en», junto al selector. */
+.ccal-bar__count { color: var(--color-text-muted); font-size: var(--text-xs); white-space: nowrap; }
+.ccal-bar__count.is-empty { color: var(--color-warn-text); font-weight: var(--weight-medium); }
+.ccal-scope-note { margin: var(--space-2) var(--space-4) 0; }
 .ccal-link {
   padding: 0;
   border: 0;

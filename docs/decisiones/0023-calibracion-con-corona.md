@@ -53,7 +53,11 @@ usan todas y se avisa). Mediana y no media: ρmaa tiene colas largas en derrumbe
 - Cada plug se ubica con `shiftedDepth(set, decisiones)`: la puesta en profundidad es la del panel «Corona». El
   panel de calibración nunca recalcula ni guarda desplazamientos; muestra el de cada corona y, si ninguno se aplicó,
   avisa que la calibración se hace sobre la profundidad del archivo.
-- Solo plugs incluidos (`plugStatuses`). Valor del perfil con `matchLogToPlugs`: ventana ±h (por defecto 0,15 m, ≈ la
+- Solo plugs incluidos (`plugStatuses`) y, si «Aplicar en» es una zona, solo los que caen en ella por su profundidad
+  CORREGIDA (`includedPlugs(…, scope)`, regla de `layoutZones`: tope ≤ z ≤ base). Con «Todo el pozo», todos. Así la
+  φ perfil vs. corona, el grano, la ρma ajustada y la m desde F son de la misma zona en la que se escribe el valor. La
+  barra muestra «n plugs en la zona D» y, si la zona no tiene ninguno, un aviso con «Usar todo el pozo». El alcance por
+  defecto es la zona con más plugs (`dominantPlugZone`). Valor del perfil con `matchLogToPlugs`: ventana ±h (por defecto 0,15 m, ≈ la
   resolución vertical de densidad–neutrón; 0 = interpolación lineal), guardada en los ajustes del conjunto
   (`calibWindow`) junto con la curva elegida (`calibCurve`; por defecto la de la puesta en profundidad,
   `MATCH_CURVE_SETTING`).
@@ -83,6 +87,8 @@ RMSE juntos. Es diagnóstico: no se aplica una corrección de φ a la cadena (es
   corregida por temperatura) y PHIE, solo en muestras limpias (Vsh ≤ Vsh máx.), con mediana y P10–P90; además el ajuste
   por mínimos cuadrados de F = Rt/Rw. Se aplica la mediana (robusta: el error de Rt y φ se amplifica por 1/ln φ).
 - Gráfico log–log de F contra φ: plugs, nube de la zona acuífera, la recta vigente y las ajustadas.
+- Ajuste con a fija y R² < 0 (la recta por a explica log F peor que su media): aviso «ajuste malo» aunque m caiga en
+  1,3–3, en las dos vías.
 - Alternativa descartada: ajustar m sobre el Pickett. Ya existe (0021) y estima m y Rw a la vez; acá Rw es la vigente y
   solo se calibra m, que es lo que pide la función N.
 
@@ -91,6 +97,17 @@ RMSE juntos. Es diagnóstico: no se aplica una corrección de φ a la cadena (es
 Los plugs de ejemplo suman la columna `ff` con F = 1/φ^1,85 y ruido log-normal (σ = 0,03 en log10) generado con OTRA
 semilla, de modo que φ, k, ρg y las profundidades del ejemplo no cambian. Así el panel muestra las dos vías de m con
 el pozo de demostración, y la de plugs recupera m ≈ 1,85.
+
+El pozo sintético (`src/app/demo/syntheticWell.ts`) es coherente con eso: la Rt de las arenas acuíferas sale de Archie
+con a = 1 y m = 1,85 (`DEMO_M = EXAMPLE_M`) sobre la porosidad efectiva de la muestra (densidad–neutrón de las curvas
+generadas por 1 − Vsh) y la Rw que calcula la app con sus valores por defecto (`demoRw`: Rw conocida 0,05 ohm·m a
+24 °C llevada con Arps a la temperatura del gradiente, ≈ 0,008 ohm·m a 7600–8500 m), más la arcilla en paralelo
+(Vsh/2,2 ohm·m). Antes la Rt del agua (0,9 ohm·m) suponía Rw ≈ 0,036: m desde el perfil daba ≈ 2,85 con R² < 0 y las
+arenas acuíferas se leían con Sw ≈ 0,5 (pay falso en A, B, D y E). Se eligió ajustar la Rt y no la Rw: la Rw por
+defecto es de la app (cambiarla mueve también el pozo del TP) y fijar una Rw propia del demo obligaría a escribir
+parámetros al cargarlo; la Rt es solo del generador, que importa los valores por defecto para no desincronizarse. La
+arena con hidrocarburo de la zona C no cambia (Sw ≈ 0,11) y el pay del demo queda solo en C (≈ 47 m). Con eso, m desde
+el perfil en A, B, D y E da ≈ 1,87 (P10–P90 ≈ 1,78–1,95) con R² ≈ 0,56.
 
 ## Abierto
 

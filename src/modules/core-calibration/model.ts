@@ -65,19 +65,65 @@ export function calibWindow(dec: PointSetDecisions | undefined): number {
 // ── plugs ────────────────────────────────────────────────────────────────────────────────────────────────────
 
 export interface IncludedPlugs {
-  /** Índices en el conjunto de los plugs incluidos. */
+  /** Índices en el conjunto de los plugs incluidos (y dentro del alcance, si se dio uno). */
   idx: number[];
   /** Profundidad CORREGIDA de esos plugs (m). */
   depth: Float64Array;
 }
 
-/** Plugs incluidos (decisión del usuario o propuesta de calidad) con su profundidad corregida. */
-export function includedPlugs(set: PointSet, dec: PointSetDecisions | undefined): IncludedPlugs {
+/**
+ * Alcance de las estimaciones desde plugs: el de «Aplicar en». Con una zona solo cuentan los plugs cuya profundidad
+ * CORREGIDA cae en ella; con `zoneId` null, todos los incluidos.
+ */
+export interface PlugScope {
+  zones: readonly Zone[];
+  zoneId: string | null;
+}
+
+/**
+ * Zona de cada profundidad (id, o null fuera de las zonas), con la regla de `layoutZones`: tope ≤ z ≤ base y, si
+ * hay solapamiento, gana la de tope más somero. No exige profundidades ordenadas (los plugs pueden no estarlo).
+ */
+export function zoneIdsAt(depth: ArrayLike<number>, zones: readonly Zone[]): (string | null)[] {
+  const sorted = zones.filter((z) => Number.isFinite(z.top) && Number.isFinite(z.base) && z.top < z.base).sort((a, b) => a.top - b.top);
+  return Array.from({ length: depth.length }, (_, i) => {
+    const d = depth[i]!;
+    return Number.isFinite(d) ? (sorted.find((z) => z.top <= d && d <= z.base)?.id ?? null) : null;
+  });
+}
+
+/**
+ * Plugs incluidos (decisión del usuario o propuesta de calidad) con su profundidad corregida; con un alcance de zona,
+ * solo los que caen en ella.
+ */
+export function includedPlugs(set: PointSet, dec: PointSetDecisions | undefined, scope?: PlugScope | null): IncludedPlugs {
   const st = plugStatuses(set, dec);
   const z = shiftedDepth(set, dec);
-  const idx: number[] = [];
+  let idx: number[] = [];
   for (let i = 0; i < st.length; i++) if (st[i]!.included) idx.push(i);
+  if (scope?.zoneId) {
+    const ids = zoneIdsAt(Float64Array.from(idx, (i) => z[i]!), scope.zones);
+    idx = idx.filter((_, j) => ids[j] === scope.zoneId);
+  }
   return { idx, depth: Float64Array.from(idx, (i) => z[i]!) };
+}
+
+/** Cuántos plugs incluidos hay en total y cuántos entran en el alcance (para el panel). */
+export function plugScopeCount(set: PointSet, dec: PointSetDecisions | undefined, scope: PlugScope): { included: number; inScope: number } {
+  return { included: includedPlugs(set, dec).idx.length, inScope: includedPlugs(set, dec, scope).idx.length };
+}
+
+/** Zona con más plugs incluidos (alcance por defecto de «Aplicar»; empate: la más somera); null si ninguno cae en una zona. */
+export function dominantPlugZone(set: PointSet, dec: PointSetDecisions | undefined, zones: readonly Zone[]): string | null {
+  const plugs = includedPlugs(set, dec);
+  const count = new Map<string, number>();
+  for (const id of zoneIdsAt(plugs.depth, zones)) if (id) count.set(id, (count.get(id) ?? 0) + 1);
+  let best: string | null = null;
+  for (const z of [...zones].sort((a, b) => a.top - b.top)) {
+    const c = count.get(z.id) ?? 0;
+    if (c > 0 && (best === null || c > count.get(best)!)) best = z.id;
+  }
+  return best;
 }
 
 /** Valores de una columna numérica en los plugs incluidos (null si el conjunto no la tiene). */
@@ -107,10 +153,17 @@ export interface PorosityCalibration {
 
 /**
  * Calibración de la porosidad: φ del perfil (promediada en ±h alrededor de la profundidad corregida de cada plug
- * incluido) contra φ de corona. null si los plugs no tienen porosidad.
+ * incluido y dentro del alcance) contra φ de corona. null si los plugs no tienen porosidad.
  */
-export function porosityCalibration(set: PointSet, dec: PointSetDecisions | undefined, logDepth: ArrayLike<number>, logValues: ArrayLike<number>, h: number): PorosityCalibration | null {
-  const plugs = includedPlugs(set, dec);
+export function porosityCalibration(
+  set: PointSet,
+  dec: PointSetDecisions | undefined,
+  logDepth: ArrayLike<number>,
+  logValues: ArrayLike<number>,
+  h: number,
+  scope?: PlugScope | null,
+): PorosityCalibration | null {
+  const plugs = includedPlugs(set, dec, scope);
   const core = plugColumn(set, plugs, COL.phi);
   if (!core) return null;
   const log = matchLogToPlugs(plugs.depth, logDepth, logValues, h);
@@ -136,7 +189,7 @@ export interface MatrixDensityEstimates {
 /**
  * Las dos estimaciones de la densidad de matriz que salen de los plugs: grano (mediana y P10–P90) y la ρma que hace
  * coincidir la porosidad densidad (con la ρb del perfil en los plugs, ventana ±h) con la de corona, acotada a
- * `RHOMA_BOUNDS`.
+ * `RHOMA_BOUNDS`. Solo los plugs del alcance (todos los incluidos, o los de la zona).
  */
 export function matrixDensityEstimates(
   set: PointSet,
@@ -145,8 +198,9 @@ export function matrixDensityEstimates(
   rhob: ArrayLike<number> | null,
   rhoFl: number,
   h: number,
+  scope?: PlugScope | null,
 ): MatrixDensityEstimates {
-  const plugs = includedPlugs(set, dec);
+  const plugs = includedPlugs(set, dec, scope);
   const g = plugColumn(set, plugs, COL.rhog);
   const grain = g ? summarizeValues(g) : null;
   const phi = plugColumn(set, plugs, COL.phi);
@@ -181,13 +235,18 @@ export function rhomaaZoneRows(rows: readonly Record<string, TableCell>[] | null
 
 // ── exponente de cementación ────────────────────────────────────────────────────────────────────────────────
 
-/** m desde el factor de formación de los plugs incluidos (a fija y libre). null si no hay columna F. */
-export function plugCementation(set: PointSet, dec: PointSetDecisions | undefined, a: number): (CementationResult & { phi: Float64Array; F: Float64Array }) | null {
-  const plugs = includedPlugs(set, dec);
+/** m desde el factor de formación de los plugs incluidos del alcance (a fija y libre). null si no hay columna F. */
+export function plugCementation(
+  set: PointSet,
+  dec: PointSetDecisions | undefined,
+  a: number,
+  scope?: PlugScope | null,
+): (CementationResult & { phi: Float64Array; F: Float64Array; idx: number[] }) | null {
+  const plugs = includedPlugs(set, dec, scope);
   const F = plugColumn(set, plugs, COL.ff);
   const phi = plugColumn(set, plugs, COL.phi);
   if (!F || !phi) return null;
-  return { ...fitCementationExponent(phi, F, a), phi, F };
+  return { ...fitCementationExponent(phi, F, a), phi, F, idx: plugs.idx };
 }
 
 export interface LogCementation {

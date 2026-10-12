@@ -11,7 +11,7 @@ import type { TableValue } from '../src/core/module';
 import { createPointSet, type PointSet } from '../src/core/pointSets';
 import { setPointDecision, setPointSetDepthShift, setPointSetSetting } from '../src/core/state/pointSets';
 import { addWell, createProject, getWellEntry, setParam } from '../src/core/state/project';
-import { createWell, type Zone } from '../src/core/well';
+import { createWell, layoutZones, type Zone } from '../src/core/well';
 import { buildCoreSet, parseTable, readWellFile, suggestCoreMapping } from '../src/io';
 import { registry } from '../src/modules';
 import { CORE_CALIBRATION_ID, RHOMAA_ZONE, RHOMAA_ZONES } from '../src/modules/core-calibration';
@@ -26,6 +26,7 @@ import {
   calibWindow,
   DEFAULT_WINDOW,
   depthMatchState,
+  dominantPlugZone,
   fitsParam,
   includedPlugs,
   isApplied,
@@ -33,14 +34,16 @@ import {
   matrixDensityEstimates,
   paramValue,
   plugCementation,
+  plugScopeCount,
   porosityCalibration,
   rhomaaZoneRows,
   roundedParam,
+  zoneIdsAt,
   zonesWithOwnValue,
 } from '../src/modules/core-calibration/model';
 import { EXAMPLE_M, EXAMPLE_SHIFTS, exampleCoreSet } from '../src/modules/core/example';
 import { MATCH_CURVE_SETTING } from '../src/modules/core/model';
-import { syntheticWell } from '../src/app/demo/syntheticWell';
+import { DEMO_M, demoRw, syntheticWell } from '../src/app/demo/syntheticWell';
 import { normalizeParam, PLOT_PARAMS } from '../src/plots/params';
 import csvText from '../datos/pozo_tp_perfiles.csv?raw';
 import { curve, well, zone } from './helpers';
@@ -296,6 +299,119 @@ describe('panel: ajustes y plugs en profundidad corregida', () => {
     p = setPointDecision(p, W, 'c1', 'p3', { status: 'exclude' });
     const inc = includedPlugs(plugSet(), decOf(p));
     expect(inc.idx).toEqual([0, 1, 3, 4, 5, 6, 7]);
+  });
+});
+
+const PANEL_ZONES = [zone('z1', 1000, 1019.95), zone('z2', 1020, 1040)];
+const Z1 = PANEL_ZONES[0]!.id;
+const Z2 = PANEL_ZONES[1]!.id;
+
+describe('panel: plugs filtrados por la zona de «Aplicar en»', () => {
+  it('zona de cada profundidad: tope ≤ z ≤ base, sin exigir orden; fuera de zona o NaN → null; solapadas: la más somera', () => {
+    const zs = [zone('b', 1010, 1020), zone('a', 1000, 1010)];
+    expect(zoneIdsAt([1015, 1000, 1010, 1020, 1025, NaN, 999.99], zs)).toEqual([zs[0]!.id, zs[1]!.id, zs[1]!.id, zs[0]!.id, null, null, null]);
+    const overlap = [zone('x', 1005, 1015), zone('y', 1000, 1008)];
+    expect(zoneIdsAt([1006], overlap)).toEqual([overlap[1]!.id]);
+  });
+
+  it('con una zona solo cuentan los plugs cuya profundidad CORREGIDA cae en ella; sin zona, todos', () => {
+    const set = plugSet();
+    // Con +2 m: 1005…1017 en z1 (5 plugs) y 1020, 1023, 1026 en z2 (3).
+    const dec = decOf(project(set, 2));
+    expect(includedPlugs(set, dec, { zones: PANEL_ZONES, zoneId: Z1 }).idx).toEqual([0, 1, 2, 3, 4]);
+    expect(includedPlugs(set, dec, { zones: PANEL_ZONES, zoneId: Z2 }).idx).toEqual([5, 6, 7]);
+    expect(includedPlugs(set, dec, { zones: PANEL_ZONES, zoneId: null }).idx).toHaveLength(8);
+    expect(plugScopeCount(set, dec, { zones: PANEL_ZONES, zoneId: Z2 })).toEqual({ included: 8, inScope: 3 });
+    // Sin la puesta en profundidad (archivo: 1003…1024) z1 tiene 6 y z2 2: decide la profundidad corregida.
+    expect(plugScopeCount(set, decOf(project(set)), { zones: PANEL_ZONES, zoneId: Z2 })).toEqual({ included: 8, inScope: 2 });
+    expect(dominantPlugZone(set, dec, PANEL_ZONES)).toBe(Z1);
+  });
+
+  it('un plug descartado tampoco cuenta en la zona', () => {
+    let p = project(plugSet(), 2);
+    p = setPointDecision(p, W, 'c1', 'p7', { status: 'exclude' });
+    expect(includedPlugs(plugSet(), decOf(p), { zones: PANEL_ZONES, zoneId: Z2 }).idx).toEqual([5, 7]);
+  });
+
+  it('φ perfil vs. corona, grano, ρma y m desde F usan solo los plugs de la zona', () => {
+    const set = plugSet({ ff: true });
+    const dec = decOf(project(set, 2));
+    const scope = { zones: PANEL_ZONES, zoneId: Z2 };
+    expect(porosityCalibration(set, dec, LOG_DEPTH, LOG_PHI, 0, scope)!.stats.n).toBe(3);
+    const e = matrixDensityEstimates(set, dec, LOG_DEPTH, LOG_RHOB, 1, 0, scope);
+    // Grano de los plugs 6–8: 2,63 2,65 2,66 → mediana 2,65; la ρma ajustada sigue siendo la de diseño.
+    expect(e.grain!.n).toBe(3);
+    expect(e.grain!.median).toBeCloseTo(2.65, 12);
+    expect(e.fit!.n).toBe(3);
+    expect(e.fit!.rhoMa).toBeCloseTo(RHOMA_TRUE, 10);
+    const c = plugCementation(set, dec, 0.8, scope)!;
+    expect(c.fixedA!.n).toBe(3);
+    expect(c.idx).toEqual([5, 6, 7]);
+    // z1: grano 2,64 2,65 2,66 2,65 2,67 → mediana 2,65 con n 5.
+    expect(matrixDensityEstimates(set, dec, LOG_DEPTH, LOG_RHOB, 1, 0, { zones: PANEL_ZONES, zoneId: Z1 }).grain!.n).toBe(5);
+  });
+
+  it('zona sin plugs: estimaciones vacías (sin grano, sin ajuste, n = 0) y la cuenta lo dice', () => {
+    const set = plugSet({ ff: true });
+    const dec = decOf(project(set, 2));
+    const zs = [...PANEL_ZONES, zone('z3', 1030, 1040)];
+    const scope = { zones: zs, zoneId: zs[2]!.id };
+    expect(plugScopeCount(set, dec, scope)).toEqual({ included: 8, inScope: 0 });
+    expect(porosityCalibration(set, dec, LOG_DEPTH, LOG_PHI, 0, scope)!.stats.n).toBe(0);
+    const e = matrixDensityEstimates(set, dec, LOG_DEPTH, LOG_RHOB, 1, 0, scope);
+    expect(e.grain).toBeNull();
+    expect(e.fit).toBeNull();
+    const c = plugCementation(set, dec, 1, scope)!;
+    expect(c.idx).toEqual([]);
+    expect(c.fixedA).toBeNull();
+  });
+});
+
+describe('pozo de demostración: m desde el perfil coherente con la Rw por defecto', () => {
+  const demo = syntheticWell();
+  const engine = new Engine(registry);
+  engine.setWell(toEngineWell(demo.well));
+  const r = engine.run(emptyInterpretation(demo.zones));
+  const curveOf = (key: string) => r.outputs.find((o) => o.key === key)!.value as Float64Array;
+  const phi = curveOf('phie-vsh:PHIE');
+  const rw = curveOf('rw-manual:RW');
+  const vsh = curveOf('vsh:VSH');
+  const sw = curveOf('sw-archie:SW');
+  const rt = demo.well.curves.find((c) => c.role === 'RT')!.data;
+  const ids = (names: string[]) => demo.zones.filter((z) => names.includes(z.name)).map((z) => z.id);
+
+  it('la Rw del generador es la que calcula la app con sus valores por defecto (≈ 0,008 ohm·m)', () => {
+    for (let i = 0; i < rw.length; i += 523) expect(rw[i]).toBeCloseTo(demoRw(demo.well.depth.values[i]!), 12);
+    expect(rw[0]).toBeGreaterThan(0.007);
+    expect(rw[0]).toBeLessThan(0.009);
+  });
+
+  it('en las zonas acuíferas (A, B, D, E) m desde el perfil ≈ 1,85, el de los F de los plugs, con R² > 0', () => {
+    expect(DEMO_M).toBe(EXAMPLE_M);
+    const c = logCementation({ depth: demo.well.depth.values, zones: demo.zones, waterZones: ids(['A', 'B', 'D', 'E']), phi, rt, rw, vsh, vshMax: 0.3, a: 1 })!;
+    expect(c.perSample.n).toBeGreaterThan(1000);
+    expect(c.perSample.median).toBeGreaterThan(EXAMPLE_M - 0.06);
+    expect(c.perSample.median).toBeLessThan(EXAMPLE_M + 0.06);
+    expect(c.fit.fixedA!.m).toBeCloseTo(EXAMPLE_M, 1);
+    expect(c.fit.fixedA!.r2).toBeGreaterThan(0.3);
+    // Cada zona por separado también.
+    for (const name of ['A', 'B', 'D', 'E']) {
+      const z = logCementation({ depth: demo.well.depth.values, zones: demo.zones, waterZones: ids([name]), phi, rt, rw, vsh, vshMax: 0.3, a: 1 })!;
+      expect(Math.abs(z.perSample.median - EXAMPLE_M), name).toBeLessThan(0.08);
+    }
+  });
+
+  it('la arena de la zona C sigue leyéndose con hidrocarburo y las acuíferas con agua (Sw de Archie por defecto)', () => {
+    const layout = layoutZones(demo.well.depth.values, demo.zones);
+    const medianSw = (name: string) => {
+      const zi = layout.spans.findIndex((s) => s.name === name);
+      const v: number[] = [];
+      for (let i = 0; i < sw.length; i++) if (layout.zoneIndex[i] === zi && vsh[i]! < 0.3 && Number.isFinite(sw[i]!)) v.push(sw[i]!);
+      v.sort((a, b) => a - b);
+      return v[Math.floor(v.length / 2)]!;
+    };
+    expect(medianSw('C')).toBeLessThan(0.2);
+    for (const name of ['A', 'B', 'D', 'E']) expect(medianSw(name), name).toBeGreaterThan(0.9);
   });
 });
 
