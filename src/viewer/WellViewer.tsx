@@ -86,7 +86,22 @@ export interface WellViewerProps {
    * arrastre. Ausente = visor normal.
    */
   layoutEdit?: ViewerLayoutEditing | null;
+  /**
+   * Cortina antes/después (docs/decisiones/0026): línea vertical arrastrable; a su izquierda las pistas de `before`
+   * (alineadas con `tracks`), a su derecha las actuales. Mover la línea solo redibuja (no recalcula nada).
+   */
+  curtain?: ViewerCurtain | null;
 }
+
+export interface ViewerCurtain {
+  /** Versión «antes» de cada pista de `tracks` (mismo orden; null = no existe antes). */
+  before: readonly (ResolvedTrack | null)[];
+  beforeLabel: string;
+  afterLabel: string;
+}
+
+/** Paso de la cortina con el teclado (fracción del ancho; con Mayús, ×5). */
+const CURTAIN_STEP = 0.02;
 
 /** Clases de un encabezado en modo «Armar pistas»: destino activo, rechazado o pista arrastrada. */
 function headEditClass(edit: ViewerLayoutEditing, t: ResolvedTrack): string {
@@ -177,6 +192,9 @@ export function WellViewer(props: WellViewerProps) {
   const liveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   /** Animación de carga en curso: progreso y cuadro pedido. */
   const reveal = useRef<{ start: number; value: number; frame: number } | null>(null);
+  /** Posición de la cortina como fracción del ancho de las pistas (sobrevive a cambios de ancho). */
+  const curtainFrac = useRef(0.5);
+  const curtainRef = useRef<HTMLDivElement>(null);
   const [targets, setTargets] = useState<Target[]>([]);
   const targetsRef = useRef(targets);
   targetsRef.current = targets;
@@ -200,6 +218,7 @@ export function WellViewer(props: WellViewerProps) {
       active: gestures.current?.activeKey ?? null,
       ...(p.stackHints ? { stackHints: p.stackHints } : {}),
       uiScale: getUiScaleFactor(),
+      ...(p.curtain ? { curtain: { x: curtainFrac.current * layoutRef.current.total, before: p.curtain.before } } : {}),
     };
   }, []);
   const invalidateRef = useRef<(what: 'base' | 'cursor') => void>(() => {});
@@ -406,8 +425,79 @@ export function WellViewer(props: WellViewerProps) {
     invalidate('base');
   }, [wellKey, size.height, invalidate, startReveal]);
 
-  // Cambios de pistas, datos, tema, tamaño de interfaz o ancho → redibujar.
-  useEffect(() => invalidate('base'), [tracks, props.data, props.overlays, theme, ui, layout, invalidate]);
+  // Cambios de pistas, datos, tema, tamaño de interfaz, ancho o cortina → redibujar.
+  useEffect(() => invalidate('base'), [tracks, props.data, props.overlays, theme, ui, layout, props.curtain, invalidate]);
+
+  // ── cortina ─────────────────────────────────────────────────────────────────────────────────────────────────
+  /** Ubica la manija y pide un cuadro: el único trabajo al arrastrar es redibujar (nada se recalcula). */
+  const placeCurtain = useCallback(() => {
+    const el = curtainRef.current;
+    if (!el) return;
+    const total = layoutRef.current.total;
+    const x = Math.round(curtainFrac.current * total);
+    el.style.transform = `translateX(${x}px)`;
+    const pct = Math.round(curtainFrac.current * 100);
+    el.setAttribute('aria-valuenow', String(pct));
+    el.setAttribute('aria-valuetext', `${pct} % del ancho`);
+    // Un rótulo que no entra de su lado (borde del área visible) pasa al otro, debajo del primero.
+    const sc = scrollRef.current;
+    const visL = sc?.scrollLeft ?? 0;
+    const visR = visL + (sc?.clientWidth ?? total);
+    const [lb, la] = [el.querySelector<HTMLElement>('.wv-curtain__label--before'), el.querySelector<HTMLElement>('.wv-curtain__label--after')];
+    const gap = 12;
+    el.toggleAttribute('data-edge-left', !!lb && x - lb.offsetWidth - gap < visL);
+    el.toggleAttribute('data-edge-right', !!la && x + la.offsetWidth + gap > visR);
+  }, []);
+  // El área visible cambia con el desplazamiento horizontal: reubicar los rótulos.
+  useEffect(() => {
+    const sc = scrollRef.current;
+    if (!sc || !props.curtain) return;
+    sc.addEventListener('scroll', placeCurtain, { passive: true });
+    return () => sc.removeEventListener('scroll', placeCurtain);
+  }, [placeCurtain, props.curtain]);
+  const setCurtain = useCallback(
+    (frac: number) => {
+      const next = Math.min(1, Math.max(0, frac));
+      if (next === curtainFrac.current) return;
+      curtainFrac.current = next;
+      placeCurtain();
+      invalidate('base');
+    },
+    [placeCurtain, invalidate],
+  );
+  useLayoutEffect(() => placeCurtain(), [placeCurtain, layout, props.curtain]);
+  const curtainDrag = useRef<number | null>(null);
+  const onCurtainDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    e.currentTarget.focus({ preventScroll: true });
+    curtainDrag.current = e.pointerId;
+    e.currentTarget.dataset['dragging'] = '';
+  };
+  const onCurtainMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    if (curtainDrag.current !== e.pointerId) return;
+    const total = layoutRef.current.total;
+    if (total > 0) setCurtain(localPoint(e).x / total);
+  };
+  const onCurtainUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    if (curtainDrag.current !== e.pointerId) return;
+    curtainDrag.current = null;
+    delete e.currentTarget.dataset['dragging'];
+  };
+  const onCurtainKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = CURTAIN_STEP * (e.shiftKey ? 5 : 1);
+    const moves: Record<string, number> = { ArrowLeft: -step, ArrowRight: step, ArrowDown: -step, ArrowUp: step };
+    if (e.key in moves) setCurtain(curtainFrac.current + moves[e.key]!);
+    else if (e.key === 'Home') setCurtain(0);
+    else if (e.key === 'End') setCurtain(1);
+    else return; // Escape y el resto siguen al visor (Escape cierra la comparación)
+    e.preventDefault();
+    e.stopPropagation();
+  };
 
   // Cambio de devicePixelRatio (ventana a otro monitor, zoom del navegador): el ResizeObserver no se entera.
   useEffect(() => {
@@ -1181,6 +1271,34 @@ export function WellViewer(props: WellViewerProps) {
               />
               <canvas ref={cursorRef} className="wv-canvas wv-canvas--cursor" style={{ width: layout.total, ...heights }} aria-hidden="true" />
               <div className="wv-tip" ref={tipRef} role="tooltip" hidden />
+              {props.curtain && (
+                <div
+                  ref={curtainRef}
+                  className="wv-curtain"
+                  role="slider"
+                  tabIndex={0}
+                  aria-label={`Cortina: a la izquierda ${props.curtain.beforeLabel}, a la derecha ${props.curtain.afterLabel}`}
+                  aria-orientation="horizontal"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  title="Arrastrá para mover la cortina · flechas con el foco · Esc para cerrar"
+                  onPointerDown={onCurtainDown}
+                  onPointerMove={onCurtainMove}
+                  onPointerUp={onCurtainUp}
+                  onPointerCancel={onCurtainUp}
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={onCurtainKey}
+                  data-testid="viewer-curtain"
+                >
+                  <span className="wv-curtain__line" aria-hidden="true" />
+                  <span className="wv-curtain__label wv-curtain__label--before">{props.curtain.beforeLabel}</span>
+                  <span className="wv-curtain__label wv-curtain__label--after">{props.curtain.afterLabel}</span>
+                  <span className="wv-curtain__grip" aria-hidden="true">
+                    <Icon name="chevron-left" size={12} strokeWidth={2.25} />
+                    <Icon name="chevron-right" size={12} strokeWidth={2.25} />
+                  </span>
+                </div>
+              )}
               {notice && <div className="wv-notice">{notice}</div>}
             </div>
             {layoutEdit?.drag && <DropLayer tracks={tracks} boxes={layout.boxes} heads={size.heads} edit={layoutEdit} ui={ui} />}

@@ -54,6 +54,14 @@ const ICONS = {
       <path d="M4 4v4.5h4.5M12 8v4.5l3 2" />
     </>
   ),
+  /** Cortina antes/después: marco partido por una línea con manija. */
+  curtain: (
+    <>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="1.5" />
+      <path d="M12 2.5v19" />
+      <path d="M9.5 10l-2 2 2 2M14.5 10l2 2-2 2" />
+    </>
+  ),
   compare: (
     <>
       <path d="M8 4v16M16 4v16" />

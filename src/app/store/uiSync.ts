@@ -8,7 +8,7 @@ import { clearPlotSelection, getPlotLink } from '../../plots/link';
 import { useProject } from './project';
 import { useUi, type UiStore } from './ui';
 
-type UiRefs = Pick<UiStore, 'editingZoneId' | 'activeModuleId' | 'zoneMarking' | 'snapshotsOpen'>;
+type UiRefs = Pick<UiStore, 'editingZoneId' | 'activeModuleId' | 'zoneMarking' | 'snapshotsOpen'> & Partial<Pick<UiStore, 'curtain'>>;
 
 /** Correcciones para que la interfaz no apunte a nada inexistente (vacío si está todo bien). */
 export function staleUiPatch(ui: UiRefs, project: Project, moduleExists: (id: string) => boolean = () => true): Partial<UiRefs> {
@@ -20,6 +20,11 @@ export function staleUiPatch(ui: UiRefs, project: Project, moduleExists: (id: st
   }
   if (ui.editingZoneId !== null && !entry?.interpretation.zones.some((z) => z.id === ui.editingZoneId)) patch.editingZoneId = null;
   if (ui.activeModuleId !== null && !moduleExists(ui.activeModuleId)) patch.activeModuleId = null;
+  // Cortina: el snapshot tiene que seguir existiendo y ser del pozo activo.
+  if (ui.curtain) {
+    const snap = project.snapshots.find((s) => s.id === ui.curtain!.snapshotId);
+    if (!snap || !entry || snap.wellId !== entry.well.id) patch.curtain = null;
+  }
   return patch;
 }
 

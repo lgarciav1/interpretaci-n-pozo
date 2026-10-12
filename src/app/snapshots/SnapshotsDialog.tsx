@@ -7,6 +7,7 @@ import { createSnapshot, restoreSnapshot } from '../../core/state/snapshots';
 import { Button, DataTable, Dialog, EmptyState, TextField, toast } from '../../ui';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useUi } from '../store/ui';
+import { openCurtain } from './actions';
 import { SummaryCompare } from './SummaryCompare';
 import { CURRENT } from './useSource';
 import './snapshots.css';
@@ -82,6 +83,9 @@ export function SnapshotsDialog() {
                   <span className="snap-actions">
                     <Button size="sm" variant="ghost" icon="compare" title="Comparar el sumario de este snapshot (A) con la interpretación actual (B)" onClick={() => setPair({ a: s.id, b: CURRENT })}>
                       Comparar
+                    </Button>
+                    <Button size="sm" variant="ghost" icon="curtain" title="Ver en el visor el antes (este snapshot) y el después (la interpretación actual) con una cortina arrastrable" onClick={() => openCurtain(s.id)}>
+                      Cortina
                     </Button>
                     <Button
                       size="sm"

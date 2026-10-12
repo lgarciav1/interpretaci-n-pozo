@@ -24,6 +24,7 @@ Lo monta `src/app/shell/ViewerSlot.tsx`, que conecta los stores; el componente n
 | `catalog.ts` | catálogo para armar pistas: herramientas (pistas de fábrica), curvas por grupo con estilo y rellenos propios, pistas especiales, búsqueda | no |
 | `layoutEdit.tsx`, `layoutEdit.css` | modo «Armar pistas»: destinos del arrastre (`data-drop-*`, `dropTargetAt`), borde de ancho | sí |
 | `animation.ts` | animación de carga (duración, curva de los tokens) | no |
+| `curtain.ts` | cortina antes/después: alinea las pistas «antes» con las actuales (misma escala y estilo por curva) | no |
 | `minimap.ts`, `wellHeader.ts` | geometría del minimapa y campos del encabezado de pozo | no |
 | `render.ts` | dibujo en canvas 2D (base y cursor; pilas; frente de la animación) | no |
 | `figure.ts`, `figureInput.ts` | figura de publicación del perfil (marco, encabezados de pista, zonas, sumario, créditos) y armado del pedido | no |
@@ -86,6 +87,16 @@ Decisión: [`docs/decisiones/0016-pistas-armables.md`](../../docs/decisiones/001
 - Anchos: con pistas que no entran (desplazamiento horizontal), `layoutTracks(…, { weightedMin: true })` da a una
   pista de ancho k > 1 un mínimo de k × el mínimo, así ensanchar se sigue viendo. Las figuras no usan la opción.
 - Pistas ocultas (`hidden`, las de superposición quitadas) no se resuelven ni se vuelven a agregar.
+
+## Cortina antes/después (fase 9a)
+
+Decisión: [`docs/decisiones/0026-comparacion-de-snapshots.md`](../../docs/decisiones/0026-comparacion-de-snapshots.md).
+Con la prop `curtain` (`before` alineado con `tracks` por `alignCurtainTracks`, y los dos rótulos) el visor muestra una
+línea vertical arrastrable (`role="slider"`, flechas con el foco). `FrameInput.curtain` le pide a `render.ts` que dibuje
+el contenido de cada pista recortado: a la izquierda de la línea su versión «antes», a la derecha la actual. Fondo,
+grilla, superposiciones, profundidad y bordes se dibujan una vez; el lado «antes» usa buffers de reducción propios
+(prefijo de clave). Mover la línea solo ubica la manija y pide un cuadro: no se resuelve ni se calcula nada. Las
+lecturas del encabezado siguen siendo las actuales; los puntos del cursor salen de la versión de su lado.
 
 ## Superposiciones (para módulos)
 

@@ -5,6 +5,11 @@
   `snapshotEngine.ts`, `runner.ts`, `snapshots.css`), lógica pura `src/core/state/snapshotCompare.ts`, fábrica
   `createEngineSupervisor` en `src/app/engineBridge.ts`, coma decimal en `describeDiff`. `Dialogs.tsx` reexporta el
   diálogo. Sin cambios en el protocolo del worker, en el contrato de módulo, en el formato del proyecto ni en el visor.
+- Alcance J2: `src/viewer/curtain.ts` (puro), parámetro opcional `FrameInput.curtain` y método `drawTrackContent` en
+  `src/viewer/render.ts`, prop opcional `curtain` de `WellViewer` (manija HTML y rótulos, `viewer.css`), estado
+  `curtain` en `src/app/store/ui.ts` (saneado en `uiSync.ts`), `src/app/snapshots/actions.ts` y `commands.ts`, botón
+  «Cortina» en cada fila del diálogo, conexión en `src/app/shell/ViewerSlot.tsx` e ícono `curtain` del sistema de
+  diseño. Sin cambios en el modelo de pistas resueltas, en las superposiciones ni en la exportación de figuras.
 - Se apoya en los snapshots ya existentes (`src/core/state/snapshots.ts`: `createSnapshot`, `diffInterpretations`,
   `describeDiff`), en el motor (`computeOnce`, `EngineSupervisor`) y en el módulo `zone-summary` (tabla
   `ZONE_SUMMARY`) y `volumetrics` (`OOIP`/`OGIP` por zona).
@@ -72,7 +77,34 @@ pasa al sumario (espesores netos, promedios, volumen) entre dos estados, y verlo
 - Mientras falta una fuente, «Calculando el sumario de «X»…»; si una no tiene sumario, un aviso que dice cuál y por
   qué. Debajo, la lista de `describeDiff` entre A y B (ahora con coma decimal).
 
+## D5. Cortina antes/después en el visor (J2)
+
+- **Recorte del mismo cuadro, no un segundo visor.** La app resuelve dos veces las mismas pistas (misma plantilla y
+  ajustes): con las curvas calculadas del motor principal y con las de la corrida del snapshot (D1, misma caché que el
+  diálogo). Las curvas medidas son las del pozo activo en los dos lados. `alignCurtainTracks` alinea el «antes» con
+  las pistas visibles por id (null si no existía) y le pasa, para cada curva que existe en los dos, la escala, el
+  estilo y la grilla de la actual: la diferencia que se ve es solo de datos.
+- **Cambio en el visor = un parámetro opcional.** `FrameInput.curtain = { x, before }`: en `drawBase` el contenido de
+  cada pista (pila, banderas, rellenos y curvas, ahora en `drawTrackContent`) se recorta a `[caja.x, x)` con la versión
+  «antes» y a `[x, fin)` con la actual. Fondo, grilla, superposiciones, profundidad y bordes no cambian y se dibujan
+  una vez. Los buffers de reducción del lado «antes» llevan un prefijo de clave (misma clave de curva, otros datos);
+  el barrido de buffers no usados los descarta al cerrar. El cursor dibuja cada punto con la versión de su lado.
+  No hizo falta tocar el modelo de render (una sola lista de pistas, una caja por pista), ni frenar en J1.
+- **60 fps.** La posición vive en un ref (fracción del ancho, sobrevive a cambios de tamaño); arrastrar mueve la
+  manija con `transform` y pide un cuadro. No hay estado de React ni resolución ni cálculo por movimiento. Medido con
+  Playwright sobre el build (pozo de demo, 1920 × 1080): 0 pedidos `run` al motor y 0 corridas aisladas durante el
+  arrastre; cuadro base medio ≈ 5 ms, p95 ≈ 18 ms.
+- **Interfaz.** Línea de acento con manija redonda (`role="slider"`, ←/→ con el foco, Mayús ×5, Inicio/Fin) y rótulos
+  «Antes: <snapshot>» y «Después: actual»; un rótulo que no entra de su lado pasa al otro, debajo. Se abre con
+  «Cortina» en cada fila del diálogo (cierra el diálogo) o con la paleta («Comparar con snapshot…»: directo si hay uno,
+  el diálogo si hay varios; además «Cortina antes/después con «X»» por snapshot). Se cierra con el botón «Cortina»
+  (presionado) de la barra del visor, con Esc o desde la paleta. Mientras se calcula, aviso «Calculando «X»…».
+- **Estado de interfaz**: `useUi.curtain = { snapshotId }`, fuera del proyecto: no pasa por `commit`, no entra en
+  deshacer/rehacer ni en el archivo. `staleUiPatch` la cierra si el snapshot desaparece o es de otro pozo.
+
 ## Abierto
 
 - Comparar más de dos estados a la vez, o exportar la tabla de comparación (CSV/Excel).
 - Promedios de reservorio (no solo del pay) como columnas opcionales.
+- Cortina: las lecturas del encabezado muestran solo la interpretación actual; las superposiciones que dibujan
+  resultados (p. ej. cutoffs sobre una pista) muestran la actual de los dos lados.

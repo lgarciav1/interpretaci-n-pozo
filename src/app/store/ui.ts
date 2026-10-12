@@ -116,6 +116,11 @@ export interface UiStore {
   /** Asistente de carga abierto (con `tp` arranca leyendo los datos del TP). */
   loadDialog: null | { source?: 'tp' };
   snapshotsOpen: boolean;
+  /**
+   * Cortina antes/después en el visor (docs/decisiones/0026): snapshot que se dibuja del lado «antes». Estado de
+   * interfaz: no entra en el proyecto, en deshacer/rehacer ni en el archivo.
+   */
+  curtain: null | { snapshotId: string };
   /** Diálogo «Exportar» abierto. */
   exportOpen: boolean;
   qcReportOpen: boolean;
@@ -136,6 +141,7 @@ export const useUi = create<UiStore>()((set) => ({
   trackBuilder: false,
   loadDialog: null,
   snapshotsOpen: false,
+  curtain: null,
   exportOpen: false,
   qcReportOpen: false,
   equations: null,
