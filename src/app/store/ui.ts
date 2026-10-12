@@ -119,6 +119,8 @@ export interface UiStore {
   /** Diálogo «Exportar» abierto. */
   exportOpen: boolean;
   qcReportOpen: boolean;
+  /** Pantalla «Ecuaciones» abierta, con el módulo elegido al abrir (null = el primero). Ver app/ecuaciones/open.ts. */
+  equations: null | { moduleId: string | null };
   layout: ShellLayout;
   set(patch: Partial<Omit<UiStore, 'set' | 'setLayout' | 'layout'>>): void;
   setLayout(patch: Partial<ShellLayout>): void;
@@ -136,6 +138,7 @@ export const useUi = create<UiStore>()((set) => ({
   snapshotsOpen: false,
   exportOpen: false,
   qcReportOpen: false,
+  equations: null,
   layout: loadLayout(),
   set: (patch) => set(patch),
   setLayout: (patch) => set((s) => ({ layout: { ...s.layout, ...patch } })),

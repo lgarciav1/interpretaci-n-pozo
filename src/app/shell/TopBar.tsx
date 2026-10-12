@@ -11,6 +11,7 @@ import { useResults } from '../store/results';
 import { useUi } from '../store/ui';
 import { IS_MAC, REDO_SHORTCUT, UNDO_SHORTCUT, redoChange, undoChange } from './historyActions';
 import { openProjectFile, saveProject } from './projectActions';
+import { openEquations } from '../ecuaciones/open';
 
 const WORKSPACE_ICON: Record<WorkspaceId, 'sliders' | 'mountain'> = { petrophysics: 'sliders', geology: 'mountain' };
 
@@ -139,6 +140,7 @@ export function TopBar() {
       </div>
       <span className="shell-topbar__divider" aria-hidden="true" />
       <div className="shell-prefs">
+        <IconButton icon="sigma" label="Ecuaciones de los métodos" onClick={() => openEquations()} data-testid="equations-open" />
         <IconButton icon="search" label="Paleta de comandos" hint={IS_MAC_PLATFORM ? '⌘K' : 'Ctrl+K'} aria-keyshortcuts={IS_MAC_PLATFORM ? 'Meta+K' : 'Control+K'} onClick={openCommandPalette} data-testid="command-open" />
         <UiScaleToggle />
         <ThemeToggle />
