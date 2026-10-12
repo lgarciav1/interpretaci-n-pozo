@@ -27,6 +27,7 @@ import { useResults } from '../store/results';
 export const EXPORT_KINDS = [
   { id: 'data', label: 'Datos del pozo' },
   { id: 'figure', label: 'Figuras' },
+  { id: 'report', label: 'Informe' },
 ] as const;
 export type ExportKind = (typeof EXPORT_KINDS)[number]['id'];
 

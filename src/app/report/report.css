@@ -1,0 +1,1 @@
+.report-preview { width: 100%; height: min(62vh, 700px); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-lg); background: white; }
