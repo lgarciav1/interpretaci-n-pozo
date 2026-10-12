@@ -13,7 +13,7 @@ import type { RoleCatalog, RoleDef } from '../core/roles';
 import { getUnit } from '../core/units';
 import type { Curve } from '../core/well';
 import { SW_MODELS_TRACK } from './swModels';
-import { BUILTIN_LAYOUTS, VOLUMETRIC_STACK } from './templates';
+import { BUILTIN_LAYOUTS, NMR_SCALE, NMR_TRACK, VOLUMETRIC_STACK } from './templates';
 
 /** Pista sin id (la receta le pone uno único al crearla). */
 export type TrackDraft = Omit<TrackSpec, 'id'> & { id?: string };
@@ -145,10 +145,19 @@ export const OWN_STYLE: Readonly<Record<string, CurveDisplayOverride>> = {
   PEF: { width: 1 },
   DRHO: { width: 1 },
   IGR: { line: 'solid' },
+  // Porosidades de RMN en la escala de la pista «RMN» (0,5 → 0), aunque se suelten en una pista nueva.
+  PHIT_NMR: NMR_SCALE,
+  PHIE_NMR: NMR_SCALE,
+  BVI_NMR: NMR_SCALE,
 };
 
 const CROSSOVER: FillSpec = { kind: 'between', a: 'RHOB', b: 'NPHI', aLeft: 'gasCrossover', bLeft: 'shaleCrossover', opacity: 1 };
 const WASHOUT: FillSpec = { kind: 'between', a: 'BS', b: 'CALI', aLeft: 'washout', compare: 'value', opacity: 1 };
+
+// Partición de la RMN (0019): cada curva lleva los rellenos que limita.
+const NMR_BVI = NMR_TRACK.fills![0]!;
+const NMR_FFI = NMR_TRACK.fills![1]!;
+const NMR_CBW = NMR_TRACK.fills![2]!;
 
 export const OWN_FILLS: Readonly<Record<string, FillSpec[]>> = {
   GR: [
@@ -162,7 +171,9 @@ export const OWN_FILLS: Readonly<Record<string, FillSpec[]>> = {
   IGR: [{ kind: 'edge', curve: 'IGR', side: 'left', fill: 'shale', opacity: 0.35 }],
   VSH: [{ kind: 'edge', curve: 'VSH', side: 'left', fill: 'shale', opacity: 0.6 }],
   SW: [{ kind: 'edge', curve: 'SW', side: 'left', fill: 'hydrocarbon', opacity: 0.6 }],
-  BVI_NMR: [{ kind: 'edge', curve: 'BVI_NMR', side: 'left', fill: 'boundWater', opacity: 0.8 }],
+  BVI_NMR: [NMR_BVI, NMR_FFI],
+  PHIE_NMR: [NMR_FFI, NMR_CBW],
+  PHIT_NMR: [NMR_CBW],
 };
 
 const RESISTIVITY_SCALE = { kind: 'log', min: 0.2, max: 2000 } as const;
@@ -196,7 +207,7 @@ const TOOLS: Readonly<Record<string, ReturnType<typeof tool>[]>> = {
   'density-neutron': [tool('tool:density-neutron', 'Densidad · neutrón', 'Escalas compatibles con cruce de gas y separación de arcilla', factory('petrophysics', 'porosity'), ['RHOB', 'NPHI', 'PEF', 'DRHO'])],
   sonic: [tool('tool:sonic', 'Sónico', 'Compresional y de corte', factory('petrophysics', 'sonic'), ['DT', 'DTS'])],
   spectral: [tool('tool:spectral', 'GR espectral', 'K, Th, U, CGR y GR', factory('geology', 'spectral'), ['POTA', 'THOR', 'URAN', 'CGR', 'GR'])],
-  nmr: [tool('tool:nmr', 'Resonancia magnética', 'Porosidades RMN con fluido irreducible', factory('geology', 'nmr'), ['PHIT_NMR', 'PHIE_NMR', 'BVI_NMR'])],
+  nmr: [tool('tool:nmr', 'Resonancia magnética', 'Agua ligada, irreducible y fluido libre, con la PHIE de densidad–neutrón encima', NMR_TRACK, ['PHIT_NMR', 'PHIE_NMR', 'BVI_NMR'])],
   computed: [
     tool('tool:computed', 'Interpretación', 'Junta las calculadas que ninguna otra pista muestra', factory('petrophysics', 'computed'), []),
     tool('tool:saturation', 'Porosidad · Sw', 'PHIE, SW y BVW con hidrocarburo', factory('petrophysics', 'saturation'), ['PHIE', 'SW', 'BVW']),
@@ -205,7 +216,7 @@ const TOOLS: Readonly<Record<string, ReturnType<typeof tool>[]>> = {
   ],
   flags: [
     tool('tool:flags', 'Banderas', 'Reservorio y pay netos como franjas', factory('petrophysics', 'flags'), []),
-    tool('tool:indicators', 'Indicadores', 'Gas, arcilla, carbón y derrumbe como franjas', factory('petrophysics', 'indicators'), ['IND_GAS', 'IND_SHALE', 'IND_COAL', 'IND_WASHOUT']),
+    tool('tool:indicators', 'Indicadores', 'Gas, arcilla, carbón, derrumbe y déficit de RMN como franjas', factory('petrophysics', 'indicators'), ['IND_GAS', 'IND_SHALE', 'IND_COAL', 'IND_WASHOUT', 'IND_NMR_DEFICIT']),
   ],
 };
 

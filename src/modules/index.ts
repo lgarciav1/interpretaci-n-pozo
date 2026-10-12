@@ -26,6 +26,7 @@ import swIndonesia from './sw-indonesia';
 import bvwSh from './bvw-sh';
 import permTimur from './perm-timur';
 import permCoates from './perm-coates';
+import nmrFluids from './nmr-fluids';
 import permCore from './perm-core';
 import cutoffs from './cutoffs';
 import cutoffSensitivity from './cutoff-sensitivity';
@@ -37,6 +38,7 @@ import indGasCrossover from './ind-gas-crossover';
 import indShale from './ind-shale';
 import indCoal from './ind-coal';
 import indWashout from './ind-washout';
+import wellReading from './well-reading';
 import invasionStep from './invasion-step';
 import { SHARED_PARAMS } from './sharedParams';
 
@@ -60,6 +62,7 @@ export const MODULES = [
   bvwSh,
   permTimur,
   permCoates,
+  nmrFluids,
   permCore,
   cutoffs,
   cutoffSensitivity,
@@ -71,6 +74,7 @@ export const MODULES = [
   indShale,
   indCoal,
   indWashout,
+  wellReading,
   invasionStep,
 ];
 

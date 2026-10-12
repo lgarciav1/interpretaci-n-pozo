@@ -38,6 +38,44 @@ export const VOLUMETRIC_STACK: StackSpec = {
   ],
 };
 
+/**
+ * Escala de la pista «RMN» (0019): 0,5 → 0 v/v de izquierda a derecha, la convención del CMR y la misma orientación
+ * que las porosidades del proyecto (PHIE, NPHI: más porosidad a la izquierda). La comparten las cuatro curvas para
+ * que las áreas entre ellas sean volúmenes y la PHIE de densidad–neutrón se lea contra la de RMN.
+ */
+export const NMR_SCALE = { scale: 'linear', min: 0, max: 0.5, reversed: true } as const;
+
+/** Color de la PHIE de densidad–neutrón en la pista «RMN» (el visor le garantiza contraste en claro y oscuro). */
+export const NMR_PHIE_COLOR = '#dc2626';
+
+/**
+ * Pista «RMN» (docs/decisiones/0019): partición de la porosidad de RMN desde el borde derecho (φ = 0):
+ * agua irreducible (borde → BVI_NMR, azul), fluido libre (BVI_NMR → PHIE_NMR, amarillo) y agua ligada a la arcilla
+ * (PHIE_NMR → PHIT_NMR, gris). Los rellenos entre curvas comparan VALORES, así siguen bien si el usuario cambia la
+ * escala. Encima, la PHIE de densidad–neutrón como línea roja gruesa: donde queda a la izquierda de PHIE_NMR (más
+ * porosidad que la RMN) está el déficit de RMN (gas, crudo pesado o microporosidad; bandera en «Indicadores»).
+ */
+export const NMR_TRACK: TrackSpec = {
+  id: 'nmr',
+  title: 'RMN',
+  kind: 'curves',
+  width: 1.1,
+  curves: [
+    { select: { role: 'BVI_NMR' }, style: NMR_SCALE },
+    { select: { role: 'PHIT_NMR' }, style: NMR_SCALE },
+    { select: { role: 'PHIE_NMR' }, style: NMR_SCALE },
+    // Roja (y no el azul de PHIE en el resto del visor): tiene que leerse sobre el azul del BVI, el amarillo del fluido
+    // libre y el gris del agua ligada. Es la convención de las pistas CMR para la porosidad de densidad–neutrón.
+    { select: { role: 'PHIE' }, style: { ...NMR_SCALE, width: 2, color: NMR_PHIE_COLOR } },
+  ],
+  fills: [
+    { kind: 'edge', curve: 'BVI_NMR', side: 'right', fill: 'capillaryWater', opacity: 1 },
+    { kind: 'between', a: 'BVI_NMR', b: 'PHIE_NMR', aLeft: 'freeFluid', compare: 'value', opacity: 1 },
+    { kind: 'between', a: 'PHIE_NMR', b: 'PHIT_NMR', aLeft: 'clayBoundWater', compare: 'value', opacity: 1 },
+  ],
+  emptyHint: 'Sin resonancia magnética en este pozo.',
+};
+
 /** Dónde se calcula cada entrada de la pila volumétrica (para el estado vacío). */
 export const STACK_ROLE_HINTS: Readonly<Record<string, string>> = { VSH: 'paso Arcilla', PHIE: 'paso Porosidad', SW: 'paso Saturación' };
 
@@ -105,7 +143,14 @@ export const BUILTIN_LAYOUTS: Readonly<Record<WorkspaceId, readonly TrackSpec[]>
       kind: 'flags',
       // Banderas de los indicadores automáticos (fase 7c, 0017): gas, arcilla, carbón y derrumbe. Van por rol, así
       // el recolector de «Banderas» no las duplica.
-      curves: [{ select: { role: 'IND_GAS' } }, { select: { role: 'IND_SHALE' } }, { select: { role: 'IND_COAL' } }, { select: { role: 'IND_WASHOUT' } }],
+      // El déficit de RMN (0019) va al final: es una alerta a contrastar con el cruce de gas.
+      curves: [
+        { select: { role: 'IND_GAS' } },
+        { select: { role: 'IND_SHALE' } },
+        { select: { role: 'IND_COAL' } },
+        { select: { role: 'IND_WASHOUT' } },
+        { select: { role: 'IND_NMR_DEFICIT' } },
+      ],
       hideWhenEmpty: true,
     },
   ],
@@ -129,17 +174,7 @@ export const BUILTIN_LAYOUTS: Readonly<Record<WorkspaceId, readonly TrackSpec[]>
       emptyHint: 'Sin densidad, neutrón ni PE en este pozo.',
     },
     { id: 'sonic', title: 'Sónico', kind: 'curves', width: 0.8, curves: [{ select: { role: 'DT' } }, { select: { role: 'DTS' } }], emptyHint: 'Sin sónico en este pozo.' },
-    {
-      id: 'nmr',
-      title: 'RMN',
-      kind: 'curves',
-      curves: [{ select: { role: 'BVI_NMR' } }, { select: { role: 'PHIE_NMR' } }, { select: { role: 'PHIT_NMR' } }],
-      fills: [
-        { kind: 'edge', curve: 'BVI_NMR', side: 'left', fill: 'boundWater', opacity: 0.8 },
-        { kind: 'between', a: 'BVI_NMR', b: 'PHIE_NMR', aLeft: 'water', opacity: 0.6 },
-      ],
-      emptyHint: 'Sin resonancia magnética en este pozo.',
-    },
+    NMR_TRACK,
     { id: 'computed', title: 'Interpretación', kind: 'curves', curves: [{ select: { role: 'IGR' }, style: { line: 'solid' } }], collect: 'computed', hideWhenEmpty: true },
     { id: 'flags', title: 'Banderas', kind: 'flags', collect: 'flags', hideWhenEmpty: true },
   ],

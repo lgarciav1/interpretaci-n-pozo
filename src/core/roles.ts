@@ -83,6 +83,12 @@ export const BUILTIN_ROLES: readonly RoleDef[] = [
   { id: 'PHIT_NMR', label: 'Porosidad total RMN', unit: 'v/v', family: 'nmr', origin: 'measured', display: { color: '#4b0082', scale: 'linear', min: 0, max: 0.4 } },
   { id: 'PHIE_NMR', label: 'Porosidad efectiva RMN', unit: 'v/v', family: 'nmr', origin: 'measured', display: { color: '#6a5acd', scale: 'linear', min: 0, max: 0.4 } },
   { id: 'BVI_NMR', label: 'Volumen de fluido irreducible RMN', unit: 'v/v', family: 'nmr', origin: 'measured', display: { color: '#87cefa', scale: 'linear', min: 0, max: 0.4 } },
+  // Resonancia magnética calculada (fase 8a, módulo nmr-fluids): fluido libre/ligado y comparación con densidad–neutrón
+  { id: 'FFI_NMR', label: 'Fluido libre RMN (FFI)', unit: 'v/v', family: 'nmr', origin: 'computed', display: { color: '#1e90ff', scale: 'linear', min: 0, max: 0.4 } },
+  { id: 'CBW_NMR', label: 'Agua ligada a la arcilla RMN (CBW)', unit: 'v/v', family: 'nmr', origin: 'computed', display: { color: '#8c8c8c', scale: 'linear', min: 0, max: 0.4 } },
+  { id: 'SWIRR_NMR', label: 'Fracción de fluido ligado RMN (Swirr)', unit: 'v/v', family: 'nmr', origin: 'computed', display: { color: '#2a9d8f', scale: 'linear', min: 0, max: 1 } },
+  { id: 'DPHI_NMR', label: 'Diferencia de porosidad RMN − densidad–neutrón', unit: 'v/v', family: 'nmr', origin: 'computed', display: { color: '#c0392b', scale: 'linear', min: -0.1, max: 0.1 } },
+  { id: 'IND_NMR_DEFICIT', label: 'Bandera de déficit de RMN', unit: 'unitless', family: 'flag', origin: 'computed', display: { color: '#a21caf', scale: 'linear', min: 0, max: 1 } },
   // Calculadas
   { id: 'IGR', label: 'Índice de rayos gamma', unit: 'v/v', family: 'shale', origin: 'computed', display: { color: '#2e8b57', scale: 'linear', min: 0, max: 1 } },
   { id: 'VSH', label: 'Volumen de arcilla', unit: 'v/v', family: 'shale', origin: 'computed', display: { color: '#8b5a2b', scale: 'linear', min: 0, max: 1 } },

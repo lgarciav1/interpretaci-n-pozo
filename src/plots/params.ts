@@ -9,6 +9,7 @@
 import type { SourceRef } from '../core/interpretation';
 import { paramScope, paramStorageKey, type NumberParamSpec, type ParamSpec, type ParamState, type ParamValue } from '../core/params';
 import type { Zone } from '../core/well';
+import nmrFluids from '../modules/nmr-fluids';
 import phiDensity from '../modules/phi-density';
 import phiNeutron from '../modules/phi-neutron';
 import rwManual from '../modules/rw-manual';
@@ -48,6 +49,8 @@ export const PLOT_PARAMS = {
   a: plotParam('sw-archie', 'a', SHARED_PARAMS.a, 'a'),
   m: plotParam('sw-archie', 'm', SHARED_PARAMS.m, 'm'),
   n: plotParam('sw-archie', 'n', SHARED_PARAMS.n, 'n'),
+  /** Solo lectura (recta del umbral de déficit en la plantilla RMN vs. densidad–neutrón, 0019). */
+  nmrTolerance: plotParam('nmr-fluids', 'tolerance', nmrFluids.params.tolerance, 'Tolerancia RMN'),
 } as const;
 
 /** Clave de almacenamiento de «Corregir por temperatura» de `rw-manual` (booleano). */

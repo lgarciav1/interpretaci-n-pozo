@@ -58,9 +58,16 @@ export const CURVE_PALETTE: Readonly<Record<RoleId, CurvePaletteEntry>> = {
   POTA: { light: '#db2777', dark: '#ff7ab6', line: 'solid' },
   CGR: { light: '#166534', dark: '#7ee2a8', line: 'dashed' },
   // Resonancia magnética
-  PHIT_NMR: { light: '#4338ca', dark: '#9b95ff', line: 'solid' },
-  PHIE_NMR: { light: '#0369a1', dark: '#58b7ec', line: 'dashed' },
-  BVI_NMR: { light: '#64748b', dark: '#a3b1c4', line: 'dotted' },
+  // Pista «RMN» (0019): PHIT_NMR cierra el agua ligada a la arcilla, PHIE_NMR (violeta, para no confundirse con la
+  // PHIE azul de densidad–neutrón que se superpone) separa ligada de libre y BVI_NMR cierra el agua irreducible.
+  PHIT_NMR: { light: '#374151', dark: '#d1d5db', line: 'solid', width: 1.25 },
+  PHIE_NMR: { light: '#7c3aed', dark: '#c4a1ff', line: 'solid', width: 1.5 },
+  BVI_NMR: { light: '#1e4f8f', dark: '#8fb8ec', line: 'dashed', width: 1 },
+  FFI_NMR: { light: '#0b6bcb', dark: '#5fb0ff', line: 'solid' },
+  CBW_NMR: { light: '#6b7280', dark: '#aab2bd', line: 'dotted' },
+  SWIRR_NMR: { light: '#1b7f74', dark: '#52d1c0', line: 'dashed' },
+  DPHI_NMR: { light: '#b91c1c', dark: '#ff7b72', line: 'solid' },
+  IND_NMR_DEFICIT: { light: '#a21caf', dark: '#e879f9', line: 'solid', kind: 'band' },
   // Calculadas
   IGR: { light: '#1f9d55', dark: '#4cd17f', line: 'dashed' },
   VSH: { light: '#8a5a2b', dark: '#d6a36b', line: 'solid', width: 1.5 },
@@ -109,6 +116,9 @@ export type FillId =
   | 'coal'
   | 'water'
   | 'boundWater'
+  | 'clayBoundWater'
+  | 'capillaryWater'
+  | 'freeFluid'
   | 'oil'
   | 'gas'
   | 'hydrocarbon'
@@ -137,6 +147,10 @@ export const FILL_PALETTE: Readonly<Record<FillId, FillEntry>> = {
   coal: { label: 'Carbón', light: '#2b2b2b', dark: '#050505', alpha: 0.9 },
   water: { label: 'Agua', light: '#5aa9e6', dark: '#3d82c4', alpha: 0.55 },
   boundWater: { label: 'Agua ligada', light: '#a7c4e0', dark: '#5d7f9f', alpha: 0.55 },
+  /** Partición de la porosidad de RMN (0019): agua ligada a la arcilla, agua irreducible y fluido libre. */
+  clayBoundWater: { label: 'Agua ligada a la arcilla (CBW)', light: '#a3a8b0', dark: '#6b7079', alpha: 0.6 },
+  capillaryWater: { label: 'Agua irreducible (BVI)', light: '#4a8fdc', dark: '#3a76c0', alpha: 0.6 },
+  freeFluid: { label: 'Fluido libre (FFI)', light: '#e3dc5a', dark: '#e0d453', alpha: 0.65 },
   oil: { label: 'Petróleo', light: '#3fa34d', dark: '#2f8a3c', alpha: 0.6 },
   gas: { label: 'Gas', light: '#e8554e', dark: '#d4473f', alpha: 0.6 },
   hydrocarbon: { label: 'Hidrocarburo', light: '#43a047', dark: '#388e3c', alpha: 0.5 },
