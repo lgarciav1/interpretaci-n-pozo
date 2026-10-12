@@ -121,40 +121,87 @@ con **anillos** (capa densa `ring`: no tapan el color por la tercera curva).
 
 ### D9. Ajuste de la recta: m por mínimos cuadrados recortados; Rw por la mediana
 
-En una zona con Sw = 1, Archie da ln Rt = ln(a·Rw) − m·ln φ. `fitWaterLine` (`src/plots/crossplot/pickett.ts`):
+En una zona con Sw = 1, Archie da ln Rt = ln(a·Rw) − m·ln φ. `fitWaterLine` (`src/plots/crossplot/pickett.ts`). Revisado
+numéricamente de forma independiente (numpy sobre los mismos datos): el código reproducía m, error estándar, puntos
+usados y Rw; la revisión encontró los puntos de abajo, ya corregidos.
 
 1. **Puntos limpios**: solo los de la zona acuífera con Vsh ≤ el cutoff de Vsh del alcance (si hay curva VSH; con menos
    de 5 limpios se usan todos y se avisa). Pickett vale para formaciones limpias: la arcilla baja Rt sin bajar φ
    efectiva y aplana la recta.
-2. **m** = −pendiente de mínimos cuadrados de ln Rt sobre ln φ (`fitTrend` 'power' de `src/petro/regression.ts`), con
+2. **Temperatura**: cada Rt se lleva a la temperatura de referencia con el factor de Arps del motor
+   (`arpsResistivityC(1, tRef, T)`, muestra a muestra) antes de ajustar. El resultado es directamente la Rw de referencia
+   que se escribe, sin pasar por una temperatura representativa, y la mediana de Sw que calcula el motor (que aplica
+   Arps por muestra) queda en 1 salvo el redondeo del parámetro. (Antes: Rw a la temperatura mediana; en la zona E de
+   267 a 274 °C quedaba en 1,003.)
+3. **m** = −pendiente de mínimos cuadrados de ln Rt sobre ln φ (`fitTrend` 'power' de `src/petro/regression.ts`), con
    **recorte robusto** iterativo de los puntos a más de 3·1,4826·MAD de la recta: un tramo con hidrocarburo residual,
-   un derrumbe o una capa arcillosa dentro de la «zona acuífera» no tuerce la pendiente.
-3. **Rw** tal que la **mediana de Sw de Archie en la zona sea 1**: a·Rw = exp(mediana(ln Rt + m·ln φ)). Elegir una zona
-   como acuífera significa pedir Sw = 1 ahí; con este criterio el motor la deja exactamente así en mediana (la mitad de
-   sus muestras de cada lado de la recta). La mediana además es robusta a los mismos desvíos.
-4. **Si la zona no determina m** — menos de 20 puntos usados, φ en un rango angosto (P90/P10 < 1,35), error estándar de
-   m > 0,12 o m fuera del rango del parámetro (1–3,5) — **se conserva m** y se ajusta solo Rw (paso 3 con el m vigente).
-   Es la práctica habitual: con un solo nivel de porosidad la pendiente no está determinada, y escribir una m absurda
-   arruinaría Sw en todo el pozo. El panel dice por qué.
+   un derrumbe o una capa arcillosa dentro de la «zona acuífera» no tuerce la pendiente. Se redondea al paso del parámetro
+   antes de calcular Rw (la Rw es la de la m que se escribe).
+4. **Rw** tal que la **mediana de Sw de Archie sobre los puntos retenidos** (los que dejó el recorte) sea 1:
+   a·Rw = exp(mediana(ln Rt + m·ln φ)). Elegir una zona como acuífera significa pedir Sw = 1 ahí; con este criterio el
+   motor la deja en 1 en mediana. Con el hidrocarburo recortado el sesgo es menor que con todos los puntos (+2,4 % contra
+   +3,9 % con 15 % de hidrocarburo; +3,0 % contra +7,9 % con σ = 0,25). La **mediana** y no la media (que equivale a la
+   ordenada de mínimos cuadrados con m fija): coinciden con residuos simétricos (0,2 % de diferencia), pero con
+   hidrocarburo o asimetría la media sube ~40 % (en el TP, +38 % en E y +41 % en D).
+5. **Si la zona no determina m** se **conserva m** y se ajusta solo Rw (paso 4 con el m vigente, recortando los puntos a
+   más de 3 desvíos robustos de la mediana). Es la práctica habitual: con un solo nivel de porosidad la pendiente no está
+   determinada, y escribir una m absurda arruinaría Sw en todo el pozo. El panel dice por qué. **Esa Rw queda
+   condicionada a m** (es la ordenada en φ = 1: con m = 2 en lugar de 2,3 y φ ≈ 0,2, sale ≈ 50 % de más) y, si la zona
+   tiene hidrocarburo, tiende a quedar **sobreestimada** (Rt sube → Rw sube → Sw sobreestimada: el lado conservador; con
+   el recorte el efecto es de pocos puntos porcentuales). El panel lo dice.
 
-Escribe m (si se estimó) y la Rw de referencia (`rw-manual.rwRef`, desde la Rw de formación con la inversa exacta de Arps,
-0015 D3) con la **regla de alcance de 0015** (una zona filtrada → esa zona; si no, global), en **un solo `commit`**
-(«Ajustar la recta de agua a la zona acuífera», un Ctrl+Z). Antes de escribir, la recta que quedaría se dibuja rayada
-(«Ajuste zona acuífera», `XYLineLayer.preview`: no sale en la figura) y el panel muestra m, Rw de formación, puntos usados
-y R². Si la Rw activa no es la manual, se escribe solo m y se avisa (la acción «Usar Rw manual» de 0015 sigue). Si la Rw
-ajustada cae fuera del rango del parámetro se avisa (se escribiría el extremo).
+**Criterios para aceptar m** — son **criterios prácticos, no estadísticos**: se eligieron para que el ajuste automático no
+escriba una m que un intérprete rechazaría. Si no se cumplen todos se conserva m:
 
-- **Temperatura**: con zona acuífera elegida, la recta se lee a la temperatura de la zona acuífera (mediana de TEMP de sus
-  puntos), y el arrastre convierte con esa misma temperatura (ida y vuelta exactas). Sin zona acuífera sigue la de 0015
-  (mediana de los puntos visibles). Así la recta ajustada pasa por los puntos de agua aunque se vean también zonas más
-  someras; para leer cada zona a su temperatura está el Pickett por zona (D10).
+| Criterio | Valor | Por qué |
+|---|---|---|
+| Muestras independientes n_ef = n·(1 − ρ₁)/(1 + ρ₁) | ≥ 10 | Con muestras cada 0,15 m los residuos son casi copias (ρ₁ = 0,98–0,99 en D y E del TP: 936 y 348 muestras = ~4 y ~3 independientes). El error estándar de MCO supone independencia y subestima ~10 veces. ρ₁ sale de los residuos de muestras consecutivas retenidas; con menos de 5 pares se toma 0. |
+| Espesor de los puntos usados | ≥ 5 m | Una o dos capas no determinan una pendiente; con 20 muestras (el criterio anterior) eran 3 m. |
+| P90/P10 de φ | ≥ 2 | Atenuación por error en φ (abajo): con P90/P10 ≈ 2,3 y error de φ 0,02 se pierde ~14 % de m; con 1,35 (el anterior) hasta 40 % o más. |
+| Error estándar de m, con n_ef | ≤ 0,12 | Intervalo de ±0,24 sobre m ≈ 2 (±12 %). |
+| m dentro del rango del parámetro | 1–3,5 | Lo que el slider admite. |
+
+**m por mínimos cuadrados es una cota inferior.** Con error en φ (la variable independiente) la pendiente de la regresión
+de ln Rt sobre ln φ se atenúa. Simulación (m = 2, σ ln Rt = 0,08, φ uniforme, 200 repeticiones):
+
+| P90/P10 de φ | error de φ 0,01 | 0,02 | 0,03 |
+|---|---|---|---|
+| ≈ 1,3 | 1,6 | 1,0 | 0,6 |
+| ≈ 1,55 | 1,8 | 1,4 | 1,0 |
+| ≈ 2,3 | 1,9 | 1,7 | 1,45 |
+
+La atenuación no la delata ni el error estándar ni el R²: con error de φ 0,03 y P90/P10 = 2,9 el ajuste da m = 1,53 y Rw = 0,063
+contra 2,0 y 0,030 reales, con error estándar 0,033 y R² 0,82. La **cota superior** es la pendiente de la regresión
+inversa (φ sobre Rt), |m|/R²: acá 1,88, y el panel la muestra junto a m («1,53 (cota superior 1,88)»). Si están lejos, m
+es poco confiable. MCO de ln Rt sobre ln φ sigue siendo la elección (es el mejor predictor de Rt dado el φ medido, que
+es como se usa luego); lo que cambia es que se dice que acota por abajo.
+
+**Dispersión.** `spread` = 1,4826·MAD de ln Rt alrededor de la recta, sobre todos los puntos. Una zona acuífera limpia da
+0,05–0,2 (Rt ×1,05–1,2); sobre **0,3** el panel avisa: «la zona no se comporta como acuífera: Rt se dispersa ×X…»
+(hidrocarburo, arcilla o capas distintas). En el TP todas las zonas dan 0,45–0,59 (×1,6–1,8).
+
+**Sw = 1 en mediana.** La mediana de Sw de la zona acuífera es 1, pero la media queda en ~0,82–0,84 (zonas D y E del TP,
+dispersión ~0,5, y el motor recorta Sw a 1); el 10 % de los puntos de E limpios tiene Sw < 0,5 con la Rw ajustada. No es un
+error del ajuste: es la dispersión de Rt de la zona, que el aviso de arriba señala.
+
+Escribe m (si se estimó) y la Rw de referencia (`rw-manual.rwRef`) con la **regla de alcance de 0015** (una zona filtrada →
+esa zona; si no, global), en **un solo `commit`** («Ajustar la recta de agua a la zona acuífera», un Ctrl+Z). Antes de
+escribir, la recta que quedaría se dibuja rayada («Ajuste zona acuífera», `XYLineLayer.preview`: no sale en la figura) y el
+panel muestra m (con su cota superior), Rw de formación, **la Rw que realmente se escribe** (redondeada al paso 0,001 del
+parámetro: ≈ 0,4 % a 0,07, hasta 5–10 % a 0,005–0,01), puntos usados, R² y dispersión. Si la Rw activa no es la manual, se
+escribe solo m y se avisa (la acción «Usar Rw manual» de 0015 sigue). Si la Rw ajustada cae fuera del rango del parámetro se
+avisa (se escribiría el extremo).
+
+- **Temperatura**: con zona acuífera elegida, la recta se lee a la temperatura de la zona acuífera (mediana de TEMP de los
+  puntos que fijan Rw —los limpios—, tanto en la vista previa como en la escritura), y el arrastre convierte con esa misma
+  temperatura (ida y vuelta exactas). Sin zona acuífera sigue la de 0015 (mediana de los puntos visibles). Para leer cada
+  zona a su temperatura está el Pickett por zona (D10).
 - Descartado (anotado): **envolvente inferior** (recta por el borde SO de la nube, p. ej. percentil 10 de los
   residuos). Es la lectura correcta cuando NO hay una zona acuífera y la nube mezcla agua e hidrocarburo (la recta de
   agua es el borde de mínima Rt), pero en una zona elegida como acuífera deja casi todas sus muestras con Sw < 1: la
   mostraría con hidrocarburo. Queda como opción futura para pozos sin zona acuífera («Ajustar a la envolvente»).
-- Descartado: **mínimos cuadrados ortogonales o de φ sobre Rt**. Con errores en las dos variables la pendiente de MCO
-  de ln Rt sobre ln φ se atenúa algo, pero la regresión inversa la exagera más y la ortogonal depende de la escala
-  relativa de los errores, que no conocemos; el recorte robusto pesa más en la práctica que esa diferencia.
+- Descartado: **mínimos cuadrados ortogonales o de φ sobre Rt**. La regresión inversa exagera la pendiente y la ortogonal
+  depende de la escala relativa de los errores, que no conocemos; en su lugar se muestra el par (MCO, inversa) como cotas.
 - Descartado: **ajustar también a (tortuosidad)**. a y m están fuertemente correlacionados en una sola zona; a queda
   como parámetro elegido por el usuario (Humble 0,62/2,15, 0,81/2, 1/2).
 
@@ -207,8 +254,11 @@ mismo costo): es el contrato actual de las superposiciones (`frame.invalidate()`
   log e invertido, rectángulo, simplificación; tramo del visor → índices por bisección; máscara → tramos; nube ↔ muestras;
   clases → muestras con la última cerrada y el filtro; selección única por pozo; receta de exclusión sin duplicados ni
   entradas vacías) y `tests/plots/pickett.test.ts` (ajuste sin ruido exacto; con ruido σ = 0,08 y 15 % de hidrocarburo
-  m ± 0,05 y Rw ± 4 %, y el recorte mejora a la MCO pura; mediana de Sw = 1 exacta; φ angosta, pocos puntos y m fuera de
-  rango conservan m; valores propios, regla de una recta por zona, aviso del rótulo; arrastre de la recta de una zona que
+  m ± 0,05 y Rw ± 3 %, y el recorte mejora a la MCO pura y la mediana de retenidos a la de todos; mediana de Sw del motor
+  (`archieSw` de petro) = 1 exacta, también con la temperatura por punto (Arps del motor); caso a mano de 5 puntos; φ
+  angosto, pocas muestras independientes (residuos autocorrelacionados), espesor, error estándar y m fuera de rango
+  conservan m; a ≠ 1 en modo Rw; puntos nulos, negativos o NaN; m vigente errónea e hidrocarburo con m conservada
+  (sesgo documentado); regresión con el pozo del TP por zona; valores propios, regla de una recta por zona, aviso del rótulo; arrastre de la recta de una zona que
   escribe solo esa zona, deja el global y las otras, y es un solo Ctrl+Z por gesto; flechas; configuración saneada).
 - Chromium real (scripts fuera del repo) con el pozo de demostración y con `datos/pozo_tp_perfiles.csv` («Datos del
   TP»): lazo → 95 tramos en el visor; Mayús + arrastre → crossplot resaltado y serie «Selección» en el histograma; clic y
@@ -216,11 +266,22 @@ mismo costo): es el contrato actual de las superposiciones (`frame.invalidate()`
   Ctrl+Z vuelve y Ctrl+Mayús+Z rehace; una recta por zona con C, D y E (C con m propia); claro y oscuro; Compacto,
   Normal y Grande sin desplazamiento de página; sin errores en consola (se corrigió un aviso de React: `XYPlot`
   avisaba al dueño desde un actualizador de estado).
-- **Resultado sobre el TP** (m = 2 y a = 1 de fábrica, temperatura del módulo de gradiente): ninguna zona determina m por
-  sí sola (pendiente ln Rt–ln φ casi nula: E con error estándar 0,19; D y B dan m 0,47 y 0,31, fuera de rango), así que se
-  conserva m = 2 y se ajusta Rw. Zona E, 348 puntos limpios de 1 778: Rw de formación 0,0112 ohm·m a 271 °C → Rw de
-  referencia 0,072 ohm·m a 24 °C (antes 0,050). Zona D: 0,0116 ohm·m a 263 °C (0,073 a 24 °C). La temperatura de 271 °C sale
-  del gradiente por defecto y está fuera de la carta de Arps (el rótulo ya lo avisa, 0015).
+- **Resultado sobre el TP** (m = 2 y a = 1 de fábrica, temperatura del módulo de gradiente; Rt normalizada por Arps a
+  24 °C; puntos limpios, Vsh ≤ 0,4; reproducido de forma independiente en numpy): **ninguna zona determina m**, así que
+  siempre se conserva m = 2 y se ajusta Rw.
+
+  | Zona | Limpios | m por MCO (cota superior) | n_ef | P90/P10 | Motivo de conservar m | Rw de referencia a 24 °C | Rw de formación | Dispersión |
+  |---|---|---|---|---|---|---|---|---|
+  | A | 303 | 0,08 (39) | 11 | 1,83 | φ angosto | 0,081 | 0,0136 a 250 °C | ×1,72 |
+  | B | 232 | 0,31 (2,8) | 14 | 1,76 | φ angosto | 0,495 | 0,0814 a 255 °C | ×1,57 |
+  | C | 37 | −0,39 (2,5) | 1,9 | 1,64 | pocas independientes | 0,101 | 0,0165 a 258 °C | ×1,80 |
+  | D | 936 | 0,47 (16) | 4,7 | 1,62 | pocas independientes | 0,070 | 0,0112 a 263 °C | ×1,72 |
+  | E | 348 | 0,02 (620) | 2,7 | 1,58 | pocas independientes | 0,068 | 0,0105 a 271 °C | ×1,60 |
+
+  Los 936 y 348 puntos de D y E son ~5 y ~3 muestras independientes (ρ₁ = 0,99 y 0,985 a 0,15 m). Todas superan el aviso
+  de dispersión (> 0,3): sus Rt no siguen una recta de agua, así que la Rw de E (0,068, antes 0,072 con la mediana de todos
+  los puntos y la temperatura mediana) es la mediana de Rt·φ² de la zona, condicionada a m = 2, y no una Rw confirmada. La
+  temperatura de 271 °C sale del gradiente por defecto y está fuera de la carta de Arps (el rótulo ya lo avisa, 0015).
 - Corregido de paso: el histograma anidaba los grupos «Zonas» y «Cutoff» dentro del de GR (no se veían con otra curva).
 - No verificado: tacto (no hay Mayús: ni sumar ni tramo del visor), lectores de pantalla con la ficha y el lazo (el lazo
   no tiene equivalente de teclado), Firefox y Safari, exportar la figura con una selección activa (por construcción no

@@ -467,9 +467,11 @@ Decisión: [`docs/decisiones/0021-graficos-conectados-y-pickett.md`](decisiones/
   de la barra del visor, la paleta de comandos y al cambiar de pozo (`uiSync`).
 - «Excluir del ajuste los puntos seleccionados» en las tendencias del crossplot (`excludeTrendPoints`, un Ctrl+Z).
 - **Pickett**: zona acuífera elegida en el gráfico (`CrossplotConfig.pickettWaterZones`, aditivo en `src/core/plots.ts`;
-  `ZoneKind` no cambia); «Ajustar recta a la zona acuífera» (`src/plots/crossplot/pickett.ts`): puntos limpios, m por
-  mínimos cuadrados recortados de ln Rt sobre ln φ, Rw tal que la mediana de Sw de Archie en la zona sea 1; si la zona no
-  determina m, se conserva. Misma regla de alcance, vista previa rayada y un Ctrl+Z. Con dos o más zonas filtradas y
+  `ZoneKind` no cambia); «Ajustar recta a la zona acuífera» (`src/plots/crossplot/pickett.ts`): puntos limpios, Rt llevada
+  a la temperatura de referencia con Arps por punto, m por mínimos cuadrados recortados de ln Rt sobre ln φ (cota inferior;
+  el panel muestra la superior), Rw tal que la mediana de Sw de Archie en los puntos retenidos sea 1; si la zona no
+  determina m (n_ef < 10, < 5 m, P90/P10 < 2, error estándar > 0,12 o fuera de 1–3,5: criterios prácticos), se conserva m y
+  la Rw queda condicionada a ella; avisa si la dispersión de Rt supera 0,3. Misma regla de alcance, vista previa rayada y un Ctrl+Z. Con dos o más zonas filtradas y
   alguna con valores propios, una recta de agua por zona que escribe solo su zona; con alcance global el rótulo avisa
   las zonas con valor propio.
 - Ampliaciones aditivas de `src/plots/xy/`: `selectTool`/`onSelectLasso`/`selectionShapes`, `emphasis`, `markedBins`/

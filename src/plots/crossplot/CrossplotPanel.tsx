@@ -17,6 +17,7 @@ import type { CrossplotConfig, CrossplotTemplateId } from '../../core/plots';
 import type { ParamState } from '../../core/params';
 import type { TrendSpec } from '../../core/trends';
 import type { TrendModel } from '../../petro/regression';
+import { arpsResistivityC } from '../../petro/temperature';
 import { registry } from '../../modules';
 import rwManual from '../../modules/rw-manual';
 import { SHARED_PARAMS } from '../../modules/sharedParams';
@@ -41,8 +42,8 @@ import { XYPlot, type GuidePhase, type XYGuide, type XYHandle, type XYLineLayer,
 import { cutoffSplit } from '../histogram/histogram';
 import { COLOR_LEVELS, colorLevel, gather, medianAt, plottableIndices, robustRange } from './crossplot';
 import { CROSSPLOT_PROVIDER_ID, crossplotSeries, crossplotSeriesKey, parseCrossplotSeriesKey } from './series';
-import { fitWaterLine, ownPickettParams, parseWaterHandle, waterLineDragWrites, waterLineNudgeWrites, ownValuesNotice, pickettByZone, zonesWithOwnPickett, type WaterFit } from './pickett';
-import { matrixParamsOf, matrixPointOf, projectMatrixLine, representativeTemperature, rwAtFormation, rwAtReference, snapMatrixToLithology, waterLineHandles, waterLineRt } from './drag';
+import { fitWaterLine, WATER_FIT_DEFAULTS, ownPickettParams, parseWaterHandle, waterLineDragWrites, waterLineNudgeWrites, ownValuesNotice, pickettByZone, zonesWithOwnPickett, type WaterFit } from './pickett';
+import { matrixParamsOf, matrixPointOf, projectMatrixLine, representativeTemperature, rwAtFormation, snapMatrixToLithology, waterLineHandles, waterLineRt } from './drag';
 import { crossplotTemplatePatch } from './applyTemplate';
 import { BVW_LINES, CROSSPLOT_TEMPLATE_DEFS, DN_LITHOLOGIES, PICKETT_SW, bvwLine, densityNeutronLine, pickettLine, templateDef, type ArchieParams } from './templates';
 import '../plots.css';
@@ -148,6 +149,11 @@ interface WaterZoneState {
   rwBlocked: boolean;
   /** La Rw (de referencia) o la m ajustadas caen fuera del rango del parámetro: se escribiría el extremo. */
   clamped: string | null;
+  /** Valores que realmente se escribirían (redondeados al paso del parámetro); undefined si no se escribe ese. */
+  written: { rwRef?: number; rwRefRaw?: number; m?: number };
+  /** Rw de formación del ajuste (a la temperatura de la zona acuífera) y temperatura de referencia de Rw. */
+  rwFormation: number;
+  tRef: number;
 }
 
 interface TemplateDrawing {
@@ -236,7 +242,7 @@ function waterZoneState(t: TemplateContext, scope: PlotScope): WaterZoneState | 
     zones.map((z) => z.id),
   );
   const params = t.ctx.interpretation.params;
-  const base = pickettState(t, scope.zoneId, all.samples.length ? all.samples : t.idx);
+  const base0 = pickettState(t, scope.zoneId, all.samples.length ? all.samples : t.idx);
   // Pickett es para formaciones limpias (Archie): el ajuste usa los puntos con Vsh ≤ el cutoff de Vsh del alcance. La
   // arcilla baja Rt sin que baje φ efectiva y aplana la recta. Si quedan menos de 5 limpios, se usan todos (y se avisa).
   const vsh = engineInputData(t.ctx, t.sources, 'VSH');
@@ -248,24 +254,52 @@ function waterZoneState(t: TemplateContext, scope: PlotScope): WaterZoneState | 
     clean = { total: all.k.length, clean: ck.length, cutoff, used: ck.length >= 5 };
     if (clean.used) k = ck;
   }
-  const fit = k.length ? fitWaterLine(t.cloudX, t.cloudY, k, { a: base.a, mCurrent: base.m, mRange: [PLOT_PARAMS.m.spec.min, PLOT_PARAMS.m.spec.max] }) : { problem: 'Las zonas acuíferas no tienen puntos en este gráfico.' };
+  // Temperatura de los MISMOS puntos que fijan Rw (vista previa y escritura coinciden).
+  const base = k.length ? pickettState(t, scope.zoneId, Int32Array.from(k, (q) => t.idx[q]!)) : base0;
+  // Cada Rt se lleva a la temperatura de referencia con Arps (como el motor, muestra a muestra): el ajuste da la Rw de
+  // referencia y la mediana de Sw del motor queda en 1.
+  const temp = engineInputData(t.ctx, t.sources, 'TEMP');
+  let lnRwFactor: Float64Array | undefined;
+  if (base.manual && base.correct && temp) {
+    lnRwFactor = new Float64Array(t.idx.length).fill(NaN);
+    for (const q of k) lnRwFactor[q] = Math.log(arpsResistivityC(1, base.tRef, temp[t.idx[q]!]!));
+  }
+  const depth = t.ctx.well.depth.values;
+  const sampleStep = depth.length > 1 ? (depth[depth.length - 1]! - depth[0]!) / (depth.length - 1) : undefined;
+  const fit = k.length
+    ? fitWaterLine(t.cloudX, t.cloudY, k, {
+        a: base.a,
+        mCurrent: base.m,
+        mRange: [PLOT_PARAMS.m.spec.min, PLOT_PARAMS.m.spec.max],
+        sample: t.idx,
+        ...(sampleStep ? { sampleStep } : {}),
+        ...(lnRwFactor ? { lnRwFactor } : {}),
+        normalizeM: (v) => normalizeParam(PLOT_PARAMS.m.spec, v),
+      })
+    : { problem: 'Las zonas acuíferas no tienen puntos en este gráfico.' };
+  const rwFormation = fit && !('problem' in fit) ? (lnRwFactor ? rwAtFormation(fit.rw, base.tRef, base.tRep, true) : fit.rw) : NaN;
   const writes: ParamWrite[] = [];
+  const written: WaterZoneState['written'] = {};
   const rwBlocked = !base.manual;
   let clamped: string | null = null;
   if (fit && !('problem' in fit)) {
     if (fit.mode === 'm-rw') {
       const m = normalizeParam(PLOT_PARAMS.m.spec, fit.m);
+      written.m = m;
       if (Math.abs(m - plotParamValue(params, PLOT_PARAMS.m, scope.zoneId)) > 1e-9) writes.push(paramWrite(PLOT_PARAMS.m, m, scope));
     }
     if (!rwBlocked && (Number.isFinite(base.tRep) || !base.correct)) {
-      const raw = rwAtReference(fit.rw, base.tRef, base.tRep, base.correct);
+      // Con el factor de Arps por punto, fit.rw ya es la Rw de referencia; sin corrección por temperatura es igual.
+      const raw = fit.rw;
       const spec = PLOT_PARAMS.rwRef.spec;
       if (raw < spec.min || raw > spec.max) clamped = `la Rw ajustada (${fmt(raw)} ohm·m a ${fmt(base.tRef)} °C) cae fuera del rango del parámetro (${fmt(spec.min)}–${fmt(spec.max)}): se usaría el extremo. Revisá que la zona sea acuífera y la temperatura.`;
       const rwRef = normalizeParam(spec, raw);
+      written.rwRef = rwRef;
+      written.rwRefRaw = raw;
       if (Math.abs(rwRef - base.rwRef) > 1e-12) writes.push(paramWrite(PLOT_PARAMS.rwRef, rwRef, scope));
     }
   }
-  return { zones: zones.map((z) => ({ id: z.id, name: z.name, color: z.color })), points: k, clean, fit, tWater: base.tRep, writes, rwBlocked, clamped };
+  return { zones: zones.map((z) => ({ id: z.id, name: z.name, color: z.color })), points: k, clean, fit, tWater: base.tRep, writes, rwBlocked, clamped, written, rwFormation, tRef: base.tRef };
 }
 
 /** Líneas y manijas del Pickett: una recta de agua (con su zona acuífera) o una por zona. */
@@ -1121,14 +1155,32 @@ function WaterZoneBlock({ zones, chosen, water, byZone, onToggle, onApply }: { z
       ) : ok ? (
         <>
           <dl className="plot-params" data-testid="pickett-water-fit">
-            <dt>m ajustada</dt>
-            <dd>{ok.mode === 'm-rw' ? formatParam(PLOT_PARAMS.m, ok.m) : `${formatParam(PLOT_PARAMS.m, ok.m)} (se conserva)`}</dd>
+            <dt>m</dt>
+            <dd>
+              {ok.mode === 'm-rw'
+                ? `${formatParam(PLOT_PARAMS.m, ok.m)}${Number.isFinite(ok.mUpper) ? ` (cota superior ${formatNumber(ok.mUpper, { digits: 2 })})` : ''}`
+                : `${formatParam(PLOT_PARAMS.m, ok.m)} (se conserva)`}
+            </dd>
             <dt>Rw de formación</dt>
             <dd>
-              {fmt(ok.rw)} ohm·m{Number.isFinite(water.tWater) ? ` a ${fmt(water.tWater)} °C` : ''}
+              {fmt(water.rwFormation)} ohm·m{Number.isFinite(water.tWater) ? ` a ${fmt(water.tWater)} °C` : ''}
             </dd>
+            {water.written.rwRef !== undefined && (
+              <>
+                <dt>Rw que se escribe</dt>
+                <dd>
+                  {formatParam(PLOT_PARAMS.rwRef, water.written.rwRef)} a {fmt(water.tRef)} °C
+                </dd>
+              </>
+            )}
             <dt>Puntos</dt>
-            <dd>{ok.mode === 'm-rw' ? `${formatNumber(ok.used, { digits: 0 })} de ${formatNumber(ok.n, { digits: 0 })} · R² ${formatR2(ok.r2)}` : formatNumber(ok.n, { digits: 0 })}</dd>
+            <dd>
+              {ok.mode === 'm-rw' ? `${formatNumber(ok.used, { digits: 0 })} de ${formatNumber(ok.n, { digits: 0 })} · R² ${formatR2(ok.r2)}` : `${formatNumber(ok.used, { digits: 0 })} de ${formatNumber(ok.n, { digits: 0 })}`}
+            </dd>
+            <dt>Dispersión</dt>
+            <dd>
+              ×{formatNumber(Math.exp(ok.spread), { digits: 2 })} en Rt
+            </dd>
           </dl>
           {water.clean && (
             <p className="plot-hint">
@@ -1137,7 +1189,17 @@ function WaterZoneBlock({ zones, chosen, water, byZone, onToggle, onApply }: { z
                 : `Menos de 5 puntos limpios (Vsh ≤ ${fmt(water.clean.cutoff)}): el ajuste usa todos los de la zona.`}
             </p>
           )}
-          {ok.reason && <p className="plot-hint">Se conserva m: {ok.reason}. Se ajusta solo Rw.</p>}
+          {ok.mode === 'm-rw' && <p className="plot-hint">m por mínimos cuadrados es una cota inferior: el error en la porosidad la achata. La cota superior sale de la regresión inversa; si están lejos, m es poco confiable.</p>}
+          {ok.reason && (
+            <p className="plot-hint">
+              Se conserva m = {formatParam(PLOT_PARAMS.m, ok.m)}: {ok.reason}. Se ajusta solo Rw, condicionada a esa m; si la zona tiene hidrocarburo tiende a quedar sobreestimada (y con ella la Sw).
+            </p>
+          )}
+          {ok.spread > WATER_FIT_DEFAULTS.maxSpread && (
+            <p className="plot-hint plot-hint--warn">
+              Atención: la zona no se comporta como acuífera. Rt se dispersa ×{formatNumber(Math.exp(ok.spread), { digits: 2 })} alrededor de la recta de agua (una zona acuífera limpia, menos de ×{formatNumber(Math.exp(WATER_FIT_DEFAULTS.maxSpread), { digits: 2 })}): puede haber hidrocarburo, arcilla o capas distintas. Revisá la elección de la zona.
+            </p>
+          )}
           {water.rwBlocked && <p className="plot-hint">Rw no se escribe: la Rw activa no es la manual.</p>}
           {water.clamped && <p className="plot-hint plot-hint--warn">Atención: {water.clamped}</p>}
           <Button size="sm" variant="primary" icon="check" block disabled={water.writes.length === 0} onClick={onApply} title="m por mínimos cuadrados de log Rt sobre log φ (sin los puntos alejados); Rw tal que la mediana de Sw de la zona sea 1. Un Ctrl+Z lo deshace.">
