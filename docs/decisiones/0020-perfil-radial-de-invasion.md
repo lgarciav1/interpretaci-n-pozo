@@ -1,6 +1,6 @@
 # 0020 — Perfil radial de invasión escalonada desde la inducción de arreglo (fase 8b, función V)
 
-- Estado: aceptada la parte del motor y del módulo (fase 8b, con las correcciones de la revisión numérica); la sección «Vista» está pendiente.
+- Estado: aceptada (fase 8b): motor y módulo, con las correcciones de la revisión numérica, y la vista (sección 8).
 - Alcance: motor puro `src/petro/invasion.ts`; módulo `src/modules/invasion-step/`; roles nuevos `RA10`, `RA20`, `RA30`, `DI`
   e `INV_MISFIT` (`src/core/roles.ts`, `src/ui/curves.ts`, rango físico en `src/io/qc.ts`); mnemónicos AT10/AT20/AT30 (y AHT, AF,
   M2R1-3) en `src/io/mnemonics.ts`; pista de resistividad (`src/viewer/templates.ts`, `src/viewer/catalog.ts`); pozo de
@@ -207,8 +207,114 @@ los `poorly-resolved` que devuelve la API (no sale en las curvas): 36 / 68 / 59 
 
 ## 8. Vista
 
-Pendiente. (La completa quien haga la interfaz: perfil radial a la profundidad del cursor con `invasionProfileAtDepth`,
-`radialResponseSamples` y los cortes pozo / zona lavada / virgen.)
+Pestaña «Perfil radial» del dock, aportada por el módulo (función V del plan): a la profundidad del cursor del visor, las
+lecturas de la inducción de arreglo en función de la distancia al pozo sobre un corte con pozo, zona lavada y formación virgen.
+Capturas: `docs/capturas/8b-perfil-radial-*.png`.
+
+### Archivos
+
+| Archivo | Qué hace |
+|---|---|
+| `src/modules/invasion-step/radial.ts` | puro (lo cubre la regla de pureza de `tests/modules.test.ts`): curvas que el motor le pasa al módulo, muestra más cercana, zona y parámetros vigentes, ajuste de una muestra (`radialViewAt`), estados y textos, sensibilidad radial, corte, perfil escalonado y curva de guía |
+| `src/modules/invasion-step/draw.ts` | dibujo en canvas (sin React; usa `ui/` y `plots/xy`): ejes, reparto del lienzo, corte, campanas, banda de di, datos y rótulos. Lo usan el panel y la figura exportada |
+| `src/modules/invasion-step/dock.tsx`, `radial.css` | pestaña del dock (se descubre sola) |
+| `src/modules/invasion-step/pin.ts` | estado de interfaz sin React: última profundidad del cursor y profundidad fijada |
+| `src/modules/invasion-step/overlay.ts` | línea «Perfil radial» en el visor a la profundidad fijada |
+| `src/modules/invasion-step/commands.ts` | paleta: «Ver perfil radial de invasión» y «Fijar / Soltar la profundidad del perfil radial» |
+| `src/plots/xy/figures.ts`, `figure.ts` | **aditivo**: `XYFigureSource.plot`, dibujo propio del área del gráfico en la figura (ver abajo) |
+| `src/ui/components/Icon.tsx` | íconos `radial` (pestaña) y `pin` (fijar) |
+| `tests/modules.test.ts` | `draw.ts` de un módulo queda fuera de la regla de pureza, como `overlay.ts` (fila de la tabla de carpetas de `docs/arquitectura.md`) |
+| `tests/modules-8b-radial.test.ts` | 27 tests: entradas = las del motor (también DI muestra a muestra), muestra, zona, parámetros, estados, geometría, fijar, dibujo y figura SVG |
+
+### Decisiones
+
+1. **Eje radial logarítmico, fijo de 2 a 200 in.** Las medianas 10-90 in están en progresión casi geométrica y la búsqueda de di va de
+   8,5 a 300 in (× 35): en lineal AT10, AT20 y AT30 quedarían en el primer décimo del ancho y la zona virgen ocuparía casi todo. Además J
+   es una logística en ln r: en log cada curva lee una campana del mismo ancho centrada en su r50, que es exactamente lo que se quiere
+   mostrar («a qué escala lee cada herramienta»). Rango fijo para que el gráfico no salte al mover el cursor; desde 2 in el pozo
+   (≈ 4,25 in de radio) ocupa ≈ 15 % del ancho, lo justo para que se vea. Descartado: lineal (amontona las curvas someras); log desde
+   1 in (el pozo ocupaba un 27 %).
+2. **Resistividad en log**, convención de la industria, en décadas enteras que contienen lecturas, modelo, Rxo y Rt (cambia solo al
+   cruzar una década).
+3. **Corte arriba, perfil abajo, mismo eje x.** Una franja angosta («Corte») con el pozo (lodo, azul grisáceo), la zona lavada (tinte
+   del color de Rxo), la formación virgen (arena tenue), la pared con revoque (línea marrón) y el frente de invasión (rayado); debajo
+   el gráfico de resistividad, con un tinte más tenue de las mismas bandas detrás de los datos. Arriba y no abajo porque así el eje x
+   y su título quedan al pie del gráfico como en cualquier otro (`drawFrame` sin cambios). Descartado: dibujar el corte en planta con
+   círculos (en escala log los anillos no se pueden dibujar concéntricos sin mentir) y ponerlo solo «detrás» del gráfico (las campanas
+   y los rótulos de zona competían con los datos).
+4. **«A qué escala lee cada curva»: campanas de sensibilidad radial** en la franja del corte, una por curva en su color: dJ/d(ln r)
+   normalizada a 1 en la mediana (= 4·J·(1 − J) con la logística), con una marca en r50. El área entre dos radios es la fracción de la
+   señal de ese anillo; sobre el corte se ve de un vistazo qué curva lee la zona lavada y cuál la virgen. Una curva sin dato en la
+   muestra se dibuja rayada y sin relleno. Descartado: J(r) acumulada (cinco sigmoides casi paralelas, no se distinguen) y bandas
+   r10-r90 (cortan la cola, que es justamente lo que hace que AT90 «vea» algo de zona lavada).
+5. **Datos**: lecturas medidas (puntos llenos, color de la curva, rótulo con el mnemónico) en su r50; modelo (círculo vacío) unido a la
+   medida por un trazo fino (el residuo); el perfil escalonado ajustado en trazo grueso neutro (Rxo de la pared al frente, salto, Rt
+   hasta el borde) con los valores rotulados; una guía punteada con la lectura que daría una curva según su profundidad de
+   investigación (por ahí pasan las lecturas modeladas). Los colores de curva vienen de `curveStyle` con contraste ≥ 3:1. Rótulos con
+   placa translúcida y búsqueda de lugar libre (sin `strokeText`, para que la figura SVG sea la misma).
+6. **Incertidumbre de di como protagonista.** En el TP el estado más común con perfil es `poorly-resolved` (42 % de las muestras),
+   así que el intervalo `diLow`–`diHigh` no es un detalle: se dibuja como banda rayada en el corte y en el gráfico, el rótulo dice
+   «di 41 in (8,5–125)» y el resumen lo muestra en su propia línea («di plausible»). También en los ajustes buenos (allí es angosto).
+7. **Estados** (`RadialStatus`, todos con texto propio y tono en el resumen): «Ajuste bueno»; «Ajuste dudoso» (`ok` con desajuste
+   mayor que `maxMisfit` de la zona); «di mal determinado» (`poorly-resolved`: se dibuja el frente con su banda y se avisa que el
+   módulo deja Rxo y di sin dato en esa muestra); «Invasión no resuelta» (`unresolved`, con el motivo `deep` / `shallow` / `sigma` en
+   palabras; sin frente, Rt = lectura más profunda en línea rayada); «Sin invasión visible» (con la separación y el umbral);
+   «Datos insuficientes» (menos de 3 lecturas); y dentro de un ajuste bueno, «di en el trépano», «di en el máximo» y «Rxo fuera de
+   rango» (`rxoAtBound`: solo se dibuja el tramo de Rt desde el frente). Sin curvas de arreglo suficientes en el pozo, un estado vacío
+   que dice cuáles hay y qué asignar.
+8. **Mismas curvas y parámetros que el módulo, sin recalcular la cadena.** Las entradas se resuelven con la regla de `sourceFor` del
+   grafo (fuente elegida; si es el propio módulo —su Rt corregida—, la curva medida), en la unidad canónica; los parámetros con
+   `resolveModuleParams` para la zona de la muestra (`layoutZones`, la misma regla del motor), y el trépano por muestra de la curva
+   BS si la hay. Un test compara con el motor muestra a muestra (di idéntico a 10⁻⁶) y en el demo coincide en todas las profundidades
+   probadas. El pozo se dibuja con el caliper si tiene dato (la cota del ajuste sigue siendo el trépano).
+9. **Profundidad: sigue al cursor; al salir del visor conserva la última; «Fijar» la congela.** El botón con chincheta (o la paleta)
+   fija la profundidad, que pasa a ser un campo numérico (↑/↓ de a una muestra) y aparece en el visor como una línea rayada con la
+   etiqueta «Perfil radial». Sin cursor todavía: la mitad del tramo visible. Cambiar de pozo suelta lo fijado. Estado de interfaz
+   (`pin.ts`), no se guarda en el proyecto. «Ver en el visor» (ojo) lleva el visor a esa profundidad. Descartado: fijar con un clic en
+   el visor (los gestos del visor los estaba cambiando otra tarea en paralelo) y arrastrar la línea fijada (queda pendiente).
+10. **Fluidez.** La pestaña escucha el cursor aunque esté oculta (sin re-render: guarda la profundidad redondeada a la muestra, cambia
+    una vez por muestra y no por píxel) y monta el panel solo a la vista. Una muestra cuesta ≈ 0,25 ms de ajuste (con el intervalo de di)
+    y ≈ 1-3 ms de dibujo; nada recorre el pozo. Medido en Chromium sin GPU con el TP y el build de producción, 240 movimientos del cursor:
+    cuadro medio 46,5 ms con el panel contra 42,0 ms sin él (p95 61,8 contra 54,6); el resto es el propio visor en ese entorno lento.
+11. **Figura exportable** («Exportar → Figuras → Crossplot con leyenda», PNG/SVG/PDF) mientras la pestaña está a la vista, con título
+    «Perfil radial de invasión · pozo · profundidad». El registro de figuras solo sabía dibujar capas x–y; se agregó un campo opcional
+    `plot` a `XYFigureSource` que reemplaza `drawXYScene` en la caja del gráfico (tema claro, factor 1): el panel le pasa el mismo
+    `drawRadialProfile` de la pantalla y capas con nombre solo para la leyenda (curvas y perfil ajustado). Cambio aditivo de 2 archivos;
+    descartado: un registro de figuras paralelo (había que tocar el diálogo de exportación) y expresar el corte como capas x–y (barras
+    sobre un eje derecho ficticio).
+12. **Pista del visor con Rxo, Rt corregida y di: no se agregó.** La pista «Resistividad» de fábrica ya muestra RXO (salida activa del
+    módulo si no hay Rxo medida) y la Rt corregida como «alternativa» junto a AT90; DI e INV_MISFIT caen en «Interpretación» y en el grupo
+    «Curvas calculadas» del catálogo de «Armar pistas». Una herramienta más sería redundante y di (in) no comparte escala con las
+    resistividades. Se puede sumar al catálogo si el uso lo pide.
+
+### Cómo se lee
+
+Arriba, el corte: a la izquierda el pozo, la zona lavada hasta la línea rayada (frente de invasión, di/2) y la formación virgen; la banda
+rayada es el intervalo plausible del frente. Las campanas dicen de dónde viene la señal de cada curva: la de AT10 vive en la zona lavada,
+la de AT90 casi toda en la virgen. Abajo, los puntos son las lecturas en su profundidad de investigación, los círculos vacíos lo que el
+perfil ajustado predice, y la línea gruesa el perfil: si las lecturas bajan con la profundidad de investigación, la invasión es resistiva
+(Rxo > Rt). A la derecha, la profundidad y la zona, el estado del ajuste, Rxo, Rt, di (con su intervalo), Rxo/Rt, desajuste, separación,
+la tabla de lecturas (medida, modelo y diferencia) y los parámetros con que se calculó (trépano y su origen, umbrales, zona).
+
+### Verificado
+
+- `tests/modules-8b-radial.test.ts` (27): entradas iguales a las del motor (fuente elegida, fuente = el propio módulo, curva con otro
+  rol, otro módulo, BS); di de la vista = DI del módulo en un pozo sintético de 40 muestras; muestra más cercana, zona con la regla del
+  motor y parámetros zona → global → fábrica; estados ok / sin invasión / insuficiente / dudoso / `poorly-resolved` / `unresolved`
+  (`sigma`, y los textos de `deep` y `shallow`) / Rxo en la cota; geometría (campana = 1 en r50 y simétrica en log, bandas del corte,
+  perfil escalonado, guía por las lecturas modeladas, eje, reparto del lienzo sin solapes); fijar profundidad; dibujo sobre el contexto
+  SVG (claro y oscuro) y figura SVG completa por `renderFigure`.
+- Chromium real (Playwright, build de producción y servidor de desarrollo): demo y TP; claro y oscuro; Compacto, Normal y Grande sin
+  desplazamiento de página (`scrollWidth = clientWidth`, `scrollHeight = clientHeight`); sin errores de consola; el gráfico aparece en
+  «Exportar → Figuras»; la línea fijada se ve en el visor.
+
+### No verificado / pendiente
+
+- Lectores de pantalla: el lienzo tiene `role="img"` con un resumen (profundidad, estado y lecturas) y el resumen es HTML; no se probó
+  con un lector real.
+- Exportar a PNG y PDF desde el diálogo en el navegador: se probó el SVG por `renderFigure`; PNG y PDF usan el mismo dibujo.
+- Arrastrar la línea fijada en el visor para mover la profundidad; tooltip sobre el lienzo con la lectura bajo el puntero.
+- Con 3 curvas el desajuste es ≈ 0 siempre (3 incógnitas): la vista lo muestra igual; podría decir «no informa».
 
 ## Consecuencias
 
