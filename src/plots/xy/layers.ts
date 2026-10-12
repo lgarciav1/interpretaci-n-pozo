@@ -26,6 +26,8 @@ export interface XYPointLayer {
   dense?: boolean;
   /** Opacidad de los puntos de una nube densa (por defecto 0,75). */
   alpha?: number;
+  /** Nube densa dibujada como anillos (solo contorno): marca puntos de otra capa sin tapar su color (fase 8b). */
+  ring?: boolean;
   /** Responde al puntero y al teclado (tooltip, clic). */
   interactive?: boolean;
   /** Texto del tooltip y nombre accesible. */
@@ -46,6 +48,8 @@ export interface XYLineLayer {
   label?: string;
   /** Extremo donde va el rótulo: el del final de la polilínea (por defecto) o el del comienzo, ya recortado al área. */
   labelAt?: 'start' | 'end';
+  /** Vista previa de una acción (la recta que dejaría un ajuste): se ve en pantalla, no sale en la figura exportada. */
+  preview?: boolean;
 }
 
 /** Barras de un histograma: clases con bordes en x (`edges`, n + 1) y altura en y (`values`, n). */
@@ -132,4 +136,9 @@ export interface XYHandle {
    * la izquierda de la recta de agua). Cerca de un borde del gráfico se da vuelta.
    */
   labelAt?: { x?: 'left' | 'right'; y?: 'above' | 'below' };
+  /**
+   * El rótulo solo se ve con el puntero encima, durante el arrastre o con el foco del teclado (fase 8b): muchas manijas
+   * juntas (una recta de agua por zona) no tapan el gráfico con rótulos. El nombre accesible no cambia.
+   */
+  labelOnActive?: boolean;
 }

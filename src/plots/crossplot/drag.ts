@@ -105,7 +105,13 @@ export function mFromRotate(pt: PickettPoint, a: number, rw: number): number {
  * visible (en log) y la de ROTAR cerca del extremo de φ baja (el otro extremo, φ = 1, es el pivote). Si la recta queda
  * fuera del gráfico, la manija de trasladar va al centro (arrastrarla trae la recta) y no hay manija de rotar.
  */
-export function waterLineHandles(p: Pick<ArchieParams, 'a' | 'm' | 'rw'>, rtRange: [number, number], phiRange: [number, number]): { translate: PickettPoint; rotate: PickettPoint | null; visible: boolean } {
+export function waterLineHandles(
+  p: Pick<ArchieParams, 'a' | 'm' | 'rw'>,
+  rtRange: [number, number],
+  phiRange: [number, number],
+  /** Dónde van las manijas a lo largo del tramo visible (0 = φ baja, 1 = φ alta). Varias rectas (una por zona) las reparten. */
+  at: { translate: number; rotate: number } = { translate: 0.5, rotate: 0.1 },
+): { translate: PickettPoint; rotate: PickettPoint | null; visible: boolean } {
   const L = Math.log(p.a * p.rw);
   const [x0, x1] = [Math.log(Math.min(...rtRange)), Math.log(Math.max(...rtRange))];
   const [y0, y1] = [Math.log(Math.min(...phiRange)), Math.log(Math.max(...phiRange))];
@@ -115,8 +121,8 @@ export function waterLineHandles(p: Pick<ArchieParams, 'a' | 'm' | 'rw'>, rtRang
   if (!(p.m > 0) || !Number.isFinite(L) || !(hi > lo)) {
     return { translate: { rt: Math.exp((x0 + x1) / 2), phi: Math.exp((y0 + y1) / 2) }, rotate: null, visible: false };
   }
-  const at = (Y: number): PickettPoint => ({ rt: Math.exp(L - p.m * Y), phi: Math.exp(Y) });
-  return { translate: at(lo + 0.5 * (hi - lo)), rotate: at(lo + 0.1 * (hi - lo)), visible: true };
+  const pointAt = (Y: number): PickettPoint => ({ rt: Math.exp(L - p.m * Y), phi: Math.exp(Y) });
+  return { translate: pointAt(lo + at.translate * (hi - lo)), rotate: pointAt(lo + at.rotate * (hi - lo)), visible: true };
 }
 
 // ── Rw: temperatura de referencia ↔ formación ───────────────────────────────────────────────────────────────────

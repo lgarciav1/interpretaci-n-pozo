@@ -23,6 +23,11 @@ export interface XYFigureSource {
   y2?: XYAxis;
   /** Barra de color por una tercera curva (crossplot libre). */
   colorKey?: XYColorKey;
+  /**
+   * Dibujo propio del área del gráfico (perfil radial de invasión, 0020): reemplaza a `drawXYScene` en la caja del
+   * gráfico, con el tema claro de las figuras y factor 1. Ejes y capas quedan para la leyenda.
+   */
+  plot?: (ctx: CanvasRenderingContext2D, width: number, height: number) => void;
 }
 
 const sources = new Map<string, XYFigureSource>();

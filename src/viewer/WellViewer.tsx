@@ -164,6 +164,8 @@ export function WellViewer(props: WellViewerProps) {
   const limRef = useRef<ViewportLimits | null>(null);
   const cursor = useRef<{ depth: number | null; source: 'pointer' | 'keyboard' | null }>({ depth: null, source: null });
   const pointer = useRef<Pointer | null>(null);
+  /** Mayús en el último evento del puntero (gestos con modificador de las superposiciones, OverlayPointer.shiftKey). */
+  const shiftRef = useRef(false);
   /** Puntero apretado (capturado) por un gesto: paneo o arrastre de una superposición. */
   const pressed = useRef<number | null>(null);
   const tickFrame = useRef(0);
@@ -498,7 +500,7 @@ export function WellViewer(props: WellViewerProps) {
       const h = hitFrame();
       if (!h) return null;
       const ti = trackAt(h.f.boxes, p.x);
-      return { x: p.x, y: p.y, depth: depthOf(h.f.viewport, p.y), track: ti >= 0 ? h.tracksO[ti]! : null };
+      return { x: p.x, y: p.y, depth: depthOf(h.f.viewport, p.y), track: ti >= 0 ? h.tracksO[ti]! : null, shiftKey: shiftRef.current };
     },
     [hitFrame],
   );
@@ -508,7 +510,7 @@ export function WellViewer(props: WellViewerProps) {
       const h = hitFrame();
       if (!h) return null;
       const ti = trackAt(h.f.boxes, p.x);
-      const ptr = { x: p.x, y: p.y, depth: depthOf(h.f.viewport, p.y), track: ti >= 0 ? h.tracksO[ti]! : null };
+      const ptr = { x: p.x, y: p.y, depth: depthOf(h.f.viewport, p.y), track: ti >= 0 ? h.tracksO[ti]! : null, shiftKey: shiftRef.current };
       // Las de arriba primero (las 'over' y de mayor orden tapan a las otras).
       const ordered = [...h.f.overlays].sort((a, b) => (a.layer === b.layer ? (b.order ?? 0) - (a.order ?? 0) : a.layer === 'over' ? -1 : 1));
       for (const o of ordered) {
@@ -647,6 +649,7 @@ export function WellViewer(props: WellViewerProps) {
     stopReveal();
     const p = localPoint(e);
     pointer.current = p;
+    shiftRef.current = e.shiftKey;
     if (e.pointerType === 'touch') {
       touches.current.set(e.pointerId, p);
       if (touches.current.size === 2) {
@@ -665,6 +668,7 @@ export function WellViewer(props: WellViewerProps) {
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const p = localPoint(e);
     pointer.current = p;
+    shiftRef.current = e.shiftKey;
     const vp = vpRef.current;
     const lim = limRef.current;
     if (!vp || !lim) return;

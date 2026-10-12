@@ -133,8 +133,8 @@ tamaño. Ahora `XYPlot` calcula el mapeo en el render con los ejes actuales.
 
 ## Pendiente
 
-- Rw con valores propios por zona y alcance global: la recta usa la Rw global y la escribe; las zonas con valor propio
-  no cambian (igual que los cutoffs). Podría avisarse en el rótulo.
+- ~~Rw con valores propios por zona y alcance global: la recta usa la Rw global y la escribe; las zonas con valor propio
+  no cambian (igual que los cutoffs). Podría avisarse en el rótulo.~~ Hecho: aviso en el rótulo y una recta por zona (0021).
 - Matriz con las cartas CP-1 tabuladas (curvas) en vez de rectas de mezcla, y un imán hacia esas curvas.
 - Recta de agua con Rw de otra fuente: ofrecer «copiar esta Rw a la manual» antes de cambiar la fuente.
 - Recta de agua y línea de la matriz en la capa de interacción durante el arrastre: hoy cada movimiento redibuja la

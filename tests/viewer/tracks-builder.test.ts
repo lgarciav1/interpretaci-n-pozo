@@ -148,18 +148,19 @@ describe('recetas de pistas', () => {
 
   it('una entrada de grupo se expande en curvas puntuales para mover o quitar una sola', () => {
     const res = track(PETRO, 'resistivity');
-    expect(sel(res)).toEqual(['RXO', '*resistivity', 'RS', 'RM', 'RT']);
+    expect(sel(res)).toEqual(['RXO', '*resistivity', 'RA10', 'RA20', 'RA30', 'RS', 'RM', 'RT']);
     const e = expandGroupEntry(PETRO, 'resistivity', 1, ['AT10', 'AT20', 'RS']);
-    expect(sel(track(e, 'resistivity'))).toEqual(['RXO', '#AT10', '#AT20', '#RS', 'RS', 'RM', 'RT']);
+    expect(sel(track(e, 'resistivity'))).toEqual(['RXO', '#AT10', '#AT20', '#RS', 'RA10', 'RA20', 'RA30', 'RS', 'RM', 'RT']);
     const moved = moveCurveEntry(e, 'resistivity', 2, 'sonic');
-    expect(sel(track(moved, 'resistivity'))).toEqual(['RXO', '#AT10', '#RS', 'RS', 'RM', 'RT']);
+    expect(sel(track(moved, 'resistivity'))).toEqual(['RXO', '#AT10', '#RS', 'RA10', 'RA20', 'RA30', 'RS', 'RM', 'RT']);
     expect(sel(track(moved, 'sonic'))).toEqual(['DT', 'DTS', '#AT20']);
     expect(expandGroupEntry(PETRO, 'resistivity', 0, ['X'])).toBe(PETRO); // no es grupo
   });
 
   it('qué entrada puso cada curva dibujada', () => {
     const res = track(PETRO, 'resistivity');
-    expect(entryIndexFor(res, { role: 'RT', curveId: 'AT90', origin: 'measured' })).toBe(4);
+    expect(entryIndexFor(res, { role: 'RT', curveId: 'AT90', origin: 'measured' })).toBe(7);
+    expect(entryIndexFor(res, { role: 'RA10', curveId: 'AT10', origin: 'measured' })).toBe(2);
     expect(entryIndexFor(res, { role: null, curveId: 'AT10', origin: 'measured' })).toBe(1);
     expect(entryIndexFor(track(PETRO, 'computed'), { role: 'VSH', origin: 'computed' })).toBe(0);
     expect(entryIndexFor(track(PETRO, 'computed'), { role: 'PHIT', origin: 'computed' })).toBe(-1); // la tomó el recolector
@@ -304,7 +305,7 @@ describe('catálogo de herramientas y curvas', () => {
     id: 'w',
     name: 'W',
     depth: demo.well.depth.values,
-    curves: [...demo.well.curves, { id: 'AT30', mnemonic: 'AT30', role: null, unit: 'ohm.m', data: new Float64Array(200), description: 'Inducción 30 in', origin: { kind: 'measured', source: 'test' } }],
+    curves: [...demo.well.curves.filter((c) => c.id !== 'AT30'), { id: 'AT30', mnemonic: 'AT30', role: null, unit: 'ohm.m', data: new Float64Array(200), description: 'Inducción 30 in', origin: { kind: 'measured', source: 'test' } }],
   });
   const groups = buildTrackCatalog({ roles: defaultRoleCatalog, curves: extra.curves, producible: new Set(['VSH', 'PHIE', 'SW', 'NET_PAY']), computed: new Set(['VSH']) });
   const find = (id: string) => groups.flatMap((g) => g.curves.map((c) => ({ ...c, group: g.id }))).find((c) => c.id === id);

@@ -39,6 +39,7 @@ import indShale from './ind-shale';
 import indCoal from './ind-coal';
 import indWashout from './ind-washout';
 import wellReading from './well-reading';
+import invasionStep from './invasion-step';
 import { SHARED_PARAMS } from './sharedParams';
 
 export const MODULES = [
@@ -74,6 +75,7 @@ export const MODULES = [
   indCoal,
   indWashout,
   wellReading,
+  invasionStep,
 ];
 
 /** Parámetros compartidos: ver sharedParams.ts (el registro exige que coincidan con ese catálogo). */

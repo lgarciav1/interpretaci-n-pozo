@@ -28,7 +28,7 @@ export interface XYColorKey {
 }
 
 export interface XYFigureInput {
-  source: Pick<XYFigureSource, 'x' | 'y' | 'points' | 'lines' | 'trends' | 'guides' | 'bars' | 'y2'>;
+  source: Pick<XYFigureSource, 'x' | 'y' | 'points' | 'lines' | 'trends' | 'guides' | 'bars' | 'y2' | 'plot'>;
   parts: FigureParts;
   title: string;
   subtitle?: string;
@@ -164,7 +164,8 @@ export function drawXYFigure(ctx: CanvasRenderingContext2D, input: XYFigureInput
   const { x: xAxis, y: yAxis } = input.source;
   ctx.save();
   ctx.translate(L.plot.x, L.plot.y);
-  if (validAxis(xAxis) && validAxis(yAxis)) {
+  if (input.source.plot) input.source.plot(ctx, L.plot.width, L.plot.height);
+  else if (validAxis(xAxis) && validAxis(yAxis)) {
     const scene: XYScene = { points: input.source.points, lines: input.source.lines, trends: input.source.trends, guides: input.source.guides, ...(input.source.bars ? { bars: input.source.bars } : {}), ...(input.source.y2 ? { y2: input.source.y2 } : {}) };
     drawXYScene(ctx, xyMapping(xAxis, yAxis, plotRectFor(L.plot.width, L.plot.height, false, 1, !!input.source.y2)), xAxis, yAxis, scene, th, false);
   } else {

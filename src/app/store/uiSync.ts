@@ -4,6 +4,7 @@
  * corregir (puro); `installUiSync` lo aplica en cada cambio del proyecto.
  */
 import { activeWellEntry, type Project } from '../../core/state/project';
+import { clearPlotSelection, getPlotLink } from '../../plots/link';
 import { useProject } from './project';
 import { useUi, type UiStore } from './ui';
 
@@ -30,5 +31,8 @@ export function installUiSync(moduleExists?: (id: string) => boolean): void {
     if (s.project === prev.project) return;
     const patch = staleUiPatch(useUi.getState(), s.project, moduleExists);
     if (Object.keys(patch).length > 0) useUi.getState().set(patch);
+    // La selección de los gráficos (0021) es de un pozo: otro pozo activo (u otra importación) la limpia.
+    const sel = getPlotLink().selection;
+    if (sel && activeWellEntry(s.project)?.well.depth.values !== sel.depth) clearPlotSelection();
   });
 }

@@ -37,6 +37,16 @@ const ICONS = {
       <path d="M8 4v5h7V4M8 20v-6h8v6" />
     </>
   ),
+  /** Fijar (una profundidad, un valor). */
+  pin: <path d="M9.5 4h5l-.8 5.2 3.3 3.3H7l3.3-3.3zM12 12.5V20" />,
+  /** Perfil radial: anillos alrededor del pozo. */
+  radial: (
+    <>
+      <circle cx="12" cy="12" r="2" />
+      <circle cx="12" cy="12" r="5.5" />
+      <circle cx="12" cy="12" r="9" strokeDasharray="2.5 2.5" />
+    </>
+  ),
   bookmark: <path d="M6.5 4h11v16L12 16l-5.5 4z" />,
   history: (
     <>

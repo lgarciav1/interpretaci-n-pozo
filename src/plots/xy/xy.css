@@ -50,6 +50,12 @@
   position: absolute;
   inset: 0;
 }
+/* Capa intermedia (selección resaltada, clases marcadas): entre la escena y la interacción, no toma el puntero. */
+.xy-plot__mid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
 /* Manija de una guía arrastrable (cutoff): se llega con Tab, flechas la mueven, Supr la quita. */
 .xy-plot__grip {
   position: absolute;

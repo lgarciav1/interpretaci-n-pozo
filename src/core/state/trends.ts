@@ -73,6 +73,25 @@ export function toggleTrendPoint(project: Project, wellId: string, id: string, p
   return updateTrend(project, wellId, id, { selection: { ...t.selection, excluded } });
 }
 
+/**
+ * Excluye del ajuste varios puntos de una vez (claves estables; los que ya estaban excluidos quedan). Es la acción
+ * «Excluir del ajuste los puntos seleccionados» del crossplot (fase 8b, 0021): un solo `commit`, un solo Ctrl+Z.
+ */
+export function excludeTrendPoints(project: Project, wellId: string, id: string, keys: readonly string[]): Project {
+  const t = requireTrend(project, wellId, id);
+  const have = new Set(t.selection.excluded);
+  const add = keys.filter((k) => !have.has(k) && (have.add(k), true));
+  if (add.length === 0) return project;
+  return updateTrend(project, wellId, id, { selection: { ...t.selection, excluded: [...t.selection.excluded, ...add] } });
+}
+
+/** Vuelve a incluir en el ajuste todos los puntos excluidos. */
+export function includeAllTrendPoints(project: Project, wellId: string, id: string): Project {
+  const t = requireTrend(project, wellId, id);
+  if (t.selection.excluded.length === 0) return project;
+  return updateTrend(project, wellId, id, { selection: { ...t.selection, excluded: [] } });
+}
+
 /** Fija el tramo de profundidad (top < base). Deja de seguir a una zona. */
 export function setTrendRange(project: Project, wellId: string, id: string, top: number, base: number): Project {
   const t = requireTrend(project, wellId, id);

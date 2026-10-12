@@ -2,6 +2,8 @@
  * Acciones del crossplot libre para la paleta de comandos (docs/decisiones/0018): una por plantilla (densidad–neutrón,
  * Pickett, φ–Sw, GR–Rt). Aplican la misma receta que el menú «Plantilla» del panel (`crossplotTemplatePatch`) y abren
  * la pestaña. Se descubre solo (`src/modules/<id>/commands.ts`), como `dock.tsx`.
+ *
+ * Fase 8b (0021): limpiar la selección compartida de los gráficos y los gestos de selección en la hoja de atajos.
  */
 import { computedCurves } from '../../app/computed';
 import { commitPlotConfig } from '../../app/plots/connect';
@@ -11,12 +13,29 @@ import { useUi } from '../../app/store/ui';
 import { registry } from '../index';
 import { crossplotTemplatePatch } from '../../plots/crossplot/applyTemplate';
 import { CROSSPLOT_TEMPLATE_DEFS } from '../../plots/crossplot/templates';
+import { clearPlotSelection, getPlotLink } from '../../plots/link';
 import { toast, type Command, type CommandSource } from '../../ui';
 import { CROSSPLOT_DOCK_ID } from './dock';
 
+/** Gestos de la selección conectada (solo documentación: aparecen en la hoja de atajos «?»). */
+const SELECTION_HELP: Command[] = [
+  { id: 'link:viewer-range', title: 'Marcar un tramo del visor en el crossplot y el histograma', group: 'Gráficos conectados', keys: 'Mayús + arrastre en el visor' },
+  { id: 'link:add', title: 'Sumar a la selección (rectángulo o lazo; clase del histograma)', group: 'Gráficos conectados', keys: 'Mayús + arrastre / clic' },
+];
+
 export const commands: CommandSource = () => {
   const hasWell = !!selectActiveEntry(useProject.getState());
-  return CROSSPLOT_TEMPLATE_DEFS.map(
+  const clear: Command = {
+    id: 'link:clear',
+    title: 'Limpiar la selección de los gráficos',
+    group: 'Gráficos conectados',
+    keywords: ['seleccion', 'lazo', 'rectangulo', 'tramo', 'deseleccionar', 'crossplot', 'histograma'],
+    icon: 'x',
+    keys: 'Esc',
+    enabled: () => !!getPlotLink().selection,
+    run: clearPlotSelection,
+  };
+  return [clear, ...SELECTION_HELP, ...CROSSPLOT_TEMPLATE_DEFS.map(
     (t): Command => ({
       id: `crossplot:template:${t.id}`,
       title: `Crossplot: plantilla ${t.label}`,
@@ -38,5 +57,5 @@ export const commands: CommandSource = () => {
         useUi.getState().setLayout({ dockCollapsed: false });
       },
     }),
-  );
+  )];
 };
