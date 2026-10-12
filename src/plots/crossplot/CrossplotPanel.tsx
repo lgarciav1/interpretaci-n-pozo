@@ -38,14 +38,14 @@ import { trendColor } from '../trend/overlay';
 import type { SeriesContext } from '../trend/series';
 import { niceRange, type DataRect, type XYAxis } from '../xy/axes';
 import type { XYColorKey } from '../xy/figure';
-import { XYPlot, type GuidePhase, type XYGuide, type XYHandle, type XYLineLayer, type XYPointLayer, type XYTrendLayer } from '../xy/XYPlot';
+import { XYPlot, type GuidePhase, type XYGuide, type XYHandle, type XYLineLayer, type XYPointLayer, type XYPolygonLayer, type XYTrendLayer } from '../xy/XYPlot';
 import { cutoffSplit } from '../histogram/histogram';
 import { COLOR_LEVELS, colorLevel, gather, medianAt, plottableIndices, robustRange } from './crossplot';
 import { CROSSPLOT_PROVIDER_ID, crossplotSeries, crossplotSeriesKey, parseCrossplotSeriesKey } from './series';
 import { fitWaterLine, WATER_FIT_DEFAULTS, ownPickettParams, parseWaterHandle, waterLineDragWrites, waterLineNudgeWrites, ownValuesNotice, pickettByZone, zonesWithOwnPickett, type WaterFit } from './pickett';
 import { matrixParamsOf, matrixPointOf, projectMatrixLine, representativeTemperature, rwAtFormation, snapMatrixToLithology, waterLineHandles, waterLineRt } from './drag';
 import { crossplotTemplatePatch } from './applyTemplate';
-import { BVW_LINES, CROSSPLOT_TEMPLATE_DEFS, DN_LITHOLOGIES, PICKETT_SW, bvwLine, densityNeutronLine, nmrDnLines, pickettLine, templateDef, type ArchieParams } from './templates';
+import { BVW_LINES, CROSSPLOT_TEMPLATE_DEFS, DN_LITHOLOGIES, PICKETT_SW, bvwLine, densityNeutronLine, nmrDnLines, pickettLine, mineralogyTemplateLayers, mineralogyFullRange, templateDef, type ArchieParams } from './templates';
 import '../plots.css';
 
 export interface CrossplotPanelProps {
@@ -158,6 +158,7 @@ interface WaterZoneState {
 
 interface TemplateDrawing {
   lines: XYLineLayer[];
+  polygons: XYPolygonLayer[];
   guides: XYGuide[];
   points: XYPointLayer[];
   handles: XYHandle[];
@@ -441,7 +442,7 @@ function pickettDrawing(out: TemplateDrawing, t: TemplateContext, c: (hex: strin
 /** Líneas guía y manijas de la plantilla, con colores del tema (la matemática está en `templates.ts` y `drag.ts`). */
 function templateDrawing(id: CrossplotTemplateId | null, t: TemplateContext): TemplateDrawing {
   const { ctx, theme, scope } = t;
-  const out: TemplateDrawing = { lines: [], guides: [], points: [], handles: [], info: null, readouts: [], warnings: [], dn: null, pickett: [], water: null, byZoneOffer: null };
+  const out: TemplateDrawing = { lines: [], polygons: [], guides: [], points: [], handles: [], info: null, readouts: [], warnings: [], dn: null, pickett: [], water: null, byZoneOffer: null };
   const bg = theme.viewer.trackBg;
   const c = (hex: string) => ensureContrast(hex, bg, 3);
   const params = ctx.interpretation.params;
@@ -509,6 +510,12 @@ function templateDrawing(id: CrossplotTemplateId | null, t: TemplateContext): Te
       out.warnings.push({ id: 'igr', title: 'El índice de arcilla no sale de este GR', text: 'Mover las líneas no cambiaría Vsh.', action: 'Usar índice de arcilla por GR', port: 'IGR', moduleId: 'igr' });
     }
     out.info = draggable ? 'GR de arena limpia y de arcilla del paso Arcilla: arrastralas para elegirlas (Vsh se recalcula en vivo).' : 'GR de arena limpia y de arcilla del paso Arcilla (de la zona si hay una sola filtrada).';
+  } else if (id === 'th-k' || id === 'pe-density') {
+    const layers = mineralogyTemplateLayers(id, c);
+    out.polygons.push(...layers.polygons);
+    out.lines.push(...layers.lines);
+    out.points.push(...layers.points);
+    out.info = layers.info;
   } else if (id === 'nmr-dn') {
     const tol = plotParamValue(params, PLOT_PARAMS.nmrTolerance, scope.zoneId);
     const l = nmrDnLines(tol);
@@ -1019,6 +1026,8 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
               <div className="plot-aside-block" data-testid="crossplot-template-info">
                 <div className="plot-group__title">
                   <Badge tone="accent">{tplDef.label}</Badge>
+                  {config.template === 'pe-density' && <Button size="sm" variant="ghost" onClick={() => onChange(mineralogyFullRange(), 'Ver todos los minerales de PE–densidad')}>Ver todos los minerales</Button>}
+                  {config.template === 'pe-density' && <Button size="sm" variant="ghost" onClick={() => onChange({ xRange: [0, 8], yRange: [1.3, 3.2] }, 'Ver minerales principales de PE–densidad')}>Rango principal</Button>}
                   {tpl.readouts.length > 0 && <span className="plot-muted"> {tpl.pickett.length > 1 || tpl.pickett[0]?.key ? 'una recta por zona' : pscope.zoneId ? pscope.text : 'global'}</span>}
                 </div>
                 {tpl.readouts.length > 0 && (
@@ -1070,6 +1079,7 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
               y={yAxis}
               points={points}
               lines={tpl?.lines ?? NO_LINES}
+              polygons={tpl?.polygons ?? []}
               trends={trends}
               guides={guides}
               handles={tpl?.handles ?? NO_HANDLES}
@@ -1260,6 +1270,7 @@ interface CloudPlotProps {
   y: XYAxis;
   points: XYPointLayer[];
   lines: XYLineLayer[];
+  polygons: XYPolygonLayer[];
   trends: XYTrendLayer[];
   guides: XYGuide[];
   handles: XYHandle[];
@@ -1294,6 +1305,7 @@ const CloudPlot = memo(function CloudPlot(p: CloudPlotProps) {
       y={p.y}
       points={p.points}
       lines={p.lines}
+      polygons={p.polygons}
       trends={p.trends}
       guides={p.guides}
       handles={p.handles}
@@ -1319,4 +1331,5 @@ const CloudPlot = memo(function CloudPlot(p: CloudPlotProps) {
     />
   );
 });
+
 

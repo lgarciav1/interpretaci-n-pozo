@@ -8,7 +8,7 @@ import { withAlpha } from '../../ui/color';
 import { BASE_TOKENS, scalePx, type ThemeTokens } from '../../ui/tokens';
 import { drawTrend, drawTrendLabel, trendGeometry } from '../trend/draw';
 import { axisTicks, xyMapping, type XYAxis, type XYMapping } from './axes';
-import type { XYBarLayer, XYGuide, XYLineLayer, XYPointLayer, XYTrendLayer } from './layers';
+import type { XYBarLayer, XYGuide, XYLineLayer, XYPointLayer, XYPolygonLayer, XYTrendLayer } from './layers';
 
 /** `ui`: factor del tamaño de interfaz (1 en las figuras exportadas). */
 const font = (size: number, weight: number = BASE_TOKENS.weight.regular, ui = 1) => `${weight} ${scalePx(size, ui)}px ${BASE_TOKENS.font.sans}`;
@@ -241,6 +241,7 @@ export function drawXYTrend(
 export interface XYScene {
   points?: readonly XYPointLayer[];
   lines?: readonly XYLineLayer[];
+  polygons?: readonly XYPolygonLayer[];
   trends?: readonly XYTrendLayer[];
   guides?: readonly XYGuide[];
   bars?: readonly XYBarLayer[];
@@ -463,8 +464,42 @@ function drawLineLabel(ctx: CanvasRenderingContext2D, m: XYMapping, l: XYLineLay
   ctx.restore();
 }
 
+/** Polígono en coordenadas de datos. El dueño recorta al área; NaN o log inválido omiten toda la región. */
+export function drawDataPolygon(ctx: CanvasRenderingContext2D, m: XYMapping, layer: XYPolygonLayer, ui = 1): void {
+  if (layer.vertices.length < 3) return;
+  const vertices = layer.vertices.map(([x, y]) => [m.x(x), m.y(y)] as const);
+  if (vertices.some(([x, y]) => !Number.isFinite(x) || !Number.isFinite(y))) return;
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(vertices[0]![0], vertices[0]![1]);
+  for (const [x, y] of vertices.slice(1)) ctx.lineTo(x, y);
+  ctx.closePath();
+  ctx.fillStyle = layer.color;
+  ctx.globalAlpha = Math.max(0, Math.min(1, layer.fillAlpha ?? 0.1));
+  ctx.fill();
+  ctx.globalAlpha = 0.7;
+  ctx.strokeStyle = layer.color;
+  ctx.lineWidth = layer.width ?? 1;
+  ctx.setLineDash([]);
+  ctx.stroke();
+  if (layer.label) {
+    const position = layer.labelPosition
+      ? [m.x(layer.labelPosition[0]), m.y(layer.labelPosition[1])]
+      : [vertices.reduce((sum, vertex) => sum + vertex[0], 0) / vertices.length,
+         vertices.reduce((sum, vertex) => sum + vertex[1], 0) / vertices.length];
+    if (position.every(Number.isFinite)) {
+      ctx.globalAlpha = 1;
+      ctx.font = font(10, BASE_TOKENS.weight.semibold, ui);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(layer.label, position[0]!, position[1]!);
+    }
+  }
+  ctx.restore();
+}
+
 export function drawXYScene(ctx: CanvasRenderingContext2D, m: XYMapping, xAxis: XYAxis, yAxis: XYAxis, scene: XYScene, theme: ThemeTokens, compact = false, ui = 1): void {
-  const { points = [], lines = [], trends = [], guides = [], bars = [], y2 } = scene;
+  const { points = [], lines = [], polygons = [], trends = [], guides = [], bars = [], y2 } = scene;
   drawFrame(ctx, m, xAxis, yAxis, theme, compact, ui, y2);
   const r = m.rect;
   const m2 = y2 ? xyMapping(xAxis, y2, r) : m;
@@ -472,6 +507,7 @@ export function drawXYScene(ctx: CanvasRenderingContext2D, m: XYMapping, xAxis: 
   ctx.beginPath();
   ctx.rect(r.x, r.y, r.width, r.height);
   ctx.clip();
+  for (const polygon of polygons) drawDataPolygon(ctx, m, polygon, ui);
   for (const b of bars) drawBars(ctx, m, b);
   for (const g of guides) {
     ctx.save();
@@ -541,3 +577,4 @@ export function drawXYScene(ctx: CanvasRenderingContext2D, m: XYMapping, xAxis: 
     if (b) boxes.push(b);
   }
 }
+

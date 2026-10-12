@@ -28,7 +28,7 @@ export interface XYColorKey {
 }
 
 export interface XYFigureInput {
-  source: Pick<XYFigureSource, 'x' | 'y' | 'points' | 'lines' | 'trends' | 'guides' | 'bars' | 'y2' | 'plot'>;
+  source: Pick<XYFigureSource, 'x' | 'y' | 'points' | 'lines' | 'trends' | 'guides' | 'bars' | 'polygons' | 'y2' | 'plot'>;
   parts: FigureParts;
   title: string;
   subtitle?: string;
@@ -52,6 +52,7 @@ export interface LegendEntry {
 /** Entradas de la leyenda: capas con nombre y tendencias con su ecuación y R². */
 export function xyLegendEntries(src: XYFigureInput['source']): LegendEntry[] {
   const out: LegendEntry[] = [];
+  for (const p of src.polygons ?? []) if (p.name) out.push({ kind: 'bar', color: p.color, text: p.name });
   for (const b of src.bars ?? []) if (b.name) out.push({ kind: 'bar', color: b.color, text: b.name });
   for (const l of src.points) if (l.name) out.push({ kind: 'point', color: typeof l.color === 'string' ? l.color : '#6b737e', text: l.name });
   for (const l of src.lines) if (l.name) out.push({ kind: 'line', color: l.color, text: l.name, ...(l.dash ? { dash: l.dash } : {}) });
@@ -166,7 +167,7 @@ export function drawXYFigure(ctx: CanvasRenderingContext2D, input: XYFigureInput
   ctx.translate(L.plot.x, L.plot.y);
   if (input.source.plot) input.source.plot(ctx, L.plot.width, L.plot.height);
   else if (validAxis(xAxis) && validAxis(yAxis)) {
-    const scene: XYScene = { points: input.source.points, lines: input.source.lines, trends: input.source.trends, guides: input.source.guides, ...(input.source.bars ? { bars: input.source.bars } : {}), ...(input.source.y2 ? { y2: input.source.y2 } : {}) };
+    const scene: XYScene = { points: input.source.points, lines: input.source.lines, ...(input.source.polygons ? { polygons: input.source.polygons } : {}), trends: input.source.trends, guides: input.source.guides, ...(input.source.bars ? { bars: input.source.bars } : {}), ...(input.source.y2 ? { y2: input.source.y2 } : {}) };
     drawXYScene(ctx, xyMapping(xAxis, yAxis, plotRectFor(L.plot.width, L.plot.height, false, 1, !!input.source.y2)), xAxis, yAxis, scene, th, false);
   } else {
     ctx.fillStyle = th.color.textMuted;
@@ -234,3 +235,4 @@ export function drawXYFigure(ctx: CanvasRenderingContext2D, input: XYFigureInput
   }
   ctx.restore();
 }
+

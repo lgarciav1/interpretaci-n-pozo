@@ -36,7 +36,8 @@ export function crossplotTemplatePatch(ctx: SeriesContext, id: CrossplotTemplate
       xRange: def.x.range,
       yRange: def.y.range,
       template: id,
-      ...(color ? { color: { kind: 'curve' as const, curve: color } } : {}),
+      ...(color ? { color: { kind: 'curve' as const, curve: color } } : id === 'th-k' || id === 'pe-density' ? { color: { kind: 'zone' as const } } : {}),
     },
   };
 }
+

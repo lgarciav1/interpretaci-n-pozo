@@ -97,8 +97,8 @@ describe('plantilla φ–Sw (BVW constante)', () => {
 });
 
 describe('definición de plantillas', () => {
-  it('las cinco con sus roles y escalas', () => {
-    expect(CROSSPLOT_TEMPLATE_DEFS.map((t) => t.id)).toEqual(['density-neutron', 'pickett', 'phi-sw', 'gr-rt', 'nmr-dn']);
+  it('las siete con sus roles y escalas', () => {
+    expect(CROSSPLOT_TEMPLATE_DEFS.map((t) => t.id)).toEqual(['density-neutron', 'pickett', 'phi-sw', 'gr-rt', 'nmr-dn', 'th-k', 'pe-density']);
     const dn = CROSSPLOT_TEMPLATE_DEFS[0]!;
     expect([dn.x.role, dn.y.role, dn.y.reversed]).toEqual(['NPHI', 'RHOB', true]);
     const pk = CROSSPLOT_TEMPLATE_DEFS[1]!;
@@ -245,3 +245,4 @@ describe('serie `crossplot` para tendencias', () => {
     expect(crossplotSeries(ctx, 'm:NOPE|r:PHIE|')).toBeNull();
   });
 });
+

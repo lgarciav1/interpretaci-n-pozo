@@ -6,7 +6,7 @@
  */
 import type { XYAxis } from './axes';
 import type { XYColorKey } from './figure';
-import type { XYBarLayer, XYGuide, XYLineLayer, XYPointLayer, XYTrendLayer } from './layers';
+import type { XYBarLayer, XYGuide, XYLineLayer, XYPointLayer, XYPolygonLayer, XYTrendLayer } from './layers';
 
 export interface XYFigureSource {
   id: string;
@@ -15,6 +15,7 @@ export interface XYFigureSource {
   y: XYAxis;
   points: readonly XYPointLayer[];
   lines: readonly XYLineLayer[];
+  polygons?: readonly XYPolygonLayer[];
   trends: readonly XYTrendLayer[];
   guides: readonly XYGuide[];
   /** Barras (histograma). */
@@ -60,3 +61,4 @@ export function subscribeXYFigures(listener: () => void): () => void {
   listeners.add(listener);
   return () => void listeners.delete(listener);
 }
+

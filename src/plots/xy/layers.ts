@@ -142,3 +142,17 @@ export interface XYHandle {
    */
   labelOnActive?: boolean;
 }
+
+
+/** Región mineral en coordenadas de datos; se dibuja detrás de líneas y muestras. */
+export interface XYPolygonLayer {
+  id: string;
+  name?: string;
+  vertices: readonly (readonly [number, number])[];
+  color: string;
+  fillAlpha?: number;
+  width?: number;
+  /** Rótulo en el centro geométrico aproximado, o en una posición explícita. */
+  label?: string;
+  labelPosition?: readonly [number, number];
+}
