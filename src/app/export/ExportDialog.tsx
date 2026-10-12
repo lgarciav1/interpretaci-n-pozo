@@ -1,6 +1,5 @@
 /**
- * Diálogo «Exportar»: dos secciones. «Datos del pozo» (formato, curvas, tramo, unidad de profundidad y nulos; salen de
- * `exportActions`) y «Figuras» (PNG, SVG y PDF del perfil y de los gráficos; `FiguresPanel` y `figureActions`).
+ * Diálogo «Exportar»: datos del pozo, figuras e informe automático imprimible.
  */
 import { useMemo, useState } from 'react';
 import { Button, Callout, Checkbox, Dialog, Field, SegmentedControl, Select } from '../../ui';
@@ -8,7 +7,8 @@ import { FORMAT_LABEL, type DepthUnit, type ExportFormat } from '../../io/export
 import { selectActiveEntry, useProject } from '../store/project';
 import { useResults } from '../store/results';
 import { useUi } from '../store/ui';
-import { exportData, exportSources, EXPORT_KINDS, type ExportKind } from './exportActions';
+import { downloadFile, exportData, exportSources, EXPORT_KINDS, type ExportKind } from './exportActions';
+import { ReportPanel, useReportForm } from '../report/ReportPanel';
 import { exportFigure } from './figureActions';
 import { FiguresPanel, useFigureForm } from './FiguresPanel';
 import './export.css';
@@ -40,6 +40,7 @@ export function ExportDialog() {
   const [kind, setKind] = useState<ExportKind>('data');
   const [busy, setBusy] = useState(false);
   const figure = useFigureForm(open && kind === 'figure');
+  const report = useReportForm(open && kind === 'report');
 
   const sources = useMemo(() => (open && entry ? exportSources(entry.well, result, alternatives) : null), [open, entry, result, alternatives]);
   if (!open || !entry || !sources) return null;
@@ -90,20 +91,26 @@ export function ExportDialog() {
       onClose={close}
       size="lg"
       title="Exportar"
-      description={kind === 'data' ? 'Curvas medidas y calculadas del pozo activo, y el sumario por zona.' : 'Figuras listas para el informe: el perfil y los gráficos, siempre con el tema claro de impresión.'}
+      description={kind === 'data' ? 'Curvas medidas y calculadas del pozo activo, y el sumario por zona.' : kind === 'report' ? 'Informe del pozo activo: métodos, parámetros, resultados y figuras para imprimir o guardar como PDF.' : 'Figuras listas para el informe: el perfil y los gráficos, siempre con el tema claro de impresión.'}
       footer={
         <>
           <span className="exp-count num">
-            {kind === 'data' ? `${selected.length} ${selected.length === 1 ? 'curva' : 'curvas'}` : busy ? 'Generando la figura…' : ''}
+            {kind === 'data' ? `${selected.length} ${selected.length === 1 ? 'curva' : 'curvas'}` : kind === 'report' ? report.busy ? 'Generando el informe…' : '' : busy ? 'Generando la figura…' : ''}
           </span>
           <Button variant="ghost" onClick={close}>
             Cancelar
           </Button>
+          {kind === 'report' && report.preview && <Button variant="ghost" onClick={() => report.setPreview(null)}>Editar informe</Button>}
           <Button
             variant="primary"
             icon="download"
-            disabled={kind === 'figure' && (busy || !figure.canExport)}
+            disabled={kind === 'report' ? !report.preview && !report.canGenerate : kind === 'figure' && (busy || !figure.canExport)}
             onClick={async () => {
+              if (kind === 'report') {
+                if (report.preview) downloadFile({ name: report.preview.name, mime: 'text/html;charset=utf-8', bytes: new TextEncoder().encode(report.preview.html) });
+                else await report.generate();
+                return;
+              }
               if (kind === 'figure') {
                 setBusy(true);
                 const ok = await exportFigure(figure.options);
@@ -123,7 +130,7 @@ export function ExportDialog() {
               if (ok) close();
             }}
           >
-            Exportar
+            {kind === 'report' ? report.preview ? 'Guardar HTML' : 'Generar informe' : 'Exportar'}
           </Button>
         </>
       }
@@ -131,7 +138,7 @@ export function ExportDialog() {
       <div className="exp-kind">
         <SegmentedControl<ExportKind> aria-label="Qué exportar" value={kind} onChange={setKind} options={EXPORT_KINDS.map((k) => ({ value: k.id, label: k.label }))} />
       </div>
-      {kind === 'figure' ? (
+      {kind === 'report' ? <ReportPanel form={report} /> : kind === 'figure' ? (
         <FiguresPanel form={figure} />
       ) : (
       <div className="exp">
