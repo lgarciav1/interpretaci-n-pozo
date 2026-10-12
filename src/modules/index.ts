@@ -31,6 +31,7 @@ import cutoffs from './cutoffs';
 import cutoffSensitivity from './cutoff-sensitivity';
 import zoneSummary from './zone-summary';
 import volumetrics from './volumetrics';
+import flowCapacity from './flow-capacity';
 import indGasCrossover from './ind-gas-crossover';
 import indShale from './ind-shale';
 import indCoal from './ind-coal';
@@ -62,6 +63,7 @@ export const MODULES = [
   cutoffSensitivity,
   zoneSummary,
   volumetrics,
+  flowCapacity,
   indGasCrossover,
   indShale,
   indCoal,
