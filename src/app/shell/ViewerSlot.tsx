@@ -31,7 +31,7 @@ import { useWellQc } from '../store/qc';
 import { useResults } from '../store/results';
 import { useUi } from '../store/ui';
 import { useViewer } from '../store/viewer';
-import { computedCurves } from '../computed';
+import { computedCurves, computedTables } from '../computed';
 import { startTrendTool, stopTrendTool } from '../trends/actions';
 import { useTrendsUi } from '../trends/store';
 import { CurveEditor } from './CurveEditor';
@@ -200,9 +200,10 @@ export function ViewerSlot() {
       well,
       interpretation,
       computed,
+      tables: computedTables(result, well),
       commit,
     };
-  }, [well, interpretation, editingZoneId, qc, computed, commit]);
+  }, [well, interpretation, editingZoneId, qc, computed, result, commit]);
 
   // Editor de escala: qué curva y dónde anclarlo (la curva se vuelve a buscar en cada render: llega al día).
   const [editing, setEditing] = useState<{ trackId: string; key: string } | null>(null);

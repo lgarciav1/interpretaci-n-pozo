@@ -124,3 +124,60 @@ export class AreaSink implements PathSink {
     this.pts = [];
   }
 }
+
+/** Mosaico geométrico genérico en píxeles CSS; no depende de una escala de datos ni del ancho del relleno. */
+export interface TilePattern {
+  id: string;
+  width: number;
+  height: number;
+  lines?: readonly (readonly [number, number, number, number])[];
+  dots?: readonly (readonly [number, number, number])[];
+  lineWidth?: number;
+}
+export interface PatternBox { x: number; y: number; width: number; height: number }
+/** Extensión opcional de un grabador vectorial, sin acoplar el visor a ningún exportador. */
+export interface PatternPainter {
+  fillTiledRect(box: PatternBox, tile: TilePattern, background: string, stroke: string, scale: number): void;
+}
+const patternCache = new WeakMap<CanvasRenderingContext2D, Map<string, CanvasPattern>>();
+
+/**
+ * Rellena con CanvasPattern de un lienzo fuera de pantalla. La resolución sigue la transformación real (DPR o
+ * exportación a alta densidad); setTransform devuelve el mosaico a unidades CSS. El origen es estable y nunca se
+ * estira el dibujo al cambiar el ancho de una capa. Los exportadores pueden conservarlo vectorial con PatternPainter.
+ */
+export function fillPatternRect(ctx: CanvasRenderingContext2D, box: PatternBox, tile: TilePattern, background: string, stroke: string, scale = 1): void {
+  if (![box.x, box.y, box.width, box.height, tile.width, tile.height, scale].every(Number.isFinite) || box.width <= 0 || box.height <= 0 || tile.width <= 0 || tile.height <= 0 || scale <= 0) return;
+  const vector = ctx as CanvasRenderingContext2D & Partial<PatternPainter>;
+  if (vector.fillTiledRect) { vector.fillTiledRect(box, tile, background, stroke, scale); return; }
+  const transform = ctx.getTransform();
+  const density = Math.max(1, Math.min(8, Math.max(Math.hypot(transform.a, transform.b), Math.hypot(transform.c, transform.d))));
+  const w = tile.width * scale, h = tile.height * scale;
+  const key = JSON.stringify([tile, background, stroke, scale, density]);
+  let cache = patternCache.get(ctx);
+  if (!cache) { cache = new Map(); patternCache.set(ctx, cache); }
+  let pattern = cache.get(key);
+  if (!pattern) {
+    const pw = Math.max(1, Math.ceil(w * density)), ph = Math.max(1, Math.ceil(h * density));
+    const canvas = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(pw, ph) : document.createElement('canvas');
+    canvas.width = pw; canvas.height = ph;
+    const scratch = canvas.getContext('2d') as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
+    if (!scratch) throw new Error('No se pudo crear el mosaico del relleno.');
+    scratch.scale(pw / tile.width, ph / tile.height);
+    scratch.fillStyle = background;
+    scratch.fillRect(0, 0, tile.width, tile.height);
+    scratch.strokeStyle = stroke; scratch.fillStyle = stroke;
+    scratch.lineWidth = tile.lineWidth ?? 0.8;
+    scratch.beginPath();
+    for (const [x0, y0, x1, y1] of tile.lines ?? []) { scratch.moveTo(x0, y0); scratch.lineTo(x1, y1); }
+    scratch.stroke();
+    for (const [x, y, r] of tile.dots ?? []) { scratch.beginPath(); scratch.arc(x, y, r, 0, Math.PI * 2); scratch.fill(); }
+    pattern = ctx.createPattern(canvas, 'repeat') ?? undefined;
+    if (!pattern) throw new Error('No se pudo repetir el mosaico del relleno.');
+    pattern.setTransform({ a: w / pw, d: h / ph });
+    // Cota de caché por lienzo: cambios continuos de tema, zoom o color no acumulan mosaicos sin límite.
+    if (cache.size >= 64) cache.clear();
+    cache.set(key, pattern);
+  }
+  ctx.save(); ctx.fillStyle = pattern; ctx.fillRect(box.x, box.y, box.width, box.height); ctx.restore();
+}

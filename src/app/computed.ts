@@ -6,9 +6,24 @@ import type { ClientResult } from '../core/engine/client';
 import type { Well } from '../core/well';
 import { registry } from '../modules';
 import type { ComputedCurve } from '../viewer/resolve';
+import type { ViewerTable } from '../viewer/overlay';
+import type { ReadonlyTableValue } from '../core/module';
 
 const cache = new WeakMap<ClientResult, ComputedCurve[]>();
 const NONE: ComputedCurve[] = [];
+const tableCache = new WeakMap<ClientResult, ViewerTable[]>();
+const NO_TABLES: ViewerTable[] = [];
+
+/** La identidad del resultado y del pozo protege también las tablas al cambiar de pozo. */
+export function computedTables(result: ClientResult | null, well: Well | null): ViewerTable[] {
+  if (!result || !well || result.wellId !== well.id) return NO_TABLES;
+  let tables = tableCache.get(result);
+  if (!tables) {
+    tables = result.outputs.filter(o => o.kind === 'table').map(o => ({ moduleId: o.moduleId, port: o.port, active: o.active, value: o.value as ReadonlyTableValue }));
+    tableCache.set(result, tables);
+  }
+  return tables;
+}
 
 export function computedCurves(result: ClientResult | null, well: Well | null): ComputedCurve[] {
   if (!result || !well || result.wellId !== well.id) return NONE;

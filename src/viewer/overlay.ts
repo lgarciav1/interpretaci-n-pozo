@@ -21,6 +21,7 @@
  */
 import type { TrackSpec } from '../core/display';
 import type { Interpretation } from '../core/interpretation';
+import type { ReadonlyTableValue } from '../core/module';
 import type { Project } from '../core/state/project';
 import type { Well } from '../core/well';
 import type { QcReport } from '../io/qc';
@@ -54,6 +55,8 @@ export interface ViewerData {
   interpretation: Readonly<Interpretation>;
   /** Curvas calculadas por el motor para este pozo (activas y alternativas). */
   computed: readonly ComputedCurve[];
+  /** Tablas de la misma corrida que las curvas; evita recalcular resultados en las superposiciones. */
+  tables?: readonly ViewerTable[];
   /**
    * La ÚNICA vía de escritura de una superposición de módulo: aplica una receta pura de `src/core/state/` con una
    * etiqueta en español («Descartar punto MDT»), igual que `useProject.getState().commit` (se deshace con Ctrl+Z).
@@ -61,6 +64,13 @@ export interface ViewerData {
    * visor de solo lectura.
    */
   commit?(label: string, recipe: (p: Project) => Project): void;
+}
+
+export interface ViewerTable {
+  moduleId: string;
+  port: string;
+  active: boolean;
+  value: ReadonlyTableValue;
 }
 
 export interface OverlayViewport {
@@ -103,6 +113,8 @@ export interface OverlayTrack {
 
 export interface OverlayFrame {
   ctx: CanvasRenderingContext2D;
+  /** Distingue interacción de exportación para omitir foco y selecciones transitorias en figuras. */
+  purpose?: 'interactive' | 'export';
   theme: ThemeTokens;
   viewport: OverlayViewport;
   tracks: readonly OverlayTrack[];
@@ -207,6 +219,9 @@ export interface OverlayTrackState {
 
 /** Pista propia de una superposición (p. ej. presión vs. profundidad). El visor la agrega a las pistas activas. */
 export interface OverlayTrackDecl {
+  /** Rótulos categóricos, posición relativa al ancho completo de pista. Reemplazan los extremos numéricos. */
+  axisLabels?: readonly { position: number; label: string }[];
+  headerLabel?: string;
   /** Pista declarativa opcional: usa el renderizador nativo (pila, curvas, banderas) en lugar de dibujo propio. */
   spec?: TrackSpec;
   title: string;

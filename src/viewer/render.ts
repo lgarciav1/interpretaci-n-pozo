@@ -25,6 +25,8 @@ import { depthTicks, linearGrid, logGrid } from './ticks';
 import { baseOf, depthOf, yOf, type Viewport } from './viewport';
 
 export interface FrameInput {
+  /** Destino del dibujo, propagado a las superposiciones; no cambia los resultados ni la geometría. */
+  purpose?: OverlayFrame['purpose'];
   tracks: readonly ResolvedTrack[];
   boxes: readonly TrackBox[];
   viewport: Viewport;
@@ -485,6 +487,7 @@ export class ViewerRenderer {
 
     const frame: OverlayFrame = {
       ctx,
+      purpose: f.purpose,
       theme: f.theme,
       viewport: overlayViewport(f.viewport),
       tracks: overlayTracks(f.tracks, f.boxes),
