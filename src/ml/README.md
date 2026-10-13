@@ -90,15 +90,11 @@ Opciones: `--trees 48 --depth 16 --min-leaf 60 --sample 120000 --bins 64 --mtry 
 reproducible. Después de reentrenar: `npm test` (el humo del modelo embebido verifica forma, rangos y tamaño < 1,5 MB)
 y actualizar las métricas de la decisión 0030.
 
-## Pendiente para la 10c (interfaz)
+## Integración en la interfaz (10c, decisión 0031)
 
-Hecho en la 10c-1: módulo `src/modules/lithology-facies/` (cálculo en el Web Worker; el modelo solo entra al bundle
-del worker por la convención `*.worker-only.ts` de `vite.config.ts`), selector «Uso del PE» con el aviso
-`variantReason` y pista «Litología (ML)» en Geología. Queda para la 10c-2:
-
-- Pista de litología con color por clase (colores fuera de este módulo) y la probabilidad como saturación/altura.
-- Panel de importancia: MDI (`modelImportance`) y, bajo demanda, permutación sobre el pozo cargado (sin verdad de
-  terreno, usar la predicción del propio modelo solo para estabilidad, no como exactitud).
-- Cálculo en Web Worker: decodificar el modelo (~0,9 MB de texto) y predecir 5810 muestras lleva < 0,2 s.
-- Selector «Uso del PE» (auto / usar / ignorar) con el aviso `variantReason`, y selector de k para electrofacies con
-  `scanClusterCount`.
+- Módulo `src/modules/lithology-facies/`: predicción en el Web Worker; el modelo solo entra al bundle del worker por la
+  convención `*.worker-only.ts` / `*.main-thread.ts` (plugin `workerOnlyFiles` de `vite.config.ts`). Importar
+  `embedded.ts` solo desde un archivo `*.worker-only.ts`.
+- Pista «Litología (ML)» en Geología, selector «Uso del PE» con el aviso `variantReason`, panel con la importancia MDI.
+- Módulos `electrofacies` y `electrofacies-scan` (k automático por el codo del BIC o la inercia), pista y panel.
+- Pendiente: permutación bajo demanda sobre el pozo y calibración de probabilidades, cuando haya datos del TP.

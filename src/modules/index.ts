@@ -10,6 +10,8 @@ import passeyToc from './passey-toc';
 import syntheticSeismogram from './synthetic-seismogram';
 import sedColumn from './sed-column';
 import lithologyFacies from './lithology-facies';
+import electrofacies from './electrofacies';
+import electrofaciesScan from './electrofacies-scan';
 import { createRegistry } from '../core/registry';
 import igr from './igr';
 import vsh from './vsh';
@@ -96,6 +98,8 @@ export const MODULES = [
   syntheticSeismogram,
   sedColumn,
   lithologyFacies,
+  electrofacies,
+  electrofaciesScan,
 ];
 
 /** Parámetros compartidos: ver sharedParams.ts (el registro exige que coincidan con ese catálogo). */

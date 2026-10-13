@@ -248,6 +248,7 @@ describe('C20 sobre el pozo del TP (datos/pozo_tp_perfiles.csv)', () => {
     expect(current(rows, 'vsh', '').ooip).toBeCloseTo(sc(first, 'volumetrics:OOIP_TOTAL'), 3);
   });
 
+  // Timeout amplio: siete motores nuevos con el pozo del TP; el primer cálculo incluye los modelos de facies (≈ 1 s, 10c).
   it('un cambio de cutoff recalcula la sensibilidad en menos de 20 ms (motor, mediana de 7)', () => {
     const times: number[] = [];
     const totals: number[] = [];
@@ -266,5 +267,5 @@ describe('C20 sobre el pozo del TP (datos/pozo_tp_perfiles.csv)', () => {
     console.info(`[C20 TP] sensibilidad: mediana ${median(times).toFixed(2)} ms; cambio de cutoff completo: mediana ${median(totals).toFixed(2)} ms`);
     expect(median(times)).toBeLessThan(20);
     expect(median(totals)).toBeLessThan(20);
-  });
+  }, 30_000);
 });

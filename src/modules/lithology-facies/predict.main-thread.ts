@@ -11,3 +11,7 @@ export type FaciesPrediction = LithologyPrediction & { variant: 'withPe' | 'noPe
 export function predictFacies(_curves: ModelCurves, _pe: PeUsage): FaciesPrediction | null {
   return null;
 }
+
+export function faciesImportance(_variant: 'withPe' | 'noPe'): { feature: string; importance: number }[] | null {
+  return null;
+}

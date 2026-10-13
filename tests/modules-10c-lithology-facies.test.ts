@@ -8,7 +8,8 @@ import { registry } from '../src/modules';
 import { moduleOverlays } from '../src/app/viewerOverlays';
 import { BUILTIN_LAYOUTS, withOverlayTracks } from '../src/viewer/templates';
 import { classColors } from '../src/modules/lithology-facies/draw';
-import { CLASS_COUNT, LITHOLOGY_FACIES_ID, PORT, SUMMARY_TABLE } from '../src/modules/lithology-facies/model';
+import { CLASS_COUNT, IMPORTANCE_TABLE, LITHOLOGY_FACIES_ID, PORT, SUMMARY_TABLE } from '../src/modules/lithology-facies/model';
+import { EF_CLUSTERS_TABLE, EF_PORT, EF_SCAN_TABLE, K_VALUES, suggestK } from '../src/modules/electrofacies/model';
 import { contrastRatio } from '../src/ui/color';
 import { THEMES } from '../src/ui/tokens';
 import { curve, interp, well as synthWell } from './helpers';
@@ -117,5 +118,76 @@ describe('Pista de litología sugerida', () => {
       expect(new Set(colors).size).toBe(CLASS_COUNT);
       for (const c of colors) expect(contrastRatio(c, theme.viewer.trackBg)).toBeGreaterThanOrEqual(1.25);
     }
+  });
+});
+
+describe('Fase 10c-2: importancia y electrofacies', () => {
+  const rows = (port: string, r = result) => (r.outputs.find((o) => o.port === port)?.value as TableValue | undefined)?.rows ?? [];
+
+  it('publica la importancia MDI del modelo en uso (sin PE en el TP), ordenada y que suma 1', () => {
+    const imp = rows(IMPORTANCE_TABLE);
+    expect(imp.map((r) => r.feature)).not.toContain('PEF');
+    expect(imp.length).toBe(5);
+    expect(imp.every((r) => r.variant === 'noPe' && typeof r.reason === 'string')).toBe(true);
+    const v = imp.map((r) => r.importance as number);
+    expect(v.reduce((s, x) => s + x, 0)).toBeCloseTo(1, 5);
+    for (let i = 1; i < v.length; i++) expect(v[i]!).toBeLessThanOrEqual(v[i - 1]!);
+    expect(imp[0]!.feature).toBe('GR');
+    expect(imp.every((r) => typeof r.label === 'string' && r.label !== r.feature)).toBe(true);
+  });
+
+  it('suggestK: mínimo interior del BIC, si no el codo; null sin datos', () => {
+    expect(suggestK([2, 3, 4, 5], [10, 6, 7, 8])).toBe(3);
+    expect(suggestK([2, 3, 4, 5, 6], [100, 90, 30, 25, 20])).toBe(4);
+    expect(suggestK([2, 3], [1, 0])).toBeNull();
+    expect(suggestK([2, 3, 4], [NaN, NaN, 1])).toBeNull();
+  });
+
+  it('el barrido de k da BIC e inercia para 2…8 y marca un k sugerido por método', () => {
+    const scan = rows(EF_SCAN_TABLE);
+    expect(scan.map((r) => r.k)).toEqual(K_VALUES);
+    expect(scan.every((r) => Number.isFinite(r.bic) && Number.isFinite(r.inertia))).toBe(true);
+    expect(scan.filter((r) => r.suggestedGmm === 1)).toHaveLength(1);
+    expect(scan.filter((r) => r.suggestedKmeans === 1)).toHaveLength(1);
+  });
+
+  it('electrofacies automáticas: k sugerido, grupos 0…k−1, probabilidades en [0, 1], tabla que cierra', () => {
+    const scan = rows(EF_SCAN_TABLE);
+    const k = scan.find((r) => r.suggestedGmm === 1)!.k as number;
+    const cls = result.outputs.find((o) => o.port === EF_PORT.cls)!.value as Float64Array;
+    const p = result.outputs.find((o) => o.port === EF_PORT.conf)!.value as Float64Array;
+    const seen = new Set<number>();
+    for (let i = 0; i < cls.length; i++) {
+      if (!Number.isFinite(cls[i]!)) continue;
+      expect(Number.isInteger(cls[i]!) && cls[i]! >= 0 && cls[i]! < k).toBe(true);
+      expect(p[i]!).toBeGreaterThan(0);
+      expect(p[i]!).toBeLessThanOrEqual(1 + 1e-6);
+      seen.add(cls[i]!);
+    }
+    expect(seen.size).toBe(k);
+    const groups = rows(EF_CLUSTERS_TABLE);
+    expect(groups).toHaveLength(k);
+    expect(groups.reduce((s, r) => s + (r.percent as number), 0)).toBeCloseTo(100, 6);
+    // Numeradas de menor a mayor GR del centro.
+    const gr = groups.map((r) => r.gr as number);
+    for (let i = 1; i < gr.length; i++) expect(gr[i]!).toBeGreaterThanOrEqual(gr[i - 1]!);
+  });
+
+  it('determinístico con semilla y k manual / k-means respetados', () => {
+    const params = { global: { 'electrofacies.k': '3', 'electrofacies.method': 'kmeans' }, zones: {} };
+    const e1 = new Engine(registry);
+    e1.setWell(toEngineWell(well));
+    const e2 = new Engine(registry);
+    e2.setWell(toEngineWell(well));
+    const a = e1.run({ ...emptyInterpretation(zones), params }).outputs.find((o) => o.port === EF_PORT.cls)!.value as Float64Array;
+    const b = e2.run({ ...emptyInterpretation(zones), params }).outputs.find((o) => o.port === EF_PORT.cls)!.value as Float64Array;
+    expect(Array.from(a)).toEqual(Array.from(b));
+    expect(new Set(Array.from(a).filter(Number.isFinite)).size).toBe(3);
+  });
+
+  it('las pistas quedan en orden: columna, litología sugerida, electrofacies', () => {
+    const ids = withOverlayTracks(BUILTIN_LAYOUTS.geology, moduleOverlays([]), 'geology', { well, settings: {} } as never).map((t) => t.id);
+    const at = ids.indexOf('ov:sed-column');
+    expect(ids.slice(at, at + 3)).toEqual(['ov:sed-column', 'ov:lithology-facies', 'ov:electrofacies']);
   });
 });

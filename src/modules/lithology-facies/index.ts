@@ -10,12 +10,17 @@
 import { defineModule, input, output, type TableCell } from '../../core/module';
 import { param } from '../../core/params';
 import { lithologyIndexOfCode } from '../../ml/lithology';
-import type { CurveKey, ModelCurves } from '../../ml/features';
-import { CLASS_COUNT, classLabel, DEFAULT_MIN_CONFIDENCE, LITHOLOGY_FACIES_ID, LOW_SKILL_CLASSES, PORT, SUMMARY_TABLE, TRANSFER_WARNING, type PeUsage } from './model';
-import { predictFacies } from './predict.worker-only';
+import { FEATURES, type CurveKey, type FeatureName, type ModelCurves } from '../../ml/features';
+import { CLASS_COUNT, classLabel, DEFAULT_MIN_CONFIDENCE, LITHOLOGY_FACIES_ID, LOW_SKILL_CLASSES, IMPORTANCE_TABLE, PORT, SUMMARY_TABLE, TRANSFER_WARNING, type PeUsage } from './model';
+import { faciesImportance, predictFacies } from './predict.worker-only';
 
 const CURVE_LABEL: Readonly<Record<CurveKey, string>> = {
   GR: 'rayos gamma', RHOB: 'densidad', NPHI: 'neutrón', PEF: 'PE', DTC: 'sónico', RDEP: 'resistividad profunda', CALI: 'caliper',
+};
+
+/** Rótulos cortos para el panel de importancia. */
+const SHORT_LABEL: Readonly<Record<FeatureName, string>> = {
+  GR: 'Rayos gamma', RHOB: 'Densidad', NPHI: 'Neutrón', PEF: 'PE', DTC: 'Sónico', LOG_RDEP: 'Resistividad (log)', CALI: 'Caliper',
 };
 
 const role = (id: string, label: string, color: string, max: number, family: 'lithology' | 'other') =>
@@ -88,6 +93,17 @@ export default defineModule({
         { key: 'uncertain', label: 'Inciertas', unit: '%' },
       ],
     }),
+    importance: output.table(IMPORTANCE_TABLE, {
+      label: 'Importancia de las curvas en el modelo',
+      hidden: true,
+      columns: [
+        { key: 'feature', label: 'Característica', kind: 'text' },
+        { key: 'label', label: 'Curva', kind: 'text' },
+        { key: 'importance', label: 'Importancia (MDI)' },
+        { key: 'variant', label: 'Variante del modelo', kind: 'text' },
+        { key: 'reason', label: 'Motivo de la variante', kind: 'text' },
+      ],
+    }),
   },
   compute({ n, inputs, params, thickness, warn }) {
     const out = {
@@ -98,6 +114,7 @@ export default defineModule({
       cls3: new Float64Array(n).fill(NaN),
       conf3: new Float64Array(n).fill(NaN),
       summary: { rows: [] as Record<string, TableCell>[] },
+      importance: { rows: [] as Record<string, TableCell>[] },
     };
     const curves: ModelCurves = {};
     if (inputs.gr) curves.GR = inputs.gr;
@@ -118,6 +135,10 @@ export default defineModule({
       return out;
     }
     warn(pred.variantReason);
+    for (const f of faciesImportance(pred.variant) ?? []) {
+      const label = SHORT_LABEL[f.feature as FeatureName] ?? FEATURES[f.feature as FeatureName]?.label ?? f.feature;
+      out.importance.rows.push({ feature: f.feature, label, importance: f.importance, variant: pred.variant, reason: pred.variantReason });
+    }
     warn(TRANSFER_WARNING);
     if (pred.missingCurves.length) {
       warn(`El modelo usa también ${pred.missingCurves.map((c) => CURVE_LABEL[c]).join(', ')}; sin esa información la sugerencia pierde precisión.`);

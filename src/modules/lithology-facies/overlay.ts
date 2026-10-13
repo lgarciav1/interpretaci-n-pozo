@@ -142,7 +142,8 @@ export const overlays: ViewerOverlay[] = [
       // Filas de dibujo: una por muestra si la muestra ocupa al menos un píxel; si no (pozo entero en pantalla), una
       // por píxel con la probabilidad media de las muestras que caen en él (sumando las tres clases publicadas). Así
       // la pista se lee igual a cualquier escala y no se dibujan miles de rectángulos superpuestos.
-      const perSample = vp.pxPerM * ((depth[n - 1]! - depth[0]!) / Math.max(1, n - 1)) >= 1;
+      const pxPerSample = vp.pxPerM * ((depth[n - 1]! - depth[0]!) / Math.max(1, n - 1));
+      const perSample = pxPerSample >= 1;
       const acc = new Float64Array(CLASS_COUNT);
       const line: number[] = [];
       let first = i0;
@@ -216,7 +217,9 @@ export const overlays: ViewerOverlay[] = [
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // Borde de la clase ganadora: la probabilidad como curva fina (no tapa los colores).
+      // Borde de la clase ganadora: la probabilidad como curva fina (no tapa los colores). Solo con al menos 2 px por
+      // muestra: más comprimida, la curva serrucha y ensucia la lectura; el límite de color ya muestra la probabilidad.
+      if (pxPerSample < 2) line.length = 0;
       ctx.strokeStyle = withAlpha(theme.color.text, 0.6);
       ctx.lineWidth = 0.75;
       ctx.beginPath();

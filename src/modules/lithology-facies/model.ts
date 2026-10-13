@@ -18,6 +18,7 @@ export const PORT = {
   conf3: 'LITH_ML_P3',
 } as const;
 export const SUMMARY_TABLE = 'LITH_ML_SUMMARY';
+export const IMPORTANCE_TABLE = 'LITH_ML_IMPORTANCE';
 
 export const CLASS_COUNT = LITHOLOGY_CLASSES.length;
 export const classLabel = (index: number): string => LITHOLOGY_CLASSES[index]?.label ?? '—';
