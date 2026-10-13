@@ -128,7 +128,9 @@ export const MINERALS: readonly Mineral[] = [
 ];
 
 export type ToolWeights = { rho: number; u: number; nphi: number; gr: number };
-export interface MineralOptions { weights?: ToolWeights; clay?: 'illite' | 'kaolinite' | 'chlorite' | 'smectite'; clayRho?: number; clayPe?: number; clayNphi?: number; clayGr?: number; cleanGr?: number; fluidRho?: number; fluidPe?: number }
+export interface MineralOptions { weights?: ToolWeights; clay?: 'illite' | 'kaolinite' | 'chlorite' | 'smectite'; clayRho?: number; clayPe?: number; clayNphi?: number; clayGr?: number; cleanGr?: number; fluidRho?: number; fluidPe?: number;
+  /** Sin PE: resuelve cuarzo, calcita, arcilla y fluido con ρb, φN, GR y cierre (dolomía fija en 0). Ver `detectSuspectPe`. */
+  ignorePe?: boolean }
 export type MineralVolumes = [number, number, number, number, number];
 export interface MineralObservation { rho: number; pe: number; nphi: number; gr: number }
 export interface MineralResult { volumes: MineralVolumes; residual: number; residuals: { rho: number; u: number; nphi: number; gr: number }; valid: boolean }
@@ -187,61 +189,93 @@ function solve(matrix: number[][], rhs: number[]): number[] | null {
 export function prepareMineralInversion(options: MineralOptions = {}): (observation: MineralObservation) => MineralResult {
   const invalid = (): MineralResult => ({ volumes: [NaN, NaN, NaN, NaN, NaN], residual: NaN, residuals: { rho: NaN, u: NaN, nphi: NaN, gr: NaN }, valid: false });
   const w = options.weights ?? DEFAULT_WEIGHTS;
-  const weights = [w.rho, w.u, w.nphi, w.gr];
+  const ignorePe = options.ignorePe === true;
+  // Herramientas y componentes activos. Sin PE quedan tres herramientas más el cierre: cuatro incógnitas
+  // (cuarzo, calcita, arcilla, fluido). La dolomía se fija en 0 porque sin U no se separa de la mezcla
+  // cuarzo–calcita en densidad–neutrón (sistema subdeterminado).
+  const tools = ignorePe ? [0, 2, 3] : [0, 1, 2, 3];
+  const used = ignorePe ? [0, 1, 3, 4] : [0, 1, 2, 3, 4];
+  const allWeights = [w.rho, w.u, w.nphi, w.gr];
+  const weights = tools.map(t => allWeights[t]!);
   if (!weights.every(v => Number.isFinite(v) && v > 0)) return invalid;
   const members = endmembers(options);
   if (!members.every(m => responses(m).every(Number.isFinite) && m.rho > 0 && m.pe >= 0 && m.gr >= 0)) return invalid;
   const raw = members.map(responses);
-  const factors = weights.map((v,t) => Math.sqrt(v)/TOOL_SCALES[t]!);
-  const a = raw.map(r => r.map((v, t) => v * factors[t]!));
-  const rankMatrix = Array.from({ length: 5 }, (_, i) => members.map((_, j) => i === 4 ? 1 : a[j]![i]!));
-  if (!solve(rankMatrix, [0, 0, 0, 0, 1])) return invalid;
+  const factors = tools.map((t, k) => Math.sqrt(weights[k]!) / TOOL_SCALES[t]!);
+  // a[j][k]: respuesta normalizada del componente j (índice de `used`) en la herramienta k (índice de `tools`).
+  const a = used.map(j => tools.map((t, k) => raw[j]![t]! * factors[k]!));
+  const m = used.length, nt = tools.length;
+  const rankMatrix = Array.from({ length: nt + 1 }, (_, i) => used.map((_, j) => i === nt ? 1 : a[j]![i]!));
+  if (!solve(rankMatrix, [...Array<number>(nt).fill(0), 1])) return invalid;
   const faces: { active: number[]; offset: number[]; coefficients: number[][] }[] = [];
-  for (let mask = 1; mask < 32; mask++) {
-    const active = [0, 1, 2, 3, 4].filter(j => mask & (1 << j));
+  for (let mask = 1; mask < 1 << m; mask++) {
+    const active = used.map((_, j) => j).filter(j => mask & (1 << j));
     const n = active.length;
     const matrix = Array.from({ length: n + 1 }, () => Array<number>(n + 1).fill(0));
     for (let i = 0; i < n; i++) {
       const ri = a[active[i]!]!;
-      for (let j = 0; j < n; j++) matrix[i]![j] = ri.reduce((s, v, t) => s + v * a[active[j]!]![t]!, 0);
+      for (let j = 0; j < n; j++) matrix[i]![j] = ri.reduce((s, v, k) => s + v * a[active[j]!]![k]!, 0);
       matrix[i]![n] = matrix[n]![i] = 1;
     }
     const offset = solve(matrix, [...Array<number>(n).fill(0), 1]);
-    const coefficients = [0,1,2,3].map(t => solve(matrix, [...active.map(j => a[j]![t]!), 0]));
+    const coefficients = tools.map((_, k) => solve(matrix, [...active.map(j => a[j]![k]!), 0]));
     if (offset && coefficients.every((c): c is number[] => c !== null)) faces.push({ active, offset, coefficients });
   }
   const totalWeight = weights.reduce((s,v) => s+v,0);
   return observation => {
     const y = [observation.rho, observation.pe * electronDensity(observation.rho), observation.nphi, observation.gr];
-    // Cuatro herramientas más cierre: no publicar un resultado subdeterminado.
-    if (!y.every(Number.isFinite) || observation.rho <= 0 || observation.pe < 0 || observation.gr < 0) return invalid();
-    const b = y.map((v,t) => v*factors[t]!);
-    let best: MineralVolumes | null = null, bestError = Infinity;
+    // Herramientas activas más cierre: no publicar un resultado subdeterminado. Sin PE, un PE ausente no invalida.
+    const yt = tools.map(t => y[t]!);
+    if (!yt.every(Number.isFinite) || observation.rho <= 0 || (!ignorePe && observation.pe < 0) || observation.gr < 0) return invalid();
+    const b = yt.map((v,k) => v*factors[k]!);
+    let best: number[] | null = null, bestError = Infinity;
     for (const face of faces) {
       const { active, offset, coefficients } = face;
-      const volumes: MineralVolumes = [0,0,0,0,0];
+      const local = new Array<number>(m).fill(0);
       let feasible = true;
       for (let i=0;i<active.length;i++) {
         let v=offset[i]!;
-        for (let t=0;t<4;t++) v += coefficients[t]![i]! * b[t]!;
+        for (let k=0;k<nt;k++) v += coefficients[k]![i]! * b[k]!;
         if (v < -1e-9) { feasible = false; break; }
-        volumes[active[i]!] = Math.max(0,v);
+        local[active[i]!] = Math.max(0,v);
       }
       if (!feasible) continue;
-      const sum = volumes.reduce((s,v)=>s+v,0);
-      for(let j=0;j<5;j++) volumes[j]! /= sum;
+      const sum = local.reduce((s,v)=>s+v,0);
+      for(let j=0;j<m;j++) local[j]! /= sum;
       let error=0;
-      for(let t=0;t<4;t++) {
+      for(let k=0;k<nt;k++) {
         let value=0;
-        for(let j=0;j<5;j++) value += volumes[j]!*a[j]![t]!;
-        error += (value-b[t]!)**2;
+        for(let j=0;j<m;j++) value += local[j]!*a[j]![k]!;
+        error += (value-b[k]!)**2;
       }
-      if(error<bestError) { best=volumes;bestError=error; }
+      if(error<bestError) { best=local;bestError=error; }
     }
     if(!best) return invalid();
-    const r=y.map((v,t)=>best!.reduce((s,f,j)=>s+f*raw[j]![t]!,0)-v);
-    return { volumes:best, residual:Math.sqrt(bestError/totalWeight),residuals:{rho:r[0]!,u:r[1]!,nphi:r[2]!,gr:r[3]!},valid:true };
+    const volumes: MineralVolumes = [0,0,0,0,0];
+    used.forEach((j, i) => { volumes[j] = best![i]!; });
+    const r=y.map((v,t)=>tools.includes(t) ? volumes.reduce((s,f,j)=>s+f*raw[j]![t]!,0)-v : NaN);
+    return { volumes, residual:Math.sqrt(bestError/totalWeight),residuals:{rho:r[0]!,u:r[1]!,nphi:r[2]!,gr:r[3]!},valid:true };
   };
+}
+
+/**
+ * PE incompatible con la densidad: en areniscas y arcillas (ρb < 2,55 g/cm³) el PE esperado va de ~1,8 (cuarzo) a
+ * ~3,5 (illita); un PE > 4 con ρb baja en buena parte del pozo es la firma típica de baritina en el lodo o el revoque
+ * (PE de la baritina ≈ 267 b/e, SLB 2013 Appendix B p.279), que infla el PE sin cambiar casi la densidad.
+ * Umbrales prácticos (peMin 4 b/e, rhoMax 2,55 g/cm³, fracción 0,5): criterio operativo, SIN VERIFICAR como norma.
+ * Devuelve la fracción de muestras válidas que cumplen la firma y si supera `fraction`.
+ */
+export function detectSuspectPe(pe: ArrayLike<number>, rho: ArrayLike<number>, opts: { peMin?: number; rhoMax?: number; fraction?: number } = {}): { fraction: number; suspect: boolean; samples: number } {
+  const peMin = opts.peMin ?? 4, rhoMax = opts.rhoMax ?? 2.55, limit = opts.fraction ?? 0.5;
+  let valid = 0, hits = 0;
+  for (let i = 0; i < pe.length; i++) {
+    const p = pe[i]!, r = rho[i]!;
+    if (!Number.isFinite(p) || !Number.isFinite(r) || r <= 0) continue;
+    valid++;
+    if (p > peMin && r < rhoMax) hits++;
+  }
+  const fraction = valid ? hits / valid : NaN;
+  return { fraction, suspect: valid > 0 && fraction >= limit, samples: valid };
 }
 
 export function invertMinerals(observation: MineralObservation, options: MineralOptions = {}): MineralResult {

@@ -49,3 +49,4 @@ Sirven como caso de prueba para el módulo de control de calidad:
 - **NPHI:** picos de hasta 3,3 v/v, que es físicamente imposible.
 - **AT10:** valores aislados de hasta 110 ohm·m, cuando el percentil 99 es 6,7.
 - **SP:** prácticamente no hay datos, así que Rw no se puede calcular desde SP.
+- **PE:** alto en casi todo el pozo (percentil 10 = 5,4 b/e, mediana 6,4, percentil 90 = 9,5) con densidad baja (mediana 2,44 g/cm³). En el 96 % de las muestras el PE supera 4 b/e con ρb < 2,55, incompatible con arenisca (≈ 1,8) o arcilla (2–3,5). Es la firma típica de baritina en el lodo o el revoque. Usado tal cual, la inversión mineral da calcita en todo el pozo; por eso la inversión lo detecta y por defecto resuelve sin PE (decisión 0029). Falta confirmar el tipo de lodo con la cátedra.
