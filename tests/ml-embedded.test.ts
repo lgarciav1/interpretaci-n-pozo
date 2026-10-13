@@ -116,8 +116,14 @@ describe('Variante con y sin PE', () => {
     void _omit;
     expect(chooseLithologyVariant(withoutPe, 'use').variant).toBe('noPe');
     // Arenisca típica: PE ≈ 1,8 b/e con ρb 2,35 g/cm³ → no sospechoso.
-    const clean = { PEF: [1.8, 2.0, 2.2, 1.9], RHOB: [2.35, 2.4, 2.3, 2.45] };
+    const clean = { PEF: Array.from({ length: 200 }, (_, i) => 1.8 + (i % 5) * 0.1), RHOB: Array.from({ length: 200 }, (_, i) => 2.3 + (i % 7) * 0.02) };
     expect(chooseLithologyVariant(clean).variant).toBe('withPe');
+    // PE presente pero casi todo NaN (o con muy pocas muestras válidas): no hay base para usarlo.
+    const mostlyNaN = { PEF: clean.PEF.map((v, i) => (i < 10 ? v : NaN)), RHOB: clean.RHOB };
+    const sparse = chooseLithologyVariant(mostlyNaN);
+    expect(sparse.variant).toBe('noPe');
+    expect(sparse.reason).toMatch(/muy pocas/);
+    expect(chooseLithologyVariant({ PEF: clean.PEF.slice(0, 5), RHOB: clean.RHOB.slice(0, 5) }).variant).toBe('noPe');
   });
   it('predictLithologyEmbedded devuelve la variante usada y cae en noPe sin romperse si falta PE', () => {
     const { PEF: _omit, ...withoutPe } = tpCurves;

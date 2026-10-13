@@ -172,8 +172,10 @@ export function gmm(Z: ArrayLike<number>, n: number, d: number, opts: GmmOptions
         }
       }
     }
+    let restarted = false;
     for (let c = 0; c < k; c++) {
       if (sumR[c]! < minWeight * m) {
+        restarted = true;
         // Componente degenerado: se reinicia sobre la fila peor explicada (menor log-verosimilitud), una distinta por componente.
         let worst = 0;
         for (let q = 1; q < m; q++) if (rowLL[q]! < rowLL[worst]!) worst = q;
@@ -202,9 +204,10 @@ export function gmm(Z: ArrayLike<number>, n: number, d: number, opts: GmmOptions
     for (let c = 0; c < k; c++) ws += w[c]!;
     for (let c = 0; c < k; c++) w[c]! /= ws;
 
+    // Una iteración con reinicio de componente cambia los parámetros de golpe: no cuenta para la convergencia.
     const delta = Math.abs(L - ll) / m;
     ll = L;
-    if (delta < tol) {
+    if (!restarted && delta < tol) {
       converged = true;
       break;
     }

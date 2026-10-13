@@ -26,10 +26,12 @@
  *   nodeFeature[i] : bits 0–6 = característica (0x7F = hoja), bit 7 = los NaN van a la izquierda
  *   nodeThreshold[i]: índice de bin del corte (hijo izquierdo si bin ≤ umbral)
  *   nodeRight[i]   : desplazamiento al hijo derecho (0 en hojas)
- *   leafClass/leafProb: de cada hoja, sus `leafTop` clases más probables (uint8) y sus probabilidades (uint8, suma 255
- *                    tras renormalizar entre ellas), en el orden en que aparecen las hojas. Guardar solo las T mejores
- *                    reduce 4× el tamaño; al promediar decenas de árboles, la probabilidad de las clases menores se
- *                    reconstruye con muy poco error.
+ *   leafClass/leafProb: de cada hoja, sus `leafTop` clases más probables (uint8) y su probabilidad real en 1/255
+ *                    (uint8, SIN renormalizar entre ellas). La masa que no entra en esas clases (`255 − Σ`, el «resto»)
+ *                    se reparte en la predicción entre las demás clases de la hoja según `classPriors`. Con
+ *                    `leafTop = K` no hay resto y el promedio de hojas es exacto (salvo la cuantización a 1/255).
+ *                    Guardar solo las T mejores sin conservar el resto sesga hacia 0 las clases raras (medido: log-loss
+ *                    del test oculto 0,794 con T = 3 sin resto contra 0,755 con T = 12); por eso el resto se reparte.
  *
  * Referencias: Breiman, L. (2001), «Random forests», Machine Learning 45(1), 5–32. Breiman, Friedman, Olshen y
  * Stone (1984), «Classification and Regression Trees». Louppe et al. (2013), «Understanding variable importances
@@ -89,7 +91,7 @@ export interface ForestOptions {
   sampleSize?: number;
   /** Bins máximos por característica (≤ 254). Por defecto 64. */
   maxBins?: number;
-  /** Clases guardadas por hoja (por defecto 3, máximo K). */
+  /** Clases guardadas por hoja (por defecto 6, máximo K). */
   leafTop?: number;
   /**
    * Las filas con menos de este nº de características finitas NO se usan para entrenar (por defecto 2): en inferencia
@@ -184,22 +186,23 @@ interface TreeOut {
 }
 
 /**
- * Hoja → sus `top` clases más frecuentes (empate → índice menor) con probabilidades renormalizadas entre ellas y
- * cuantizadas a 1/255 con suma exacta 255 (el redondeo se carga en la clase dominante). Devuelve [clases..., probs...].
+ * Hoja → sus `top` clases más frecuentes (empate → índice menor) con su probabilidad REAL cuantizada a 1/255. La suma
+ * es ≤ 255; el resto (`255 − suma`) es la masa de las clases no guardadas y se reparte al predecir. Con `top = K` la
+ * suma se fuerza a 255 cargando el redondeo en la clase dominante. Devuelve [clases..., probs...].
  */
-function quantizeLeaf(counts: Float64Array, K: number, top: number): Uint8Array {
+function quantizeLeaf(counts: Float64Array, total: number, K: number, top: number): Uint8Array {
   const order = Array.from({ length: K }, (_, c) => c).sort((a, b) => counts[b]! - counts[a]! || a - b);
-  let kept = 0;
-  for (let t = 0; t < top; t++) kept += counts[order[t]!]!;
   const out = new Uint8Array(2 * top);
   let sum = 0;
   for (let t = 0; t < top; t++) {
     const c = order[t]!;
     out[t] = c;
-    out[top + t] = kept > 0 ? Math.round((counts[c]! / kept) * 255) : 0;
+    out[top + t] = Math.round((counts[c]! / total) * 255);
     sum += out[top + t]!;
   }
-  out[top] = out[top]! + (255 - sum);
+  // t = 0 es la clase dominante (la de mayor prob.): ahí se absorbe el redondeo.
+  if (top === K) out[top] = out[top]! + (255 - sum);
+  else if (sum > 255) out[top] = out[top]! - (sum - 255);
   return out;
 }
 
@@ -224,13 +227,16 @@ export function trainRandomForest(data: TrainingMatrix, opts: ForestOptions): Fo
   const m = rowsAll.length;
   if (m === 0) throw new Error('No hay filas de entrenamiento.');
   if (K < 1) throw new Error('No hay clases.');
+  if (K > 256) throw new Error('Hay más de 256 clases: no entran en un byte.');
+  if (!(opts.nTrees >= 1) || !Number.isInteger(opts.nTrees)) throw new Error('nTrees debe ser un entero ≥ 1.');
+  if (d < 1 || d >= LEAF_FEATURE) throw new Error(`El nº de características debe estar entre 1 y ${LEAF_FEATURE - 1} (se pidieron ${d}).`);
   const maxBins = opts.maxBins ?? 64;
   const minLeaf = Math.max(1, opts.minSamplesLeaf);
   const mtry = Math.min(d, Math.max(1, opts.mtry ?? Math.ceil(Math.sqrt(d))));
   const sampleSize = Math.max(1, opts.sampleSize ?? Math.min(m, 100000));
   const seed = opts.seed ?? 1;
   const minGain = opts.minGain ?? 1e-7;
-  const leafTop = Math.min(K, Math.max(1, opts.leafTop ?? 3));
+  const leafTop = Math.min(K, Math.max(1, opts.leafTop ?? 6));
 
   // Datos locales del subconjunto: etiquetas, bins en columna mayor (cache-friendly para histogramas).
   const edges = computeBinEdges(X, rowsAll, d, maxBins);
@@ -241,7 +247,7 @@ export function trainRandomForest(data: TrainingMatrix, opts: ForestOptions): Fo
   let acc = 0;
   for (let i = 0; i < m; i++) {
     const r = rowsAll[i]!;
-    for (let j = 0; j < d; j++) bins[j * m + i] = binOf(edges[j]!, X[r * d + j]!);
+    for (let j = 0; j < d; j++) bins[j * m + i] = binOf(edges[j]!, Math.fround(X[r * d + j]!));
     const cls = y[r]!;
     if (!(cls >= 0 && cls < K)) throw new Error(`Clase fuera de rango en la fila ${r}.`);
     yLocal[i] = cls;
@@ -294,7 +300,7 @@ export function trainRandomForest(data: TrainingMatrix, opts: ForestOptions): Fo
         out.feature.push(LEAF_FEATURE);
         out.threshold.push(0);
         out.right.push(0);
-        out.leaves.push(quantizeLeaf(nodeCounts, K, leafTop));
+        out.leaves.push(quantizeLeaf(nodeCounts, n, K, leafTop));
       };
       if (depth >= opts.maxDepth || n < 2 * minLeaf || maxC === n) return makeLeaf();
 
@@ -512,6 +518,9 @@ export function predictForest(
   const valid = new Uint8Array(n);
   const rowBins = new Uint8Array(d);
   const acc = new Float64Array(K);
+  const stamp = new Int32Array(K).fill(-1);
+  let stampId = 0;
+  const priors = model.classPriors;
   const { nodeFeature, nodeThreshold, nodeRight, treeStart, leafClass, leafProb, leafTop } = model;
 
   const leafIndexOf = leafIndexTable(model);
@@ -541,7 +550,26 @@ export function predictForest(
         i = left ? i + 1 : i + nodeRight[i]!;
       }
       const base = leafIndexOf[i]! * leafTop;
-      for (let q = 0; q < leafTop; q++) acc[leafClass[base + q]!]! += leafProb[base + q]!;
+      let kept = 0;
+      for (let q = 0; q < leafTop; q++) {
+        const c = leafClass[base + q]!;
+        const pq = leafProb[base + q]!;
+        acc[c]! += pq;
+        kept += pq;
+        stamp[c] = stampId;
+      }
+      // Resto: masa de las clases no guardadas, repartida según los a priori (ver cabecera).
+      if (kept < 255 && leafTop < K) {
+        let w = 0;
+        for (let c = 0; c < K; c++) if (stamp[c] !== stampId) w += priors[c]!;
+        if (w > 0) {
+          const scale = (255 - kept) / w;
+          for (let c = 0; c < K; c++) if (stamp[c] !== stampId) acc[c]! += priors[c]! * scale;
+        } else {
+          acc[leafClass[base]!]! += 255 - kept;
+        }
+      }
+      stampId++;
     }
     let sum = 0;
     for (let c = 0; c < K; c++) sum += acc[c]!;

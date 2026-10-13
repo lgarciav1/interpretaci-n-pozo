@@ -27,7 +27,7 @@ const { buildFeatureMatrix } = await ml('features.ts');
 const { LITHOLOGY_CLASSES, lithologyIndexOfCode } = await ml('lithology.ts');
 const { trainRandomForest, predictForest, argmaxRows, leafCount } = await ml('forest.ts');
 const { depthBlockFolds, leaveOneWellOutFolds, crossValidate, forestFitPredict, evaluatePredictions } = await ml('validation.ts');
-const { encodeModelText, serializeModel } = await ml('serialize.ts');
+const { encodeModelText, decodeModelText, serializeModel } = await ml('serialize.ts');
 const { permutationImportance } = await ml('importance.ts');
 const { mulberry32, shuffleInPlace } = await ml('rng.ts');
 
@@ -50,7 +50,7 @@ const hp = {
   sampleSize: Number(opt('sample', 120000)),
   maxBins: Number(opt('bins', 64)),
   mtry: opt('mtry') ? Number(opt('mtry')) : undefined,
-  leafTop: Number(opt('leaf-top', 3)),
+  leafTop: Number(opt('leaf-top', 6)),
   seed: Number(opt('seed', 20201)),
 };
 const classPower = Number(opt('class-power', 0.25));
@@ -251,7 +251,6 @@ if (flag('final')) {
     const trainSec = (Date.now() - t1) / 1000;
     const text = encodeModelText(model);
     texts[v] = text;
-    // Autoverificación: el modelo decodificado del texto predice igual que el original.
     const raw64 = serializeModel(model);
     // Tiempo de inferencia y resubstitución sobre una muestra de entrenamiento.
     const sub = 5810;
@@ -265,6 +264,11 @@ if (flag('final')) {
     const t2 = performance.now();
     const pr = predictForest(model, Xs, sub);
     const infMs = performance.now() - t2;
+    // Autoverificación: se decodifica el texto que se va a escribir y debe predecir bit a bit igual que el modelo en memoria.
+    const decoded = predictForest(decodeModelText(text), Xs, sub);
+    for (let i = 0; i < pr.probabilities.length; i++) {
+      if (decoded.probabilities[i] !== pr.probabilities[i]) throw new Error(`El modelo decodificado (${v}) no reproduce las predicciones del original.`);
+    }
     const acc = evaluatePredictions(ys, argmaxRows(pr.probabilities, sub, K).classIndex, K);
     info[v] = { trainSec, rawBytes: raw64.length, textBytes: text.length, leaves: leafCount(model), nodes: model.nodeFeature.length, infMs, resubAcc: acc.accuracy };
     say(`- **${v}** (${FEATURE_SETS[v].join(', ')}): entrenamiento ${trainSec.toFixed(0)} s; binario ${(raw64.length / 1024).toFixed(0)} KB; texto embebido (zlib+base64) ${(text.length / 1024).toFixed(0)} KB; ${model.nodeFeature.length} nodos, ${leafCount(model)} hojas; inferencia de ${sub} muestras ${infMs.toFixed(0)} ms.`);

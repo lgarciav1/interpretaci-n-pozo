@@ -29,6 +29,10 @@ export function getLithologyModel(variant: LithologyVariant): ForestModel {
   return model;
 }
 
+/** Mínimo de muestras con PE y densidad válidas, y de fracción de PE finito, para que el modo automático use el PE. */
+const MIN_PE_SAMPLES = 50;
+const MIN_PE_FRACTION = 0.5;
+
 export type PeUsage = 'auto' | 'use' | 'ignore';
 
 export interface VariantChoice {
@@ -49,6 +53,13 @@ export function chooseLithologyVariant(curves: ModelCurves, usage: PeUsage = 'au
   if (usage === 'use') return { variant: 'withPe', suspectFraction: NaN, reason: 'PE usado por elección del usuario.' };
   if (!curves.RHOB) return { variant: 'noPe', suspectFraction: NaN, reason: 'Sin densidad no se puede validar el PE: se usa el modelo sin PE.' };
   const det = detectSuspectPe(curves.PEF, curves.RHOB);
+  // PE casi todo NaN (o sin densidad pareada): no hay base para confiar en él.
+  const pe = curves.PEF;
+  let finite = 0;
+  for (let i = 0; i < pe.length; i++) if (Number.isFinite(pe[i]!)) finite++;
+  if (det.samples < MIN_PE_SAMPLES || finite < MIN_PE_FRACTION * pe.length) {
+    return { variant: 'noPe', suspectFraction: det.fraction, reason: 'PE con muy pocas muestras válidas: se usa el modelo sin PE.' };
+  }
   return det.suspect
     ? { variant: 'noPe', suspectFraction: det.fraction, reason: `PE sospechoso de baritina (${(det.fraction * 100).toFixed(0)} % de las muestras con PE > 4 b/e y ρb < 2,55 g/cm³): se usa el modelo sin PE.` }
     : { variant: 'withPe', suspectFraction: det.fraction, reason: 'PE compatible con la densidad: se usa el modelo con PE.' };

@@ -94,13 +94,14 @@ El PE del TP es sospechoso de baritina (decisión 0029: 96 % de las muestras con
 empuja a caliza. Se entrenaron dos variantes con la misma configuración: `withPe` (GR, RHOB, NPHI, PEF, DTC, LOG_RDEP)
 y `noPe` (sin PEF). `chooseLithologyVariant(curves, 'auto')` aplica la misma regla `detectSuspectPe` de la 0029: sin
 curva PE o con PE sospechoso usa `noPe`; en el TP elige `noPe` (fracción 0,96) y devuelve el motivo para mostrarlo.
-`'use'` e `'ignore'` fuerzan la variante. Costo: un segundo modelo de 443 KB. Además, el PE casi no aporta fuera de
+`'use'` e `'ignore'` fuerzan la variante. Costo: un segundo modelo de 662 KB. Además, el PE casi no aporta fuera de
 muestra (ver importancia), así que perder la variante con PE cuesta poco.
 
 ## D5. Random forest
 
 Implementación propia (`src/ml/forest.ts`): árboles de clasificación con impureza de Gini, características
-cuantizadas en 64 bins por cuantiles (el corte se guarda como un byte), muestra con reemplazo por árbol,
+cuantizadas en 64 bins por cuantiles (el corte se guarda como un byte; entrenamiento e inferencia cuantizan el valor
+en Float32, `Math.fround`, igual que los bordes), muestra con reemplazo por árbol,
 `mtry = ⌈√d⌉`. Hiperparámetros del modelo final (todos configurables en `tools/ml/train.mjs`):
 
 | Parámetro | Valor | Motivo |
@@ -110,7 +111,7 @@ cuantizadas en 64 bins por cuantiles (el corte se guarda como un byte), muestra 
 | Profundidad máxima | 16 | |
 | Hoja mínima | 60 filas | 20/40/60 dan métricas equivalentes; 60 cuesta la mitad de tamaño |
 | Bins | 64 | |
-| Clases guardadas por hoja | 3 (uint8, suma 255) | guardar las 12 dio lo mismo (0,887 vs 0,888); 4× menos bytes |
+| Clases guardadas por hoja | 6 (uint8, probabilidad real en 1/255) + «resto» repartido según los a priori | con 3 clases y renormalizando se perdía la masa de las clases raras (log-loss del test oculto 0,794 contra 0,755 con las 12; 387 muestras con p(verdad) = 0 contra 16; Dolomía media 0,0017 contra 0,0051). Con 6 + resto: 0,756, 4 muestras en 0 y Dolomía 0,0049, con 1,36 MB en total (ver «Clases por hoja») |
 | Peso de clase | (n_mayoritaria / n_clase)^0,25 | compromiso entre exactitud y F1 macro (ver abajo) |
 | Peso de confianza | 1 / 0,5 / 0,25 para confianza 1 / 2 / 3 | neutro en la exploración (0,884 vs 0,888 sin pesos); menos peso al dato menos fiable |
 | Semilla | 20201 | todo es determinístico (re-entrenar da los mismos bytes: verificado) |
@@ -128,11 +129,11 @@ La importancia por permutación (`permutationImportance`, función pura sobre un
 | Variante | GR | RHOB | NPHI | PEF | DTC | LOG_RDEP |
 |---|---|---|---|---|---|---|
 | noPe, MDI | 0,334 | 0,171 | 0,183 | — | 0,179 | 0,134 |
-| noPe, permutación (caída de F1 macro) | 0,067 | 0,076 | 0,045 | — | 0,026 | 0,040 |
-| noPe, permutación (aumento de penalización) | 0,283 | 0,118 | 0,181 | — | 0,022 | 0,028 |
+| noPe, permutación (caída de F1 macro) | 0,066 | 0,076 | 0,044 | — | 0,028 | 0,041 |
+| noPe, permutación (aumento de penalización) | 0,285 | 0,119 | 0,181 | — | 0,025 | 0,030 |
 | withPe, MDI | 0,319 | 0,154 | 0,159 | 0,081 | 0,168 | 0,119 |
-| withPe, permutación (caída de F1 macro) | 0,083 | 0,081 | 0,060 | 0,012 | 0,024 | 0,045 |
-| withPe, permutación (aumento de penalización) | 0,312 | 0,102 | 0,163 | −0,002 | −0,001 | 0,006 |
+| withPe, permutación (caída de F1 macro) | 0,082 | 0,081 | 0,059 | 0,012 | 0,025 | 0,045 |
+| withPe, permutación (aumento de penalización) | 0,312 | 0,109 | 0,166 | 0,001 | 0,002 | 0,009 |
 
 El GR domina y luego densidad y neutrón. El sónico y el PE pesan bastante por MDI y casi nada por permutación fuera
 de muestra: el sesgo conocido de MDI (reparte a favor de características continuas y correlacionadas). La
@@ -151,7 +152,9 @@ importancia por permutación subestima las curvas correlacionadas (RHOB–NPHI�
 - **Mezcla gaussiana** (EM, covarianza diagonal) inicializada con k-means, log-sum-exp, piso de varianza 1e-3 en
   unidades estandarizadas, reinicio de componentes colapsados sobre la muestra peor explicada, NaN marginalizados
   exactamente (EM exacto para faltantes al azar). Devuelve responsabilidades, pesos, medias, varianzas, log-verosimilitud
-  y BIC. `scanClusterCount` ayuda a elegir k.
+  y BIC. `scanClusterCount` ayuda a elegir k, con una advertencia: las muestras de un perfil están autocorrelacionadas
+  (vecinas a 0,15 m casi idénticas), el BIC las trata como independientes y por eso **tiende a sobreestimar k**. Tomar
+  el k del BIC como cota superior y preferir el codo o el criterio del intérprete.
 - **Orden canónico** de clusters (lexicográfico por el centro, con el GR primero): el cluster 0 es el de menor GR en
   cualquier semilla.
 - Las etiquetas no son litologías: son grupos de respuesta parecida que el intérprete nombra.
@@ -170,38 +173,40 @@ penalización de la competencia:
 
 Además se corrió una partición **al azar** (5 folds) solo para medir cuánto infla. Toda la validación usa la
 configuración del modelo final, y los pesos de clase de cada fold se calculan solo con sus filas de entrenamiento
-(`crossValidate` además falla si una muestra aparece en train y test). Cifras reales (agrupadas sobre todas las
+(`crossValidate` además falla si una muestra aparece en train y test). **Sesgo optimista leve:** los 98 pozos de los bloques y del leave-one-well-out son los mismos con los que se
+exploraron y eligieron los hiperparámetros (peso de clase, hoja mínima, características); el test oculto solo se usó
+en la corrida final, sin ajustar nada con él. Cifras reales (agrupadas sobre todas las
 muestras de prueba; ver el archivo de métricas para la media por fold, el desvío y la matriz de confusión):
 
 | Esquema | Variante | Exactitud | F1 macro | Penalización FORCE (puntuación) |
 |---|---|---|---|---|
-| Al azar (5 folds) | noPe | 0,769 | 0,527 | 0,613 (−0,613) |
-| Al azar (5 folds) | withPe | 0,783 | 0,548 | 0,577 (−0,577) |
-| Bloques de profundidad (5 folds, 200 m, buffer 30 m) | noPe | 0,729 | 0,417 | 0,722 (−0,722) |
-| Bloques de profundidad (5 folds, 200 m, buffer 30 m) | withPe | 0,741 | 0,433 | 0,691 (−0,691) |
-| Leave-one-well-out (98 pozos) | noPe | 0,676 | 0,352 | 0,869 (−0,869) |
-| Leave-one-well-out (98 pozos) | withPe | 0,681 | 0,359 | 0,860 (−0,860) |
-| Test oculto oficial de FORCE (10 pozos ajenos a train.csv, 122 397 muestras) | noPe | 0,746 | 0,435 | 0,672 (−0,672) |
-| Test oculto oficial de FORCE | withPe | 0,754 | 0,448 | 0,650 (−0,650) |
+| Al azar (5 folds) | noPe | 0,769 | 0,528 | 0,613 (−0,613) |
+| Al azar (5 folds) | withPe | 0,782 | 0,549 | 0,578 (−0,578) |
+| Bloques de profundidad (5 folds, 200 m, buffer 30 m) | noPe | 0,728 | 0,416 | 0,723 (−0,723) |
+| Bloques de profundidad (5 folds, 200 m, buffer 30 m) | withPe | 0,741 | 0,433 | 0,692 (−0,692) |
+| Leave-one-well-out (98 pozos) | noPe | 0,676 | 0,351 | 0,871 (−0,871) |
+| Leave-one-well-out (98 pozos) | withPe | 0,681 | 0,359 | 0,862 (−0,862) |
+| Test oculto oficial de FORCE (10 pozos ajenos a train.csv, 122 397 muestras) | noPe | 0,745 | 0,436 | 0,674 (−0,674) |
+| Test oculto oficial de FORCE | withPe | 0,754 | 0,449 | 0,651 (−0,651) |
 
 - La partición al azar infla respecto de los bloques: +0,04 de exactitud, +0,11 de F1 macro y −0,11 de penalización
   (más optimista). Un test sintético muestra el mecanismo: con litología constante por tramo y sin relación entre
   tramos, el azar da > 0,85 y los bloques < 0,6 (el valor sin información sería 1/3).
 - Leave-one-well-out es peor que los bloques (los pozos nuevos son más difíciles) y **muy variable entre pozos**: el
   desvío de la penalización por pozo es 0,40 (media por pozo 0,85). El número agrupado esconde pozos con 1,0 o más.
-- Solo con las muestras de confianza 1 todo mejora (LOWO noPe: exactitud 0,707, penalización 0,785): parte del error
+- Solo con las muestras de confianza 1 todo mejora (LOWO noPe: exactitud 0,706, penalización 0,787): parte del error
   es ruido de la etiqueta.
 - Por clase (LOWO noPe): lutita F1 0,82, arenisca 0,61, anhidrita 0,71, halita 0,61 (recall 0,45: muchas halitas
-  van a caliza), caliza 0,51, carbón 0,42. **Arenisca/lutita (0,18), marga (0,20), creta (0,09), toba (0,05), dolomía
+  van a caliza), caliza 0,51, carbón 0,43. **Arenisca/lutita (0,18), marga (0,20), creta (0,10), toba (0,05), dolomía
   (0,00) y basamento (0,00) no se distinguen** fuera de muestra: son clases con soporte escaso o definidas por
   contexto que cuatro-cinco curvas no capturan.
 - El test oculto oficial (10 pozos de la misma región de FORCE) da −0,65/−0,67; no es una medida de transferencia a otra
   cuenca. Se informa como referencia de que la implementación funciona: la puntuación es de calidad media, no una
   réplica de los mejores equipos de la competencia.
-- El PE aporta poco: 0,869 → 0,860 de penalización en LOWO.
+- El PE aporta poco: 0,871 → 0,862 de penalización en LOWO.
 - **Verificación independiente del puntaje.** Las predicciones de los modelos embebidos sobre el test oculto se
   reevaluaron fuera del código TypeScript, con NumPy y la fórmula de `test_code.py` (−media de `A[verdad, predicción]`
-  con el `penalty_matrix.npy` original): −0,672 (noPe) y −0,650 (withPe), exactitud 0,746 y 0,754; coinciden con las
+  con el `penalty_matrix.npy` original): −0,674 (noPe) y −0,651 (withPe), exactitud 0,745 y 0,754 (repetido con los modelos actuales, 6 clases por hoja + resto; la primera versión daba −0,672 y −0,650); coinciden con las
   cifras del motor de métricas. La constante TypeScript de la matriz es idéntica elemento a elemento al `.npy`.
 
 ## D8. Tamaño y tiempos
@@ -209,14 +214,15 @@ muestras de prueba; ver el archivo de métricas para la media por fold, el desv�
 | | withPe | noPe |
 |---|---|---|
 | Árboles / nodos / hojas | 48 / 122 254 / 61 151 | 48 / 122 050 / 61 049 |
-| Binario | 838 KB | 837 KB |
-| Texto embebido (zlib + base64) | 448 KB | 443 KB |
+| Binario | 1197 KB | 1194 KB |
+| Texto embebido (zlib + base64) | 662 KB | 662 KB |
 | Entrenamiento (Node 22, 4 núcleos compartidos, una sola hebra) | 9 s | 8 s |
-| Decodificar el modelo | 30 ms | 30–80 ms |
-| Inferencia de las 5 810 muestras del TP (mediana caliente) | 32 ms | 34 ms |
+| Decodificar el modelo | 35 ms | 53 ms |
+| Inferencia de las 5 810 muestras del TP (mediana caliente) | 42 ms | 42 ms |
 
-Los dos modelos suman 0,91 MB de texto (objetivo ≤ 1,5 MB; un test lo verifica). Un bundle de Vite en formato IIFE
-con toda la API más los modelos pesa 0,93 MB y se ejecutó en un contexto sin DOM, `Buffer` ni `btoa`. El
+Los dos modelos suman 1,36 MB de texto (objetivo ≤ 1,5 MB; un test lo verifica). Importar solo el barril `src/ml/index.ts` (sin `embedded.ts`) pesa 11 KB: el modelo no se arrastra al hilo
+principal; se importa desde `src/ml/embedded.ts` únicamente en el Worker. Un bundle de Vite en formato IIFE
+con toda la API más los modelos pesa 1,38 MB y se ejecutó en un contexto sin DOM, `Buffer` ni `btoa`. El
 entrenamiento completo (lectura del CSV de 280 MB incluida) tarda unos 30 s; la validación leave-one-well-out, unos
 14 min por variante.
 
@@ -265,9 +271,28 @@ decisiones. Variante sin PE; exactitud / F1 macro / penalización en leave-group
 | mtry 2 / 3 / 4 (class-power 0,5) | 0,645 / 0,639 / 0,635 | 0,325 / 0,324 / 0,322 | 0,939 / 0,957 / 0,965 |
 | pesos de confianza 1/0,5/0,25 · 1/1/1 · 1/0,25/0,1 (hoja 100) | 0,672 · 0,670 · 0,673 | 0,274 · 0,282 · 0,281 | 0,884 · 0,888 · 0,881 |
 | hoja mínima 20 / 40 / 60 (48 árboles, muestra 120 000) | 0,665 / 0,668 / 0,669 | 0,325 / 0,328 / 0,326 | 0,896 / 0,887 / 0,886 |
-| clases por hoja 3 / 12 (hoja 40) | 0,668 / 0,668 | 0,328 / 0,328 | 0,887 / 0,888 |
+| clases por hoja 3 / 12, renormalizando (hoja 40) | 0,668 / 0,668 | 0,328 / 0,328 | 0,887 / 0,888 |
 
 Las diferencias menores que ≈ 0,03 de penalización están dentro del ruido (desvío entre grupos ≈ 0,2).
+
+## Clases por hoja (corrección tras la revisión)
+
+La exactitud y la penalización no dependen de cuántas clases se guardan (el argmax no cambia), pero las probabilidades
+sí. Medido sobre el test oculto (modelo sin PE, floor 1e-6 para la log-loss; mismos árboles, solo cambia el
+almacenamiento de las hojas):
+
+| Almacenamiento | Log-loss | Muestras con p(verdad) = 0 | Dolomía, p media | Texto de los dos modelos |
+|---|---|---|---|---|
+| 3 clases, renormalizadas (versión anterior) | 0,794 | 387 | 0,0017 | 0,91 MB |
+| 3 clases + resto repartido | 0,773 | 0 | 0,0023 | 0,99 MB |
+| 4 clases + resto | 0,762 | 0 | 0,0032 | 1,15 MB |
+| **6 clases + resto (elegida)** | **0,756** | 4 | 0,0049 | **1,36 MB** |
+| 12 clases (exacto) | 0,755 | 16 | 0,0051 | 1,51 MB |
+
+(withPe: 0,756 → 0,738 con 6 clases + resto.) Cada hoja guarda la probabilidad real de sus 6 clases más probables;
+la masa restante se reparte al predecir entre las demás clases según los a priori del entrenamiento. Con 12 clases el
+promedio de hojas es exacto (test); con 6 + resto la diferencia es ≈ 0,0003 de log-loss y el modelo queda por debajo del
+presupuesto de 1,5 MB.
 
 ## Alternativas descartadas
 

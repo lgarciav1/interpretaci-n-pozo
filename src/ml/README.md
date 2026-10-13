@@ -12,7 +12,7 @@ Node/Vitest. Decisión de diseño y métricas: `docs/decisiones/0030-modelos-de-
 | `forest.ts` | Random forest (entrenamiento por histogramas, faltantes con dirección aprendida, MDI) y `predictForest` |
 | `serialize.ts` | Binario del modelo (ida y vuelta exacta) y texto zlib+base64 para incrustar en el build |
 | `model/lithologyModels.ts` | **Generado**: los dos modelos entrenados con FORCE 2020 (`withPe`, `noPe`) |
-| `embedded.ts` | Carga perezosa de los modelos embebidos y elección con/sin PE |
+| `embedded.ts` | Carga perezosa de los modelos embebidos y elección con/sin PE. **Fuera del barril `index.ts`** (arrastra ~0,9 MB): importar solo desde el Worker |
 | `lithologyModel.ts` | `predictLithology`: curvas → clase, probabilidades, confianza |
 | `electrofacies.ts`, `kmeans.ts`, `gmm.ts` | Electrofacies sin supervisión: k-means++ y mezcla gaussiana (EM, covarianza diagonal) |
 | `importance.ts` | Importancia por permutación (función pura) |
@@ -23,7 +23,10 @@ Node/Vitest. Decisión de diseño y métricas: `docs/decisiones/0030-modelos-de-
 ## API (desde `src/ml/index.ts`)
 
 ```ts
-import { predictLithologyEmbedded, clusterElectrofacies, permutationImportance, depthBlockFolds } from '../ml';
+import { clusterElectrofacies, permutationImportance, depthBlockFolds } from '../ml';
+// El modelo embebido (~0,9 MB) NO sale del barril `../ml`: importarlo solo desde el Web Worker, para que el hilo
+// principal no lo arrastre al bundle.
+import { predictLithologyEmbedded, getLithologyModel } from '../ml/embedded';
 
 // 1. Litología con el modelo embebido. `curves` en las unidades de features.ts (resistividad en ohm·m, sin log;
 //    neutrón en v/v o %, se detecta). Los nombres se pueden resolver con resolveCurveAliases({ GR, ZDEN, NPHI, PE, DT, AT90, CAL }).
@@ -44,7 +47,7 @@ e.weights; e.counts; e.bic /* gmm */; e.inertia /* kmeans */;
 scanClusterCount(curves, [2, 3, 4, 5, 6], { method: 'gmm' });  // elegir k
 
 // 3. Importancia
-modelImportance(getLithologyModel('noPe'));        // MDI guardada en el modelo
+modelImportance(getLithologyModel('noPe'));        // MDI guardada en el modelo (getLithologyModel: ../ml/embedded)
 permutationImportance({ X, n, d, truth, nClasses, predict, metric: 'f1Macro', groups: wellIds });
 
 // 4. Validación sin fuga
@@ -81,7 +84,7 @@ npm run ml:train -- --csv /ruta/a/train.csv --cv random,blocks,lowo --variants n
 npm run ml:train -- --csv /ruta/a/train.csv --cv random,blocks,lowo --variants withPe --report /tmp/cv_withPe.md
 ```
 
-Opciones: `--trees 48 --depth 16 --min-leaf 60 --sample 120000 --bins 64 --mtry <n> --leaf-top 3 --class-power 0.25
+Opciones: `--trees 48 --depth 16 --min-leaf 60 --sample 120000 --bins 64 --mtry <n> --leaf-top 6 --class-power 0.25
 --conf-weights 1,0.5,0.25 --seed 20201`, `--folds 5 --block 200 --gap 30 --lowo-group 1`, `--features-no-pe` y
 `--features-with-pe` (listas de características). Con la configuración por defecto el resultado es byte a byte
 reproducible. Después de reentrenar: `npm test` (el humo del modelo embebido verifica forma, rangos y tamaño < 1,5 MB)

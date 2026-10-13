@@ -3,6 +3,7 @@ import { argmaxRows, binOf, computeBinEdges, leafCount, predictForest, trainRand
 import { base64ToBytes, bytesToBase64, decodeModelText, deserializeModel, encodeModelText, serializeModel } from '../src/ml/serialize';
 import { permutationImportance } from '../src/ml/importance';
 import { mulberry32, randNormal } from '../src/ml/rng';
+import { LEAF_FEATURE } from '../src/ml/forest';
 
 /** Datos sintéticos con regla de decisión conocida. Columnas: x0, x1 informativas; x2, x3 ruido. */
 function ruleData(n: number, seed: number, rule: (x0: number, x1: number) => number, K: number): TrainingMatrix {
@@ -291,13 +292,15 @@ describe('Cuantización por bins', () => {
 });
 
 describe('Forma del modelo', () => {
-  it('hojas con T clases que suman 255 y recuento coherente', () => {
+  it('hojas con T clases (suma ≤ 255; = 255 si T = K) y recuento coherente', () => {
     const rule = (x0: number, x1: number) => (x0 < 0.3 ? 0 : x1 < 0.6 ? 1 : 2);
     const model = trainRandomForest(ruleData(2000, 81, rule, 3), { ...opts, nTrees: 5, leafTop: 2 });
     expect(model.leafTop).toBe(2);
+    const full = trainRandomForest(ruleData(2000, 81, rule, 3), { ...opts, nTrees: 5, leafTop: 3 });
+    for (let l = 0; l < leafCount(full); l++) expect(full.leafProb[3 * l]! + full.leafProb[3 * l + 1]! + full.leafProb[3 * l + 2]!).toBe(255);
     const L = leafCount(model);
     expect(Number.isInteger(L)).toBe(true);
-    for (let l = 0; l < L; l++) expect(model.leafProb[2 * l]! + model.leafProb[2 * l + 1]!).toBe(255);
+    for (let l = 0; l < L; l++) expect(model.leafProb[2 * l]! + model.leafProb[2 * l + 1]!).toBeLessThanOrEqual(255);
     // Árboles en preorden: cada árbol tiene tantas hojas como (nodos + 1) / 2.
     let leaves = 0;
     for (let i = 0; i < model.nodeFeature.length; i++) if ((model.nodeFeature[i]! & 0x7f) === 0x7f) leaves++;
@@ -310,5 +313,110 @@ describe('Forma del modelo', () => {
     expect(() => trainRandomForest({ ...data, rows: [] }, opts)).toThrow(/filas/);
     expect(() => trainRandomForest({ ...data, y: Int16Array.from({ length: 100 }, () => 5) }, opts)).toThrow(/fuera de rango/);
     expect(Math.abs(randNormal(mulberry32(1)))).toBeLessThan(10);
+  });
+});
+
+describe('Entrenamiento con Float64 y validación de parámetros', () => {
+  it('una característica discreta en Float64 ({0,6; 0,7; 0,8}) se cuantiza igual que en inferencia: resustitución 1,0', () => {
+    // 0,6 / 0,7 / 0,8 no son exactamente representables en Float32: si el entrenamiento cuantiza en Float64 y la
+    // inferencia en Float32, los valores caen en bins distintos de los bordes y el modelo falla.
+    const n = 900;
+    const values = [0.6, 0.7, 0.8];
+    const X = new Float64Array(n);
+    const y = new Int16Array(n);
+    for (let i = 0; i < n; i++) {
+      X[i] = values[i % 3]!;
+      y[i] = X[i] === 0.7 ? 1 : 0;
+    }
+    const data: TrainingMatrix = { X, n, d: 1, featureNames: ['v'], y, classCodes: [0, 1] };
+    const model = trainRandomForest(data, { nTrees: 5, maxDepth: 4, minSamplesLeaf: 2, sampleSize: 900, seed: 3, minValidFeatures: 1 });
+    const p = predictForest(model, X, n, { minValidFeatures: 1 });
+    const { classIndex } = argmaxRows(p.probabilities, n, 2);
+    let ok = 0;
+    for (let i = 0; i < n; i++) if (classIndex[i] === y[i]) ok++;
+    expect(ok / n).toBe(1);
+  });
+
+  it('rechaza nTrees < 1 o no entero y más características de las que caben en 7 bits', () => {
+    const data = ruleData(100, 3, x => (x < 0.5 ? 0 : 1), 2);
+    expect(() => trainRandomForest(data, { ...opts, nTrees: 0 })).toThrow(/nTrees/);
+    expect(() => trainRandomForest(data, { ...opts, nTrees: 2.5 })).toThrow(/nTrees/);
+    const d = LEAF_FEATURE; // 127 características: una más de las permitidas
+    const wide: TrainingMatrix = { X: new Float32Array(20 * d), n: 20, d, featureNames: Array.from({ length: d }, (_, j) => `f${j}`), y: new Int16Array(20), classCodes: [0, 1] };
+    expect(() => trainRandomForest(wide, opts)).toThrow(/características/);
+    const ok = LEAF_FEATURE - 1; // 126 es el máximo
+    const fine: TrainingMatrix = { ...wide, d: ok, featureNames: wide.featureNames.slice(0, ok), X: Float32Array.from({ length: 20 * ok }, (_, i) => (i * 7919) % 13) };
+    for (let i = 0; i < 20; i++) (fine.y as Int16Array)[i] = i % 2;
+    expect(() => trainRandomForest(fine, { ...opts, nTrees: 1, maxDepth: 3 })).not.toThrow();
+  });
+});
+
+describe('Hojas: leafTop = K es el promedio exacto; con leafTop < K el resto se reparte', () => {
+  const K = 4;
+  const rule = (x0: number, x1: number) => Math.min(K - 1, Math.floor((x0 * 0.6 + x1 * 0.4) * K) + (x0 > 0.9 ? 0 : 0));
+  // Etiqueta con ruido para que las hojas mezclen varias clases.
+  function noisy(n: number, seed: number): TrainingMatrix {
+    const base = ruleData(n, seed, rule, K);
+    const rng = mulberry32(seed + 1000);
+    const y = base.y as Int16Array;
+    for (let i = 0; i < n; i++) if (rng() < 0.2) y[i] = Math.floor(rng() * K);
+    return base;
+  }
+  const train = noisy(4000, 5);
+  const test = noisy(500, 6);
+  const o = { nTrees: 6, maxDepth: 8, minSamplesLeaf: 15, sampleSize: 3000, seed: 9, leafTop: K };
+
+  /** Recorre los árboles con comparaciones directas contra los bordes (sin pasar por binOf) y promedia las hojas. */
+  function independentAverage(model: ForestModel, X: ArrayLike<number>, n: number): Float64Array {
+    const d = model.featureNames.length;
+    const T = model.leafTop;
+    const out = new Float64Array(n * K);
+    const leafIndex = new Map<number, number>();
+    let li = 0;
+    for (let i = 0; i < model.nodeFeature.length; i++) if ((model.nodeFeature[i]! & 0x7f) === 0x7f) leafIndex.set(i, li++);
+    const nTrees = model.treeStart.length - 1;
+    for (let r = 0; r < n; r++) {
+      for (let t = 0; t < nTrees; t++) {
+        let i = model.treeStart[t]!;
+        while ((model.nodeFeature[i]! & 0x7f) !== 0x7f) {
+          const f = model.nodeFeature[i]! & 0x7f;
+          const x = X[r * d + f]!;
+          const left = Number.isNaN(x) ? (model.nodeFeature[i]! & 0x80) !== 0 : x <= model.edges[f]![model.nodeThreshold[i]!]!;
+          i = left ? i + 1 : i + model.nodeRight[i]!;
+        }
+        const base = leafIndex.get(i)! * T;
+        for (let q = 0; q < T; q++) out[r * K + model.leafClass[base + q]!]! += model.leafProb[base + q]! / 255 / nTrees;
+      }
+    }
+    return out;
+  }
+
+  it('leafTop = K: predictForest coincide con el promedio de hojas calculado a mano', () => {
+    const model = trainRandomForest(train, o);
+    expect(model.leafTop).toBe(K);
+    const mine = independentAverage(model, test.X, test.n);
+    const p = predictForest(model, test.X, test.n, { minValidFeatures: 1 }).probabilities;
+    for (let i = 0; i < p.length; i++) expect(Math.abs(p[i]! - mine[i]!)).toBeLessThan(1e-6);
+  });
+
+  it('leafTop < K conserva la masa total (suma 1) y reparte el resto: casi ninguna clase queda en 0 por truncar', () => {
+    const full = trainRandomForest(train, o);
+    const top2 = trainRandomForest(train, { ...o, leafTop: 2 });
+    const pf = predictForest(full, test.X, test.n).probabilities;
+    const p2 = predictForest(top2, test.X, test.n).probabilities;
+    let diff = 0;
+    let zeros = 0;
+    for (let r = 0; r < test.n; r++) {
+      let s = 0;
+      for (let c = 0; c < K; c++) {
+        s += p2[r * K + c]!;
+        diff += Math.abs(p2[r * K + c]! - pf[r * K + c]!);
+        if (p2[r * K + c] === 0) zeros++;
+      }
+      expect(s).toBeCloseTo(1, 5);
+    }
+    expect(diff / (test.n * K)).toBeLessThan(0.03);
+    // Solo queda en 0 una clase si en todas las hojas visitadas la masa guardada ya sumaba 255 (resto < 0,5/255).
+    expect(zeros / (test.n * K)).toBeLessThan(0.01);
   });
 });

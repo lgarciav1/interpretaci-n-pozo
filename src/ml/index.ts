@@ -17,8 +17,9 @@ export type { ForestModel, ForestOptions, ForestPrediction, TrainingMatrix, Pred
 export { predictLithology, modelClasses, modelImportance } from './lithologyModel.ts';
 export type { LithologyPrediction, LithologyPredictOptions } from './lithologyModel.ts';
 
-export { getLithologyModel, chooseLithologyVariant, predictLithologyEmbedded } from './embedded.ts';
-export type { LithologyVariant, PeUsage, VariantChoice } from './embedded.ts';
+// `embedded.ts` (modelos entrenados, ~0,9 MB de texto) NO se re-exporta aquí a propósito: importar este barril desde el
+// hilo principal no debe arrastrar el modelo al bundle. Importarlo solo desde el Web Worker:
+//   import { predictLithologyEmbedded } from '../ml/embedded';
 
 export { serializeModel, deserializeModel, encodeModelText, decodeModelText } from './serialize.ts';
 

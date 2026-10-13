@@ -200,6 +200,37 @@ describe('Clases y matriz de penalización de FORCE 2020', () => {
   });
 });
 
+/** Lee un .npy v1/v2 de float64 en C-order y devuelve forma y datos. */
+function readNpy(bytes: Uint8Array): { shape: number[]; data: Float64Array } {
+  const magic = String.fromCharCode(...bytes.subarray(1, 6));
+  if (bytes[0] !== 0x93 || magic !== 'NUMPY') throw new Error('No es un .npy');
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const major = bytes[6]!;
+  const headerLen = major === 1 ? view.getUint16(8, true) : view.getUint32(8, true);
+  const start = (major === 1 ? 10 : 12) + headerLen;
+  const header = new TextDecoder().decode(bytes.subarray(major === 1 ? 10 : 12, start));
+  if (!/'descr': '<f8'/.test(header) || !/'fortran_order': False/.test(header)) throw new Error(`Formato npy no soportado: ${header}`);
+  const shape = (/'shape': \(([^)]*)\)/.exec(header)![1]!).split(',').filter(t => t.trim()).map(Number);
+  const count = shape.reduce((a, b) => a * b, 1);
+  const data = new Float64Array(count);
+  for (let i = 0; i < count; i++) data[i] = view.getFloat64(start + 8 * i, true);
+  return { shape, data };
+}
+
+// El .npy vive en datos/FORCE2020; si no está en el checkout, el test se salta explícitamente.
+const NPY_PATH = new URL('../datos/FORCE2020/lithology_competition/data/penalty_matrix.npy', import.meta.url);
+const nodeModule = 'node:fs';
+const fs = (await import(/* @vite-ignore */ nodeModule)) as { existsSync: (p: URL) => boolean; readFileSync: (p: URL) => Uint8Array };
+const hasNpy = fs.existsSync(NPY_PATH);
+
+describe('FORCE_PENALTY_MATRIX contra penalty_matrix.npy', () => {
+  it.skipIf(!hasNpy)('coincide celda por celda con el archivo original', () => {
+    const { shape, data } = readNpy(fs.readFileSync(NPY_PATH));
+    expect(shape).toEqual([12, 12]);
+    for (let i = 0; i < 12; i++) for (let j = 0; j < 12; j++) expect(FORCE_PENALTY_MATRIX[i]![j]).toBe(data[i * 12 + j]);
+  });
+});
+
 describe('crossValidate', () => {
   it('detecta una fuga (muestra en train y test) y falla', () => {
     const bad: Fold = { train: Int32Array.from([0, 1, 2]), test: Int32Array.from([2, 3]), label: 'malo' };
