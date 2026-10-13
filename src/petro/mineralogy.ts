@@ -185,7 +185,7 @@ function solve(matrix: number[][], rhs: number[]): number[] | null {
   return a.map(r => r[n]!);
 }
 
-/** Prepara las 31 caras una sola vez por conjunto de parámetros. Sin estado global. */
+/** Prepara las caras del simplex (31 con PE, 15 sin PE) una sola vez por conjunto de parámetros. Sin estado global. */
 export function prepareMineralInversion(options: MineralOptions = {}): (observation: MineralObservation) => MineralResult {
   const invalid = (): MineralResult => ({ volumes: [NaN, NaN, NaN, NaN, NaN], residual: NaN, residuals: { rho: NaN, u: NaN, nphi: NaN, gr: NaN }, valid: false });
   const w = options.weights ?? DEFAULT_WEIGHTS;
