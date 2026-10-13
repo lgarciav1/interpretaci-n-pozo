@@ -2,7 +2,7 @@
 import { defineModule, input, output, type TableCell } from '../../core/module';
 import { param } from '../../core/params';
 import { CLAY_PARAMS, clayCalibration } from './calibration';
-import { prepareMineralInversion } from '../../petro/mineralogy';
+import { detectSuspectPe, prepareMineralInversion } from '../../petro/mineralogy';
 
 export const MINERAL_ZONES = 'MINERAL_ZONES';
 export const VOLUME_ROLES = ['V_QUARTZ', 'V_CALCITE', 'V_DOLOMITE', 'V_CLAY', 'PHI_MINERAL'] as const;
@@ -21,6 +21,7 @@ export default defineModule({
   ],
   inputs: { rho: input.curve('RHOB'), pe: input.curve('PEF'), nphi: input.curve('NPHI'), gr: input.curve('GR') },
   params: {
+    peMode: param.enum({ label: 'Uso del PE', default: 'auto', options: [{ value: 'auto', label: 'Automático (ignorar si es sospechoso)' }, { value: 'use', label: 'Usar siempre' }, { value: 'ignore', label: 'Ignorar' }], group: 'Calidad del ajuste', tooltip: 'Un PE alto con densidad baja en gran parte del pozo indica baritina en el lodo. Sin PE la inversión resuelve cuarzo, calcita, arcilla y porosidad; la dolomía queda en 0.' }),
     rhoWeight: weight('Peso de densidad'), uWeight: weight('Peso fotoeléctrico'), nphiWeight: weight('Peso de neutrón'), grWeight: weight('Peso de GR'),
     // Umbral práctico del residuo normalizado; no tolerancia de fabricante.
     residualLimit: param.number({ label: 'Avisar sobre residuo', default: 2, min: 0.1, max: 20, step: 0.1, group: 'Calidad del ajuste', scope: 'zone' }),
@@ -41,15 +42,24 @@ export default defineModule({
   compute({ n, inputs, segments, zones, warn }) {
     const curves = VOLUME_ROLES.map(() => new Float64Array(n).fill(NaN));
     const residual = new Float64Array(n).fill(NaN);
-    let fitted = 0, highResidual = 0, invalidNeutron = 0;
+    let fitted = 0, highResidual = 0, invalidNeutron = 0, withoutPe = 0;
+    const peCheck = detectSuspectPe(inputs.pe, inputs.rho);
+    const pct = (x: number) => `${Math.round(x * 100)} %`;
+    let suspectWarned = false;
     for (const s of segments) {
       const p = s.params;
+      const ignorePe = p.peMode === 'ignore' || (p.peMode !== 'use' && peCheck.suspect);
+      if (peCheck.suspect && !suspectWarned) {
+        suspectWarned = true;
+        warn(`PE sospechoso: en el ${pct(peCheck.fraction)} de las muestras el PE supera 4 b/e con densidad menor a 2,55 g/cm³, incompatible con arenisca o arcilla. Es la firma típica de baritina en el lodo.${p.peMode === 'use' ? ' Se usa igual porque está configurado «Usar siempre».' : ' La inversión se resuelve sin PE (la dolomía queda en 0).'}`);
+      }
       const calibration = clayCalibration(p);
       if (calibration.clayGr! <= p.cleanGr) warn('El GR arcilloso debe superar al GR limpio; revisá los extremos de la inversión.');
-      const invert = prepareMineralInversion({ weights: { rho: p.rhoWeight, u: p.uWeight, nphi: p.nphiWeight, gr: p.grWeight }, ...calibration, cleanGr: p.cleanGr, fluidRho: p.fluidRho, fluidPe: p.fluidPe });
+      const invert = prepareMineralInversion({ weights: { rho: p.rhoWeight, u: p.uWeight, nphi: p.nphiWeight, gr: p.grWeight }, ...calibration, cleanGr: p.cleanGr, fluidRho: p.fluidRho, fluidPe: p.fluidPe, ignorePe });
       for (let i = s.start; i < s.end; i++) {
         const r = invert({ rho: inputs.rho[i], pe: inputs.pe[i], nphi: inputs.nphi[i], gr: inputs.gr[i] });
         if (!r.valid) continue;
+        if (ignorePe) withoutPe++;
         for (let j = 0; j < curves.length; j++) curves[j][i] = r.volumes[j];
         residual[i] = r.residual;
         fitted++; if (r.residual > p.residualLimit) highResidual++;
@@ -63,6 +73,7 @@ export default defineModule({
       VOLUME_ROLES.forEach((role,j) => row[role] = cell(count ? sums[j]/count : NaN));
       return row;
     });
+    if (withoutPe && !peCheck.suspect) warn(`${withoutPe} muestras se invirtieron sin PE por configuración; la dolomía queda en 0.`);
     if (highResidual) warn(`${highResidual} de ${fitted} muestras superan el residuo configurado: el modelo mineral no reproduce las herramientas; los volúmenes requieren revisión.`);
     if (invalidNeutron) warn(`${invalidNeutron} muestras tienen neutrón fuera del rango físico operativo; comprobá unidades y control de calidad.`);
     warn('Neutrón supuesto en escala CNL caliza; verificá la calibración del registro importado.');
