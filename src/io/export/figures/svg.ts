@@ -15,11 +15,13 @@
  *   (`dominant-baseline` no lo respetan todos los programas).
  * - `clearRect` solo vacía el documento si cubre todo el lienzo sin transformar; en otro caso se ignora (el dibujo de
  *   las figuras siempre pinta primero su fondo).
- * - Lo que no está implementado (`drawImage`, `strokeText`, patrones…) no existe: llamarlo falla con un TypeError en
+ * - Los mosaicos declarativos usan `fillTiledRect` y se emiten como `<pattern>` vectoriales repetibles.
+ * - Lo que no está implementado (`drawImage`, `strokeText`, patrones nativos arbitrarios…) no existe: llamarlo falla con un TypeError en
  *   vez de dibujar mal en silencio (las superposiciones están aisladas con `guard`: el error se registra y el resto
  *   de la figura sigue).
  */
 import { num, PathBuilder, SvgPath2D } from './path';
+import type { PatternBox, TilePattern } from '../../../viewer/fills';
 
 export type TextMeasure = (font: string, text: string) => number;
 
@@ -174,6 +176,8 @@ export class SvgContext2D {
   private groups: Group[] = [this.root];
   private gradients = new Map<SvgGradient, string>();
   private gradientDefs: string[] = [];
+  private patternIds = new Map<string, string>();
+  private patternDefs: string[] = [];
   private clipCount = 0;
   private readonly measure: TextMeasure;
 
@@ -392,6 +396,24 @@ export class SvgContext2D {
 
   // ── salida ──────────────────────────────────────────────────────────────────────────────────────────────────
 
+  /** Mosaicos repetibles vectoriales, con la misma geometría y escala CSS que CanvasPattern. */
+  fillTiledRect(box: PatternBox, tile: TilePattern, background: string, stroke: string, scale: number): void {
+    const key = JSON.stringify([tile, background, stroke, scale]);
+    let id = this.patternIds.get(key);
+    if (!id) {
+      id = `tile${this.patternIds.size}`;
+      this.patternIds.set(key, id);
+      const path = (tile.lines ?? []).map(([x0,y0,x1,y1]) => `M${num(x0)} ${num(y0)}L${num(x1)} ${num(y1)}`).join('');
+      const color = parseCssColor(stroke);
+      const lineColor = color?.hex ?? stroke;
+      const alpha = color?.alpha ?? 1;
+      const lines = path ? `<path d="${path}" fill="none" stroke="${escAttr(lineColor)}" stroke-opacity="${num(alpha)}" stroke-width="${num(tile.lineWidth ?? 0.8)}"/>` : '';
+      const dots = (tile.dots ?? []).map(([x,y,r]) => `<circle cx="${num(x)}" cy="${num(y)}" r="${num(r)}"${this.paintStatic(stroke)}/>`).join('');
+      this.patternDefs.push(`<pattern id="${id}" data-pattern="${escAttr(tile.id)}" patternUnits="userSpaceOnUse" width="${num(tile.width * scale)}" height="${num(tile.height * scale)}"><g transform="scale(${num(scale)})"><rect width="${num(tile.width)}" height="${num(tile.height)}"${this.paintStatic(background)}/>${lines}${dots}</g></pattern>`);
+    }
+    this.emit(`<rect x="${num(box.x)}" y="${num(box.y)}" width="${num(box.width)}" height="${num(box.height)}" fill="url(#${id})" opacity="${num(this.globalAlpha)}"${transformAttr(this.ctm)}/>`);
+  }
+
   /** Documento SVG completo (UTF-8). `background`: color de fondo opcional (un `<rect>` detrás de todo). */
   toSvg(background?: string): string {
     const defs: string[] = [];
@@ -400,7 +422,7 @@ export class SvgContext2D {
     const head = `<svg xmlns="http://www.w3.org/2000/svg" width="${num(width)}" height="${num(height)}" viewBox="0 0 ${num(width)} ${num(height)}">`;
     const title = this.opts.title ? `<title>${escText(this.opts.title)}</title>` : '';
     const desc = this.opts.description ? `<desc>${escText(this.opts.description)}</desc>` : '';
-    const allDefs = [...this.gradientDefs, ...defs];
+    const allDefs = [...this.gradientDefs, ...this.patternDefs, ...defs];
     const bg = background ? `<rect width="${num(width)}" height="${num(height)}"${this.paintStatic(background)}/>` : '';
     return `<?xml version="1.0" encoding="UTF-8"?>\n${head}${title}${desc}${allDefs.length ? `<defs>${allDefs.join('')}</defs>` : ''}${bg}${body}</svg>\n`;
   }

@@ -205,6 +205,7 @@ export function WellViewer(props: WellViewerProps) {
     if (!vp) return null;
     const p = propsRef.current;
     return {
+      purpose: 'interactive',
       tracks: p.tracks,
       boxes: layoutRef.current.boxes,
       viewport: vp,
@@ -582,7 +583,7 @@ export function WellViewer(props: WellViewerProps) {
     const f = frameInput();
     if (!f) return null;
     const tracksO = overlayTracks(f.tracks, f.boxes);
-    return { f, tracksO, frame: { theme: f.theme, viewport: overlayViewport(f.viewport), tracks: tracksO, data: f.data, invalidate: () => invalidate('base'), active: f.active ?? null, uiScale: f.uiScale ?? 1 } };
+    return { f, tracksO, frame: { purpose: 'interactive' as const, theme: f.theme, viewport: overlayViewport(f.viewport), tracks: tracksO, data: f.data, invalidate: () => invalidate('base'), active: f.active ?? null, uiScale: f.uiScale ?? 1 } };
   }, [frameInput, invalidate]);
 
   const overlayPointer = useCallback(
@@ -1209,6 +1210,11 @@ export function WellViewer(props: WellViewerProps) {
                   </div>
                   {t.kind === 'depth' ? (
                     <div className="wv-head__depth num">m</div>
+                  ) : t.kind === 'overlay' && props.overlays.find(o => o.id === t.overlayId)?.track?.axisLabels ? (
+                    <div className="wv-head__categories">
+                      <span className="wv-head__unit">{props.overlays.find(o => o.id === t.overlayId)?.track?.headerLabel}</span>
+                      <div className="wv-head__category-axis">{props.overlays.find(o => o.id === t.overlayId)!.track!.axisLabels!.map((label, i) => <span key={i} style={{ left: `${label.position * 100}%` }}>{label.label}</span>)}</div>
+                    </div>
                   ) : t.kind === 'overlay' ? (
                     <div className="wv-head__scale num">
                       <span>{t.grid ? formatNumber(t.grid.reversed ? t.grid.max : t.grid.min, { significant: 3, grouping: false }) : ''}</span>

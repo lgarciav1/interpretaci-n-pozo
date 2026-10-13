@@ -14,7 +14,7 @@ import { formatNumber } from '../ui/format';
 import { FILL_PALETTE } from '../ui/curves';
 import { BASE_TOKENS, THEMES } from '../ui/tokens';
 import { layoutTracks, type TrackBox } from './layout';
-import type { ViewerData, ViewerOverlay, ViewerZone } from './overlay';
+import type { OverlayTrackDecl, ViewerData, ViewerOverlay, ViewerZone } from './overlay';
 import { stackFillColor, ViewerRenderer } from './render';
 import type { ResolvedCurve, ResolvedTrack } from './resolve';
 import { edgeValues } from './scale';
@@ -62,6 +62,7 @@ export interface ViewerFigureInput {
 // ── encabezado de pista ─────────────────────────────────────────────────────────────────────────────────────────
 
 type HeaderRow =
+  | { kind: 'categories'; labels: NonNullable<OverlayTrackDecl['axisLabels']>; height: number }
   | { kind: 'title'; text: string; height: number }
   | { kind: 'unit'; text: string; height: number }
   | { kind: 'scale'; left: string; right: string; center?: string; /** Si el centro no entra, solo esto (la unidad). */ centerShort?: string; height: number }
@@ -81,7 +82,7 @@ const unitText = (c: ResolvedCurve) => (c.unitLabel && c.unitLabel !== '—' ? c
 const sameScale = (a: ResolvedCurve, b: ResolvedCurve) => a.axis.kind === b.axis.kind && a.axis.min === b.axis.min && a.axis.max === b.axis.max && a.axis.reversed === b.axis.reversed;
 
 /** Filas del encabezado de una pista: título, y según el tipo, curvas con escala, capas de la pila o banderas. */
-export function trackHeaderRows(t: ResolvedTrack, depthUnit = 'm'): HeaderRow[] {
+export function trackHeaderRows(t: ResolvedTrack, depthUnit = 'm', declaration?: OverlayTrackDecl): HeaderRow[] {
   const rows: HeaderRow[] = [{ kind: 'title', text: t.title, height: TITLE_H }];
   if (t.kind === 'depth') {
     rows.push({ kind: 'unit', text: depthUnit, height: SCALE_H });
@@ -92,6 +93,11 @@ export function trackHeaderRows(t: ResolvedTrack, depthUnit = 'm'): HeaderRow[] 
     return rows;
   }
   if (t.kind === 'overlay') {
+    if (declaration?.axisLabels) {
+      if (declaration.headerLabel) rows.push({ kind: 'unit', text: declaration.headerLabel, height: SCALE_H });
+      rows.push({ kind: 'categories', labels: declaration.axisLabels, height: SCALE_H });
+      return rows;
+    }
     if (t.grid) {
       const [l, r] = edgeValues(t.grid);
       rows.push({ kind: 'scale', left: endLabel(l), right: endLabel(r), ...(t.unit ? { center: t.unit } : {}), height: SCALE_H });
@@ -193,7 +199,7 @@ export function layoutViewerFigure(input: ViewerFigureInput): ViewerFigureLayout
   const fieldLines = parts.wellHeader ? wrapItems(input.wellFields, inner, (f) => fieldWidth(measure, f), 18) : [];
   if (fieldLines.length) y += fieldLines.length * LINE_FIELDS + 10;
   const headerY = y;
-  const headerHeight = parts.trackHeaders ? Math.max(...input.tracks.map((t) => rowsHeight(trackHeaderRows(t))), 0) : 0;
+  const headerHeight = parts.trackHeaders ? Math.max(...input.tracks.map((t) => rowsHeight(trackHeaderRows(t, 'm', input.overlays.find(o => o.id === t.overlayId)?.track))), 0) : 0;
   y += headerHeight;
   const bodyY = y;
   const bodyHeight = Math.max(1, Math.round((input.range.base - input.range.top) * input.pxPerM));
@@ -251,7 +257,7 @@ function drawHeaders(ctx: CanvasRenderingContext2D, input: ViewerFigureInput, L:
     const x1 = L.tracksX + b.x + b.width - 5;
     const inner = x1 - x0;
     let y = L.headerY + 3;
-    for (const row of trackHeaderRows(t)) {
+    for (const row of trackHeaderRows(t, 'm', input.overlays.find(o => o.id === t.overlayId)?.track)) {
       const mid = y + row.height / 2;
       if (row.kind === 'title') {
         const f = font(BASE_TOKENS.text.xs, W.semibold);
@@ -266,6 +272,12 @@ function drawHeaders(ctx: CanvasRenderingContext2D, input: ViewerFigureInput, L:
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(row.text, (x0 + x1) / 2, mid);
+      } else if (row.kind === 'categories') {
+        ctx.font = font(9);
+        ctx.fillStyle = v.axisText;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        for (const label of row.labels) ctx.fillText(label.label, L.tracksX + b.x + label.position * b.width, mid);
       } else if (row.kind === 'scale') {
         ctx.font = font(10);
         ctx.fillStyle = v.axisText;
@@ -461,6 +473,7 @@ export function drawViewerFigure(ctx: CanvasRenderingContext2D, input: ViewerFig
   ctx.rect(0, 0, L.tracksWidth, L.bodyHeight);
   ctx.clip();
   renderer.drawBase(ctx, {
+    purpose: 'export',
     tracks: input.tracks,
     boxes: L.boxes,
     viewport: { top: input.range.top, pxPerM: input.pxPerM, height: L.bodyHeight },

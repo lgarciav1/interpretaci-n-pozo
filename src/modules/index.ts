@@ -8,6 +8,7 @@
  */
 import passeyToc from './passey-toc';
 import syntheticSeismogram from './synthetic-seismogram';
+import sedColumn from './sed-column';
 import { createRegistry } from '../core/registry';
 import igr from './igr';
 import vsh from './vsh';
@@ -92,6 +93,7 @@ export const MODULES = [
   mineralInversion,
   passeyToc,
   syntheticSeismogram,
+  sedColumn,
 ];
 
 /** Parámetros compartidos: ver sharedParams.ts (el registro exige que coincidan con ese catálogo). */
