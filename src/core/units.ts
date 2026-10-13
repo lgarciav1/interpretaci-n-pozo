@@ -7,6 +7,9 @@
  */
 
 export type DimensionId =
+  | 'time'
+  | 'velocity'
+  | 'acousticImpedance'
   | 'length'
   | 'density'
   | 'slowness'
@@ -27,6 +30,10 @@ export type DimensionId =
   | 'dimensionless';
 
 export type KnownUnitId =
+  | 's'
+  | 'ms'
+  | 'm/s'
+  | 'MRayl'
   | 'm'
   | 'ft'
   | 'in'
@@ -87,6 +94,11 @@ export interface UnitDef {
 }
 
 const BUILTIN_UNITS: UnitDef[] = [
+  // Tiempo, velocidad e impedancia: factores SI exactos, no calibraciones empíricas.
+  { id: 's', label: 's', dimension: 'time', factor: 1 },
+  { id: 'ms', label: 'ms', dimension: 'time', factor: 0.001 },
+  { id: 'm/s', label: 'm/s', dimension: 'velocity', factor: 1 },
+  { id: 'MRayl', label: 'MRayl', dimension: 'acousticImpedance', factor: 1 },
   // Longitud (base: m)
   { id: 'm', label: 'm', dimension: 'length', factor: 1 },
   { id: 'ft', label: 'ft', dimension: 'length', factor: 0.3048 },
@@ -159,6 +171,7 @@ const BUILTIN_UNITS: UnitDef[] = [
  * La fase 2 (io) puede ampliarlos con `registerUnitAlias`.
  */
 const BUILTIN_ALIASES: Record<string, UnitId> = {
+  S: 's', MS: 'ms', 'M/S': 'm/s', MRAYL: 'MRayl',
   M: 'm', METER: 'm', METERS: 'm', METRES: 'm',
   FT: 'ft', F: 'ft', FEET: 'ft',
   IN: 'in', INCH: 'in', INCHES: 'in', '"': 'in',

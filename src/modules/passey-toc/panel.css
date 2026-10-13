@@ -1,0 +1,6 @@
+.passey-panel { display: grid; gap: var(--space-3, 12px); }
+.passey-panel__table { overflow-x: auto; }
+.passey-panel table { width: 100%; border-collapse: collapse; font-size: var(--text-xs, 12px); }
+.passey-panel td,.passey-panel th { text-align: left; padding: 6px; border-bottom: 1px solid var(--color-border); vertical-align: top; }
+.passey-panel td small { display: block; font-size: .9em; color: var(--color-text-muted); margin-top: 4px; }
+.passey-panel__note { margin: 0; font-size: var(--text-xs, 12px); color: var(--color-text-muted); line-height: 1.5; }
