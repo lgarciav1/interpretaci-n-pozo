@@ -6,6 +6,8 @@
  *
  * Este archivo lo importa el Web Worker: solo puede importar definiciones puras (`<id>/index.ts`), nunca paneles.
  */
+import passeyToc from './passey-toc';
+import syntheticSeismogram from './synthetic-seismogram';
 import { createRegistry } from '../core/registry';
 import igr from './igr';
 import vsh from './vsh';
@@ -88,6 +90,8 @@ export const MODULES = [
   electrosequences,
   clayTyping,
   mineralInversion,
+  passeyToc,
+  syntheticSeismogram,
 ];
 
 /** Parámetros compartidos: ver sharedParams.ts (el registro exige que coincidan con ese catálogo). */

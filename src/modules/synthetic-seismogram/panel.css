@@ -1,0 +1,5 @@
+.synthetic-panel { display: grid; gap: var(--space-3); min-width: 0; }
+.synthetic-panel__metrics { display: flex; flex-wrap: wrap; gap: var(--space-3); font-size: var(--text-xs); color: var(--color-text-muted); }
+.synthetic-panel__metrics strong { display: block; color: var(--color-text); font-variant-numeric: tabular-nums; }
+.synthetic-panel__exports { display: flex; flex-wrap: wrap; gap: var(--space-1-5); }
+.synthetic-panel__note { margin: 0; font-size: var(--text-xs); color: var(--color-text-muted); line-height: 1.5; }
