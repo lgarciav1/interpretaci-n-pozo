@@ -1,0 +1,173 @@
+
+
+===== PAGINA 1 =====
+9.1 VSP(sísmica de pozo: 
+checkshot/VSP) y amarre tiempo–
+profundidad 
+El VSP, es un perfil sísmico de pozo (tipo checkshot/VSP). 
+ Idea base: 
+● La sísmica de superficie está registrada en tiempo (dos vías, reflexiones). 
+ 
+● Para mapear en profundidad, necesitamos una relación tiempo–profundidad (ley 
+de velocidades / T–Z). 
+● Se bajan geófonos a distintas profundidades en el pozo. En superficie se genera 
+una fuente (vibroseis, explosivo, etc.). Se registra el arribo de la señal a cada 
+profundidad. 
+ 
+Con esto se obtiene un amarre que permite: 
+● ajustar la sísmica del campo (en tiempo) a profundidad, 
+ 
+● construir mapas en profundidad y mejorar el posicionamiento estructural. 
+ 
+En un campo se hace en pozos seleccionados (no en todos). Con varios VSP distribuidos 
+se ajusta mejor la ley de velocidades para llevar la sísmica a profundidad de manera 
+consistente. 
+ 
+9.2 Ensayador de formaciones: concepto 
+general. 
+Concepto de ensayo: 
+● Se provoca una alteración de caudal (drawdown) y se observa la recuperación de 
+presión (build-up). 
+ 
+● El tiempo y forma de la recuperación se relaciona con propiedades del sistema 
+pozo–reservorio: movilidad (k/μ), permeabilidad efectiva al fluido, presión estática, 
+etc. 
+ 
+
+===== PAGINA 2 =====
+A diferencia de un ensayo de pozo convencional (DST/flow test) que integra intervalos de 
+varios metros, el ensayador de formaciones permite tomar presiones puntuales (y, según 
+herramienta, muestras) en profundidades específicas. 
+ 
+9.3 Evolución de herramientas: 
+formation tester → RFT → MDT 
+● herramientas tempranas (formation tester), 
+ 
+● RFT (Repeat Formation Tester) y equivalentes (siglas comerciales varían), 
+ 
+● herramientas modulares modernas: MDT (Modular Formation Dynamics Tester). 
+ 
+¿Qué agrega un MDT moderno? 
+Además de medir presión, puede: 
+● tomar muestras (botellones), 
+ 
+● ayudar a definir contactos de fluido por gradientes, 
+ 
+● medir un indicador de movilidad/permeabilidad efectiva, 
+ 
+● y mejorar control de calidad del muestreo. 
+ 
+¿Cómo opera? 
+● La herramienta se apoya contra la pared con un pistón/pad. 
+ 
+● Se sella la formación con un probe (snorkel). 
+ 
+● Se bombea/extrae fluido y se monitorea la calidad del fluido producido. 
+ 
+Incluye sensores para decidir cuándo el fluido ya es representativo de formación: 
+● resistivímetro (para ver si seguimos sacando lodo/filtrado vs fluido de formación), 
+ 
+● analizador óptico (identifica tendencia a agua/petróleo/gas), 
+ 
+
+===== PAGINA 3 =====
+● bombas y cámaras/botellones para muestreo. 
+ 
+Se intenta ensayar/muestrear cuando el fluido esté lo más “limpio” posible (mínima 
+contaminación por filtrado). 
+ 
+9.4 Presión vs profundidad: gradientes y 
+contactos 
+Tomando múltiples puntos de presión a distintas profundidades, se construyen gradientes: 
+● gradiente de gas, 
+ 
+● gradiente de petróleo, 
+ 
+● gradiente de agua. 
+ 
+Las rectas (P vs profundidad) permiten inferir: 
+● contactos (GOC, OWC, etc.), 
+ 
+● densidades aparentes de fluidos (por pendiente), 
+ 
+● y coherencia del modelo de fluidos. 
+ 
+9.5 Curvas típicas del pretest 
+(drawdown–build-up) 
+Se muestran curvas presión–tiempo: 
+● presión inicial, 
+ 
+● caída durante bombeo (drawdown), 
+ 
+● cierre y recuperación (build-up). 
+ 
+
+===== PAGINA 4 =====
+Recuperaciones rápidas suelen asociarse a mayor movilidad/permeabilidad efectiva; 
+recuperaciones lentas a baja movilidad. 
+ En la práctica se reporta cada punto en una planilla con: 
+● profundidad (MD/TVD), 
+ 
+● volumen bombeado, 
+ 
+● presión inicial, presión de flujo, presión recuperada/extrapolada, 
+ 
+● y una evaluación de calidad: buen sello / no sello / no estabiliza / baja k, etc. 
+ 
+ 
+9.6 ¿Para qué sirve en un campo en 
+producción? 
+Medir presión en un pozo nuevo dentro de un campo con pozos productores/inyectores 
+permite: 
+● detectar depleción (presión más baja que la esperada), 
+ 
+● evaluar comunicación entre pozos/capas (comparando presiones entre niveles), 
+ 
+● monitorear el efecto de inyección de agua (represurización local, respuesta por 
+capa). 
+ 
+Es una herramienta potente para diagnóstico dinámico temprano. 
+ 
+9.7 Limitaciones en muy baja 
+permeabilidad (tight/shale) 
+En reservorios de muy baja permeabilidad, los pretests pueden ser poco prácticos: 
+● la recuperación de presión puede requerir tiempos enormes, 
+ 
+● se vuelve antieconómico y con datos poco robustos. 
+ 
+
+===== PAGINA 5 =====
+Puede haber herramientas/mejoras para tight, pero para shale suele no ser recomendable 
+como método principal. 
+ 
+9.8 Escala y radio de investigación: de 
+core → pretest → DST/TLD 
+● Core/laboratorio: dato muy puntual (permeabilidad absoluta, SCAL, etc.). 
+ 
+● Perfiles: escala mayor, pero requieren calibración. 
+ 
+● Pretest / formation tester (RFT/MDT): también de escala pequeña, pero en 
+condiciones de reservorio y con presión real. 
+ 
+● DST / pruebas de formación: mayor volumen investigado (intervalos). 
+ 
+● TLD (test de larga duración): gran escala (meses), útil para productividad real, 
+mecanismos, límites, interferencias, estimación de reservas, etc. (común en offshore 
+por decisión económica). 
+ 
+9.10 Métricas y objetivos 
+Objetivos típicos: 
+● identificar fluidos y tomar muestras (PVT, análisis composicional), 
+ 
+● presión inicial/media, depresión/sobrepresión, 
+ 
+● k horizontal/vertical (según el tipo de test), 
+ 
+● k·h, movilidad, índice de productividad (IP = q/Δp), 
+ 
+● daño/skin, fracturas, discontinuidades, límites, interferencia entre pozos, 
+ 
+● y, en general, ligar el comportamiento dinámico (tests) con lo estático (geología + 
+perfiles). 
+ 
+ 

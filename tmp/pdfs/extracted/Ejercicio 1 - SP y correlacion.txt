@@ -1,0 +1,15 @@
+
+
+===== PAGINA 1 =====
+Pozo 1 Pozo 2 Pozo 3
+2000m 6000m
+NW SE
+1 2
+3
+
+===== PAGINA 2 =====
+Pozo 1 Pozo 2 Pozo 3
+2000m 6000m
+NW SE
+1 2
+3

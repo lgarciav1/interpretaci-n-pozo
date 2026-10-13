@@ -1,0 +1,72 @@
+
+
+===== PAGINA 1 =====
+5.2 Caliper, breakouts y esfuerzos in situ 
+Con un caliper de 4 o 6 brazos (o un registro de imagen) se puede reconocer la 
+ovalización del pozo por breakouts. 
+● Los breakouts se desarrollan en dirección controlada por el campo de esfuerzos: 
+típicamente están asociados a la orientación del esfuerzo horizontal mínimo 
+(σhmin), y por geometría se observan dos lóbulos opuestos; el σHmax queda 
+perpendicular. 
+ 
+Aplicación directa (terminación / fractura hidráulica): 
+ Conociendo σhmin y σHmax, se puede inferir la orientación esperada de la fractura 
+hidráulica (conceptualmente, la fractura se desarrolla perpendicular al mínimo, siguiendo el 
+campo de esfuerzos dominante). 
+Ventanas de lodo: 
+ Si el lodo está muy liviano, el pozo puede derrumbarse. Si está muy pesado, puede 
+inducir fracturas o pérdidas (no es una fractura hidráulica “diseñada”, pero sí puede fracturar 
+la formación). Por eso se construyen modelos geomecánicos para definir una ventana 
+operativa que evite blowouts, derrumbes y pérdidas. 
+ 
+5.3 Registro neutrón: principio de medición y lectura 
+Se introduce el perfil neutrón, otro registro nuclear, que permite estimar porosidad. 
+Principio: 
+● La herramienta bombardea la formación con neutrones. 
+ 
+● La respuesta depende de la interacción con el hidrógeno: el registro mide un índice 
+de hidrógeno, que está mayormente asociado a los fluidos (agua, petróleo, gas). 
+ 
+● Como los fluidos están alojados en los poros, el índice de hidrógeno se correlaciona 
+con porosidad. 
+ 
+Calibración: 
+ La herramienta se calibra en “pozos patrón” con litologías conocidas (típicamente calizas) y 
+porosidades conocidas, para asegurar que entregue porosidad en forma directa. 
+Comparación con densidad: 
+● La densidad requiere ecuación para obtener φ. 
+ 
+
+===== PAGINA 2 =====
+● El neutrón entrega φ “directamente” en la escala del registro (con sus 
+supuestos/calibración). 
+ 
+ 
+5.4 Densidad vs neutrón para identificar gas y contactos 
+Se repasa el patrón clásico: 
+● En presencia de gas, la densidad tiende a indicar porosidad demasiado alta (ρb 
+baja) y el neutrón porosidad demasiado baja (menos hidrógeno). 
+ 
+● En zonas de agua, densidad y neutrón tienden a coincidir mejor. 
+ 
+Esto permite reconocer un contacto gas–agua al integrar resistividad + densidad/neutrón. 
+Calibración recomendada: 
+ La porosidad de perfiles (indirecta) se calibra con porosidad medida en laboratorio sobre 
+testigo, preferentemente en condiciones de reservorio (P/T), ya que los registros se 
+adquieren en esas condiciones. 
+ 
+5.5 Perfil lito-geoquímico (neutrón rápido + espectroscopía) 
+(herramienta basada en neutrones rápidos y espectroscopía), permite estimar elementos 
+en % en peso (p.ej., Ca, Si, Fe, Mg, K, Al, S, C, Th, U, etc.) y algunos ligados a fluidos (H, 
+Cl, O). 
+Para qué sirve: 
+● Mejorar la identificación mineralógica/litológica en litologías complejas. 
+ 
+● Ajustar con mayor precisión ρma (densidad de matriz) para calcular porosidad por 
+densidad (no usar “2.65 por decreto” si no corresponde). 
+ 
+● Estimar propiedades relevantes en no convencionales (p.ej. TOC/COT). 
+ 
+● Correlación pozo–pozo por firmas geoquímicas. 
+ 
+● Integrar con laboratorio (XRD, SEM) para calibración. 

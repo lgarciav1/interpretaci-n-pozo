@@ -1,0 +1,140 @@
+
+
+===== PAGINA 1 =====
+Registros acústicos (sónico) y comienzo 
+de Resonancia Magnética (NMR) 
+7.1 Tipos de sónico: compensado vs onda completa 
+Se utilizan dos enfoques principales: 
+● Sónico compensado (compensated sonic): recupera principalmente la onda 
+compresional (P). 
+ 
+● Sónico de onda completa (full-waveform sonic): permite recuperar varias ondas y 
+extraer más información, incluyendo P, S (shear) y Stoneley. 
+ 
+Geometría de la herramienta 
+A diferencia de densidad y neutrón (herramientas tipo patín), el sónico suele ser una 
+herramienta centralizada (mandril), “libre” dentro del pozo: 
+● tiene transmisores y receptores separados axialmente, 
+ 
+● mide tiempo de tránsito (Δt) a partir del arribo de la señal en los receptores. 
+ 
+7.2 ¿Qué mide el sónico? 
+Mide el tiempo de tránsito (Δt) de una onda acústica: 
+● En rocas más compactas/rigidas, la onda viaja más rápido → Δt menor. 
+ 
+● En rocas más blandas/porosas, viaja más lento → Δt mayor. 
+ 
+Con Δt se puede estimar porosidad sónica (usando una ecuación, similar a la porosidad 
+por densidad). 
+7.4 Onda completa: P, S y Stoneley 
+En sónico de onda completa se recuperan, típicamente: 
+1. Onda compresional (P): primer arribo (first arrival). 
+ Conceptualmente: deformación “de compresión” en la dirección de propagación. 
+ 
+
+===== PAGINA 2 =====
+2. Onda shear (S): onda de corte/cizalla. 
+ Conceptualmente: deformación transversal (cizalla) respecto a la dirección de 
+propagación. 
+ 
+3. Onda Stoneley: onda guiada por el pozo, que viaja paralela a la pared (onda de 
+“superficie” asociada al borehole). 
+ 
+Stoneley y fracturas/permeabilidad 
+● La Stoneley puede atenuarse o cambiar cuando hay fracturas naturales que 
+interceptan el pozo: el fluido puede disipar energía y cambia la impedancia acústica. 
+ 
+● También puede actuar como indicador indirecto de permeabilidad, por el 
+acoplamiento entre el fluido del pozo y la formación en intervalos permeables 
+(respuesta tipo “onda tubo”). 
+ 
+7.5 Porosidad sónica: ecuación y parámetros 
+Para calcular porosidad con sónico se usa una ecuación tipo Wyllie/Raymer (según el nivel 
+de corrección). 
+ La idea base es que se requiere: 
+● Δt_matriz (Δtma): depende de la litología (arenisca, caliza, dolomita, etc.). 
+ 
+● Δt_log (Δt): medido por el perfil. 
+ 
+● Δt_fluido (Δtf): como lee somero, se usa el fluido invadido/filtrado (p. ej., agua de 
+lodo; si lodo base aceite cambia el valor). 
+ 
+Se dan valores típicos de Δtma (orden de magnitud) para distintas litologías y Δtf ≈ 189 µs/ft 
+para agua (cuando corresponde). 
+Compactación: por qué el sónico requiere correcciones 
+El Δt está muy influenciado por compactación: 
+● una arena a 1000 m no responde igual que una arena a 3000 m, 
+ 
+● por eso la porosidad sónica puede quedar sesgada si no se corrige. 
+ 
+Correcciones clásicas: 
+● Wyllie (más simple, suele incorporar un factor/coeficiente), 
+ 
+
+===== PAGINA 3 =====
+● Raymer (más completa; incorpora más variables/observaciones y tiende a ajustarse 
+mejor). 
+ 
+7.6 Usos del sónico (más allá de porosidad) 
+● Evaluación de formaciones: porosidad y un índice de permeabilidad (Stoneley). 
+ 
+● Identificación de gas: por respuesta anómala de Δt y/o crossplots (neutrón–
+sónico). 
+ 
+● Litología: crossplots sónico–neutrón o sónico–densidad. 
+ 
+● Propiedades geomecánicas (con onda completa): 
+ 
+○ coeficiente de Poisson, módulo de Young, etc. 
+ 
+○ aplicación en estabilidad del pozo (ventanas de lodo) y diseño de fracturas. 
+ 
+Anisotropía y control post-fractura 
+Con sónico dipolar/orientado se puede evaluar anisotropía: 
+● en pozo entubado, post-frac, la anisotropía puede delatar el intervalo 
+efectivamente fracturado y su orientación azimutal (asociada a la dirección del 
+esfuerzo máximo). 
+ 
+7.8 Sensibilidad a Δtma y compactación 
+La porosidad sónica puede variar por: 
+1. elección de Δt_matriz (arenisca vs caliza vs dolomita), 
+ 
+2. aplicación de un factor de compactación (p.ej. 0.9, 1.0, 1.1). 
+ 
+Conclusión: el sónico es un gran registro, pero puede acumular error por litología + 
+compactación, por lo que conviene contrastarlo con otros porosímetros (densidad-neutrón) 
+y/o laboratorio. 
+ 
+ 
+
+===== PAGINA 4 =====
+7.9 Resonancia Magnética (NMR) 
+La NMR de pozo es análoga en concepto a la resonancia magnética médica: mide señales 
+vinculadas a hidrógeno en los fluidos dentro de los poros, mediante procesos de 
+polarización (T1) y relajación (T2). 
+Qué puede aportar: 
+● porosidad (en principio menos dependiente de litología, pero no 100% 
+“independiente”), 
+ 
+● distribución de tamaños de poro (a partir de T2), 
+ 
+● estimación de agua irreductible (Swirr), 
+ 
+● índice de permeabilidad, 
+ 
+● identificación de fluidos (y, en algunos casos, indicios de viscosidad). 
+ 
+Tiempos de relajacion:  
+● T1: tiempo asociado a polarización. 
+ 
+● T2: tiempo asociado a relajación. 
+ Analogía: separar/ordenar “hidrógenos” y observar cuánto tardan en volver al 
+estado inicial. 
+ 
+Herramientas comerciales: 
+● MRIL (asociada a Halliburton/Baker en el relato), 
+ 
+● CMR (Schlumberger), 
+ con diferencias geométricas: algunas trabajan más centralizadas y otras buscan 
+mayor cercanía a pared (mejor resolución, pero más sensibles a rugosidad). 
+ 

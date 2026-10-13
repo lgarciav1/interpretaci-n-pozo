@@ -1,0 +1,590 @@
+
+
+===== PAGINA 1 =====
+INTERPRETACION DE REGISTROS 
+DE POZOS
+DISTIBUCION DE  TAMAÑOS DE GARGANTAS PORALES 
+método de inyección de mercurio
+CAPA H  - FACIES D UNA SUPERIOR
+1-6-30
+0
+5
+10
+15
+20
+25
+0,01 0,1 1 10 100 1000
+Diámetro de garganta poral (micrones)
+Porcentaje de volumen poral 
+invadido
+0
+0,1
+0,2
+0,3
+0,4
+0,5
+0,6
+0,7
+0,8
+0,9
+1
+0 20 40 60 80 100
+Saturación de Agua  (% )
+Permeabilidad Relativa
+FUNCION 'J' LEVERETT
+UTE PUESTO HERNANDEZ - CAPA H
+FACIES DUNA SUPERIOR
+0
+10
+20
+30
+40
+50
+60
+0 10 20 30 40 50 60 70 80 90 100
+Saturación de Fase Mojante (% V.P.)
+Funcion J Leverett
+
+
+===== PAGINA 2 =====
+Principios y Aplicaciones de los 
+Registros de Pozo
+
+===== PAGINA 3 =====
+Por que hablamos de Petrofísica?
+Petrofísica, del griego πέτρα (petra) roca y φύσις (fýsis) naturaleza, es el estudio de las 
+propiedades físicas y químicas y sus interacciones con los fluidos.
+FUNCION 'J' LEVERETT
+UTE PUESTO HERNANDEZ - CAPA H
+FACIES DUNA SUPERIOR
+0
+10
+20
+30
+40
+50
+60
+0 10 20 30 40 50 60 70 80 90 100
+Saturación de Fase Mojante (% V.P.)
+Funcion J Leverett
+DISTIBUCION DE  TAMAÑOS DE GARGANTAS PORALES 
+método de inyección de mercurio
+CAPA H  - FACIES D UNA SUPERIOR
+1-6-30
+0
+5
+10
+15
+20
+25
+0,01 0,1 1 10 100 1000
+Diámetro de garganta poral (micrones)
+Porcentaje de volumen poral 
+invadido
+0
+0,1
+0,2
+0,3
+0,4
+0,5
+0,6
+0,7
+0,8
+0,9
+1
+0 20 40 60 80 100
+Saturación de Agua  (% )
+Permeabilidad Relativa
+Información                                             Interpretación                                                       
+
+===== PAGINA 4 =====
+• Identificar los reservorios potenciales.
+• Estimar el volumen de los reservorios, espesor, 
+porosidad y saturación de fluidos. (Net Pay)
+• Estimar la productividad del pozo.
+• Determinar litologías, facies y ambientes de depositación.
+• Programar la terminación del pozo.
+OBJETIVO INMEDIATO
+
+===== PAGINA 5 =====
+Arcilla
+Arcilla
+Arenisca
+Well: LP_X-1
+3100
+3125
+DEPTH
+METRES
+1 : 200 WIRE.GR_1
+GAPI0 200
+WIRE.SP_1
+MV-80 20
+WIRE.PEF_1
+B/E0 10
+WIRE.CALI_1
+IN6 16
+wire.bit
+IN6 16
+WIRE.SFLU_1
+OHMM0.2 2000
+WIRE.ILM_1
+OHMM0.2 2000
+WIRE.ILD_1
+OHMM0.2 2000
+WIRE.RHOB_1
+G/C31.95 2.95
+WIRE.NPHI_2
+V/V0.45 -0.15
+WIRE.DT_1
+US/F140 40
+Arcilla
+Arcilla
+Arenisca
+OBJETIVO INMEDIATO
+
+===== PAGINA 6 =====
+El objetivo de caracterizar un reservorio, es modelar cada 
+unidad para poder predecir:
+➢ Determinar los volúmenes in-situ
+➢ El comportamiento productivo de cada pozo
+➢ Entender la performance histórica de cada unidad
+➢ Pronosticar la futura performance de cada unidad
+La caracterización del reservorio tiene un alto impacto en el 
+plan de negocios, en base a estos estudios se generan las 
+diferentes ó posibles alternativas de desarrollo y/ó
+gerenciamiento de un yacimiento.
+OBJETIVO INMEDIATO
+
+===== PAGINA 7 =====
+Petróleo Original 
+in situ (POIS) N =
+A * Hu *φ * (1-Sw)
+Bo
+Gas Original 
+in situ (GOIS) N =
+A * Hu * φ * (1-Sw)
+Bg
+A=Area 
+Hu= Espesor útil 
+Phi= Porosidad 
+Sw= Saturación de Agua
+Bo= Factor de Volumen para petróleo
+Bg= Factor de Volumen para gas.
+1
+1  = Volumen de Roca
+2
+2  = Volumen Poral
+3
+3  = Volumen de Hidrocarburos
+Volumen de HC in situ
+OBJETIVO INMEDIATO
+
+===== PAGINA 8 =====
+• Caracterizar petrofísicamente un reservorio se puede definir como la
+determinación de cada una de las características particulares que
+permiten determinar los distintos tipos de reservorios con sus
+características de almacenamiento (Porosidad), fluidos (Saturación) y
+capacidad productiva (Permeabilidad) distintivas. Es un proceso
+multidisciplinario de generación, interpretación, calibración e integración
+de la información geológica y de ingeniería, con el fin de tener un
+modelos denominados estáticos y dinámicos.
+OBJETIVO INMEDIATO
+• El modelo dinámico es utilizado para simular el comportamiento de los
+fluidos dentro de cada unidad de flujo bajo diferentes circunstancias y
+encontrar una óptima técnica de producciónque permita maximizar la
+recuperación de los fluidos.
+
+===== PAGINA 9 =====
+Abundancia de los tipos litológicos y producción
+Producción
+Abundancia de tipo reservorio
+Abundancia de tipo litológico
+
+===== PAGINA 10 =====
+Propiedades Petrofísicas
+Porosidad = almacenamiento
+Saturación = fluidos (agua – petróleo – gas)
+Permeabilidad = productividad
+Vm
+Vp
+Matriz m
+Poro 
+1 - φ
+φ
+Matriz
+Porosidad
+
+
+===== PAGINA 11 =====
+Porosidad = Volumen de poros
+Volumen total de la muestra
+Φ = V poros
+V muestra
+Vm
+Vp
+Matriz m
+Poro 
+1 - φ
+φ
+Propiedades Petrofísicas: Porosidad
+La porosidad puede ser 
+obtenida a partir de ensayos 
+sobre muestras de roca y a 
+través de perfiles de pozo.
+
+===== PAGINA 12 =====
+Propiedades Petrofísicas: Permeabilidad
+La permeabilidad de un medio es su capacidad para permitir el paso de un fluido.
+K=Q*L*μ/A*ΔP
+La permeabilidad puede ser obtenida a partir de ensayos sobre muestras de roca, 
+a través de la ecuación de Darcy.
+
+
+===== PAGINA 13 =====
+Propiedades Petrofísicas: Saturación
+Gas
+Petróleo
+Agua
+(Sg)
+(So)
+(Sw)
+Matriz
+Porosidad
+La saturación puede ser obtenida a partir de 
+ensayos sobre muestras de roca y a través de 
+perfiles de pozo.
+
+
+===== PAGINA 14 =====
+• La saturación de una formación es la fracción de su 
+volumen poroso que ocupa el líquido considerado.
+• Si en los poros de una roca solo exixte agua, en ese caso 
+se considera que dicha formación tiene Sw=100 %.
+• En una formación, la Sw nunca va a llegar a cero, 
+siempre va a tener una fracción de agua capilar, que 
+es la Swi.
+• La saturación puede ser obtenida a partir de ensayos 
+sobre coronas y a través de perfiles de pozo.
+Saturación
+
+===== PAGINA 15 =====
+Escalas de Información adquirida 
+y estudiada
+1 m 103 106
+10-310-6
+Estudios de 
+CuencaSuperficies
+SísmicasVSP
+GeologíaGeofísica Ingeniería
+de ReservoriosPetrofísica Perforación y
+Completación
+Perfiles de
+Pozo Ensayos de 
+Presión
+Ensayos de 
+Pozos
+Descripción geológica
+TR - Corona
+DRX – FRX
+CD-CT Scan
+RCAL - SCAL
+Análisis de imagenes
+SEM-FIB SEM-CT Scan
+Escalas de medición y resolución relativa de estudios de caracterización
+Modificado de Jackson & Tomutsa, 1991
+
+===== PAGINA 16 =====
+Corte Delgado
+Afloramiento escala sísmica
+ GR- +
+Corona
+Escala 103 Escala 10-2Escala 101
+pozo-47
+E
+I
+pozo-43NW SE
+4
+3
+4
+7
+NW
+S
+E
+UBICACION
+Escalas de Información adquirida 
+y estudiada
+
+===== PAGINA 17 =====
+Afloramiento escala sísmica
+ GR- +
+Well: LP_X-1
+3100
+3125
+DEPTH
+METRES
+1 : 200 WIRE.GR_1
+GAPI0 200
+WIRE.SP_1
+MV-80 20
+WIRE.PEF_1
+B/E0 10
+WIRE.CALI_1
+IN6 16
+wire.bit
+IN6 16
+WIRE.SFLU_1
+OHMM0.2 2000
+WIRE.ILM_1
+OHMM0.2 2000
+WIRE.ILD_1
+OHMM0.2 2000
+WIRE.RHOB_1
+G/C31.95 2.95
+WIRE.NPHI_2
+V/V0.45 -0.15
+WIRE.DT_1
+US/F140 40
+Well: LP_X-1
+3100
+3125
+DEPTH
+METRES
+1 : 200 WIRE.GR_1
+GAPI0 200
+WIRE.SP_1
+MV-80 20
+WIRE.PEF_1
+B/E0 10
+WIRE.CALI_1
+IN6 16
+wire.bit
+IN6 16
+WIRE.SFLU_1
+OHMM0.2 2000
+WIRE.ILM_1
+OHMM0.2 2000
+WIRE.ILD_1
+OHMM0.2 2000
+WIRE.RHOB_1
+G/C31.95 2.95
+WIRE.NPHI_2
+V/V0.45 -0.15
+WIRE.DT_1
+US/F140 40
+Escala 103 Escala 10-2Escala 101
+pozo-47
+E
+I
+pozo-43NW SE
+4
+3
+4
+7
+NW
+S
+E
+UBICACION
+Escalas de Información adquirida 
+y estudiada
+
+===== PAGINA 18 =====
+Mod Estratigrafico
+Mod Estructural
+Mod Petrofísico
+Mod Geofisico
+Mod de Fluidos
+Mod de Presiones
+Modelado 
+estático
+Modelo 
+Dinámico
+Flujo de Trabajo
+
+===== PAGINA 19 =====
+Adquisición de la Información
+Uso del Dato:
+❖ Uso Inmediato de la información
+❖ Uso mediato de la información
+❖ Estrategia de la adquisición de datos en función 
+del uso inmediato (terminación) y/ó mediato 
+(caracterización de reservorio).
+
+===== PAGINA 20 =====
+(“Cutting”)
+Adquisición de Información: Datos Directos 
+
+===== PAGINA 21 =====
+Testigos Laterales/Rotados
+Corona Estudios Geológicos
+Estudios Geoquímicos
+Estudios Geomecánicos
+Estudios Petrofísicos
+Cutting
+Cromatografía
+1 a 1.5” de diámetro
+2 a 2.5 “ de largo
+Adquisición de Información: Datos Directos 
+
+===== PAGINA 22 =====
+Claudio Naides
+Petrofísica Básica
+STD ó NOBP
+Densidad de grano
+Porosidad
+Permeabilidad
+Saturaciones
+Cromatografía
+Roca
+Petrofísica Digital
+Recortes de pozosTestigo de Núcleo – Testigo Lateral (impacto – rotado)
+Estudios Geomecánicos
+Vp/Vs – UCS - CCS
+Modulo de Young
+Radio de Poisson
+Petrografía (CD)
+Estudios Geológicos
+Litología
+Facies
+DRX-SEM – FIB-SEM
+PetrofísicaEspecial
+Indice de Resistividad
+Factor de Formación
+Presión Capilar
+Permeabilidad Relativa
+Capacidad de Intercambio Catiónico (CEC)
+Mojabilidad
+Estudios de Ingeniería
+Adquisición de la Información- 
+Datos Directos
+Estudios Geoquímicos 
+
+===== PAGINA 23 =====
+
+
+===== PAGINA 24 =====
+Adquisición de Información: Datos Indirectos 
+
+===== PAGINA 25 =====
+Adquisición de Información: Datos Indirectos 
+Perfiles de Pozos
+➢ Perfiles a pozo abierto
+(open hole – OH)
+➢ Perfiles a pozo entubado 
+(cased hole – CH)
+➢ Perfiles durante la perforación
+(Logging while drilling - LWD)
+
+
+===== PAGINA 26 =====
+Adquisición de Información: Perfiles de Pozos.
+Un poco de historia 
+Operación de perfilaje año 1929 en Pechelbronn
+Schlumberger
+1927
+ 1930
+Primer 
+perfilaje en 
+Argentina y 
+SP 
+1940
+GR – DT -
+Dipmeter
+Ecuación de 
+Archie
+1960/70
+Nucleares –
+Modelos de 
+Interp. 
+Software 
+1980
+Tecnologías 
+de bajo 
+costo-Capas 
+delgadas.
+1990
+NMR –
+Array -
+Producción
+2000   
+LWD –
+Litogeoquí
+micos –
+Nuevos 
+modelos
+Siglo XX Siglo XXI
+
+===== PAGINA 27 =====
+Eléctricos
+Conductivo 
+Resistivo 
+Dieléctrico
+Microresistivo
+Nucleares
+Gamma Ray 
+Densidad 
+Neutrón 
+Resonancia
+Magnética 
+Perfil
+Litogeoquímico 
+Evaluadores de 
+Formación
+Fm Tester 
+Modular Fm 
+Tester 
+Adquisición de Información: Perfiles de Pozos
+Sw
+Phi
+Acústicos
+VSP 
+Sónico Onda 
+Completa 
+Imagen 
+Sónico Phi
+Mineralogía
+Fluidos
+Presiones
+Litología
+Perfil de Producción – PLT 
+
+===== PAGINA 28 =====
+Eléctricos
+Conductivo (1-3)
+Resistivo (1-2-3)
+Microresitivo (1)
+Acústicos
+VSP (1-2)
+Sónico (1-2-3)
+Sónico Onda 
+Completa (1-2)
+Nucleares
+Gamma Ray (1-2-3)
+Densidad (1-3)
+Neutrón (1-2-3)
+Resonancia
+Magnética (1-3)
+Evaluadores de 
+Formación
+Fm Tester (1)
+Modular Fm 
+Tester (1)
+1- Registro Open Hole  (OH)
+2- Registro Cased Hole (CH)
+3- Registro Logging while Drilling  (LWD )
+Dieléctrico (1)
+Imagen (1)
+Perfil
+Litogeoquímico (1)
+Perfil de Producción – PLT 
+Adquisición de Información: Perfiles de Pozos
+
+===== PAGINA 29 =====
+POZOS 
+CON CORONAS
+Adquisición de la Información
+
+===== PAGINA 30 =====
+Fuente: Carlos Torres Verdín
+Adquisición de la Información
+
+===== PAGINA 31 =====

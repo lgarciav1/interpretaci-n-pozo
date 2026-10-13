@@ -1,0 +1,256 @@
+
+
+===== PAGINA 1 =====
+INTERPRETACION DE REGISTROS 
+DE POZOS
+                          
+
+
+===== PAGINA 2 =====
+Registros Radioactivos
+➢ Perfil de Litodensidad
+➢ Perfil Neutrónico
+➢ Perfil Litogeoquímico
+➢ Perfil de Rayos Gamma (GR) y Espectral (GRE)
+
+===== PAGINA 3 =====
+Perfil de Rayos Gamma (GR)
+Principio de Medición:
+Los RG naturales provenientes 
+de la formación son captados 
+por un detector de centelleo, 
+que produce pequeños destellos 
+de luz dentro de unos cristales, 
+que luego son convertidos en 
+pulsos eléctricos.
+K40
+U238 Th232
+ACTIVIDAD
+K = 1      Th = 1300      U = 3600
+ARENISCAS
+CALCAREOS
+DOLOMITA
+PELITAS
+EXCEPCIONES
+ROCAS POTÁSICOS
+ARENISCAS RADIOACTIVAS
+ARENISCAS ARCOSICAS
+
+===== PAGINA 4 =====
+Perfil de Rayos Gamma (GR)
+K40
+U238
+Th232
+
+
+===== PAGINA 5 =====
+Perfil de Rayos Gamma (GR)
+ Litologías
+ Mineralogía de Arcillas (GRE)
+ Identificación de arenas/arcillas
+Aplicaciones de las curvas de GR
+
+
+===== PAGINA 6 =====
+Perfil de Rayos Gamma (GR)
+Aplicaciones de las curvas de GR espectral
+
+
+===== PAGINA 7 =====
+Perfil de Rayos Gamma (GR)
+Aplicaciones de las curvas de GR espectral
+
+
+===== PAGINA 8 =====
+✓ Ejercicio 3 – GR
+Perfil de Rayos Gamma (GR)
+
+===== PAGINA 9 =====
+Perfil de Calibre
+Mecanismo: Potenciómetro de 
+resistencia variable que registra la 
+apertura y posición de los brazos.
+Configuraciones: Herramientas de 1, 
+4 o 6 brazos para medir el diámetro del 
+pozo.
+Geometría: Medición de diámetro en 
+un solo eje o multieje (Dual Axis).
+
+
+===== PAGINA 10 =====
+Perfil de Calibre
+Aplicaciones Petrofísicas
+Control de Calidad (QC): Validación de la 
+integridad del pozo y calidad de otros 
+registros.
+Geomecánica: Combinado con 
+navegación/inclinometría, determina la 
+orientación de los esfuerzos principales 
+(análisis de breakouts y derrumbes).
+Cálculo de Cemento: Estimación precisa 
+del volumen de lechada necesario para la 
+cementación.
+Posicionamiento de Herramientas: En 
+pozos elípticos, los calibradores multieje 
+orientan las herramientas de densidad 
+(patín) hacia el eje menor del pozo para 
+asegurar un contacto óptimo.
+
+
+===== PAGINA 11 =====
+Perfil de Calibre
+Aplicaciones de las curvas de Caliper
+ Control de calidad de curvas, y 
+posicionamiento de herramientas
+ Geomecanica: esfuerzos principales 
+(breakouts/derrumbes)
+ Cálculo de volumen de 
+cemento
+
+===== PAGINA 12 =====
+Perfil de Calibre
+Aplicaciones de las curvas de Caliper
+ Control de calidad de curvas, y 
+posicionamiento de herramientas
+ Geomecanica: esfuerzos principales 
+(breakouts/derrumbes)
+ Cálculo de volumen de 
+cemento
+
+===== PAGINA 13 =====
+✓ Ejercicio 4 – Caliper
+
+===== PAGINA 14 =====
+Perfil de Litodensidad
+Principio de Medición: Emisión 
+de rayos gamma a la formación 
+mediante una fuente radiactiva 
+(Cesio-137)
+Detección: 2 detectores 
+blindados presionados contra la 
+pared del pozo (registro de 
+patín).
+
+
+===== PAGINA 15 =====
+Perfil de Litodensidad
+Mecanismos de Interacción:
+•Efecto Compton: Deflexión de 
+fotones por colisión con 
+electrones.
+•Efecto Fotoeléctrico: Absorción 
+fotónica por baja energía.
+Respuesta del Perfil: La pérdida 
+de energía es directamente 
+proporcional a la densidad 
+electrónica del medio alrededor 
+del pozo.
+Unidad: g/cm3
+
+
+===== PAGINA 16 =====
+Perfil de Litodensidad
+Efecto Compton
+El rayo gamma incidente colisiona con un electrón orbital. La energía se divide entre 
+Energía cinética transferida al electrón emitido, y un Fotón dispersado (rayo gamma de 
+menor energía y diferente trayectoria). La herramienta determina la densidad volumétrica 
+a partir de la atenuación de fotones disipados por Efecto Compton.
+El efecto es directamente proporcional al número de electrones por unidad de volumen. En 
+terminos prácticos, la herramienta mide una “densidad electrónica (e)” de la formación.
+
+
+===== PAGINA 17 =====
+Perfil de Litodensidad
+Efecto Fotoeléctrico
+El rayo gamma incidente presenta bajo nivel de energía (debido al Efecto Compton) y 
+transfiere toda su energía al electrón alcanzado. El fotón incidente desaparece y el electrón 
+es eyectado. Este electrón expelido del átomo es denominado fotoelectrón. El efecto 
+fotoeléctrico presenta proporcionalidad con el número atómico (Z) de los elementos 
+presentes en la formación. Considerando el índice fotoeléctrico (PEF) como la sección de 
+captura fotoeléctrica por electrón. PEF puede ser definido como: (Z/10)^3.6
+
+
+===== PAGINA 18 =====
+Perfil de Litodensidad
+
+
+===== PAGINA 19 =====
+Perfil de Litodensidad
+
+
+===== PAGINA 20 =====
+Perfil de Litodensidad
+ Litologías
+ Identificacion de capas con HC
+ Densidad de la formación 
+(estimación de la porosidad)
+Aplicaciones de las curvas de DEN
+
+
+===== PAGINA 21 =====
+Perfil de Litodensidad
+ 
+ 
+Densidad
+PerfilMatrix
+Matrix Fluido
+=
+−
+−
+Ecuación de porosidad a partir del perfil de densidad (PHI_DEN)
+
+===== PAGINA 22 =====
+✓ Ejercicio 5 – PHI_DEN
+Perfil de Rayos Gamma (GR)
+
+===== PAGINA 23 =====
+Perfil de Neutrón
+1- Mide el índice de hidrógeno de la
+formación, usando una fuente de neutrones
+radioactivos (cristales de Am-Be o Pb-Be).
+Se bombardea a la formación con
+movimientos rápidos de neutrones.
+➢ Elastic scattering
+
+===== PAGINA 24 =====
+Perfil de Neutrón
+2- Los neutrones chocan de forma elástica 
+contra los núcleos de los elementos de la 
+roca, perdiendo energía en cada impacto. La 
+pérdida de energía es máxima al colisionar 
+con núcleos de masa similar a la del 
+neutrón: los átomos de hidrógeno
+3- Dos detectores cuentan el número de
+los neutrones energizados (termales). El 
+perfil mide cuantitativamente el índice de 
+hidrógeno de la formación, el cual se asocia 
+directamente a la presencia de fluidos 
+(agua, petróleo o gas) alojados en los poros, 
+obteniéndose así la porosidad
+
+
+===== PAGINA 25 =====
+Perfil de Neutrón
+ Litologías
+ Identificacion de capas con HC
+ Indice de Hidrógeno de la 
+formación (estimación de 
+la porosidad)
+Aplicaciones de las curvas de NPHI
+
+
+===== PAGINA 26 =====
+Perfil combinado Densidad-Neutrón
+Ecuación de porosidad a partir del perfil de densidad y neutrón (PHI_D-N)
+  
+D N
+Neutrón Densidad
+− =
++
+2
+
+===== PAGINA 27 =====
+Perfil combinado Densidad-Neutrón
+Efecto de HC-Gas
+Efecto de Gas: Debido a que el gas tiene una densidad muy baja y una concentración reducida de hidrógeno por unidad de 
+volumen comparado con el agua o el petróleo, la herramienta registra porosidades anormalmente bajas.

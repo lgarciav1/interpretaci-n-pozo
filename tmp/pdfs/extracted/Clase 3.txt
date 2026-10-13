@@ -1,0 +1,354 @@
+
+
+===== PAGINA 1 =====
+INTERPRETACION DE REGISTROS 
+DE POZOS
+                          
+
+
+===== PAGINA 2 =====
+Operaciones de Perfilaje
+
+
+===== PAGINA 3 =====
+Operaciones de Perfilaje
+
+
+===== PAGINA 4 =====
+Herramientas de Perfilaje
+
+
+===== PAGINA 5 =====
+Herramientas de Perfilaje
+Calibración de herramientas en laboratorio
+
+===== PAGINA 6 =====
+Herramientas de Perfilaje
+Calibración de herramientas en laboratorio
+TIERRA MAR
+fonte: Precision Drilling
+
+
+===== PAGINA 7 =====
+Herramientas de Perfilaje
+Calibración de herramientas en laboratorio
+
+
+===== PAGINA 8 =====
+PERFILES
+SÍSMICA ESTRATIGRAFIA DE
+ALTA RESOLUCIÓN
+DESCRIPCIÓN
+LITOLÓGICA
+GEOESTADÍSTICA
+DESCRIPCIÓN
+PETROFÍSICA
+SIMULACIÓN
+TESTS DE
+FORMACIÓN
+Caracterización de Reservorios
+
+===== PAGINA 9 =====
+Caracterización de Reservorios
+
+
+===== PAGINA 10 =====
+Caracterización de Reservorios
+
+
+===== PAGINA 11 =====
+Tipos de perfilaje (OH)
+Perfilaje a Cable
+Sonda de
+Perfilaje
+Cable de
+Perfilaje
+Unidad de Perfilaje
+
+===== PAGINA 12 =====
+Tipos de perfilaje (OH)
+Perfilaje Asistido
+• TLC (Tough Logging Condition System) -> Inclinaciones mayores a 600
+
+===== PAGINA 13 =====
+Tipos de perfilaje (OH)
+Perfilaje durante la perforación (LWD)
+
+
+===== PAGINA 14 =====
+1- Registro Open Hole (OH)
+2- Registro Cased Hole (CH)
+3- Registro Logging while Drilling (LWD )
+Tipos de perfiles
+Eléctricos
+Conductivo 
+(1
+-
+3)
+Resistivo 
+(1
+-
+2
+-
+3)
+Microresitivo
+ 
+(1)
+Acústicos
+VSP 
+(1
+-
+2)
+Sónico 
+(1
+-
+2
+-
+3)
+Sónico Onda 
+Completa 
+(1
+-
+2)
+Nucleares
+Gamma 
+Ray
+ 
+(1
+-
+2
+-
+3)
+Densidad 
+(1
+-
+3)
+Neutrón 
+(1
+-
+2
+-
+3)
+Resonancia
+Magnética 
+(1
+-
+3)
+Evaluadores de 
+Formación
+Fm Tester 
+(1)
+Modular Fm 
+Tester 
+(1)
+Dieléctrico 
+(1)
+Imagen 
+(1)
+Perfil
+Litogeoquímico
+ 
+(1)
+Perfil de Producción 
+–
+ 
+PLT 
+
+===== PAGINA 15 =====
+Resolución vertical vs Prof. de investigación
+
+
+===== PAGINA 16 =====
+Registros de pozo abierto (OH)
+➢ Registros Eléctricos y Potencial Espontáneo
+➢ Registros Radioactivos
+➢ Registros Acústicos
+➢ Registros de Resonancia Magnética
+➢ Evaluadores de Formación
+➢ Dipmeter e Imágenes de pozo
+➢ Sísmica de pozo
+
+===== PAGINA 17 =====
+Registros de pozo abierto (OH)
+✓ RAYOS GAMMA
+▪ RADIOACTIVIDAD NATURAL
+✓ POTENCIAL ESPONTANEO
+▪ CORRIENTES ELÉCTRICAS
+✓ RESISTIVIDAD
+▪ ELÉCTRICOS FOCALIZADOS
+▪ ELETROMAGNÉTICOS
+▪ MICROPERFILES
+✓ POROSIDAD
+▪ SONICO
+• PROPAGACION DE ONDAS 
+ACÚSTICAS
+▪ DENSIDAD
+• DENSIDAD ELECTRONICA
+▪ NEUTRONES
+• CANTIDAD DE HIDROGENO
+✓ TESTEADOR A CABLE
+▪ MUESTREO DE FLUIDO
+▪ MEDIDAS DE PRESION
+✓RESSONANCIA MAGNÉTICA NUCLEAR
+▪ MANDRIL
+▪ PATIN
+✓PERFILES DE BUZAMIENTO E IMAGEM
+▪ ACÚSTICOS
+▪ ELÉCTRICOS
+✓MUESTRAS LATERALES
+▪ PERCUSION
+▪ ROTATIVO
+✓PERFIL SÍSMICO
+
+===== PAGINA 18 =====
+Mudcake (Retorta)
+
+===== PAGINA 19 =====
+Ambiente de perfilaje
+
+
+===== PAGINA 20 =====
+Ambiente de perfilaje
+Arcilla -> impermeable -> Sin invasión
+Cuando la perforación alcanza a rocas permeables, el 
+proceso de invasión por el filtrado del lodo se establecerá, 
+dislocando el fluido original de la formación.
+Filtrado
+Filtrado
+ La parte líquida del lodo penetra En la formación y la parte
+sólida se alojará en las paredes del pozo (revoque).
+Revoque
+Ph=presión del lodo
+Pf=presión de la formación
+
+===== PAGINA 21 =====
+Ambiente de perfilaje
+Zona 
+Virgen
+ Zona Invadida
+Diferencial de Presión (Ph-Pe)
+Perdida de agua del Fluido de Perforación
+Calidad del reservorio
+Tiempo de Exposición
+Movilidad de los Fluidos
+Factores que influencian la invasión
+
+===== PAGINA 22 =====
+Ambiente de perfilaje
+Factores que influencian la invasión
+Revoque externo
+Zona con daño (revoque interno)
+Zona invadida Zona no-invadida (vírgen/”lavada”)
+
+===== PAGINA 23 =====
+Registros Eléctricos y de SP
+➢ Perfil de Inducción
+➢ Lateroperfil
+➢ Perfiles de Microresistividad
+➢ Curva de SP
+➢ Anisotropía Eléctrica (3DEX, RT Scanner)
+
+===== PAGINA 24 =====
+Perfil de Potencial Espontáneo (SP)
+
+
+===== PAGINA 25 =====
+Rw Rmf
+Perfil de Potencial Espontáneo (SP)
+Respuesta del SP en relación de Rw y Rmf
+Rw > Rmf
+Rw < Rmf
+
+
+===== PAGINA 26 =====
+Perfil de Potencial Espontáneo (SP)
+Efecto electroquimico: Contacto entre fluidos de distinta salinidad (NaCl)
+•Potencial de Membrana — Dominante (80%) Las arcillas actúan como membranas ion-selectivas. Permiten el paso 
+de cationes (Na+) al filtrado dulce y bloquean los aniones (Cl-).
+•Potencial de Juntura Líquida — Menor (20%): Difusión directa en la zona invadida. Los aniones (Cl-) se desplazan 
+más rápido que los cationes (Na+), generando flujo neto negativo.
+Efecto electrocinetico: Movimiento físico de lodo a través del revoque (mudcake)
+•Efecto despreciable (Rw < 0.1 ohm/m y P estandar). Se vuelve Crítico (> -200 mV). Por ejemplo, Yacimientos 
+depletados o lodos muy pesados (P). Formaciones de muy baja permeabilidad. Lodos muy resistivos con agua de 
+formación dulce/salobre.
+
+
+===== PAGINA 27 =====
+Perfil de Potencial Espontáneo (SP)
+ Identificar y correlacionar capas 
+con pozos vecinos
+ Determinación de la resistividad 
+del agua de formación
+ Identificación de arenas/arcillas
+ Indice de permeabilidad
+Aplicaciones de las curvas de SP
+
+
+===== PAGINA 28 =====
+Perfil de Potencial Espontáneo (SP)
+Aplicaciones de las curvas de SP
+
+
+===== PAGINA 29 =====
+Perfil de Potencial Espontáneo (SP)
+✓ Ejercicio 1 – SP y Correlación
+
+===== PAGINA 30 =====
+Registros eléctricos
+•Inducción: 
+Funciona mediante la generación 
+de corrientes eléctricas en la 
+formación a través de un campo 
+electromagnético creado por 
+bobinas transmisoras, las cuales 
+son detectadas por bobinas 
+receptoras. 
+Al no requerir contacto directo con 
+la pared del pozo, pozos con 
+fluidos aislantes o resistivos, tales 
+como lodos base aceite o lodos de 
+agua dulce muy resistivos.
+
+===== PAGINA 31 =====
+Registros eléctricos
+•Laterolog
+Utiliza electrodos físicos de corriente 
+y electrodos de guarda para inyectar 
+y enfocar una corriente eléctrica 
+directamente de manera horizontal 
+hacia la formación. 
+Requiere obligatoriamente de un 
+medio conductivo para que la 
+corriente fluya desde los electrodos 
+hacia la roca. Por lo tanto, se prefiere 
+ampliamente en pozos con lodos 
+conductores o muy salados
+
+
+===== PAGINA 32 =====
+Registros eléctricos
+NORMAL CORTA
+NORMAL LARGA
+LATERAL
+LATEROLOG
+Rt
+RESISTIVIDAD
+Rs = 3
+Rs = 3
+Rt = 100
+dh
+h = 5.dh
+Modificado de BASSIOUNI, 1994
+
+
+===== PAGINA 33 =====
+Registros eléctricos
+ Identificar y correlacionar capas 
+con pozos vecinos
+ Determinacion de reservorios
+ Fluidos/contactos
+Aplicaciones de las curvas de Resistividad
+
+===== PAGINA 34 =====
+✓ Ejercicio 2 – RT vs Rxo, Contacto de fl
+Registros eléctricos

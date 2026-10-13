@@ -1,0 +1,403 @@
+
+
+===== PAGINA 1 =====
+INTERPRETACION DE REGISTROS 
+DE POZOS
+                          
+
+
+===== PAGINA 2 =====
+Registros Radioactivos
+➢ Perfil de Litodensidad
+➢ Perfil Neutrónico
+➢ Perfil Litogeoquímico
+➢ Perfil de Rayos Gamma (GR) y Espectral (GRE)
+
+===== PAGINA 3 =====
+Perfil Litogeoquímico
+Ej: Halliburton - FLEX
+Señales de la Herramienta
+•   Espectros de energía de rayos gamma por captura y 
+dispersión inelástica
+•   Espectros de energía de rayos gamma naturales
+Mediciones Físicas
+•   Concentración en peso de elementos en la 
+formación: Ca, Si, Fe, Mg, K, Al, S, C, Th, U
+•   Indicadores elementales: H, Cl, O
+Caracterización del Yacimiento
+•   Litología general
+•   Litología específica
+•   Identificación mineralógica
+
+
+===== PAGINA 4 =====
+Perfil Litogeoquímico
+Ej: Dimensiones de las herramientas
+
+
+===== PAGINA 5 =====
+Perfil Litogeoquímico
+
+
+===== PAGINA 6 =====
+Perfil Litogeoquímico
+Aplicaciones
+• Mineralogía cuantitativa detallada en litologías complejas. Medición de elementos en 
+tiempo real y litología cuantitativa robusta:
+  - Ca, Fe, Mg y S para litología de carbonatos
+  - Al, Fe y Si para litología siliciclástica
+  - Al, Ca, Fe, K y Si para yacimientos no convencionales
+• Perfil de carbono orgánico total (TOC) para litología y saturación de hidrocarburos 
+independiente de la salinidad.
+• Propiedades de matriz para evaluación petrofísica: 
+  - Porosidad de densidad precisa
+  - Identificación de gas mediante neutrón y densidad corregidos por matriz
+  - Sigma preciso de los fluidos de formación
+
+
+===== PAGINA 7 =====
+Perfil Litogeoquímico
+
+===== PAGINA 8 =====
+✓ Ejercicio 7 – Int. Litogeoquímico
+Perfil Litogeoquímico
+
+===== PAGINA 9 =====
+
+
+===== PAGINA 10 =====
+K – PHI?
+RES – LITH?
+SW – PHI?
+
+===== PAGINA 11 =====
+Registros Acústicos
+➢ Sónico de onda completa
+➢ Sónico Compensado
+➢ VSP
+➢ Dipmeter (microresistivo)
+➢ Imágenes de pozo
+
+===== PAGINA 12 =====
+Registros Acústicos
+Tipos de ondas Acústicas
+P
+S
+Stoneley
+
+===== PAGINA 13 =====
+Registros Acústicos
+Tipos de ondas Acústicas
+P
+S
+
+
+===== PAGINA 14 =====
+Registros Acústicos
+Perfil Sónico Compensado (BHC)
+
+
+===== PAGINA 15 =====
+Registros Acústicos
+Arribos de ondas
+
+===== PAGINA 16 =====
+Registros Acústicos
+Perfil Sónico Compensado (BHC)
+Medicion:
+• Tiempo de Transito (Dt)
+• Litologia
+• Porosidad
+Afectado por:
+• Discontinuidades acústicas
+• Saltos de ciclo
+• Rugosidad de la pared del pozo 
+• Estratificación de las rocas 
+• Fracturas 
+• Formaciones inconsolidadas 
+• Altas saturaciones de gas
+
+
+===== PAGINA 17 =====
+Registros Acústicos
+Perfil Sónico Compensado (BHC)
+Medicion:
+• Tiempo de Transito (Dt)
+• Litologia
+• Porosidad
+Afectado por:
+• Discontinuidades acústicas
+• Saltos de ciclo
+• Rugosidad de la pared del pozo 
+• Estratificación de las rocas 
+• Fracturas 
+• Formaciones inconsolidadas 
+• Altas saturaciones de gas
+
+
+===== PAGINA 18 =====
+Registros Acústicos
+Ecuación de porosidad a partir del perfil sónico (PHI_SON)
+Sonico
+Perfil Matrix
+Fluido Matrix
+t t
+t t=
+−
+−
+ 
+ 
+FORMULA DE WYLLIE (1956)
+( ) maf ttt  −+= 1
+t: tiempo de transito
+
+===== PAGINA 19 =====
+Registros Acústicos
+Ecuación de porosidad a partir del perfil sónico (PHI_SON)
+( )( ) pmaf Cttt  −+= 1
+Cp → Coeficiente de Compactación
+PARA ARENISCAS NO CONSOLIDADOS
+FÓRMULA DE RAYMER et all (1980)
+0,625 < C < 0,7
+FÓRMULA DE RAYMER et all (1980)
+Porosidad (%)
+∆t (μs/ft)
+Sonico
+Wyllie
+( )
+tft
+t
+ma +
+−
+=
+ 21
+1
+Observaciones Empíricas para porosidad Variando de 0-37%
+
+===== PAGINA 20 =====
+Registros Acústicos
+ Litologías
+ Cálculo de Porosidad
+Aplicaciones de las curvas de SON
+ Identificacion de capas con HC
+  Geomecánica
+ Perfil de Cemento
+
+===== PAGINA 21 =====
+
+
+===== PAGINA 22 =====
+Fast Shear
+Slow Shear
+% Anisotropy
+❑ Fracturas naturales abiertas y su 
+orientación
+❑ Análisis de breakouts de pozo
+❑ Contrastes y dirección de los 
+esfuerzos máximo y mínimo
+❑ Parametros de entrada para modelos 
+de fractura en 3D
+Dipole Sonic and Imaging Log
+Registros Acústicos
+Detección de fracturas y orientaciones
+
+===== PAGINA 23 =====
+✓ Ejercicio 8 – PHI_SON
+Perfil Litogeoquímico
+
+===== PAGINA 24 =====
+Registros Acústicos
+➢ VSP
+Zero offset VSP
+
+===== PAGINA 25 =====
+Dipmeter e Imágenes
+
+
+===== PAGINA 26 =====
+Dipmeter e Imágenes
+
+===== PAGINA 27 =====
+Dipmeter e Imágenes
+
+===== PAGINA 28 =====
+Perfil de Imágenes
+Aplicación del FMI
+
+===== PAGINA 29 =====
+Perfil de Imágenes
+Aplicación del FMI
+
+
+===== PAGINA 30 =====
+Perfil de Imágenes
+Aplicación del FMI
+
+===== PAGINA 31 =====
+Perfil de Imágenes
+Aplicación del FMI
+
+===== PAGINA 32 =====
+Perfil de Imágenes
+Aplicación del FMI
+
+===== PAGINA 33 =====
+Perfil de Imágenes
+Aplicación del FMI
+
+
+===== PAGINA 34 =====
+
+
+===== PAGINA 35 =====
+Perfil de Imágenes
+Identificación de Breakouts
+
+===== PAGINA 36 =====
+Perfil de Imágenes
+Identificación de Breakouts
+
+
+===== PAGINA 37 =====
+Registros Nucleares
+➢ Resonancia Magnética (RMN)
+✓ Índice de Hidrogeno, polarización e relajamiento
+✓ Fluidos
+✓ Porosidad independiente de la litologia
+✓ Distribución de tamaño de poros
+✓ Volumen de agua irreductible
+✓ Índice de Permeabilidad
+✓ Identificación de Fluidos
+✓ Viscosidad del Petróleo
+
+===== PAGINA 38 =====
+Resonancia Magnética (RMN)
+✓ T1 - tiempo de polarización- tiempo necesario para que todos los spins de la roca (H)
+esten polarizados.
+✓ TW - tiempo de espera- tiempo em el cual la herramienta está efectivamente
+aguardando la polarización de los spins (parámetro de adquisición).
+✓ T2 - tiempo de relajamiento- perdida de polarización em el plano transversal a T1.
+✓ TE - tiempo entre ecos – parámetro de adquisición.
+✓ NE - número de ecos – parámetro de adquisición.
+
+
+===== PAGINA 39 =====
+Magnetización cero
+
+Alinamiento de los spins por el campo magnético (B0)
+Alinamiento ocurre con tiempo constante
+T1 durante el tiempo de espera WT
+
+Pulso de RF voltea los spins a  
+90° en un plano transversal
+
+Spins se disipan en el plano transversal (T2)
+Ciclo CPMG
+
+Durante CPMG, realinamiento de los Spins con B0 es suprimido
+
+Conclusión del ciclo CPMG
+Magnetización zero
+Resonancia Magnética (RMN)
+Bo
+M
+
+
+===== PAGINA 40 =====
+Resonancia Magnética (RMN)
+
+
+===== PAGINA 41 =====
+Resonancia Magnética (RMN)
+
+
+===== PAGINA 42 =====
+Fonte: Davies, 2005
+ARENISCAS ARCILLOSAS
+Total = Densidad
+Total – NMR = VSwb
+Resonancia Magnética (RMN)
+Modelo de Porosidad
+
+===== PAGINA 43 =====
+Solids
+ Fluids
+Rock
+Matrix
+Free
+Water
+Clay
+-
+Bound
+Water
+Hydro
+-
+Carbon
+Dry
+Clay
+Capillary
+-
+Bound
+Water
+Invisible Hydrogen
+10310.3
+Polarization
+(ideal)
+Time  in  sec.
+Clay Bound Water
+Capillary Bound Water
+ Moveable Water
+Resonancia Magnética (RMN)
+Modelo de Porosidad
+
+===== PAGINA 44 =====
+Resonancia Magnética (RMN)
+Relación entre tamaño de poro y T2
+
+
+===== PAGINA 45 =====
+Resonancia Magnética (RMN)
+Tiempo de relajación (T2) vs Tamaño de poro
+
+
+===== PAGINA 46 =====
+Resonancia Magnética (RMN)
+Tipos de porosidad de la resonancia
+
+
+===== PAGINA 47 =====
+16” 
+@
+ 
+250
+°
+F
+MRIL Probe
+Borehole
+9 
+Sensitive
+Volume
+Cylinders
+(
+each
+ 
+1 mm 
+thick
+at 1 mm 
+spacing
+)
+24”
+~1”
+760kHz 580kHz
+Resonancia Magnética (RMN)
+Herramienta
+
+===== PAGINA 48 =====
+Identificación de Tipos de roca a partir de correlación entre distribución de tiempos de la 
+RMN y Presiones Capilares x inyección de mercurio a alta presión
+Resonancia Magnética (RMN)
+
+===== PAGINA 49 =====
+Identificación de Tipos de roca a partir de correlación entre distribución de tiempos de la RMN 
+y Presiones Capilares x inyección de mercurio a alta presión -> Extapolacion a pozos con RMN
+Resonancia Magnética (RMN)
