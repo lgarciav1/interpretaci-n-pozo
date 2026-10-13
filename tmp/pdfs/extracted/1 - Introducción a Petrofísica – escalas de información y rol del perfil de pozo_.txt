@@ -1,0 +1,73 @@
+
+
+===== PAGINA 1 =====
+Introducción a Petrofísica – escalas de información y rol del perfil de 
+pozo. 
+Integración de disciplinas y escalas 
+La caracterización de un reservorio es un trabajo multidisciplinario. Participan, entre otras, 
+geología, geofísica, petrofísica, ingeniería de reservorios, ingeniería de producción y 
+construcción de pozos (perforación y terminación). Cada disciplina aporta datos con 
+distinta naturaleza (cualitativos o cuantitativos) y con diferentes escalas de medición. El 
+desafío central es integrar todo eso de manera consistente. 
+A escala regional, por ejemplo, aparecen los estudios de cuenca: permiten identificar 
+cuencas sedimentarias y distinguir cuáles son productivas. En Argentina, típicamente se 
+reconocen cuencas productivas como la Neuquina, Golfo San Jorge, Austral, Noroeste, 
+entre otras, mientras que otras cuencas sedimentarias pueden no ser productivas por falta 
+de algún elemento del sistema petrolero (roca madre, reservorio, trampa, etc.). 
+En una escala intermedia entran productos como las superficies sísmicas interpretadas. 
+La sísmica permite mapear estructuras, fallas y geometrías, pero su resolución vertical es 
+limitada: un “horizonte” sísmico puede representar del orden de decenas de metros donde 
+internamente puede haber alternancias de arenas y arcillas. Los afloramientos ayudan a 
+visualizar de forma directa geometrías comparables a esa escala, aunque siguen siendo 
+insuficientes para inferir propiedades petrofísicas finas. 
+Ensayos de pozo y perfil de pozo 
+En escalas más detalladas aparecen los ensayos de pozo (por ejemplo, de productividad) 
+que integran el comportamiento de un intervalo completo: si se ensayan 10 m punzados, la 
+respuesta representa el efecto combinado de esos 10 m sin discriminar cada capa. 
+El punto clave es que la escala del perfil de pozo es la escala de trabajo donde 
+confluyen y se sintetizan las demás escalas. En el perfil de pozo es donde vamos a 
+cuantificar: calcular porosidad, saturación y permeabilidad, estimar espesores útiles (net 
+pay) y finalmente aportar parámetros para volumetría y modelado. 
+Un perfil de pozo suele presentarse en “tracks”. A la izquierda aparecen curvas registradas 
+como: 
+● Gamma Ray (GR) y SP (correlación/litología), 
+ 
+● caliper (diámetro del pozo), 
+ 
+● resistividades, 
+ 
+● y registros de porosidad como sónico, densidad, neutrón (y en algunos casos 
+resonancia magnética). 
+ 
+
+===== PAGINA 2 =====
+Hacia la derecha se muestran curvas interpretadas: saturación de agua, porosidad 
+interpretada, volumen de arcilla, y permeabilidad, idealmente calibradas con mediciones 
+de laboratorio sobre testigos (core). 
+Se usan múltiples registros y calibraciones: la interpretación se construye integrando 
+evidencias, no con una regla única. 
+De la interpretación a decisiones y modelos 
+El objetivo inmediato del análisis es decidir, por ejemplo, dónde producir y dónde evitar 
+agua (identificar contactos agua-hidrocarburo, definir intervalos punzables). El objetivo 
+mediato es construir parámetros para el campo completo: espesor útil, promedios de 
+porosidad, saturación y permeabilidad, y con área y espesor estimar volúmenes de 
+hidrocarburos. 
+Escala de testigo (core) y técnicas de alta resolución 
+Los estudios de mayor detalle son los testigos (core). El testigo permite describir litología, 
+facies, texturas y variaciones centimétricas, con una resolución mucho mayor que la del 
+perfil. A partir de ahí se puede subir aún más la resolución con corte delgado, microscopía 
+electrónica (SEM) y tomografía (CT scan) para estudiar el sistema poral. En shale, 
+donde el tamaño de poro es extremadamente pequeño, estas técnicas son cruciales. 
+El concepto central es el upscaling: tomar información de alta resolución (micro/nano) y 
+llevarla a la escala del perfil de pozo (metro), donde finalmente se cuantifica y se integra 
+todo. 
+Modelos estático y dinámico del reservorio 
+● Modelo estático: integra modelo estructural, estratigráfico, geofísico y petrofísico 
+para representar el reservorio en el “tiempo cero”. 
+ 
+● Modelo dinámico: incorpora fluidos, presiones y propiedades de flujo (como 
+permeabilidad relativa y presión capilar) para simular cómo evoluciona el yacimiento 
+durante la producción, ajustar historia y pronosticar escenarios (ubicación de pozos, 
+inyectores, etc.). 
+ 
+ 

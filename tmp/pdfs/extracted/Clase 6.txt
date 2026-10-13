@@ -1,0 +1,177 @@
+
+
+===== PAGINA 1 =====
+INTERPRETACION DE REGISTROS 
+DE POZOS
+                          
+
+
+===== PAGINA 2 =====
+Registros en Pozo
+➢ PLT
+➢ Perfil de Cemento (CBL)
+➢ Ensayador de Formaciones
+➢ Localizador de junta de cañería (CCL)
+
+===== PAGINA 3 =====
+Ensayador de Formaciones
+➢ Permite tomar presiones puntuales y muestras de fluido 
+a profundidades específicas. Muestreo de fluidos en 
+cámaras y botellones.Definición de contactos de fluidos 
+mediante gradientes de presión.
+- Resistivímetro: Determina la transición entre el 
+filtrado de lodo y el fluido nativo de la formación.
+- Analizador Óptico: Identifica la composición del 
+fluido extraído (agua, petróleo, gas).
+Pistón/pad
+Probe (snorkel)
+
+===== PAGINA 4 =====
+Ensayador de Formaciones
+Un test de pozo consiste en provocar una alteración en el caudal y medir la variación de presión correspondiente, que
+será función de las características del reservorio. La interpretación de la respuesta de presión, asociada a la variación de
+caudal, permitirá la obtención de algunas propiedades del sistema pozo-reservorio.
+ 
+t
+t
+Pw
+Q
+Recuperación rápida: Asociada a alta movilidad y buena permeabilidad efectiva.
+Recuperación lenta: Asociada a baja movilidad.
+Evaluación cualitativa (buen sello, sin sello, no estabiliza, baja permeabilidad, etc.).
+
+===== PAGINA 5 =====
+MDT (VIT / MINI-DST)
+MiniDST TFR
+RADIO DE INVESTIGACION , PERMEABILIDAD...
+* TIPO DE TEST
+LIMITES DEL RESERVORIO
+TFR
+MINI DST
+RFT
+TLD
+TLD
+CORONAS
+PERFILES
+PRE-TESTS
+Ensayador de Formaciones
+
+===== PAGINA 6 =====
+Ensayador de Formaciones
+Gradientes de fluidos
+OWC
+
+===== PAGINA 7 =====
+▪ Identificación de fluidos y muestreo: Captura de fluidos representativos para análisis PVT y composicional.
+▪ Parámetros de presión: Determinación de la presión inicial/media, zonas de depresión o sobrepresión.
+▪ Propiedades de flujo: Estimación de permeabilidad horizontal y vertical, capacidad de flujo, movilidad e 
+Índice de Productividad.
+▪ Caracterización del reservorio: Detección de daño de formación (skin), presencia de fracturas, 
+discontinuidades, límites del reservorio e interferencia entre pozos.
+▪ Integración del modelo: Vinculación del comportamiento dinámico de las pruebas con el modelo estático 
+(geología y perfiles).
+*Limitaciones en Reservorios de Muy Baja Permeabilidad (Tight / Shale): En formaciones tight, los tiempos de 
+recuperación de presión en los pretests pueden ser extremadamente largos. El proceso se vuelve 
+antieconómico y los datos obtenidos pierden robustez. No es recomendable como método principal de 
+evaluación en reservorios de tipo shale.
+Ensayador de Formaciones
+Métricas y objetivos principales
+
+===== PAGINA 8 =====
+• Medición de proporción de agua que no necesita ninguna calibración
+• Detección de la primera entrada de hidrocarburo o agua en una manera segura y no 
+ambigua
+• Mediciones puntuales
+• Identificación de fluidos para cada intervalo
+• Imagen del flujo de los fluidos en el pozo
+• Mediciones con el caliper
+PLT
+• 5 arenas, pozo entubado
+• 2 arenas de buen aporte de 
+gas en estas condiciones de 
+flujo
+• Una arena de admisión 
+importante de gas en estas 
+condiciones de flujo
+• Los intervalos superiores con 
+poco aporte/admisión en estas 
+condiciones de flujo
+• Imagen de DEFT muestra 
+intervalos de mayor 
+producción de agua
+• Perfil de producción permite 
+clara evaluación del pozo
+
+
+===== PAGINA 9 =====
+Transmisores y Receptores 
+Piezoelétricos
+Medidas de las Herramientas
+● Amplitud
+● Tiempo de Tránsito
+● Tren Completo de Onda
+– Variación del Sónico – Amplitud
+● Mayor amplitud - Mejor
+cemento
+– Evalúa Corrosión de la Cañería
+– Evalúa Espesor del Cemento
+– Detecta Presencia de 
+Canalizaciones
+AmplitudEspesor
+Cañería
+Micro 
+Sismograma
+Mapa
+Impedancia
+fonte: HALLIBURTN
+Perfil de Cemento (CBL)
+
+===== PAGINA 10 =====
+•Equipamiento Magnético – Masa de Metal
+– Juntas
+– Perforaciones
+– Cañerías
+– Packers
+– Centralizadores
+•Bobina Montada entre 2 Imanes Permanentes com Campos Magnéticos 
+Opuestos
+•Correlación de Profundidad
+– Cable de Perfilaje.
+– Profundidad de la Cañería.
+•Corre combinado con GR o Neutrón de correlación.
+•Centralizadores
+– Varios Equipamientos Pozo Entubado
+•Sinker Bar Tube
+– Tubo para dar Peso en el Conjunto
+fonte: PRECISION DRILLING
+Localizador de junta de cañería (CCL)
+
+===== PAGINA 11 =====
+Registros de LWD
+➢ Measuring While Drilling
+➢ Logging While Drilling
+
+===== PAGINA 12 =====
+LWD/MWD
+•MWD
+MEDICION DE DATOS DIRECCIONALES
+INFORMACIONES DE PERFORACION
+• PESO SOBRE EL TREPANO
+• TORQUE
+GR y RESISTIVIDAD NORMAL CORTA
+• CORRELACION EN TIEMPO REAL
+•LWD
+MISMAS PROPRIEDADES PETROFÍSICAS OBTENIDAS CON 
+PERFILAJE A CABLE
+EQUIPAMIENTOS AUTONOMOS COMBINBLES
+TIEMPO REAL CON MWD
+
+
+===== PAGINA 13 =====
+GR LWD
+GR WL
+RT WL
+RT LWD
+DT WL
+DT LWD
+LWD/MWD

@@ -1,0 +1,407 @@
+\documentclass[10.5pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-nodecimaldot,es-noquoting]{babel}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{geometry}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{booktabs,longtable,tabularx,array,multicol}
+\usepackage{tikz}
+\usepackage[hidelinks]{hyperref}
+\geometry{margin=1.8cm}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.48em}
+\setlength{\emergencystretch}{2em}
+\setlist[itemize]{leftmargin=1.35em,itemsep=0.16em,topsep=0.18em}
+\setlist[enumerate]{leftmargin=1.55em,itemsep=0.18em,topsep=0.18em}
+\definecolor{petro}{HTML}{123B5D}
+\definecolor{verde}{HTML}{24735C}
+\definecolor{naranja}{HTML}{B05B22}
+\definecolor{rojo}{HTML}{A62D2D}
+\definecolor{gris}{HTML}{EEF2F5}
+\newcommand{\clave}[1]{\par\colorbox{gris}{\parbox{0.965\linewidth}{\textbf{Clave de examen.} #1}}\par}
+\newcommand{\cuidado}[1]{\par\textcolor{rojo}{\textbf{Cuidado.} #1}\par}
+\newcommand{\oral}[1]{\par\textcolor{petro}{\textbf{Respuesta corta defendible.} #1}\par}
+\newcommand{\fuente}[1]{\par{\footnotesize\color{black!60}\textit{Base: #1.}}\par}
+\newcommand{\card}[2]{\noindent\textbf{#1}\par\smallskip #2\par\medskip\hrule\medskip}
+\title{Interpretaci\'on de Registros de Pozo\\[0.25em]\large Gu\'ia intensiva, banco de preguntas y simulacro}
+\author{Preparada a partir de las clases 1--6, notas del primer m\'odulo y ejercicios 1--6}
+\date{12 de octubre de 2026}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+\section*{C\'omo usar esta gu\'ia hoy}
+\addcontentsline{toc}{section}{C\'omo usar esta gu\'ia hoy}
+
+No conviene estudiar herramienta por herramienta como una lista. El parcial mezcla curvas. Para cada perfil hay que poder responder siempre la misma cadena:
+
+\[
+\boxed{\text{f\'isica medida}}
+\longrightarrow
+\boxed{\text{volumen investigado}}
+\longrightarrow
+\boxed{\text{efecto de litolog\'ia, fluido e invasi\'on}}
+\longrightarrow
+\boxed{\text{decisi\'on y control de calidad}}
+\]
+
+\textbf{Ruta de 5 horas.}
+\begin{enumerate}
+  \item 45 min: formulario y modelo mental radial.
+  \item 80 min: SP, GR, resistividades, caliper e invasi\'on.
+  \item 75 min: densidad, neutr\'on, s\'onico y cruces.
+  \item 35 min: LWD/Wireline, POIS/GOIS y escalas.
+  \item 60 min: ejercicio integrador sin mirar la soluci\'on.
+  \item 45 min: simulacro choice; rehacer s\'olo los errores.
+\end{enumerate}
+
+\textbf{Ruta de 90 minutos.} Formulario (15), tabla de herramientas (20), ejercicio (30), flashcards marcadas A (15), errores del choice (10).
+
+\clave{No memorices ``GR bajo = reservorio'' ni ``resistividad alta = hidrocarburo'' como reglas absolutas. Son evidencias. Un reservorio exige integrar litolog\'ia, porosidad, permeabilidad cualitativa, fluido y calidad de pozo.}
+
+\section{Mapa de alta prioridad}
+
+\begin{center}
+\begin{tabularx}{\linewidth}{>{\bfseries}p{0.08\linewidth}X X}
+\toprule
+Nivel & Ten\'es que poder hacer & Error t\'ipico \\
+\midrule
+A & Explicar invasi\'on; leer $R_{xo}$, resistividades someras y $R_t$; SP seg\'un $R_{mf}/R_w$; calcular $\phi_D$ y $\phi_S$; corregir compactaci\'on; reconocer gas con D--N; leer caliper. & Interpretar una curva aislada o ignorar el fluido que ve cada herramienta. \\
+A & Marcar capas con GR--SP, elegir puntos, construir curvas de porosidad y ordenar capas con criterio expl\'icito. & Elegir por una sola propiedad o usar datos de pozo derrumbado. \\
+B & Comparar LWD y Wireline; explicar P, S y Stoneley; geomec\'anica; POIS/GOIS. & Decir que uno ``es mejor'' sin considerar objetivo, riesgo y momento. \\
+B & Decir principio, uso, profundidad de investigaci\'on y resoluci\'on vertical de cada herramienta. & Confundir profundidad de investigaci\'on radial con resoluci\'on vertical. \\
+C & NMR, MDT/VSP/CBL y perfiles especiales a nivel conceptual. & Dar cutoffs o radios como universales. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Formulario razonado}
+
+\subsection{Porosidad por densidad}
+
+\[
+\boxed{\phi_D=\frac{\rho_{ma}-\rho_b}{\rho_{ma}-\rho_f}}
+\]
+
+$\rho_b$ es la densidad bulk medida; $\rho_{ma}$ depende de la mineralog\'ia; $\rho_f$ corresponde al fluido del volumen que investiga la herramienta, normalmente la zona invadida. Valores de referencia: cuarzo $2{,}65$, calcita $2{,}71$ y dolomita $2{,}85\ \mathrm{g/cm^3}$.
+
+\textbf{Consecuencias que suelen preguntar:}
+\begin{itemize}
+  \item Si se supone una matriz m\'as densa, la porosidad calculada aumenta para un mismo $\rho_b$.
+  \item El gas reduce $\rho_b$ y hace que $\phi_D$ resulte artificialmente alta.
+  \item Mudcake, standoff y cavernas alteran la lectura porque el pat\'in ve lodo en vez de formaci\'on.
+  \item Una mezcla mineral exige estimar $\rho_{ma}$; no corresponde usar $2{,}65$ ``por decreto''.
+\end{itemize}
+
+Ejemplo con $\rho_b=2{,}40$ y $\rho_f=1{,}00$: $\phi_D=15{,}2\%$ si se asume arenisca, $18{,}1\%$ si se asume caliza y $24{,}3\%$ si se asume dolomita. La roca no cambi\'o: cambi\'o el supuesto mineral\'ogico.
+
+\subsection{Densidad-neutr\'on}
+
+La combinaci\'on mostrada en clase es
+\[
+\boxed{\phi_{D-N}=\sqrt{\frac{\phi_N^2+\phi_D^2}{2}}}.
+\]
+No reemplaza el diagn\'ostico: primero hay que revisar litolog\'ia, arcilla, gas y estado del pozo.
+
+\begin{itemize}
+  \item Roca limpia con l\'iquido y escala compatible: $\phi_D$ y $\phi_N$ tienden a aproximarse.
+  \item Gas: $\phi_D$ se desplaza a valores altos y $\phi_N$ a bajos; aparece el cruce/separaci\'on cl\'asico.
+  \item Arcilla: el agua ligada eleva la respuesta neutr\'onica; puede simular porosidad si no se corrige $V_{sh}$.
+  \item Cambio mineral\'ogico: ambas curvas se desplazan respecto de la calibraci\'on de caliza. Confirmar con PEF, SGR o lito-geoqu\'imico.
+\end{itemize}
+
+\subsection{Porosidad s\'onica y compactaci\'on}
+
+Wyllie:
+\[
+\Delta t=\phi\Delta t_f+(1-\phi)\Delta t_{ma},
+\qquad
+\boxed{\phi_S=\frac{\Delta t-\Delta t_{ma}}{\Delta t_f-\Delta t_{ma}}}.
+\]
+
+Para areniscas no consolidadas, la diapositiva introduce
+\[
+\Delta t=C_p\,[\phi\Delta t_f+(1-\phi)\Delta t_{ma}],
+\]
+por lo que, si se despeja coherentemente,
+\[
+\boxed{\phi_{S,c}=\frac{\Delta t/C_p-\Delta t_{ma}}{\Delta t_f-\Delta t_{ma}}}.
+\]
+
+Si $C_p>1$, usar Wyllie sin correcci\'on atribuye a porosidad parte del retardo causado por falta de compactaci\'on y sobreestima $\phi$. Raymer aparece en el material en dos formas emp\'iricas:
+\[
+\phi_S=C\frac{\Delta t-\Delta t_{ma}}{\Delta t},\quad 0{,}625<C<0{,}7,
+\qquad
+\Delta t=\frac{1}{(1-\phi)^2/\Delta t_{ma}+\phi/\Delta t_f}.
+\]
+
+\cuidado{No digas simplemente ``a mayor profundidad, menor porosidad s\'onica''. La compactaci\'on suele reducir porosidad y $\Delta t$, pero la lectura tambi\'en cambia por litolog\'ia, gas, fracturas, estratificaci\'on, rugosidad y saltos de ciclo.}
+
+\subsection{SP y salinidad}
+
+La resistividad del agua disminuye cuando aumenta la salinidad. En la convenci\'on gr\'afica de la clase:
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+Condici\'on & Lectura qu\'imica & Deflexi\'on en arena \\
+\midrule
+$R_w<R_{mf}$ & agua de formaci\'on m\'as salina & negativa / hacia la izquierda \\
+$R_w>R_{mf}$ & filtrado m\'as salino & positiva / hacia la derecha \\
+$R_w\simeq R_{mf}$ & salinidades semejantes & SP peque\~no o nulo \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+La l\'inea base se define en lutitas. La amplitud depende adem\'as de temperatura, espesor, arcillosidad, permeabilidad y condiciones del pozo. Un SP nulo no prueba que la roca sea impermeable.
+
+\subsection{POIS y GOIS}
+
+\[
+\boxed{POIS=\frac{A\,H_u\,\phi(1-S_w)}{B_o}},
+\qquad
+\boxed{GOIS=\frac{A\,H_u\,\phi(1-S_w)}{B_g}}.
+\]
+
+$AH_u$ es volumen de roca neta, $AH_u\phi$ volumen poral y $AH_u\phi(1-S_w)$ volumen de hidrocarburo a condiciones de reservorio. Dividir por $B_o$ o $B_g$ lo lleva a condiciones de superficie. En unidades de campo hace falta el factor geom\'etrico correspondiente.
+
+\cuidado{POIS/GOIS no son reservas. Para reservas falta aplicar recuperaci\'on y criterios econ\'omicos. Adem\'as, la notaci\'on usual usa $N$ para petr\'oleo y $G$ para gas; la diapositiva rotula $N$ en ambos, pero no conviene repetir esa ambig\"uedad.}
+
+\section{Modelo radial: mineralog\'ia versus invasi\'on}
+
+\subsection{Qu\'e cambia si cambia la mineralog\'ia}
+
+Un cambio de mineralog\'ia modifica propiedades de matriz y desplaza varias respuestas en forma coherente:
+\begin{itemize}
+  \item GR/SGR: K, U y Th; cuidado con areniscas arc\'osicas o uran\'iferas.
+  \item PEF: cuarzo $\sim1{,}8$, dolomita $\sim3{,}1$, calcita $\sim5$; es un indicador, no una mineralog\'ia completa.
+  \item Densidad: cambia $\rho_{ma}$ y por tanto $\phi_D$.
+  \item S\'onico: cambia $\Delta t_{ma}$ y por tanto $\phi_S$.
+  \item Neutr\'on: la escala es litol\'ogica; una lectura en unidades de caliza no es porosidad universal.
+  \item Lito-geoqu\'imico: estima elementos y ayuda a resolver mezclas complejas y ajustar matriz.
+\end{itemize}
+
+\subsection{Qu\'e cambia si hay invasi\'on}
+
+La invasi\'on es radial. El filtrado desplaza en distinta medida al fluido original y deja s\'olidos como mudcake en una capa permeable. Se distinguen pozo/mudcake, zona lavada $R_{xo}$, zona de transici\'on y zona virgen $R_t$.
+
+\begin{itemize}
+  \item Microperfil/microresistividad: muy somero, alta resoluci\'on; mudcake y permeabilidad cualitativa.
+  \item Resistividad somera: zona invadida.
+  \item Resistividad profunda: intenta aproximar $R_t$, pero una invasi\'on profunda o capa delgada puede contaminarla.
+  \item Densidad, neutr\'on, s\'onico y NMR: someros a intermedios; sus fluidos pueden ser los de la zona invadida.
+\end{itemize}
+
+En el caso t\'ipico de lodo dulce ($R_{mf}>R_w$): en una zona acu\'ifera puede resultar $R_{xo}>R_t$; en una zona con hidrocarburo, el filtrado conductor reemplaza HC cerca del pozo y suele resultar $R_t>R_{xo}$. Pero el orden se invierte si cambia la relaci\'on $R_{mf}/R_w$: siempre declarar el caso.
+
+\oral{Mineralog\'ia desplaza las propiedades de matriz y suele afectar perfiles de distinta f\'isica de manera consistente. Invasi\'on genera una diferencia radial: herramientas someras y profundas ven fluidos distintos. La prueba es integrar PEF/SGR/lito-geoqu\'imico con el arreglo de resistividades y el caliper.}
+
+\section{Herramientas: por qu\'e correrlas, escala y trampas}
+
+Los valores de profundidad de investigaci\'on (PDI) y resoluci\'on son \textbf{del orden indicado en la figura de clase}; cambian con dise\~no, ambiente y procesamiento.
+
+\small
+\begin{longtable}{p{0.13\linewidth}p{0.16\linewidth}p{0.21\linewidth}p{0.14\linewidth}p{0.27\linewidth}}
+\toprule
+Herramienta & F\'isica/salida & Por qu\'e se corre & Escala aproximada & Trampas y QC \\
+\midrule
+\endhead
+GR/SGR & Radioactividad natural; total o K-U-Th & Correlaci\'on, lutita/arena, mineralog\'ia cualitativa & PDI decenas de cm; resoluci\'on $\sim30$ cm & Arenas radioactivas y feldespatos; no hay cutoff universal. \\
+SP & Potenciales electroqu\'imicos & Capas permeables, correlaci\'on, $R_w$ bajo condiciones & Lectura de cama, resoluci\'on moderada & Requiere lodo conductor; depende de $R_{mf}/R_w$, espesor y shale. \\
+Inducci\'on & Campo EM, conductividad & $R_t$, fluidos; ideal en lodo resistivo/aceite & PDI hasta $\sim2$ m o m\'as; res. $\sim80$ cm & Shoulder beds, invas\'on, anisotrop\'ia; mala en medios muy conductivos. \\
+Laterolog & Corriente focalizada por electrodos & $R_t$ en lodo salino conductor & PDI $\sim1$ m; res. $\sim80$ cm & Necesita contacto conductivo; invas\'on y capas delgadas. \\
+Microperfil & Electrodos muy someros & Mudcake, capas permeables, $R_{xo}$ & cm; res. $\sim2$--5 cm & Contacto con pared, rugosidad y mudcake. \\
+Caliper & Di\'ametro del pozo & QC, mudcake/caving, cemento, geomec\'anica & Pared; muestreo fino & Un brazo no reconstruye ovalizaci\'on; usar multibrazo/im\'agen. \\
+Densidad+PEF & Compton y fotoel\'ectrico & $\rho_b$, $\phi_D$, litolog\'ia, gas con NPHI & PDI somera $\sim20$--40 cm; res. $\sim20$ cm & Pat\'in, standoff, washout, matriz y fluido invadido. \\
+Neutr\'on & Frenado/captura por H & \Indice de H, porosidad, gas con densidad & PDI $\sim40$--70 cm; res. $\sim40$ cm & Arcilla/agua ligada, gas, salinidad y escala litol\'ogica. \\
+S\'onico & Tiempo de tr\'ansito & $\phi_S$, litolog\'ia, gas, geomec\'anica & PDI muy somera; res. $\sim60$ cm & Compactaci\'on, cycle skipping, fracturas, gas, rugosidad. \\
+NMR & Relajaci\'on de H, $T_1/T_2$ & Porosidad, CBW/BVI/FFI, poros, permeabilidad/fluidos & Cerca de pared, vol\'umen sensible por herramienta & Cutoff no universal; invasi\'on, rugosidad y programaci\'on de adquisici\'on. \\
+Lito-geoqu\'imico & Espectros de captura/inel\'asticos & Elementos, mineralog\'ia, TOC, matriz precisa & Somera/intermedia & Requiere inversi\'on y calibraci\'on con XRD/SEM. \\
+MDT/RFT & Pretest de presi\'on y muestra & Gradientes, contactos, movilidad y PVT & Punto y radio peque\~no & Sello, supercarga, contaminaci\'on y tiempos enormes en tight. \\
+VSP & Arribos s\'ismicos en receptores de pozo & Ley tiempo-profundidad y amarre s\'ismico & Entre perfil y s\'ismica de campo & Se corre en pozos seleccionados; depende de geometr\'ia. \\
+CBL/VDL & Amplitud y tren ac\'ustico en casing & Calidad de cemento/canalizaci\'on & Casing-cemento-formaci\'on & Centralizaci\'on, microanillo; verificar antes de otros ac\'usticos CH. \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+\section{LWD versus Wireline}
+
+\begin{center}
+\begin{tabularx}{\linewidth}{>{\bfseries}p{0.17\linewidth}X X}
+\toprule
+Pregunta & LWD & Wireline \\
+\midrule
+Cu\'ando & Durante/perfilando al perforar, cerca de la barrena & Despu\'es de perforar el intervalo \\
+Fortaleza & Tiempo real, geosteering, pozo menos invadido, alto \`angulo, respaldo de seguridad & Suites m\'as flexibles, alta calidad/resoluci\'on, muestreo y presiones, repetici\'on controlada \\
+Por qu\'e correrlo & Posicionar casing/corona, ``early look'', navegar una rama, evitar exponer cable en pozo riesgoso/depletado & Caracterizaci\'on detallada, NMR/im\'agenes/ac\'ustica avanzada/MDT, confirmar y calibrar LWD \\
+Limitaciones & Costo integrado al BHA, vibraci\'on, ambiente de perforaci\'on, telemetr\'ia limitada, distancia al bit & Tiempo de equipo, riesgo de pega/pesca, acceso dif\'icil en horizontal y mayor invasi\'on por demora \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\oral{Corro LWD cuando la decisi\'on debe tomarse mientras perforo o el acceso posterior es riesgoso. Corro Wireline cuando necesito la mejor caracterizaci\'on detallada y operaciones que exigen contacto/estacionamiento, como presiones y muestras. Pueden ser complementarios, no rivales.}
+
+\section{Ac\'usticos y geomec\'anica}
+
+En onda completa, el orden conceptual de arribos es P (primer arribo), S y Stoneley. P es compresional; S es de corte y no se propaga en un fluido puro; Stoneley es guiada por la interfase pozo-formaci\'on.
+
+\begin{itemize}
+  \item $V_P=1/\Delta t_P$ y $V_S=1/\Delta t_S$.
+  \item $V_P/V_S$ permite estimar coeficiente de Poisson din\'amico; con densidad se obtienen m\'odulos din\'amicos de Young, corte y bulk.
+  \item Fast/slow shear y su orientaci\'on informan anisotrop\'ia por esfuerzos o fracturas.
+  \item Stoneley puede atenuarse en fracturas abiertas o intervalos permeables por p\'erdida de energ\'ia hacia la formaci\'on.
+  \item Las propiedades din\'amicas no son autom\'aticamente iguales a las est\'aticas de laboratorio: se calibran.
+\end{itemize}
+
+Aplicaciones: estabilidad del pozo y ventana de lodo, orientaci\'on de fractura, modelo 1D de geomec\'anica, detecci\'on de fracturas y porosidad. En pozo entubado, primero hay que comprobar el cemento: casing libre o mal cementado introduce resonancias y arribos que pueden ocultar la formaci\'on.
+
+\section{M\'etodo para resolver el ejercicio}
+
+\subsection{Paso 1: control de calidad antes de interpretar}
+
+Compare caliper con bit size:
+\begin{itemize}
+  \item $CALI\approx BS$: pozo en calibre; mayor confianza.
+  \item $CALI<BS$: mudcake, indicio de filtraci\'on en capa permeable.
+  \item $CALI>BS$: washout/caving; densidad y neutr\'on pueden degradarse y el s\'onico puede sufrir saltos de ciclo.
+\end{itemize}
+
+No borres una capa por mala calidad: marcala y dec\'i qu\'e curvas conservar\'ias y cu\'ales no.
+
+\subsection{Paso 2: l\'imites y reservorio}
+
+Marque topes y bases donde GR y SP cambian de poblaci\'on, no en cada diente. Clasifique:
+\begin{itemize}
+  \item reservorio probable: GR relativamente bajo, SP deflectado, indicio de mudcake/invasi\'on, porosidad razonable;
+  \item no reservorio: lutita o roca limpia pero compacta/sin porosidad;
+  \item incierto: arena radioactiva, pozo malo, capa delgada o respuestas contradictorias.
+\end{itemize}
+
+\subsection{Paso 3: fluidos e invasi\'on}
+
+Compare profunda $R_t$ con somera/$R_{xo}$. La separaci\'on prueba invasi\'on radial, no hidrocarburo por s\'i sola. Para fluido combine resistividad profunda, D--N, contacto vertical y contexto de $R_w/R_{mf}$.
+
+\subsection{Paso 4: calcular curvas de porosidad}
+
+Elija puntos regulares dentro de roca limpia y pozo aceptable. Para cada profundidad anote $\rho_b$ y $\Delta t$; declare $\rho_{ma}$, $\rho_f$, $\Delta t_{ma}$, $\Delta t_f$ y $C_p$. Calcule $\phi_D$ y $\phi_S$; grafique por profundidad e intercale, sin unir a trav\'es de intervalos descartados.
+
+\textbf{Ejemplo.} Arenisca: $\rho_{ma}=2{,}65$, $\rho_f=1{,}00$, $\Delta t_{ma}=55{,}5$, $\Delta t_f=189\ \mu s/ft$. Si $\rho_b=2{,}32$ y $\Delta t=90$:
+\[
+\phi_D=\frac{2{,}65-2{,}32}{2{,}65-1}=0{,}200,
+\qquad
+\phi_S=\frac{90-55{,}5}{189-55{,}5}=0{,}258.
+\]
+La diferencia no se ``promedia'' de inmediato: puede revelar falta de compactaci\'on, gas, matriz incorrecta o mal pozo. Con $C_p=1{,}05$, $\phi_{S,c}\approx0{,}226$.
+
+\subsection{Paso 5: ordenar de mejor a peor}
+
+Declare criterio antes del ranking. Una r\'ubrica defendible:
+\begin{enumerate}
+  \item calidad de reservorio: espesor neto, limpieza, $\phi$ y evidencia de permeabilidad;
+  \item calidad de fluido: $R_t$ y D--N, siempre corregidos por invasi\'on/litolog\'ia;
+  \item confianza del dato: caliper y coherencia entre poros\'imetros.
+\end{enumerate}
+
+Una capa gruesa y porosa con agua puede ser excelente roca pero mal objetivo de completaci\'on. Separ\'a ``mejor reservorio'' de ``mejor intervalo productor de HC''.
+
+\section{Simulacro: 15 choice}
+
+Resolv\'e primero sin mirar la clave.
+
+\begin{enumerate}
+\item En una arena, $R_w<R_{mf}$. Seg\'un la convenci\'on de clase, el SP: (A) va a la derecha; (B) va a la izquierda; (C) es siempre cero; (D) mide porosidad.
+\item Si $R_w\simeq R_{mf}$, una arena permeable puede: (A) tener SP casi nulo; (B) tener GR infinito; (C) perder toda invasi\'on; (D) volverse lutita.
+\item Para lodo base aceite, la herramienta el\'ectrica preferida es usualmente: (A) laterolog; (B) inducci\'on; (C) SP; (D) microlog solamente.
+\item $CALI<BS$ suele indicar: (A) caving; (B) mudcake; (C) gas; (D) cemento.
+\item En gas, sobre escala D--N compatible: (A) $\phi_D$ baja y $\phi_N$ sube; (B) ambas suben; (C) $\phi_D$ sube y $\phi_N$ baja; (D) ambas son inmunes.
+\item Usar $\rho_{ma}=2{,}85$ en vez de $2{,}65$, con igual $\rho_b$ y $\rho_f$, hace que $\phi_D$: (A) aumente; (B) disminuya; (C) no cambie; (D) sea negativa siempre.
+\item Wyllie sin correcci\'on en arena no consolidada tiende a: (A) subestimar siempre; (B) sobreestimar porosidad; (C) medir saturaci\'on; (D) corregir gas.
+\item El primer arribo del s\'onico de onda completa es normalmente: (A) Stoneley; (B) S; (C) P; (D) NMR.
+\item La Stoneley es especialmente sensible a: (A) K-U-Th; (B) interfase pozo-formaci\'on, fracturas/permeabilidad; (C) $B_o$; (D) salinidad SP solamente.
+\item La profundidad de investigaci\'on es: (A) espesor m\'inimo resuelto; (B) alcance radial; (C) profundidad MD; (D) longitud del cable.
+\item La mejor raz\'on para elegir LWD es: (A) siempre tiene m\'as resoluci\'on; (B) decisi\'on en tiempo real/geosteering o riesgo de Wireline; (C) no sufre ambiente de pozo; (D) reemplaza todo MDT.
+\item $AH_u\phi$ representa: (A) volumen de roca; (B) volumen poral; (C) volumen de HC en superficie; (D) reservas.
+\item POIS difiere de reservas porque: (A) no usa porosidad; (B) falta recuperaci\'on/econom\'ia; (C) no usa espesor; (D) es un caudal.
+\item Una capa de GR bajo es necesariamente reservorio: (A) s\'i; (B) no, puede ser limpia pero compacta; (C) s\'olo si SP es cero; (D) s\'olo si caliper abre.
+\item Si hay washout importante, la primera acci\'on es: (A) aceptar densidad; (B) hacer QC y reducir confianza en perfiles sensibles a pared; (C) declarar gas; (D) cambiar $B_g$.
+\end{enumerate}
+
+\textbf{Clave razonada:} 1-B; 2-A; 3-B; 4-B; 5-C; 6-A; 7-B; 8-C; 9-B; 10-B; 11-B; 12-B; 13-B; 14-B; 15-B.
+
+\section{Preguntas de desarrollo y respuestas modelo}
+
+\subsection*{1. Diferencie un cambio mineral\'ogico de un efecto de invasi\'on}
+
+\oral{Un cambio mineral\'ogico modifica propiedades de matriz: radioactividad, PEF, densidad de matriz, tiempo de tr\'ansito de matriz y escala neutr\'onica. Por eso busco coherencia entre GR espectral, PEF, densidad-neutr\'on, s\'onico y lito-geoqu\'imico. La invasi\'on, en cambio, produce zonaci\'on radial de fluidos: micro/somera leen la zona lavada y la profunda intenta leer la virgen. La diagnostico con separaci\'on $R_{xo}$--$R_t$, mudcake y tiempo de exposici\'on. Antes de concluir reviso caliper, espesor de capa y relaci\'on $R_{mf}/R_w$.}
+
+\subsection*{2. Compare LWD y Wireline y justifique cu\'ando correr cada uno}
+
+\oral{LWD entrega GR, resistividad y otras propiedades durante la perforaci\'on, con menor demora e invasi\'on. Es clave para geosteering, posicionamiento de casing/corona, early look y pozos donde cable implica riesgo. Wireline se corre despu\'es y permite suites detalladas, mejor control de adquisici\'on y operaciones estacionarias como MDT/muestreo. La elecci\'on depende del objetivo y riesgo; en un pozo cr\'itico se complementan y se amarran en profundidad.}
+
+\subsection*{3. Explique porosidad s\'onica, compactaci\'on y geomec\'anica}
+
+\oral{El s\'onico mide $\Delta t$, no porosidad. Wyllie mezcla tiempos de matriz y fluido; por eso exige litolog\'ia y fluido correctos. En arenas no consolidadas el retardo adicional puede parecer porosidad y se introduce $C_p$ o un modelo Raymer. En onda completa obtengo P, S y Stoneley: con $V_P$, $V_S$ y densidad calculo m\'odulos din\'amicos y Poisson, y con anisotrop\'ia fast/slow shear infiero esfuerzos o fracturas. Debo controlar cycle skipping, gas, rugosidad y calibrar m\'odulos din\'amicos con datos est\'aticos.}
+
+\section{Flashcards de recuerdo activo}
+
+Marcadas \textbf{A}: indispensables antes de dormir. Tap\'a la respuesta y contest\'a en menos de 20 segundos.
+
+\begin{multicols}{2}
+\card{A1. \?Qu\'e mide realmente densidad?}{Densidad electr\'onica convertida a $\rho_b$ por Compton; PEF proviene del efecto fotoel\'ectrico.}
+\card{A2. \?Qu\'e tres densidades entran en $\phi_D$?}{$\rho_{ma}$, $\rho_b$ y $\rho_f$.}
+\card{A3. \?Qu\'e hace el gas en D--N?}{$\phi_D$ aparente alta y $\phi_N$ baja: crossover/separaci\'on.}
+\card{A4. \?Qu\'e mide neutr\'on?}{\Indice de hidr\'ogeno, no porosidad de forma directa y universal.}
+\card{A5. \?Por qu\'e la arcilla eleva NPHI?}{Agua ligada e hidr\'ogeno asociado a arcillas.}
+\card{A6. \?Qu\'e mide s\'onico?}{$\Delta t$; la porosidad se infiere con matriz, fluido y modelo.}
+\card{A7. \?Para qu\'e sirve $C_p$?}{Corregir el retardo extra de arenas no consolidadas para no atribuirlo todo a porosidad.}
+\card{A8. Orden de arribos.}{P, luego S, luego Stoneley, conceptualmente.}
+\card{A9. $R_w<R_{mf}$.}{Formaci\'on m\'as salina; SP negativo/izquierda en la convenci\'on de clase.}
+\card{A10. $R_w\simeq R_{mf}$.}{SP peque\~no aun si la arena es permeable.}
+\card{A11. Inducci\'on o laterolog con lodo resistivo.}{Inducci\'on.}
+\card{A12. Inducci\'on o laterolog con lodo salino conductor.}{Laterolog.}
+\card{A13. $CALI<BS$.}{Mudcake, usualmente frente a capa permeable.}
+\card{A14. $CALI>BS$.}{Washout/caving; baja confianza en registros sensibles a pared.}
+\card{A15. Profundidad de investigaci\'on.}{Alcance radial dentro de la formaci\'on.}
+\card{A16. Resoluci\'on vertical.}{Espesor vertical m\'inimo que la herramienta puede distinguir.}
+\card{A17. Evidencia de invasi\'on.}{Separaci\'on radial entre micro/somera/profunda, con mudcake y capa permeable.}
+\card{A18. \?Por qu\'e no alcanza $R_t$ alta?}{Puede deberse a roca compacta, evaporita, baja porosidad o efecto de capa; integrar porosidad/litolog\'ia.}
+\card{A19. \?Por qu\'e LWD?}{Tiempo real, geosteering, menor invasi\'on y menor riesgo en alto \`angulo/depletado.}
+\card{A20. \?Por qu\'e Wireline?}{Detalle, flexibilidad y operaciones estacionarias de presi\'on/muestra.}
+\card{A21. Cadena POIS.}{$AH_u$: roca neta; por $\phi$: poro; por $(1-S_w)$: HC de reservorio; dividido $B_o$: superficie.}
+\card{A22. POIS versus reservas.}{In situ es existencia volum\'etrica; reservas incluyen recuperaci\'on y econom\'ia.}
+\card{A23. \?Qu\'e distingue SGR?}{Contribuciones K, U y Th.}
+\card{A24. PEF de cuarzo/calcita/dolomita.}{Aproximadamente 1,8 / 5,0 / 3,1.}
+\card{A25. Primer paso del ejercicio.}{QC con caliper y coherencia de curvas.}
+\card{A26. Segundo paso.}{Topes/bases con GR--SP y patrones, no cada diente.}
+\card{A27. Tercer paso.}{Comparar somera/profunda y D--N para invasi\'on/fluidos.}
+\card{A28. Cuarto paso.}{Tomar puntos buenos, declarar supuestos y calcular $\phi_D$, $\phi_S$.}
+\card{A29. Criterio de ranking.}{Separar calidad de roca, calidad de fluido y confianza del dato.}
+\card{A30. Stoneley.}{Onda guiada por el pozo; sensible a fracturas y acoplamiento/permeabilidad.}
+\card{31. Breakout y esfuerzos.}{El eje largo del breakout se asocia t\'ipicamente con $\sigma_{hmin}$; $\sigma_{Hmax}$ queda perpendicular.}
+\card{32. NMR: poro chico/grande.}{T2 corto / T2 largo.}
+\card{33. NMR: CBW, BVI, FFI.}{Agua ligada a arcilla, agua capilar irreductible y fluido libre/m\'ovil.}
+\card{34. \?Es universal el cutoff T2?}{No; se calibra por litolog\'ia con Pc/SCAL.}
+\card{35. MDT: recuperaci\'on r\'apida.}{Mayor movilidad/permeabilidad efectiva, si el sello y pretest son buenos.}
+\card{36. VSP.}{Relaciona tiempo s\'ismico con profundidad mediante receptores en pozo.}
+\card{37. CBL antes de ac\'ustica CH.}{Verifica cemento; casing libre puede dominar amplitud/arribos.}
+\card{38. GR bajo pero $\phi$ baja.}{Roca limpia no reservorio o muy compacta/cementada.}
+\card{39. SP deflectado pero GR alto.}{Puede haber arena arcillosa o respuesta electroqu\'imica; no clasificar solo con una curva.}
+\card{40. Mejor roca vs mejor objetivo.}{La mejor roca puede estar con agua; el mejor objetivo exige HC y completabilidad.}
+\end{multicols}
+
+\section*{Chequeo final de 60 segundos}
+\addcontentsline{toc}{section}{Chequeo final de 60 segundos}
+
+Antes de entregar cualquier respuesta, preguntate: \textbf{(1)} \?qu\'e mide?, \textbf{(2)} \?qu\'e volumen ve?, \textbf{(3)} \?qu\'e supuesto de matriz/fluido hice?, \textbf{(4)} \?c\'omo est\'a el pozo?, \textbf{(5)} \?qu\'e otra curva confirma o contradice? Si pod\'es responder esas cinco, la interpretaci\'on es defendible.
+
+\section*{Material base y alcance}
+\addcontentsline{toc}{section}{Material base y alcance}
+
+Se usaron las clases 1--6, las notas del primer m\'odulo sobre introducci\'on, SP/resistividad/GR, litodensidad, neutr\'on/caliper/lito-geoqu\'imico, ac\'ustica/NMR, VSP/tests, LWD y CBL, y los ejercicios 1--6. Los valores de escala son los mostrados en las diapositivas y deben tratarse como orientativos. No se incorporaron fuentes externas.
+
+\end{document}

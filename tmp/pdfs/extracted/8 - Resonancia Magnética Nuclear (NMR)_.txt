@@ -1,0 +1,123 @@
+
+
+===== PAGINA 1 =====
+Resonancia Magnética Nuclear (NMR)  
+8.1 Repaso: qué mide NMR en pozo 
+La NMR de pozo es conceptualmente similar a una resonancia médica. El registro mide el 
+índice de hidrógeno asociado a fluidos en los poros mediante dos procesos: 
+● T1: relacionado con la polarización (relajación longitudinal; en práctica se usa para 
+caracterización de fluidos). 
+ 
+● T2: relacionado con la relajación (relajación transversal; es la base para 
+distribución de tamaños de poro y separación de componentes 
+móviles/inmóviles). 
+ 
+Como el hidrógeno está en los fluidos y los fluidos ocupan poros, NMR permite: 
+● porosidad (en gran medida menos dependiente de litología), 
+ 
+● distribución de tamaño de poros (a partir de T2), 
+ 
+● estimación de agua irreductible, 
+ 
+● índice de permeabilidad, 
+ 
+● identificación de fluidos (y en algunos casos, indicios de viscosidad). 
+ 
+8.2 Adquisición 
+La adquisición se programa antes de bajar la herramienta porque los tiempos característicos 
+dependen del reservorio (litología, porosidad, tipo de fluido, condiciones, etc.). Se definen: 
+● tiempos de polarización/espera (asociados a T1), 
+ 
+● tiempos entre ecos (echo spacing), 
+ 
+● número de ecos, 
+ 
+● y ventanas de lectura. 
+ 
+El resultado observado es un tren de ecos en función del tiempo. 
+
+===== PAGINA 2 =====
+8.3 Interpretación clave: T2 y tamaño de poro 
+La idea central: 
+● Poros pequeños → relajación más rápida → T2 corto. 
+ 
+● Poros grandes → relajación más lenta → T2 largo. 
+ 
+Por eso, la distribución de T2 se interpreta como una distribución de tamaños de poro (o 
+más precisamente, un proxy ligado a geometría/relajación superficial). 
+8.4 Presión capilar e inyección de mercurio (MICP) 
+Se conecta la NMR con ensayos de laboratorio: 
+● En MICP (Mercury Injection Capillary Pressure) se obtiene una distribución de 
+gargantas de poro (throat size) controlada por presión capilar. 
+ 
+● En NMR se obtiene una distribución de tamaños de poro (pore size proxy) 
+controlada por T2. 
+ 
+Aunque “poro” y “garganta” no son lo mismo, las curvas suelen tener formas comparables. 
+Esa similitud se usa para calibrar y elegir un T2 cutoff que separe porosidad asociada a 
+irreductible vs móvil. 
+8.5 Componentes de porosidad con NMR 
+NMR permite separar la porosidad en componentes, lo que amplía el concepto frente a 
+densidad/neutrón/sónico. 
+Porosidad total vs porosidad efectiva 
+● Porosidad total (ΦT): toda la porosidad detectada por NMR (lo que “ve” el 
+hidrógeno). 
+ 
+● Porosidad efectiva (ΦE): la porosidad conectada y relevante para flujo, excluyendo 
+porosidad asociada a arcillas muy finas (en primera aproximación). 
+ 
+Con registros clásicos (densidad, neutrón, sónico) lo que se suele obtener inicialmente es 
+una porosidad más cercana a total, y para pasar a efectiva se requiere un cálculo adicional 
+(p. ej. corrección por arcillosidad), o datos de laboratorio. 
+ 
+
+===== PAGINA 3 =====
+Cutoffs típicos en T2 
+1. Cutoff muy corto (≈ 3 ms) 
+ Todo lo que relaja entre 0–3 ms se asocia a CBW (Clay-Bound Water): agua ligada 
+a arcillas (poros muy pequeños), esencialmente inmóvil. 
+ 
+2. T2 cutoff principal (variable por litología/roca) 
+ Separa dentro de la porosidad efectiva: 
+ 
+○ BVI (Bulk Volume Irreducible): porosidad asociada a agua capilar/irreductible 
+(inmóvil), 
+ 
+○ FFI (Free Fluid Index): porosidad asociada a fluidos móviles (lo que 
+potencialmente produce). 
+ 
+El T2 cutoff no es universal: 
+● Areniscas: valores típicos del orden de ~33 ms (referencia aproximada). 
+ 
+● Carbonatos: puede ser mucho mayor (por ejemplo ~90–100 ms). 
+ Siempre se ajusta con laboratorio (Pc, SCAL, etc.). 
+ 
+8.6 Agua capilar vs agua irreductible 
+El agua irreductible está asociada a gargantas/poros tan 
+pequeños que: 
+● no se desplaza bajo presiones capilares “realistas” del sistema, 
+ 
+● no produce agua móvil, 
+ 
+● y representa la saturación mínima de agua incluso cuando se produce solo 
+hidrocarburo. 
+ 
+La porosidad con densidad/neutrón/densidad-neutrón: 
+● calcularon una porosidad tipo total (en el sentido de que no separa explícitamente 
+CBW/BVI/FFI). 
+ La porosidad efectiva, con registros clásicos, requiere estimar arcillosidad y restar 
+el componente asociado a arcillas (y/o calibrar con laboratorio). 
+ 
+
+===== PAGINA 4 =====
+En cambio, NMR permite separar exp||lícitamente CBW, BVI y FFI con cutoffs en T2 
+(calibrables con Pc/SCAL). 
+ 
+8.10 Profundidad de investigación 
+La herramienta mide cerca de la pared del pozo, por lo que los 
+fluidos evaluados están influenciados por la invasión: 
+● en zona de agua, el residual suele seguir siendo agua, 
+ 
+● en zona de hidrocarburos pueden quedar residuales característicos. 
+ 
+ 

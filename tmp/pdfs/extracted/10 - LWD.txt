@@ -1,0 +1,82 @@
+
+
+===== PAGINA 1 =====
+10.1 Logging LWD/MWD 
+● MWD (Measurement While Drilling): orientado a mediciones de perforación y 
+direccionalidad (trayectoria, inclinación/azimut, etc.). 
+ 
+● LWD (Logging While Drilling): registros petrofísicos durante perforación (GR, 
+resistividad, densidad, neutrón, sónico, incluso NMR e imágenes en algunos casos). 
+ 
+ 
+10.2 ¿Para qué se hace LWD? (usos 
+principales) 
+A) Correlación / posicionamiento 
+Registros de correlación (típicamente GR, a veces resistividad) para: 
+● posicionar con mayor seguridad zapatos de casing (intermedio), 
+ 
+● ubicar mejor un punto de coroneo, 
+ 
+● y en general “atar” estratigrafía/objetivos mientras se perfora. 
+ 
+Ejemplo: presal brasileño 
+En pozos muy profundos (≈ 6000–6500 m) uno de los puntos críticos fue perforar grandes 
+espesores de sal y entubar correctamente. 
+ El GR/resistividad mientras se perfora ayuda a identificar con precisión el pasaje sal → 
+carbonatos para: 
+● detener perforación apenas se entra al objetivo, 
+ 
+● asentar casing/zapato en el lugar correcto, 
+ 
+● evitar “comerse” metros de reservorio detrás del casing o dejar sal expuesta donde 
+genere problemas de estabilidad. 
+ 
+ 
+
+===== PAGINA 2 =====
+B) Reconocimiento / evaluación temprana (“early look”) 
+Mientras se perfora se puede ir identificando: 
+● zonas presurizadas, 
+ 
+● posibles zonas con gas, 
+ 
+● indicios tempranos para evaluación de formaciones (sin esperar el logging 
+convencional). 
+ 
+C) Geosteering en pozos direccionales/horizontales 
+Muy importante en no convencionales (ej. Vaca Muerta) donde se desarrollan pozos 
+horizontales con ramas largas (del orden de miles de metros; se menciona >3000 m). 
+Flujo típico: 
+1. se perfora un piloto vertical para caracterizar el espesor y variabilidad (zonas 
+“cocina”, “orgánico inferior/superior”, etc.). 
+ 
+2. desde la locación se construyen ramas horizontales. 
+ 
+3. durante la rama se navega dentro de una ventana objetivo (ej. 10 m o menos, 
+idealmente 2–3 m), usando principalmente GR LWD (a veces GR azimutal) y otras 
+mediciones. 
+ 
+Objetivo del geosteering: 
+● mantenerse dentro del target sin salir de la ventana, 
+ 
+● evitar curvas fuertes, 
+ 
+● lograr la mayor horizontalidad posible por productividad y operatividad. 
+ 
+D) Perfil de seguridad 
+Hay contextos donde el logging a pozo abierto puede ser difícil o riesgoso, y LWD sirve 
+como “backup”: 
+● pozos de alto ángulo/horizontales (difíciles de perfilar con cable), 
+ 
+● pozos de desarrollo (por costos/tiempos), 
+ 
+
+===== PAGINA 3 =====
+● pozos en reservorios depletados (riesgo de pega). En capas depletadas hay un 
+gran diferencial de presión entre presión de formación (baja por depleción), 
+presión hidrostática del lodo (más alta para controlar el pozo). aumenta el riesgo de 
+pesca (stuck tool/cable), y eso implica costo y riesgo operativo. 
+Por eso en campos con múltiples capas depletadas (se menciona ejemplo tipo “multilayer” y 
+recuperación secundaria), suele recomendarse LWD y se evita o se limita el tiempo de 
+operaciones de cable (incluyendo ensayos de presión puntuales en esas capas). 
+ 

@@ -1,0 +1,47 @@
+
+
+===== PAGINA 1 =====
+11.1 Perfil de cemento 
+● En cased hole: Permite evaluar el cemento con CBL/VDL (CBL/VDL es 
+esencialmente acústico). 
+Si el cemento es malo, la cañería puede entrar en resonancia y aparece ruido 
+que: enmascara tiempos/arribos,y degrada la calidad para porosidad y propiedades 
+geomecánicas. 
+ 
+Conclusión operativa: 
+1. primero correr/usar perfil de cemento (CBL/VDL) para verificar calidad, 
+ 
+2. recién después confiar en acústicos para otros fines. 
+ 
+Producción / inyección 
+● PLT (Production Logging Tool) / flowmeter: 
+ 
+○ mide aporte por capa (caudal relativo), 
+ 
+○ puede incluir presión diferencial para inferir densidad y detectar agua vs 
+gas/petróleo, 
+ 
+○ útil en pozos multi-capa, fracturados, tight, etc., para ver qué intervalos 
+realmente aportan. 
+ 
+● Perfiles de inyectividad / distribución de inyección por capa (menciona “falloff” en el 
+relato): 
+ 
+○ si inyectás 100 m³/d, querés saber cómo se reparte: 20% acá, 50% allá, etc. 
+ 
+ 
+11.5 Inspección de cañería (integridad, 
+corrosión, deformación) 
+Herramientas para estado del casing: 
+
+===== PAGINA 2 =====
+● Calipers multi-brazo (40–60 brazos): miden diámetro interno y ovalización; útiles 
+para corrosión interna. 
+ 
+● Métodos electromagnéticos: estiman espesor del metal / defectos. 
+ 
+● Ultrasonido / “televisor” de pozo, cámaras, etc. 
+ 
+ 
+ 
+ 

@@ -1,0 +1,41 @@
+Frente	Dorso	Etiqueta
+¿Qué mide realmente el registro de densidad?	Densidad electrónica convertida a densidad bulk por efecto Compton; el PEF proviene del efecto fotoeléctrico.	A densidad
+¿Qué densidades entran en la ecuación de porosidad por densidad?	Densidad de matriz, densidad bulk medida y densidad del fluido de la zona investigada.	A densidad
+¿Qué hace el gas en el par densidad-neutrón?	La densidad da porosidad aparente alta y el neutrón porosidad baja: crossover o separación.	A gas
+¿Qué mide el neutrón?	Índice de hidrógeno; la porosidad es una interpretación dependiente de calibración, litología y fluido.	A neutron
+¿Por qué la arcilla eleva NPHI?	Por el agua ligada y el hidrógeno asociado a las arcillas.	A neutron
+¿Qué mide el sónico?	Tiempo de tránsito delta-t. La porosidad se infiere con matriz, fluido y un modelo.	A sonico
+¿Para qué sirve Cp en areniscas no consolidadas?	Corrige el retardo adicional por falta de compactación para no atribuirlo todo a porosidad.	A sonico
+Orden conceptual de arribos del sónico de onda completa	P, S y Stoneley.	A acustica
+Si Rw es menor que Rmf, ¿qué ocurre con SP?	El agua de formación es más salina; en la convención de clase la arena deflecta a la izquierda/negativo.	A SP
+Si Rw es aproximadamente igual a Rmf, ¿qué ocurre con SP?	Puede ser casi nulo aunque la arena sea permeable.	A SP
+¿Inducción o laterolog con lodo resistivo/base aceite?	Inducción.	A resistividad
+¿Inducción o laterolog con lodo salino conductor?	Laterolog.	A resistividad
+¿Qué sugiere CALI menor que bit size?	Mudcake, usualmente frente a una capa permeable.	A caliper
+¿Qué sugiere CALI mayor que bit size?	Washout o caving; baja confianza en perfiles sensibles a pared.	A caliper
+¿Qué es profundidad de investigación?	Alcance radial de la medición dentro de la formación.	A escala
+¿Qué es resolución vertical?	Espesor vertical mínimo que una herramienta puede distinguir.	A escala
+¿Qué evidencia invasión?	Separación coherente entre mediciones micro/someras/profundas más mudcake en capa permeable.	A invasion
+¿Por qué resistividad profunda alta no prueba hidrocarburo?	También puede haber roca compacta, evaporita, baja porosidad o efectos de capa; hay que integrar.	A resistividad
+¿Por qué correr LWD?	Tiempo real, geosteering, menor demora/invasión y menor riesgo en pozos de alto ángulo o depletados.	A LWD
+¿Por qué correr Wireline?	Caracterización detallada, suites flexibles y operaciones estacionarias de presión y muestreo.	A wireline
+Cadena conceptual de POIS	A por Hu da roca neta; por phi da poro; por 1-Sw da HC de reservorio; dividir por Bo lleva a superficie.	A volumetria
+POIS/GOIS versus reservas	In situ cuantifica existencia volumétrica; reservas agregan recuperación y economía.	A volumetria
+¿Qué separa el GR espectral?	Contribuciones de potasio, uranio y torio.	B GR
+PEF aproximado de cuarzo, dolomita y calcita	1.8, 3.1 y 5.0, respectivamente.	B PEF
+Primer paso del ejercicio integrador	Control de calidad con caliper y coherencia entre curvas.	A ejercicio
+Segundo paso del ejercicio integrador	Marcar topes y bases con patrones de GR-SP, no cada diente.	A ejercicio
+Tercer paso del ejercicio integrador	Comparar resistividades somera/profunda y D-N para invasión y fluidos.	A ejercicio
+Cuarto paso del ejercicio integrador	Tomar puntos confiables, declarar supuestos y calcular phiD y phiS.	A ejercicio
+¿Cómo ordenar capas?	Separar calidad de roca, calidad de fluido y confianza del dato; declarar el criterio.	A ejercicio
+¿Qué es la Stoneley?	Onda guiada por la interfase pozo-formación, sensible a fracturas y acoplamiento/permeabilidad.	A acustica
+Breakout y esfuerzos	El eje largo del breakout se asocia típicamente con sigma-h-min; sigma-H-max queda perpendicular.	B geomecanica
+NMR: poro pequeño versus grande	T2 corto versus T2 largo.	B NMR
+NMR: CBW, BVI y FFI	Agua ligada a arcilla, agua capilar irreductible y fluido libre/móvil.	B NMR
+¿Es universal el cutoff T2?	No. Se calibra por litología con presión capilar/SCAL.	B NMR
+MDT con recuperación rápida	Sugiere mayor movilidad/permeabilidad efectiva si el sello y el pretest son buenos.	B MDT
+¿Para qué sirve VSP?	Relaciona tiempo sísmico con profundidad usando receptores en el pozo.	B VSP
+¿Por qué verificar CBL antes de acústica en casing?	Casing libre o mal cementado puede dominar amplitudes y arribos.	B CBL
+GR bajo pero porosidad baja	Roca limpia no reservorio o muy compacta/cementada.	A integracion
+SP deflectado pero GR alto	Puede ser arena arcillosa u otra respuesta; no clasificar con una sola curva.	A integracion
+Mejor roca versus mejor objetivo	La mejor roca puede contener agua; el mejor objetivo exige HC y completabilidad.	A integracion

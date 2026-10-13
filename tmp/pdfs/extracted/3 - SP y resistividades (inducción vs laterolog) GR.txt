@@ -1,0 +1,100 @@
+
+
+===== PAGINA 1 =====
+SP y resistividades (inducción vs laterolog) 
+Retomando lo visto: la curva SP deflecta hacia un lado u otro según la relación de 
+salinidades entre el lodo (o su filtrado) y el agua de formación. Si las salinidades (o, en 
+términos prácticos, las resistividades equivalentes) son similares, el SP puede quedar 
+casi sin deflexión. 
+Perfiles eléctricos: 
+● Inducción: genera un campo electromagnético alrededor del pozo y es más 
+conveniente cuando el lodo es resistivo (baja conductividad). 
+ 
+● Laterolog (doble laterolog): usa electrodos y tiende a ser preferible cuando el lodo 
+es conductivo/salado. 
+La elección entre herramientas se guía por la relación entre resistividad del lodo y 
+resistividad del agua de formación: si el lodo es mucho más resistivo, suele convenir 
+inducción; si el lodo es muy conductor respecto al agua de formación, suele convenir 
+laterolog. En una zona “gris”, a veces se registran ambas y luego se decide cuál usar. 
+Las resistividades multicomponente/anisotrópicas que permiten estimar resistividad 
+horizontal y vertical, muy útiles en arenas delgadas (thin beds). En esos casos, una 
+herramienta convencional puede “promediar” y devolver resistividades bajas, ocultando 
+hidrocarburos; en cambio, una medición que capture mejor la componente vertical puede 
+ayudar a identificar el hidrocarburo dentro de láminas arenosas. 
+Para qué sirve el SP (aplicaciones) 
+El SP se usa para: 
+● Diferenciar arenas vs arcillas (cualitativamente). 
+ 
+● Correlacionar capas entre pozos vecinos e identificar unidades de flujo. 
+ 
+● En casos particulares, estimar Rw (resistividad del agua de formación) si se dan 
+ciertas condiciones. 
+ 
+● Dar un indicio cualitativo de permeabilidad: mayor deflexión suele asociarse a 
+capas más permeables (con cautela). 
+ 
+Por lo general: 
+● GR (gamma ray) en verde: en general, GR alto → arcillas; GR bajo → arenas (a 
+nivel cualitativo). 
+ 
+● SP en rojo. 
+ 
+
+===== PAGINA 2 =====
+● Caliper: una línea vertical marca el bit size (diámetro nominal). La curva real 
+muestra el diámetro medido: cuando se abre (caverna/derrumbe), suele ocurrir en 
+arcillas. 
+ 
+● PEF (factor fotoeléctrico) asociado a registros de densidad, pero se deja para más 
+adelante. 
+ 
+● microperfil/microresistividad, que mide muy cerca de la pared del pozo y con alta 
+resolución vertical. Se usa para identificar cualitativamente zonas permeables: 
+cuando aparece sombreado/contraste, suele indicar entrada de filtrado y, por lo 
+tanto, permeabilidad (otra vez: cualitativo). 
+Si el agua de formación es la misma (mismo yacimiento), la diferencia más probable es el 
+lodo: se ajustó la salinidad del lodo/filtrado para que Rmf ≈ Rw, anulando la deflexión del 
+SP. Este tipo de comparación muestra cómo el SP también puede ayudar a inferir 
+condiciones de lodo y, en casos puntuales, estimar Rw. 
+ 
+Saturación de agua: Archie vs Sw irreductible 
+La Sw calculada con Archie es una saturación “del sistema” estimada desde perfiles: 
+Sw=(aϕmRwRt)1/nS_w = \left(\frac{a}{\phi^m}\frac{R_w}{R_t}\right)^{1/n}Sw=(ϕmaRtRw)1/n 
+(forma conceptual; los parámetros se definen luego). 
+Para saber si esa Sw equivale o no a Sw irreductible (Swirr) hace falta calibración: 
+● Laboratorio (core): presión capilar y permeabilidad relativa. 
+ 
+● Producción/ensayos: evaluar si hay agua móvil. 
+ 
+Si la facies/unidad de flujo cambia, puede cambiar Swirr; por eso es importante no 
+promediar indiscriminadamente y, cuando se pueda, separar unidades y mapearlas por 
+separado. 
+ 
+Registros radioactivos: GR vs GR espectral 
+Gamma Ray (GR) total: 
+● Mide la radioactividad natural de la formación. 
+ 
+● Se expresa en API. 
+ 
+
+===== PAGINA 3 =====
+● En general, valores altos se asocian a arcillas, y valores bajos a arenas o 
+carbonatos, pero sin números fijos (hay variaciones de herramienta, época, 
+condiciones de registro y litologías especiales). 
+ 
+Gamma Ray espectral (SGR): 
+ El GR total es la suma de contribuciones principalmente de: 
+● Potasio (K) 
+ 
+● Uranio (U) 
+ 
+● Torio (Th) 
+ 
+El espectral mide por separado K, U y Th (por ventanas de energía). Eso permite interpretar 
+mejor: 
+● Arenas arcósicas / inmaduras (K alto por feldespatos). 
+ 
+● Areniscas radioactivas (U alto). 
+ 
+● Diferencias mineralógicas y, más adelante, tipo de arcillas. 
+ 

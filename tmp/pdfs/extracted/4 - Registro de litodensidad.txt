@@ -1,0 +1,105 @@
+
+
+===== PAGINA 1 =====
+Registro de litodensidad: qué mide y cómo funciona 
+El registro de litodensidad es un registro nuclear activo: a diferencia del Gamma Ray 
+(GR), que mide la radioactividad natural de la formación, la litodensidad emite rayos 
+gamma desde una fuente (por ejemplo Cs-137) y mide cómo interactúan con la formación. 
+La herramienta tiene un patín presionado contra la pared del pozo mediante un brazo/fleje. 
+Esa geometría es clave: si el pozo está rugoso, con cavernas o breakouts, el patín puede 
+no apoyar bien (standoff) y la herramienta termina “viendo” lodo en lugar de formación. Esto 
+es una desventaja importante y obliga a hacer control de calidad. 
+Además, el caliper de densidad mide en una sola dirección y tiende a reportar el máximo 
+diámetro porque el patín se “acomoda” en la canaleta del breakout. Para describir la 
+ovalización real del pozo se necesitan: 
+● caliper de 4 o 6 brazos, y/o 
+ 
+● registros de imagen (FMI/imagen resistiva, etc.), y/o 
+ 
+● herramientas que reconstruyen circunferencia/orientación. 
+ 
+Breakout y estado tensional (idea conceptual) 
+El breakout se asocia al estado de esfuerzos (σv, σHmax, σhmin) y suele desarrollarse 
+alineado con el σhmin (con la geometría típica “dos lóbulos opuestos”). Por eso un caliper 
+multi-brazo o imágenes ayudan a ver la forma real del pozo. 
+ 
+Interacciones físicas: Compton y fotoeléctrico 
+El registro recupera dos mediciones principales: 
+1. Densidad (ρb), dominada por el efecto Compton 
+ 
+○ Los gamma se dispersan al interactuar con electrones; esa dispersión 
+depende de la densidad electrónica, que se relaciona con la densidad bulk 
+de la roca. 
+ 
+○ Con ρb se puede calcular porosidad. 
+ 
+2. PEF (Photoelectric Factor), dominado por el efecto fotoeléctrico 
+ 
+○ Depende fuertemente del número atómico efectivo (Z). 
+ 
+
+===== PAGINA 2 =====
+○ Se usa como indicador litológico (muy útil para separar cuarzo vs 
+carbonatos vs evaporitas, etc.). 
+ 
+Valores típicos (orden de magnitud) que se usan como referencia: 
+● Cuarzo (areniscas): PEF ~ 1.8 
+ 
+● Calcita (calizas): PEF ~ 5.0 
+ 
+● Dolomita: PEF ~ 3.1 
+ 
+● Evaporitas: pueden confundirse por PEF con carbonatos, pero se diferencian por 
+densidad (y por contexto). 
+ 
+ 
+Porosidad a partir de densidad: por qué importa la 
+matriz 
+La porosidad por densidad se calcula usando: 
+● densidad de la matriz (ρma) (depende de litología: arenisca ~2.65, caliza ~2.71, 
+dolomita ~2.85 g/cm³), 
+ 
+● densidad del fluido (ρf), 
+ 
+● densidad medida (ρb). 
+ 
+¿Qué fluido usar (ρf)? 
+Como la litodensidad lee cerca de la pared (zona invadida), se suele usar densidad del 
+fluido de perforación (o del filtrado), no la del fluido original del reservorio. 
+ 
+Densidad vs neutrón: efecto gas y contacto de fluidos 
+● En zona con hidrocarburo (sobre todo gas o crudo liviano), la densidad puede dar 
+porosidad exageradamente alta (ρb muy baja). 
+ 
+● El neutrón en presencia de gas tiende a irse al otro lado (lee porosidad más baja 
+de la real). 
+ 
+
+===== PAGINA 3 =====
+En zona de agua, ambas lecturas suelen converger (densidad y neutrón se parecen más), 
+lo que ayuda a: 
+● confirmar contactos de fluidos, además de resistividad, 
+ 
+● detectar que el desacople densidad-neutrón es un indicador fuerte de gas. 
+ 
+Conclusión: 
+ La porosidad es propiedad de la roca, pero los registros la infieren indirectamente y los 
+fluidos afectan la medición. Por eso se corrige con: 
+● combinación densidad-neutrón (y más adelante ecuaciones/crossplots), 
+ 
+● y calibración con porosidad de laboratorio. 
+ 
+¿Con qué porosidad de laboratorio calibrar? 
+La calibración ideal es con porosidad medida en condiciones de reservorio (P/T), porque 
+los registros se adquieren bajo esas condiciones y la roca puede ser compresible. 
+ 
+Para qué sirve el litodensidad (resumen) 
+● Estimar porosidad (φD), con fuerte dependencia de ρma y de QC de pozo. 
+ 
+● Aportar PEF como guía litológica. 
+ 
+● Entregar caliper (pero 1D, sesgado al máximo diámetro en breakouts). 
+ 
+● En combinación con neutrón: identificar gas/fluido y corroborar contactos. 
+ 
+ 
