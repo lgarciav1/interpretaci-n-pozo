@@ -19,12 +19,34 @@ function katexWoff2Only(): Plugin {
   };
 }
 
+/**
+ * Dependencias pesadas solo-worker: en el bundle del hilo principal, todo import que resuelva a `<x>.worker-only.ts`
+ * se reemplaza por `<x>.main-thread.ts` (mismo directorio, misma API). Los plugins de `plugins` no se aplican al
+ * bundle del worker (ese usa `worker.plugins`), así que el worker sigue recibiendo el archivo real. Primer uso: el
+ * random forest embebido del módulo de facies (~0,9 MB), que solo se ejecuta en el motor del worker. Solo en el
+ * build: en desarrollo y en Vitest se usa el archivo real en ambos lados.
+ */
+function workerOnlyFiles(): Plugin {
+  return {
+    name: 'worker-only-files',
+    apply: 'build',
+    enforce: 'pre',
+    async resolveId(source, importer, options) {
+      if (!/\.worker-only(\.ts)?$/.test(source)) return null;
+      const stubSource = source.replace(/\.worker-only(\.ts)?$/, '.main-thread$1');
+      const stub = await this.resolve(stubSource, importer, { ...options, skipSelf: true });
+      if (!stub) this.error(`Falta ${stubSource} (sustituto de ${source} en el hilo principal), importado desde ${importer}.`);
+      return stub;
+    },
+  };
+}
+
 // El build produce un único dist/index.html autocontenido (se abre con doble clic, sin internet).
 // El Web Worker del motor se importa con `?worker&inline`: Vite lo empaqueta aparte y lo incrusta
 // como base64 dentro del bundle principal; en tiempo de ejecución se instancia desde un Blob URL.
 export default defineConfig({
   base: './',
-  plugins: [katexWoff2Only(), react(), viteSingleFile()],
+  plugins: [katexWoff2Only(), workerOnlyFiles(), react(), viteSingleFile()],
   worker: {
     // Worker clásico (IIFE): no depende de soporte de module workers ni de fetch de chunks.
     format: 'iife',

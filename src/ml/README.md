@@ -92,6 +92,10 @@ y actualizar las métricas de la decisión 0030.
 
 ## Pendiente para la 10c (interfaz)
 
+Hecho en la 10c-1: módulo `src/modules/lithology-facies/` (cálculo en el Web Worker; el modelo solo entra al bundle
+del worker por la convención `*.worker-only.ts` de `vite.config.ts`), selector «Uso del PE» con el aviso
+`variantReason` y pista «Litología (ML)» en Geología. Queda para la 10c-2:
+
 - Pista de litología con color por clase (colores fuera de este módulo) y la probabilidad como saturación/altura.
 - Panel de importancia: MDI (`modelImportance`) y, bajo demanda, permutación sobre el pozo cargado (sin verdad de
   terreno, usar la predicción del propio modelo solo para estabilidad, no como exactitud).

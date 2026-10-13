@@ -119,6 +119,10 @@ export type FillId =
   | 'anhydrite'
   | 'salt'
   | 'coal'
+  | 'marl'
+  | 'chalk'
+  | 'tuff'
+  | 'basement'
   | 'water'
   | 'boundWater'
   | 'clayBoundWater'
@@ -150,6 +154,11 @@ export const FILL_PALETTE: Readonly<Record<FillId, FillEntry>> = {
   anhydrite: { label: 'Anhidrita', light: '#e6a3c7', dark: '#b06d92', alpha: 0.7 },
   salt: { label: 'Sal', light: '#d4eef7', dark: '#7fb7c7', alpha: 0.7 },
   coal: { label: 'Carbón', light: '#2b2b2b', dark: '#050505', alpha: 0.9 },
+  /** Litologías de las clases FORCE 2020 (pista de litología sugerida, 0030): marga verde-gris, creta casi blanca, toba naranja, basamento rojo. */
+  marl: { label: 'Marga', light: '#a9b98f', dark: '#7d8c66', alpha: 0.7 },
+  chalk: { label: 'Creta', light: '#eef0e2', dark: '#b4b8a6', alpha: 0.7 },
+  tuff: { label: 'Toba', light: '#e8935c', dark: '#b8693a', alpha: 0.7 },
+  basement: { label: 'Basamento', light: '#c0605e', dark: '#94403f', alpha: 0.7 },
   water: { label: 'Agua', light: '#5aa9e6', dark: '#3d82c4', alpha: 0.55 },
   boundWater: { label: 'Agua ligada', light: '#a7c4e0', dark: '#5d7f9f', alpha: 0.55 },
   /** Partición de la porosidad de RMN (0019): agua ligada a la arcilla, agua irreducible y fluido libre. */
