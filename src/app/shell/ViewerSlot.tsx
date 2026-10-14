@@ -33,6 +33,7 @@ import { useUi } from '../store/ui';
 import { useViewer } from '../store/viewer';
 import { computedCurves, computedTables } from '../computed';
 import { visibleCurves } from '../toolString/select';
+import { visibleQc } from '../plots/context';
 import { startTrendTool, stopTrendTool } from '../trends/actions';
 import { useTrendsUi } from '../trends/store';
 import { CurveEditor } from './CurveEditor';
@@ -202,7 +203,8 @@ export function ViewerSlot() {
       depth: well.depth.values,
       zones: interpretation.zones.map((z) => ({ id: z.id, name: z.name, top: z.top, base: z.base, color: z.color })),
       selectedZoneId: editingZoneId,
-      qc,
+      // Calidad según la sarta (0032): sin derrumbes de un caliper apagado ni curvas ocultas.
+      qc: visibleQc(qc, well, interpretation),
       well,
       interpretation,
       computed,

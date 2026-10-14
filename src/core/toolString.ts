@@ -165,6 +165,66 @@ export function filterCurvesByToolString<C extends ToolCurveRef>(curves: readonl
   return excluded.size ? curves.filter((c) => !excluded.has(c.id)) : curves;
 }
 
+/** Por qué una curva medida no se ve: su herramienta está apagada o (planificación) fuera de la sarta planificada. */
+export interface HiddenCurve {
+  curveId: string;
+  mnemonic: string;
+  role: RoleId | null;
+  toolId: string;
+  toolName: string;
+  /** 'off': apagada en la sarta del modo vigente; 'outside-plan': la herramienta no está en la sarta planificada. */
+  reason: 'off' | 'outside-plan';
+}
+
+const NO_HIDDEN: ReadonlyMap<string, HiddenCurve> = new Map();
+
+/**
+ * Curvas que la sarta oculta, por id, con su herramienta y el motivo (para los estados vacíos de los gráficos y la
+ * lista de curvas: «RHOB está oculta: la herramienta Densidad está apagada en la sarta»). Mismo criterio que `excluded`.
+ */
+export function hiddenCurves(curves: readonly ToolCurveRef[], state: ToolStringState | undefined, tools: ToolCatalog): ReadonlyMap<string, HiddenCurve> {
+  if (isDefaultToolString(state)) return NO_HIDDEN;
+  const resolved = resolveToolString(curves, state, tools);
+  if (!resolved.excluded.size) return NO_HIDDEN;
+  const inString = new Set(resolved.entries.map((e) => e.tool.id));
+  const out = new Map<string, HiddenCurve>();
+  for (const c of curves) {
+    if (!resolved.excluded.has(c.id)) continue;
+    const t = tools.ownerOf(c);
+    if (!t) continue;
+    out.set(c.id, { curveId: c.id, mnemonic: c.mnemonic, role: c.role, toolId: t.id, toolName: t.name, reason: inString.has(t.id) ? 'off' : 'outside-plan' });
+  }
+  return out;
+}
+
+/** Curvas ocultas agrupadas por herramienta (orden de aparición en el pozo): la lista de curvas dice una vez por qué. */
+export interface HiddenByTool {
+  toolId: string;
+  toolName: string;
+  reason: HiddenCurve['reason'];
+  mnemonics: string[];
+}
+
+export function hiddenByTool(hidden: ReadonlyMap<string, HiddenCurve>): HiddenByTool[] {
+  const byTool = new Map<string, HiddenByTool>();
+  for (const h of hidden.values()) {
+    const g = byTool.get(h.toolId);
+    if (g) g.mnemonics.push(h.mnemonic);
+    else byTool.set(h.toolId, { toolId: h.toolId, toolName: h.toolName, reason: h.reason, mnemonics: [h.mnemonic] });
+  }
+  return [...byTool.values()];
+}
+
+/** Motivo en español de una curva oculta («La herramienta Densidad está apagada en la sarta.»). */
+export function hiddenCurveReason(h: Pick<HiddenCurve, 'toolName' | 'reason'>): string {
+  return h.reason === 'off' ? `La herramienta ${h.toolName} está apagada en la sarta.` : `La herramienta ${h.toolName} no está en la sarta planificada.`;
+}
+
+/** Rótulo del atajo que la vuelve a mostrar («Prender Densidad» / «Agregar Densidad a la sarta»). */
+export function showToolLabel(h: Pick<HiddenCurve, 'toolName' | 'reason'>): string {
+  return h.reason === 'off' ? `Prender ${h.toolName}` : `Agregar ${h.toolName} a la sarta`;
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // Disponibilidad de módulos
 

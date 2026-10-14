@@ -49,6 +49,7 @@ import {
 import { kphiSeries, kphiTrends, type KPhiTrend } from './series';
 import '../../app/components/load-well.css';
 import './core.css';
+import { visibleWell } from '../../app/plots/context';
 
 const m2 = (d: number) => formatNumber(d, { digits: 2 });
 const signed = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${m2(Math.abs(v))}`;
@@ -339,7 +340,7 @@ function DepthMatch({ set, well, interp }: { set: PointSet; well: Well; interp: 
             size="sm"
             aria-label="Curva del perfil para correlacionar la porosidad de los plugs"
             value={curveKey}
-            options={matchOptions(well)}
+            options={matchOptions(visibleWell(well, interp))}
             onChange={(v) => {
               const w = activeWellId();
               if (w) useProject.getState().commit('Cambiar la curva de correlación', (p) => setPointSetSetting(p, w, set.id, MATCH_CURVE_SETTING, v === DEFAULT_MATCH_CURVE ? undefined : v));

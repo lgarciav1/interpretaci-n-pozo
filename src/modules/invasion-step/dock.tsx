@@ -35,6 +35,7 @@ import {
   type RadialView,
 } from './radial';
 import './radial.css';
+import { visibleWell } from '../../app/plots/context';
 
 export const RADIAL_DOCK_ID = 'invasion-radial';
 
@@ -79,7 +80,8 @@ function RadialPanel() {
   const cursorOn = useViewer((s) => s.cursorDepth !== null);
   const theme = useThemeTokens();
   const swatches = useMemo(() => roleColors(theme), [theme]);
-  const well = entry?.well ?? null;
+  // Pozo según la sarta (0032): las curvas de herramientas apagadas no entran en el perfil radial.
+  const well = entry ? visibleWell(entry.well, entry.interpretation) : null;
   const interp = entry?.interpretation ?? null;
   const depth = well?.depth.values ?? null;
 

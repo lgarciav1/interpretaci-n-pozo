@@ -3,7 +3,7 @@
  * sus controles están en `src/plots/crossplot/`; acá solo se conectan con los stores (configuración, cutoffs,
  * tendencias, cursor del visor). Se descubre solo (`src/modules/<id>/dock.tsx`).
  */
-import { chooseModuleSource, commitParamCutoff, commitPlotConfig, commitPlotParams, PlotDockGate, useEngineSources, usePlotConfig } from '../../app/plots/connect';
+import { chooseModuleSource, commitParamCutoff, commitPlotConfig, commitPlotParams, PlotDockGate, showHiddenTool, useEngineSources, usePlotConfig } from '../../app/plots/connect';
 import { useViewer } from '../../app/store/viewer';
 import { commitTrends } from '../../app/trends/actions';
 import { useTrendsUi } from '../../app/trends/store';
@@ -32,6 +32,7 @@ function CrossplotDock() {
             onParams={commitPlotParams}
             sources={sources}
             onUseModule={chooseModuleSource}
+            onShowTool={showHiddenTool}
             onShowDepth={(d) => useTrendsUi.getState().requestRange(d - 15, d + 15)}
             onAddTrend={(spec) => {
               const id = makeId('tend');

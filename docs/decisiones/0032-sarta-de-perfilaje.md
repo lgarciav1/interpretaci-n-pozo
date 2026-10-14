@@ -1,7 +1,8 @@
 # 0032 — Sarta de perfilaje: modelo, disponibilidad de módulos y filtro de curvas (fase 11a)
 
 - Estado: implementada (11a: núcleo y conexión mínima) y revisada (correcciones de la revisión independiente: fuentes
-  elegidas a mano en la disponibilidad, apagadas del plan separadas, entradas «al menos una de»).
+  elegidas a mano en la disponibilidad, apagadas del plan separadas, entradas «al menos una de»). 11c: selectores,
+  gráficos, lista de curvas y superposición de calidad filtrados (D9).
 - Alcance: catálogo de herramientas (`src/core/tools.ts`) y sus fichas (`src/core/toolSheets.ts`), modelo de la sarta
   (`src/core/toolString.ts`), recetas (`src/core/state/toolString.ts`), filtro en el motor (`planGraph`), visor,
   catálogo de pistas, figuras, panel de módulos y un control temporal en la paleta de comandos (`src/app/toolString/`).
@@ -181,8 +182,7 @@ ensayo cambiaba la interpretación).
   herramienta, planificar desde los datos o de cero, agregar o quitar de la sarta planificada, volver al modo datos y
   restablecer. Lo reemplaza la vista de la fase 11c.
 
-Queda sin filtrar (abierto): los selectores del histograma y del crossplot, la lista de curvas medidas de la columna
-izquierda y la superposición de calidad siguen mostrando todas las curvas del pozo.
+Lo que quedaba sin filtrar (histograma, crossplot, lista de curvas, superposición de calidad) lo resuelve D9 (11c).
 
 ## D7. Entradas «al menos N de» en el contrato de módulos (revisión de la 11a)
 
@@ -225,6 +225,47 @@ Descartado:
 - Recetas de D5 para los gestos (arrastrar para reordenar = `moveTool`; clic en el interruptor = `setToolOn`).
 - `toolStringView(pozo, interpretación)` / `useToolStringView()` (caché por identidad) en `src/app/toolString/select.ts`.
 
+## D9. Selectores, gráficos y listas respetan la sarta (fase 11c)
+
+Regla del producto: lo que no está en la sarta no aparece en ningún selector de curvas ni gráfico; nunca se borra un
+dato y al volver a prender la herramienta todo vuelve como estaba.
+
+- **Un solo punto de filtrado**: `src/app/plots/context.ts`. `plotContextOf(pozo, interpretación, calculadas)` arma el
+  `SeriesContext` con `visibleWell` (el pozo con las curvas de `visibleCurves`, el mismo filtro del visor y del motor;
+  mismo objeto si no hay nada oculto, caché por identidad) y `hidden` (curvas ocultas con su herramienta y motivo,
+  `hiddenCurves` en `src/core/toolString.ts`). Lo usan `usePlotContext` (histograma, crossplot, paneles de corona y
+  tipos de roca), `contextOf` (tendencias: lista de series y dibujo en el visor) y los comandos de plantillas. Los
+  proveedores de series y los paneles de `src/plots/` no filtran nada: reciben el pozo ya filtrado.
+- **Qué queda filtrado**: ejes X/Y y color por tercera curva del crossplot; curva del histograma (y por lo tanto la
+  superposición por capas); plantillas de crossplot (por paleta, menú o panel de un módulo: si el rol está oculto no
+  se arma y el aviso dice qué herramienta prender; en el menú, la descripción lo anticipa); series de tendencias; la
+  lista «Curvas medidas» de la columna «Datos del pozo» (las ocultas se nombran debajo, una fila por herramienta, con
+  «Prender …»); los selectores de curva medida de los paneles de corona (puesta en profundidad y calibración de φ); el
+  perfil de temperatura medida del agua de formación y las curvas del paso de invasión radial (como el motor).
+- **Curva elegida que pasa a estar oculta**: la configuración del gráfico no se toca (por eso vuelve sola). El
+  selector la muestra deshabilitada «ZDEN (oculta por la sarta)» y el gráfico muestra un estado vacío —«ZDEN está
+  oculta · La herramienta Densidad está apagada en la sarta…»— con el atajo «Prender Densidad» (o «Agregar … a la
+  sarta» en planificación; receta `showTool`, entra en deshacer). Para el color por tercera curva, un aviso compacto en
+  el control (la nube se sigue viendo con un solo color).
+- **Superposición de calidad** (visor y figuras): `visibleQc` → `restrictQcReport` (`src/io/qc.ts`, puro): sin las
+  curvas ocultas y, si el caliper está oculto, sin derrumbes (salen del caliper: «como si el pozo no lo tuviera»).
+
+**No se filtra, a propósito:**
+
+- **Exportación de datos** (LAS, CSV, Excel): exporta el archivo del pozo (datos crudos) más las curvas calculadas.
+  La sarta es una vista; exportar sin una curva la borraría de hecho en el archivo nuevo. Las calculadas exportadas ya
+  respetan la sarta porque las da el motor.
+- **Paso Calidad e informe de calidad** (tabla por curva, conteos de la columna izquierda, avisos del informe final):
+  son la auditoría del archivo cargado, que se hace una vez y vale con cualquier sarta. Ocultar ahí una curva mala
+  haría que «no tenga problemas» al apagar su herramienta.
+- **Fuentes elegibles de un puerto** (panel del módulo): ya vienen filtradas por el motor (`candidates`).
+
+Descartado:
+- Filtrar dentro de cada proveedor o panel: repetiría la regla en cada lugar y un proveedor nuevo de un módulo podría
+  olvidarla.
+- Borrar la clave del eje al ocultar la curva (o cambiarla por otra): al prender la herramienta no volvería sola y
+  ensuciaría el historial.
+
 ## Preguntas abiertas
 
 - Reasignar a mano la herramienta de una curva (una RT con mnemónico ambiguo que en realidad es de laterolog): hoy no
@@ -236,4 +277,3 @@ Descartado:
   aparte para poder apagarlo; la vista puede dibujarlo como electrodo en la herramienta de resistividad.
 - Calibre: la 11b distingue el de patín (brazo de la densidad) del multibrazo; la app tiene un solo rol `CALI` y una sola
   herramienta «Calibre». Si hace falta distinguirlos, un rol o un prefijo de mnemónico por variante.
-- Filtrar también histograma, crossplot y la lista de curvas (D6).

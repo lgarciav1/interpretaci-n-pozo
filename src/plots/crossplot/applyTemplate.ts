@@ -3,13 +3,14 @@
  * menú «Plantilla» del panel y la paleta de comandos (docs/decisiones/0018), así los dos hacen exactamente lo mismo.
  */
 import type { CrossplotConfig, CrossplotTemplateId } from '../../core/plots';
-import { keyForRole } from '../data';
+import { hiddenCurveReason, type HiddenCurve } from '../../core/toolString';
+import { hiddenCurveOfRole, keyForRole } from '../data';
 import type { SeriesContext } from '../trend/series';
 import { templateDef } from './templates';
 
 export type TemplatePatch =
   | { ok: true; patch: Partial<CrossplotConfig>; label: string }
-  | { ok: false; title: string; description: string };
+  | { ok: false; title: string; description: string; /** La curva que falta está en el pozo pero la sarta la oculta. */ hidden?: HiddenCurve };
 
 /**
  * Ejes, escalas, rangos y color de la plantilla con las curvas del pozo (la medida con ese rol o la fuente activa). Si
@@ -20,7 +21,11 @@ export function crossplotTemplatePatch(ctx: SeriesContext, id: CrossplotTemplate
   const x = keyForRole(ctx, def.x.role);
   const y = keyForRole(ctx, def.y.role);
   if (!x || !y) {
-    return { ok: false, title: `No se puede armar «${def.label}»`, description: `Hace falta ${!x ? def.x.role : def.y.role} en el pozo (medida o calculada).` };
+    const role = !x ? def.x.role : def.y.role;
+    // La curva está en el pozo pero la sarta la oculta (0032): decir cuál herramienta prender, no «falta».
+    const hidden = hiddenCurveOfRole(ctx, role);
+    const description = hidden ? `${hidden.mnemonic === role ? role : `${hidden.mnemonic} (${role})`} está oculta: ${hiddenCurveReason(hidden).replace(/^L/, 'l')}` : `Hace falta ${role} en el pozo (medida o calculada).`;
+    return { ok: false, title: `No se puede armar «${def.label}»`, description, ...(hidden ? { hidden } : {}) };
   }
   const color = def.colorRole ? keyForRole(ctx, def.colorRole) : null;
   return {

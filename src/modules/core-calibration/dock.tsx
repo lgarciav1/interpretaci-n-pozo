@@ -277,7 +277,7 @@ function PorositySection({ set, well, interp, ctx, scope }: { set: PointSet; wel
   const values = curveData(ctx, key);
   const depth = well.depth.values;
   const cal = useMemo(() => (values ? porosityCalibration(set, dec, depth, values, h, scope) : null), [set, dec, depth, values, h, scope.zones, scope.zoneId]);
-  const options = phiOptions(well);
+  const options = phiOptions(ctx.well);
   const label = options.find((o) => o.value === key)?.label.split(' · ')[0] ?? key;
   const runs = pointTexts(set, COL.run);
 
