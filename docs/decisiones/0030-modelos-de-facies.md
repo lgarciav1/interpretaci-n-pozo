@@ -306,11 +306,13 @@ presupuesto de 1,5 MB.
 
 ## Abierto para la 10c y para después
 
-1. Pista de litología con probabilidad (colores por clase, saturación o ancho por confianza), panel de importancia
-   (MDI almacenada; permutación bajo demanda sobre el pozo cargado) y selector de k de electrofacies con
-   `scanClusterCount`. Cálculo en Web Worker (decodificar + predecir < 0,2 s).
-2. Mostrar `variantReason` (por qué se usó el modelo sin PE) y la advertencia de transferencia de cuenca de D10.
-3. Decidir qué clases mostrar: las que el modelo no distingue (D7) podrían agruparse o atenuarse en la interfaz.
+1. **Hecho en la 10c (0031):** pista de litología con probabilidad apilada, panel de importancia (MDI almacenada) y
+   selector de k de electrofacies con `scanClusterCount`, todo calculado en el Web Worker. La permutación bajo demanda
+   quedó fuera (sin verdad de terreno del TP; ver 0031, D5).
+2. **Hecho en la 10c (0031):** aviso `variantReason` y advertencia de transferencia de cuenca en los avisos del módulo,
+   en el panel y en el tooltip de la pista.
+3. **Hecho en la 10c (0031):** las clases que el modelo no distingue (F1 < 0,25 en leave-one-well-out) se atenúan en la
+   pista y se rotulan «poco distinguible»; no se agrupan.
 4. Calibración de probabilidades (isotónica por clase) si se quieren mostrar como probabilidades reales.
 5. Medir la transferencia con datos del TP (corona o interpretación de la cátedra) cuando existan.
 6. Más variantes de entrenamiento (p. ej. solo siliciclásticos) si la cátedra confirma que el TP lo es.

@@ -251,11 +251,12 @@ describe('C20 sobre el pozo del TP (datos/pozo_tp_perfiles.csv)', () => {
   it('un cambio de cutoff recalcula la sensibilidad en menos de 20 ms (motor, mediana de 7)', () => {
     const times: number[] = [];
     const totals: number[] = [];
+    // Sin checkInputs: mide el costo del motor de producción. Un solo motor: el primer cálculo completo (≈ 2 s con los
+    // modelos de facies de la 10c) se paga una vez; cada cutoff distinto recalcula solo su cadena.
+    const e = new Engine(registry);
+    e.setWell(toEngineWell(tp));
+    e.run(emptyInterpretation(zones));
     for (let k = 0; k < 7; k++) {
-      // Sin checkInputs: mide el costo del motor de producción.
-      const e = new Engine(registry);
-      e.setWell(toEngineWell(tp));
-      e.run(emptyInterpretation(zones));
       const r = e.run({ ...emptyInterpretation(zones), params: { global: { swCutoff: 0.5 + k * 0.01 }, zones: {} } });
       const node = r.nodes.find((x) => x.moduleId === 'cutoff-sensitivity')!;
       expect(node.computed).toBe(true);
@@ -266,5 +267,5 @@ describe('C20 sobre el pozo del TP (datos/pozo_tp_perfiles.csv)', () => {
     console.info(`[C20 TP] sensibilidad: mediana ${median(times).toFixed(2)} ms; cambio de cutoff completo: mediana ${median(totals).toFixed(2)} ms`);
     expect(median(times)).toBeLessThan(20);
     expect(median(totals)).toBeLessThan(20);
-  });
+  }, 15_000);
 });

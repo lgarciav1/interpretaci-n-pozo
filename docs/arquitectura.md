@@ -58,6 +58,7 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 | `src/core/` | modelo (`well.ts`; conjuntos de puntos `pointSets.ts`), unidades, roles, parámetros, contrato de módulo, registro, motor (`engine/`), estado (`state/`: proyecto, snapshots, recetas de zonas `zones.ts`, de tendencias `trends.ts`, de conjuntos de puntos `pointSets.ts`, de gráficos `plots.ts` y de pistas y plantillas `tracks.ts`), configuración del visor que se guarda y su validación al abrir (`display.ts`, incluidas las pilas de la pista volumétrica), configuración del histograma y del crossplot (`plots.ts`), tendencias (`trends.ts`: `TrendSpec`, saneamiento), conversión a unidad canónica compartida (`canonical.ts`) | no |
 | `src/petro/` | funciones de cálculo puras, testeadas | no |
 | `src/modules/<id>/index.ts` | definición pura del módulo | no |
+| `src/modules/<id>/<x>.worker-only.ts`, `<x>.main-thread.ts` | dependencia pesada que solo corre en el worker y su sustituto sin ella para el hilo principal (ver «Archivos solo-worker») | no |
 | `src/modules/<id>/panel.tsx` | panel a medida (opcional) | sí |
 | `src/modules/<id>/overlay.ts`, `draw.ts` | superposiciones del visor (opcional, `overlays: ViewerOverlay[]`): dibujo, arrastre, pista propia; `draw.ts` (opcional): dibujo en canvas de un panel o una figura del módulo que usa `ui/` y `plots/` (perfil radial, 0020). El worker no los importa y `tests/modules.test.ts` los excluye de la regla de pureza | no (canvas) |
 | `src/modules/index.ts` | **el registro** (una línea por módulo) | no |
@@ -237,6 +238,27 @@ desde un Blob URL, que Chromium permite desde `file://`.
 Cada `ClientResult` lleva `wellId` y `gen` (generación del pozo, única en toda la página). Al cambiar de pozo el
 puente pone `result: null` e ignora resultados de otro pozo: nunca conviven arrays de un pozo con la profundidad
 de otro.
+
+### Archivos solo-worker (`*.worker-only.ts`)
+
+Las definiciones de módulo se importan en los dos hilos (el registro lo usa la interfaz), así que una dependencia pesada
+que solo se ejecuta en `compute` (p. ej. el random forest embebido de `lithology-facies`, ~1,4 MB) entraría dos veces
+al HTML. Convención (decisión 0031, D2), genérica para cualquier módulo:
+
+- La dependencia pesada se importa SOLO desde `src/modules/<id>/<x>.worker-only.ts`, que expone una API chica
+  (funciones puras).
+- Al lado va `<x>.main-thread.ts` con los mismos exports y tipos, sin la dependencia: devuelve `null` (o un valor
+  vacío) y el módulo lo traduce en un aviso, nunca en una excepción. Solo se ejecuta si el worker no arrancó y el
+  motor corre en proceso.
+- El módulo importa `./<x>.worker-only` (con o sin extensión). En el build, el plugin `workerOnlyFiles` de
+  `vite.config.ts` cambia en el bundle del hilo principal todo import que resuelva a un `*.worker-only.*` por su
+  `*.main-thread.*`; el bundle del worker (que usa `worker.plugins`) recibe el real. En desarrollo y en Vitest se usa el
+  real en los dos lados.
+- `tests/worker-only.test.ts` exige el par con los mismos exports y que el modelo embebido (`src/ml/embedded.ts`,
+  `src/ml/model/`) no se importe desde otro lado. Si un módulo nuevo agrega otra dependencia pesada, sumarla a `HEAVY`
+  en ese test.
+- Para verificar el build: el texto del modelo debe aparecer una sola vez en `dist/index.html`, dentro del literal del
+  worker.
 
 ## Guardar / abrir
 
