@@ -6,6 +6,7 @@ import type { Interpretation, SourceRef } from '../interpretation';
 import { PORT_KIND_LABEL, portOf, type AnyModule } from '../module';
 import type { Registry } from '../registry';
 import type { RoleId } from '../roles';
+import { excludedCurveIds } from '../toolString';
 import { getUnit, type UnitId } from '../units';
 
 export interface Diagnostic {
@@ -67,9 +68,14 @@ function moduleLabel(m: AnyModule | undefined, id: string): string {
   return m ? `'${m.name}'` : `'${id}'`;
 }
 
-export function planGraph(registry: Registry, curves: readonly CurveMeta[], interp: Interpretation): Plan {
+export function planGraph(registry: Registry, allCurves: readonly CurveMeta[], interp: Interpretation): Plan {
   const diagnostics: Diagnostic[] = [];
   const disabled = new Set(interp.disabled);
+
+  // 0. Sarta (docs/decisiones/0032): las curvas de una herramienta apagada o fuera de la sarta planificada no existen
+  //    para el cálculo. Es un filtro: los datos siguen en el pozo y vuelven al prender la herramienta.
+  const excluded = excludedCurveIds(allCurves, interp.toolString, registry.tools);
+  const curves = excluded.size ? allCurves.filter((c) => !excluded.has(c.id)) : allCurves;
 
   // 1. Candidatos por puerto: curvas medidas con ese rol (orden del pozo) y luego módulos (orden del registro).
   const candidates = new Map<string, SourceRef[]>();
@@ -92,6 +98,19 @@ export function planGraph(registry: Registry, curves: readonly CurveMeta[], inte
   const needDefault: string[] = [];
   for (const port of ports) {
     const explicit = interp.sources[port];
+    if (explicit?.kind === 'curve' && excluded.has(explicit.curveId)) {
+      // Elección del usuario que la sarta deja en suspenso: vuelve sola al prender la herramienta.
+      const c = allCurves.find((x) => x.id === explicit.curveId)!;
+      const tool = registry.tools.ownerOf(c);
+      diagnostics.push({
+        level: 'info',
+        code: 'invalid-source',
+        port,
+        message: `La curva '${c.mnemonic}' elegida para ${port} es de ${tool ? `«${tool.name}»` : 'una herramienta'}, que no está activa en la sarta. Se usa la fuente por defecto.`,
+      });
+      needDefault.push(port);
+      continue;
+    }
     if (explicit) {
       const problem = validateExplicitSource(registry, curvesById, disabled, port, explicit);
       if (!problem) {

@@ -5,6 +5,7 @@
 import { PORT_KIND_LABEL, portOf, type AnyModule, type PortKind } from './module';
 import { paramStorageKey, sharedSpecDifferences, validateParamSpec, type ParamSpec, type ParamsSpec } from './params';
 import { BUILTIN_ROLES, RoleCatalog, validateRoleDef, type RoleDef } from './roles';
+import { BUILTIN_TOOLS, ToolCatalog, validateToolDef, type ToolDef } from './tools';
 import { getUnit } from './units';
 import { CATEGORIES, isWorkspaceId } from './workspaces';
 
@@ -20,6 +21,8 @@ export interface PortInfo {
 export interface Registry {
   readonly modules: readonly AnyModule[];
   readonly roles: RoleCatalog;
+  /** Herramientas de perfilaje: las incorporadas + las que declaran los módulos (sarta, docs/decisiones/0032). */
+  readonly tools: ToolCatalog;
   /** Puertos producidos por algún módulo (curvas, escalares y tablas). */
   readonly ports: ReadonlyMap<string, PortInfo>;
   /** Clave de almacenamiento → declaración (para parámetros compartidos, la primera). */
@@ -55,6 +58,8 @@ const REQUIRED_LABEL: Record<Exclude<PortKind, 'curve'>, string> = {
 export interface RegistryOptions {
   /** Roles base (por defecto, los incorporados). */
   baseRoles?: readonly RoleDef[];
+  /** Herramientas base (por defecto, las incorporadas). */
+  baseTools?: readonly ToolDef[];
   /**
    * Catálogo canónico de parámetros compartidos (clave → spec con `shared: true`). Si se da, todo parámetro
    * compartido de un módulo tiene que estar en el catálogo y ser idéntico. La app pasa `src/modules/sharedParams.ts`.
@@ -133,6 +138,23 @@ export function createRegistry(modules: readonly AnyModule[], options: RegistryO
     }
   }
   const roles = new RoleCatalog([...roleDefs.values()].map((x) => x.def));
+
+  // 2b. Herramientas de perfilaje: base + declaradas por módulos (registran roles conocidos)
+  const toolDefs = new Map<string, { def: ToolDef; owner: string }>();
+  for (const t of options.baseTools ?? BUILTIN_TOOLS) {
+    for (const p of validateToolDef(t, (r) => roles.has(r))) problems.push(`Núcleo: ${p}`);
+    toolDefs.set(t.id, { def: t, owner: 'núcleo' });
+  }
+  for (const m of modules) {
+    if (!m || typeof m !== 'object') continue;
+    for (const t of m.tools ?? []) {
+      for (const p of validateToolDef(t, (r) => roles.has(r))) problems.push(`${where(m)}: ${p}`);
+      const prev = toolDefs.get(t.id);
+      if (prev) problems.push(`${where(m)}: la herramienta '${t.id}' ya la define ${prev.owner === 'núcleo' ? 'el núcleo' : `el módulo '${prev.owner}'`}.`);
+      else toolDefs.set(t.id, { def: t, owner: m.id });
+    }
+  }
+  const tools = new ToolCatalog([...toolDefs.values()].map((x) => x.def));
 
   // 3. Salidas → puertos
   const ports = new Map<string, PortInfo>();
@@ -240,6 +262,7 @@ export function createRegistry(modules: readonly AnyModule[], options: RegistryO
   return {
     modules,
     roles,
+    tools,
     ports,
     paramSpecs,
     categories,

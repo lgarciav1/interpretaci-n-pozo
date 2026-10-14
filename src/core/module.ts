@@ -13,6 +13,7 @@
  */
 import type { ParamsSpec, ParamValues } from './params';
 import type { RoleDef, RoleId } from './roles';
+import type { ToolDef } from './tools';
 import type { UnitId } from './units';
 import type { CategoryId, WorkspaceId } from './workspaces';
 import type { ZoneSpan } from './well';
@@ -309,6 +310,11 @@ export interface ModuleDefinition<
   workspace: WorkspaceId | readonly WorkspaceId[];
   /** Roles de curva nuevos que introduce este módulo. */
   roles?: readonly RoleDef[];
+  /**
+   * Herramientas de perfilaje nuevas que registran roles medidos (los propios o los del núcleo): aparecen en la sarta
+   * y en el catálogo de pistas sin tocar el núcleo (docs/decisiones/0032).
+   */
+  tools?: readonly ToolDef[];
   inputs: I;
   params: P;
   outputs: O;

@@ -16,6 +16,7 @@ import { useWellQc } from '../store/qc';
 import { useResults } from '../store/results';
 import { useUi } from '../store/ui';
 import { showSwModels } from '../tracks/swModels';
+import { AVAILABILITY_LABEL, useToolStringView } from '../toolString/select';
 
 /** Valor de `activeStepId` cuando se eligió un módulo que no pertenece a ningún paso. */
 export const FREE_MODULE_VIEW = '@module';
@@ -41,15 +42,19 @@ function ModulePicker() {
   const workspace = useUi((s) => s.workspace);
   const setUi = useUi((s) => s.set);
   const modules = workspaceModules(workspace);
+  const toolString = useToolStringView();
   const items: MenuEntry[] = [];
   for (const c of registry.categories) {
     const inCat = modules.filter((m) => m.category === c.id);
     if (inCat.length === 0) continue;
     items.push({ type: 'label', id: `c-${c.id}`, label: c.label });
     for (const m of inCat) {
+      const av = toolString?.status(m.id).availability;
       items.push({
         id: m.id,
         label: m.name,
+        // Sarta (0032): se puede abrir igual (el panel dice qué falta), pero se marca.
+        ...(av && av.status !== 'available' ? { hint: AVAILABILITY_LABEL[av.status] } : {}),
         onSelect: () => {
           const steps = stepsOfModule(FLOWS[workspace], toFlowModule(m));
           setUi({ activeModuleId: m.id, activeStepId: steps[0]?.id ?? FREE_MODULE_VIEW });
@@ -266,6 +271,7 @@ function ModulesView({ state }: { state: StepState }) {
   const activeModuleId = useUi((s) => s.activeModuleId);
   const setUi = useUi((s) => s.set);
   const result = useResults((s) => s.result);
+  const toolString = useToolStringView();
   const modules = state.modules.map((id) => registry.get(id)!);
   if (modules.length === 0) {
     return (
@@ -305,6 +311,8 @@ function ModulesView({ state }: { state: StepState }) {
           const st = moduleStatus(m, result);
           const ports = Object.values(m.outputs).map(portOf);
           const feeds = result?.outputs.some((o) => o.moduleId === m.id && o.active);
+          const sarta = toolString?.status(m.id);
+          const unavailable = sarta?.availability && sarta.availability.status !== 'available' ? sarta.availability.status : null;
           return (
             <button
               key={m.id}
@@ -313,13 +321,20 @@ function ModulesView({ state }: { state: StepState }) {
               aria-checked={m.id === active.id}
               className="method"
               onClick={() => setUi({ activeModuleId: m.id })}
+              {...(unavailable ? { title: sarta!.reason, 'data-unavailable': unavailable } : {})}
             >
               <StatusDot tone={st.tone} label={st.text} />
               <span className="method__body">
                 <span className="method__name">{m.name}</span>
                 <span className="method__ports mono">{ports.join(' · ')}</span>
               </span>
-              {feeds === false && <Badge tone="neutral" variant="outline">alternativa</Badge>}
+              {unavailable ? (
+                <Badge tone="neutral" variant="outline">
+                  {AVAILABILITY_LABEL[unavailable]}
+                </Badge>
+              ) : (
+                feeds === false && <Badge tone="neutral" variant="outline">alternativa</Badge>
+              )}
             </button>
           );
         })}

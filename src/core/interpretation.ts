@@ -4,6 +4,7 @@
  */
 import { emptyParamState, type ParamState } from './params';
 import type { PointSetDecisions } from './pointSets';
+import type { ToolStringState } from './toolString';
 import type { TrendSpec } from './trends';
 import type { Zone } from './well';
 
@@ -34,6 +35,12 @@ export interface Interpretation {
    * Como las tendencias, el motor no las lee (`sameEngineInputs` no las compara).
    */
   pointSets: Record<string, PointSetDecisions>;
+  /**
+   * Sarta de perfilaje del pozo (docs/decisiones/0032): modo, herramientas apagadas, orden y sarta planificada.
+   * Ausente = modo «datos» sin nada apagado (proyectos anteriores a la fase 11). El motor la lee: las curvas de una
+   * herramienta apagada (o fuera de la sarta planificada) no son candidatas de ningún puerto.
+   */
+  toolString?: ToolStringState;
 }
 
 export function emptyInterpretation(zones: Zone[] = []): Interpretation {
@@ -42,11 +49,18 @@ export function emptyInterpretation(zones: Zone[] = []): Interpretation {
 
 /**
  * true si dos interpretaciones tienen las mismas entradas del motor (zonas, parámetros, fuentes, comparar,
- * desactivados) por referencia: las recetas comparten estructura, así que un cambio que solo toca `trends` (u otro
+ * desactivados, sarta) por referencia: las recetas comparten estructura, así que un cambio que solo toca `trends` (u otro
  * campo que el motor no lee) da true y el puente no pide un cálculo.
  */
 export function sameEngineInputs(a: Interpretation, b: Interpretation): boolean {
-  return a.zones === b.zones && a.params === b.params && a.sources === b.sources && a.compare === b.compare && a.disabled === b.disabled;
+  return (
+    a.zones === b.zones &&
+    a.params === b.params &&
+    a.sources === b.sources &&
+    a.compare === b.compare &&
+    a.disabled === b.disabled &&
+    a.toolString === b.toolString
+  );
 }
 
 export function sourceRefEquals(a: SourceRef | undefined, b: SourceRef | undefined): boolean {

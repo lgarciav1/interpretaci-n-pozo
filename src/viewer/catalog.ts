@@ -10,6 +10,7 @@
  */
 import type { CurveDisplayOverride, CurveSelector, FillSpec, TrackSpec } from '../core/display';
 import type { RoleCatalog, RoleDef } from '../core/roles';
+import { defaultToolCatalog, type ToolCatalog, type ToolFamily } from '../core/tools';
 import { getUnit } from '../core/units';
 import type { Curve } from '../core/well';
 import { SW_MODELS_TRACK } from './swModels';
@@ -75,6 +76,8 @@ export interface CatalogOverlayTrack {
 
 export interface CatalogInput {
   roles: RoleCatalog;
+  /** Herramientas de la sarta (agrupan las curvas medidas). Por defecto, las incorporadas. */
+  tools?: ToolCatalog;
   /** Curvas medidas del pozo activo. */
   curves: readonly Curve[];
   /** Puertos de curva que algún módulo produce. */
@@ -100,38 +103,48 @@ const GROUPS: readonly { id: string; label: string }[] = [
   { id: 'other', label: 'Otras curvas del pozo' },
 ];
 
-/** Grupo de los roles incorporados (orden = orden en el grupo). */
-const ROLE_GROUP: Readonly<Record<string, string>> = {
-  GR: 'gr-sp',
-  SP: 'gr-sp',
-  CALI: 'caliper',
-  BS: 'caliper',
-  RT: 'resistivity',
-  RM: 'resistivity',
-  RS: 'resistivity',
-  RXO: 'resistivity',
-  RA10: 'resistivity',
-  RA20: 'resistivity',
-  RA30: 'resistivity',
-  RHOB: 'density-neutron',
-  NPHI: 'density-neutron',
-  PEF: 'density-neutron',
-  DRHO: 'density-neutron',
-  DT: 'sonic',
-  DTS: 'sonic',
-  POTA: 'spectral',
-  THOR: 'spectral',
-  URAN: 'spectral',
-  CGR: 'spectral',
-  PHIT_NMR: 'nmr',
-  PHIE_NMR: 'nmr',
-  BVI_NMR: 'nmr',
+/**
+ * Grupo del catálogo de cada herramienta de la sarta. La tabla rol → herramienta es una sola, la del núcleo
+ * (`src/core/tools.ts`, docs/decisiones/0032): acá solo se dice en qué grupo cae cada herramienta.
+ */
+const TOOL_GROUP: Readonly<Record<string, string>> = {
+  gr: 'gr-sp',
+  sp: 'gr-sp',
+  caliper: 'caliper',
+  induction: 'resistivity',
+  laterolog: 'resistivity',
+  microresistivity: 'resistivity',
+  density: 'density-neutron',
+  neutron: 'density-neutron',
+  sonic: 'sonic',
+  'spectral-gr': 'spectral',
+  nmr: 'nmr',
 };
+/** Herramientas que declaren los módulos: caen en el grupo de su familia (la temperatura queda en «Otras»). */
+const TOOL_FAMILY_GROUP: Partial<Record<ToolFamily, string>> = { gamma: 'gr-sp', resistivity: 'resistivity', nuclear: 'density-neutron', acoustic: 'sonic', nmr: 'nmr' };
+/** Roles sin herramienta que igual van en un grupo: el trépano sale del encabezado y se lee con el caliper. */
+const EXTRA_ROLE_GROUP: Readonly<Record<string, string>> = { BS: 'caliper' };
+
+/** Grupo y orden de cada rol medido que registra alguna herramienta (la primera que lo registra manda). */
+const roleGroupCache = new WeakMap<ToolCatalog, ReadonlyMap<string, { group: string; order: number }>>();
+function roleGroups(tools: ToolCatalog): ReadonlyMap<string, { group: string; order: number }> {
+  let map = roleGroupCache.get(tools) as Map<string, { group: string; order: number }> | undefined;
+  if (map) return map;
+  map = new Map();
+  for (const t of tools.all()) {
+    const group = TOOL_GROUP[t.id] ?? TOOL_FAMILY_GROUP[t.family];
+    if (!group) continue;
+    for (const r of t.roles) if (!map.has(r)) map.set(r, { group, order: map.size });
+  }
+  for (const [r, group] of Object.entries(EXTRA_ROLE_GROUP)) if (!map.has(r)) map.set(r, { group, order: map.size });
+  roleGroupCache.set(tools, map);
+  return map;
+}
 
 const FAMILY_GROUP: Readonly<Record<string, string>> = { resistivity: 'resistivity', spectral: 'spectral', nmr: 'nmr', flag: 'flags' };
 
-function groupOf(def: RoleDef): string {
-  const g = ROLE_GROUP[def.id];
+function groupOf(def: RoleDef, grouped: ReadonlyMap<string, { group: string }>): string {
+  const g = grouped.get(def.id)?.group;
   if (g) return g;
   if (def.family === 'flag') return 'flags';
   if (def.origin === 'computed') return 'computed';
@@ -235,26 +248,23 @@ const SPECIALS: readonly { id: string; name: string; description: string; track:
 /** Arma el catálogo para el pozo activo. */
 export function buildTrackCatalog(input: CatalogInput): CatalogGroup[] {
   const { roles, curves, producible, computed } = input;
+  const grouped = roleGroups(input.tools ?? defaultToolCatalog);
   const byRole = new Map<string, Curve[]>();
   for (const c of curves) if (c.role) byRole.set(c.role, [...(byRole.get(c.role) ?? []), c]);
   const groups = new Map<string, CatalogGroup>(GROUPS.map((g) => [g.id, { id: g.id, label: g.label, tools: [], curves: [] }]));
 
   // Roles: los incorporados agrupados (aunque falten en el pozo) y los de módulos que el pozo tiene o se calculan.
-  const order = (r: RoleDef) => {
-    const keys = Object.keys(ROLE_GROUP);
-    const i = keys.indexOf(r.id);
-    return i < 0 ? keys.length : i;
-  };
+  const order = (r: RoleDef) => grouped.get(r.id)?.order ?? grouped.size;
   const defs = roles.all().slice().sort((a, b) => order(a) - order(b));
   for (const def of defs) {
     const present = byRole.get(def.id) ?? [];
     const isComputed = def.origin === 'computed';
     const canCompute = producible.has(def.id);
-    if (!present.length && !ROLE_GROUP[def.id] && !(isComputed && canCompute) && !(def.origin === 'any' && canCompute)) continue;
+    if (!present.length && !grouped.has(def.id) && !(isComputed && canCompute) && !(def.origin === 'any' && canCompute)) continue;
     const status: CatalogCurve['status'] = present.length ? 'present' : computed.has(def.id) ? 'computed' : canCompute ? 'computable' : 'missing';
     const style = OWN_STYLE[def.id];
     const fills = OWN_FILLS[def.id];
-    groups.get(groupOf(def))!.curves.push({
+    groups.get(groupOf(def, grouped))!.curves.push({
       type: 'curve',
       id: `r:${def.id}`,
       select: { role: def.id },

@@ -16,6 +16,7 @@ import { createZonesOverlay } from '../../viewer/overlays/zones';
 import { resolveTracks } from '../../viewer/resolve';
 import { layoutFor, STACK_ROLE_HINTS, withOverlayTracks } from '../../viewer/templates';
 import { computedCurves, computedTables } from '../computed';
+import { visibleCurves } from '../toolString/select';
 import { moduleOverlays } from '../viewerOverlays';
 import { selectActiveEntry, useProject } from '../store/project';
 import { computeQc, useQc } from '../store/qc';
@@ -38,9 +39,11 @@ export function figureTracks(well: Well) {
   const display = project.display;
   const workspace = useUi.getState().workspace;
   const computed = computedCurves(useResults.getState().result, well);
+  // Como en pantalla: sin las curvas de herramientas apagadas en la sarta (0032).
+  const interpretation = project.wells.find((e) => e.well === well)?.interpretation;
   return resolveTracks(
     withOverlayTracks(layoutFor(workspace, display.layouts), FIGURE_OVERLAYS, workspace, { well, ...(display.overlays ? { settings: display.overlays } : {}) }),
-    { depth: well.depth.values, curves: well.curves, computed, catalog: registry.roles },
+    { depth: well.depth.values, curves: visibleCurves(well, interpretation), computed, catalog: registry.roles },
     { roles: display.roles, ...(display.curves[well.id] ? { curves: display.curves[well.id] } : {}) },
   );
 }

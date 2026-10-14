@@ -17,6 +17,7 @@ import { computedCurves } from '../computed';
 import { UNDO_SHORTCUT } from '../shell/historyActions';
 import { OVERLAYS } from '../shell/viewerOverlayList';
 import { selectActiveEntry, useProject } from '../store/project';
+import { visibleCurves } from '../toolString/select';
 import { useResults } from '../store/results';
 import { useUi } from '../store/ui';
 import { selectorKey } from '../../core/state/tracks';
@@ -136,6 +137,8 @@ export function TrackBuilderSlot() {
 export function TrackBuilder({ workspace, well, computed, overlays, editor }: TrackBuilderProps) {
   const theme = useResolvedTheme();
   const display = useProject((s) => s.project.display);
+  // Sarta (0032): las curvas de herramientas apagadas no se ofrecen (quedan como faltantes).
+  const toolString = useProject((s) => selectActiveEntry(s)?.interpretation.toolString);
   const setUi = useUi((s) => s.set);
   const current = useCurrentTemplate(workspace, overlays);
   const dragging = useLayoutDrag((s) => s.payload);
@@ -147,12 +150,13 @@ export function TrackBuilder({ workspace, well, computed, overlays, editor }: Tr
     () =>
       buildTrackCatalog({
         roles: registry.roles,
-        curves: well.curves,
+        curves: visibleCurves(well, { toolString }),
+        tools: registry.tools,
         producible: PRODUCIBLE,
         computed: computedPorts,
         overlayTracks: overlayCatalog(overlays, workspace, well, display.overlays),
       }),
-    [well, computedPorts, overlays, workspace, display.overlays],
+    [well, toolString, computedPorts, overlays, workspace, display.overlays],
   );
   const shown = useMemo(() => filterCatalog(groups, query), [groups, query]);
 

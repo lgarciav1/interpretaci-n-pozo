@@ -10,7 +10,8 @@ histograma y crossplot libre (0014), parámetros elegidos sobre los gráficos (0
 indicadores automáticos (0017), los modelos de Sw lado a lado, las fichas de zona y la paleta de comandos (0018), el
 módulo de RMN con su pista y su crossplot (0019, `0019-rmn.md`), capacidad de flujo, incertidumbre y lectura automática
 (0019, `0019-reservorio-e-incertidumbre.md`), el perfil radial de invasión (0020), los gráficos conectados al perfil
-con el Pickett interactivo (0021), el informe automático (0022) y la calibración con corona (0023).
+con el Pickett interactivo (0021), el informe automático (0022), la calibración con corona (0023) y la sarta de
+perfilaje (0032).
 Este documento resume cómo encajan las piezas y cómo agregar un módulo.
 
 ## Ideas centrales
@@ -55,7 +56,7 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 
 | Carpeta | Qué hay | Puede importar React |
 |---|---|---|
-| `src/core/` | modelo (`well.ts`; conjuntos de puntos `pointSets.ts`), unidades, roles, parámetros, contrato de módulo, registro, motor (`engine/`), estado (`state/`: proyecto, snapshots, recetas de zonas `zones.ts`, de tendencias `trends.ts`, de conjuntos de puntos `pointSets.ts`, de gráficos `plots.ts` y de pistas y plantillas `tracks.ts`), configuración del visor que se guarda y su validación al abrir (`display.ts`, incluidas las pilas de la pista volumétrica), configuración del histograma y del crossplot (`plots.ts`), tendencias (`trends.ts`: `TrendSpec`, saneamiento), conversión a unidad canónica compartida (`canonical.ts`) | no |
+| `src/core/` | modelo (`well.ts`; conjuntos de puntos `pointSets.ts`), unidades, roles, herramientas de perfilaje (`tools.ts`, fichas en `toolSheets.ts`) y sarta (`toolString.ts`: filtro de curvas y disponibilidad de módulos), parámetros, contrato de módulo, registro, motor (`engine/`), estado (`state/`: proyecto, snapshots, recetas de zonas `zones.ts`, de tendencias `trends.ts`, de conjuntos de puntos `pointSets.ts`, de gráficos `plots.ts`, de pistas y plantillas `tracks.ts` y de la sarta `toolString.ts`), configuración del visor que se guarda y su validación al abrir (`display.ts`, incluidas las pilas de la pista volumétrica), configuración del histograma y del crossplot (`plots.ts`), tendencias (`trends.ts`: `TrendSpec`, saneamiento), conversión a unidad canónica compartida (`canonical.ts`) | no |
 | `src/petro/` | funciones de cálculo puras, testeadas | no |
 | `src/modules/<id>/index.ts` | definición pura del módulo | no |
 | `src/modules/<id>/<x>.worker-only.ts`, `<x>.main-thread.ts` | dependencia pesada que solo corre en el worker y su sustituto sin ella para el hilo principal (ver «Archivos solo-worker») | no |
@@ -66,6 +67,7 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 | `src/app/` | arranque, worker (`engine.worker.ts`), puente con el motor, stores (`store/viewer.ts`: cursor y tramo visible), descubrimiento de superposiciones (`viewerOverlays.ts`), pantallas | sí |
 | `src/app/shell/` | armazón: barra superior, flujo guiado, inspector, dock (`dockPanels.tsx`: una entrada por panel), `ViewerSlot` (conecta stores con el visor: edición de zonas, modo marcar zona, encabezado, «Armar pistas»), `viewerOverlayList.ts` (superposiciones del visor de la app), `CurveEditor` (editor de escalas), diálogos | sí |
 | `src/app/tracks/` | «Armar pistas» (0016): panel con el catálogo (`TrackBuilder.tsx`), plantillas y diálogos (`Templates.tsx`), arrastre con eventos de puntero (`dnd.ts`) y acciones que traducen gestos a recetas con `commit` (`actions.ts`) | sí |
+| `src/app/toolString/` | sarta en la interfaz (0032): curvas visibles y disponibilidad del pozo activo con caché (`select.ts`), control temporal en la paleta de comandos (`commands.ts`) | sí |
 | `src/app/flow/` | flujo guiado: definición de pasos y evaluación de estados (`flow.ts`, puro y testeado) | `flow.ts` no |
 | `src/ui/` | sistema de diseño: tokens, tema, paleta de curvas, componentes, `useCanvas`; contrato de panel. Guía en `src/ui/README.md`; muestra en `#ui` | sí |
 | `src/viewer/` | visor multipista: plantillas, resolución de pistas, viewport, ticks, reducción M4, rellenos, pilas (`stack.ts`), lectura, contrato de superposiciones (con elementos del teclado), gestos (`interaction.ts`), catálogo de herramientas y curvas para armar pistas (`catalog.ts`), dibujo en canvas (`*.ts`, puros o canvas) y los componentes `WellViewer.tsx`, `Minimap.tsx`, `WellHeader.tsx`, `layoutEdit.tsx` (modo «Armar pistas»: destinos y bordes de ancho). Guía en `src/viewer/README.md` | solo los `.tsx` |
@@ -116,6 +118,7 @@ defineModule({
   category: 'shale',               // conocida (src/core/workspaces.ts) o nueva + categoryLabel: 'Mi categoría'
   workspace: 'petrophysics',       // o ['petrophysics', 'geology']
   roles?: [...],                   // roles de curva nuevos que introduce
+  tools?: [...],                   // herramientas de perfilaje nuevas (sarta, 0032) que registran roles medidos
   inputs:  { gr: input.curve('GR'), cal: input.optionalCurve('CALI'), k: input.scalar('K_REF'),
              t: input.table('ZONE_SUMMARY'), h: input.zoneScalar('HPHISH_PAY') },   // + optionalScalar/Table/ZoneScalar
   params:  { grClean: param.number({ label, tooltip, default, min, max, step, unit, scale, scope: 'zone', shared }) ,
@@ -267,7 +270,7 @@ agregó el progreso del flujo, v3 la configuración del visor, v4 las tendencias
 conjuntos de puntos del pozo y las decisiones sobre ellos, v6 la configuración del histograma y del crossplot en
 `display.plots`) y migraciones. La fase 7b agregó dos campos opcionales sin cambiar la versión: `display.trackTemplates`
 (plantillas de pistas propias) y `TrackSpec.hidden` (pistas de superposición quitadas); un proyecto anterior se abre
-sin ellos. Al abrir, `display` (con `plots` y las plantillas), las tendencias, los
+sin ellos. La fase 11a sumó del mismo modo `interpretation.toolString` (sarta de perfilaje, 0032), validada al abrir. Al abrir, `display` (con `plots` y las plantillas), las tendencias, los
 conjuntos de puntos y sus decisiones se validan: lo inválido se descarta con aviso. Los arrays van como Float64 little-endian comprimidos con `CompressionStream('deflate')` (con o sin
 "byte shuffle", lo que salga más chico) en base64: exactos bit a bit. Los perfiles del TP quedan en menos de la
 mitad del binario sin comprimir.
@@ -304,6 +307,25 @@ mitad del binario sin comprimir.
 | Rangos de ejes del crossplot editables a mano (hoy automáticos o de la plantilla) | cuando se pida | `xRange`/`yRange` ya se guardan; falta el editor (como el de escalas del visor). |
 | Corrección de φ perfil → corona aplicada a la cadena (hoy la calibración es diagnóstica; 0023) | cuando se pida | Módulo alternativo de `PHIE` con la recta RMA por zona que escribe el panel «Calibración». |
 | Puesta en profundidad de la corona en pozos desviados (hoy en MD) | cuando haya un pozo desviado | Igual que los gradientes MDT: variable independiente TVD con la pista ubicada por MD. |
+
+## Sarta de perfilaje (fase 11a)
+
+Decisión: [`docs/decisiones/0032-sarta-de-perfilaje.md`](decisiones/0032-sarta-de-perfilaje.md).
+
+- **Herramientas** (`src/core/tools.ts`): la única tabla rol medido → herramienta (`ToolDef`: roles que registra,
+  familia, orden típico, prefijos de mnemónico para desempatar RT de inducción o de laterolog). Los módulos agregan las
+  suyas con `tools` en el contrato; el registro las expone en `registry.tools`. El catálogo de pistas del visor agrupa
+  las curvas medidas por herramienta. Fichas técnicas aparte (`toolSheets.ts`), vacías hasta la fase 11b.
+- **Estado** en `Interpretation.toolString` (opcional; ausente = modo datos sin nada apagado): modo `data` |
+  `planning`, apagadas, orden propio, sarta planificada. Recetas en `src/core/state/toolString.ts` (deshacer por
+  `commit`); entra en snapshots y en su comparación; campo opcional validado al abrir, sin cambio de versión.
+- **Filtro, no edición**: `planGraph` saca de las candidatas las curvas de herramientas apagadas (o, en planificación,
+  fuera de la sarta planificada); el visor, el catálogo de pistas y las figuras usan las mismas curvas visibles. Las
+  pistas armadas y los datos no cambian. `sameEngineInputs` incluye la sarta.
+- **Disponibilidad** (`moduleAvailability`): clausura sobre el registro con la misma regla que la viabilidad del motor;
+  por módulo, estado (`available`, `needs-data`, `unavailable`, `disabled`), entradas que faltan, datos de la base de
+  la cadena que faltan con las herramientas que los dan, y motivo en español. El panel de módulos lo muestra.
+- **Pendiente** (11c): la vista de la sarta (esquema 3D); hoy el control es la paleta de comandos (grupo «Sarta»).
 
 ## Petrofísica en módulos (fase 6a)
 

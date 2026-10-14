@@ -32,6 +32,7 @@ import { useResults } from '../store/results';
 import { useUi } from '../store/ui';
 import { useViewer } from '../store/viewer';
 import { computedCurves, computedTables } from '../computed';
+import { visibleCurves } from '../toolString/select';
 import { startTrendTool, stopTrendTool } from '../trends/actions';
 import { useTrendsUi } from '../trends/store';
 import { CurveEditor } from './CurveEditor';
@@ -99,6 +100,9 @@ export function ViewerSlot() {
   const interpretation = entry?.interpretation;
 
   const computed = useMemo(() => (well ? computedCurves(result, well) : []), [result, well]);
+  // Sarta (docs/decisiones/0032): las curvas de herramientas apagadas no se ven (filtro; las pistas no cambian).
+  const toolString = interpretation?.toolString;
+  const curves = useMemo(() => (well ? visibleCurves(well, { toolString }) : []), [well, toolString]);
   // Pistas propias con escala según los datos (presiones MDT) y los ajustes guardados (unidad).
   const layoutSpec = useMemo(
     () => (well ? withOverlayTracks(layoutFor(workspace, display.layouts), OVERLAYS, workspace, { well, ...(display.overlays ? { settings: display.overlays } : {}) }) : []),
@@ -109,12 +113,12 @@ export function ViewerSlot() {
     if (!well) return [];
     return resolveTracks(
       layoutSpec,
-      { depth: well.depth.values, curves: well.curves, computed, catalog: registry.roles },
+      { depth: well.depth.values, curves, computed, catalog: registry.roles },
       overrides,
       // Armando pistas se ven también las que se ocultan vacías (para moverlas o quitarlas).
       { keepEmpty: building },
     );
-  }, [well, computed, layoutSpec, overrides, building]);
+  }, [well, curves, computed, layoutSpec, overrides, building]);
 
   // Cortina antes/después: el snapshot se calcula una vez al elegirlo (caché compartida con el diálogo); arrastrar la
   // línea solo redibuja. Las curvas medidas son las del pozo activo en los dos lados.
@@ -124,12 +128,14 @@ export function ViewerSlot() {
   const curtainResult = curtainRun?.status === 'ready' ? curtainRun.result : null;
   const curtain = useMemo<ViewerCurtain | null>(() => {
     if (!well || !curtainSnap || !curtainResult) return null;
-    const before = resolveTracks(layoutSpec, { depth: well.depth.values, curves: well.curves, computed: computedCurves(curtainResult, well), catalog: registry.roles }, overrides, { keepEmpty: true });
+    // El lado «antes» con la sarta del snapshot (sus curvas medidas son las que veía ese cálculo).
+    const beforeCurves = visibleCurves(well, curtainSnap.interpretation);
+    const before = resolveTracks(layoutSpec, { depth: well.depth.values, curves: beforeCurves, computed: computedCurves(curtainResult, well), catalog: registry.roles }, overrides, { keepEmpty: true });
     return { before: alignCurtainTracks(tracks, before), beforeLabel: `Antes: ${curtainSnap.name}`, afterLabel: 'Después: actual' };
   }, [well, curtainSnap, curtainResult, layoutSpec, overrides, tracks]);
 
   // «Armar pistas» (docs/decisiones/0016): acciones sobre las pistas que se ven, publicadas para el panel.
-  const editor = useMemo(() => (well ? createLayoutEditor({ workspace, overlays: OVERLAYS, displayed: tracks, curves: well.curves }) : null), [well, workspace, tracks]);
+  const editor = useMemo(() => (well ? createLayoutEditor({ workspace, overlays: OVERLAYS, displayed: tracks, curves }) : null), [well, workspace, tracks, curves]);
   useEffect(() => {
     useTrackUi.getState().set({ editor });
     setDropHandler(editor ? (payload, target) => editor.drop(payload, target) : null);

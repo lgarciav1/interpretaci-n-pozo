@@ -6,13 +6,16 @@ import { useMemo } from 'react';
 import { portOf, type AnyModule } from '../../core/module';
 import { paramScope, paramStorageKey, type ParamValue } from '../../core/params';
 import { clearParam, setCompare, setParam, setSource } from '../../core/state/project';
+import { setToolOn } from '../../core/state/toolString';
+import { offToolsFor } from '../../core/toolString';
 import { registry } from '../../modules';
-import { Badge, Field, IconButton, SegmentedControl, Section, Select, StatusDot, Switch, Tooltip, formatNumber } from '../../ui';
+import { Badge, Button, Callout, Field, IconButton, SegmentedControl, Section, Select, StatusDot, Switch, Tooltip, formatNumber } from '../../ui';
 import { openEquations } from '../ecuaciones/open';
 import { collectPanels } from '../modulePanels';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useResults } from '../store/results';
 import { useUi } from '../store/ui';
+import { useToolStringView } from '../toolString/select';
 import { ParamControl } from './ParamControl';
 
 const panels = collectPanels(registry);
@@ -28,6 +31,7 @@ export function ModulePanelView({ module }: { module: AnyModule }) {
   const zoneId = useUi((s) => s.editingZoneId);
   const setUi = useUi((s) => s.set);
   const custom = panels.get(module.id);
+  const toolString = useToolStringView();
 
   const curvePorts = useMemo(() => Object.values(module.outputs).map(portOf), [module]);
   if (!entry) return null;
@@ -64,8 +68,33 @@ export function ModulePanelView({ module }: { module: AnyModule }) {
     </>
   );
 
+  // Sarta (docs/decisiones/0032): por qué el módulo no está disponible y, si alcanza con prender herramientas, el botón.
+  const sarta = toolString?.status(module.id);
+  const sartaAv = sarta?.availability;
+  const toTurnOn = sartaAv && toolString && sartaAv.status === 'unavailable' ? offToolsFor(sartaAv, toolString.resolved) : [];
+  const sartaNotice =
+    sartaAv && sartaAv.status !== 'available' && sartaAv.status !== 'disabled' ? (
+      <Callout
+        tone="neutral"
+        icon="info"
+        title={sartaAv.status === 'needs-data' ? 'Disponible con la sarta planificada' : 'No disponible con la sarta actual'}
+        {...(toTurnOn.length
+          ? {
+              actions: toTurnOn.map((t) => (
+                <Button key={t.id} size="sm" icon="check" onClick={() => commit(`Prender ${t.name}`, (p) => setToolOn(p, wellId, t.id, true))}>
+                  Prender {t.name}
+                </Button>
+              )),
+            }
+          : {})}
+      >
+        <span data-testid="module-availability">{sarta.reason}</span>
+      </Callout>
+    ) : null;
+
   return (
     <div className="module-panel">
+      {sartaNotice}
       <header className="module-panel__head">
         <div className="module-panel__titles">
           <h3 className="module-panel__name">{module.name}</h3>
