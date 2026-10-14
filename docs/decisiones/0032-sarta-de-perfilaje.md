@@ -86,7 +86,7 @@ Descartado:
   «… agregá Densidad a la sarta.», «… el pozo no la tiene (la registra …).», «… «X», elegido a mano, no se puede
   calcular con ninguna sarta …»); `offToolsFor` da las herramientas
   apagadas que lo habilitarían; `modulesEnabledBy(…, toolId)` lista los módulos que una herramienta habilita (para su
-  ficha). Costo: ≈ 0,2 ms para los 45 módulos con el pozo de demo; la interfaz lo cachea por identidad.
+  ficha). Costo: ≈ 0,4 ms para los 45 módulos con el pozo de demo en planificación (dos clausuras); la interfaz lo cachea por identidad (curvas, sarta, desactivados, fuentes).
 
 Descartado:
 - Mirar solo las entradas directas: diría «falta PHIE», no qué herramienta agregar.
