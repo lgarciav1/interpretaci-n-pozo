@@ -1,6 +1,7 @@
 # 0032 — Sarta de perfilaje: modelo, disponibilidad de módulos y filtro de curvas (fase 11a)
 
-- Estado: implementada (11a: núcleo y conexión mínima), pendiente de revisión independiente.
+- Estado: implementada (11a: núcleo y conexión mínima) y revisada (correcciones de la revisión independiente: fuentes
+  elegidas a mano en la disponibilidad, apagadas del plan separadas, entradas «al menos una de»).
 - Alcance: catálogo de herramientas (`src/core/tools.ts`) y sus fichas (`src/core/toolSheets.ts`), modelo de la sarta
   (`src/core/toolString.ts`), recetas (`src/core/state/toolString.ts`), filtro en el motor (`planGraph`), visor,
   catálogo de pistas, figuras, panel de módulos y un control temporal en la paleta de comandos (`src/app/toolString/`).
@@ -68,17 +69,22 @@ Descartado:
 
 `moduleAvailability(registry, curves, resolved, { disabled })` en `src/core/toolString.ts`, pura.
 
-- **Regla**: un módulo está disponible si cada entrada obligatoria (curva, escalar, tabla o valor por zona) la cubre un
-  dato o la salida de **otro** módulo disponible. Menor punto fijo: un ciclo no se justifica a sí mismo. Es la misma regla
-  que la viabilidad de `planGraph` (2b); un test corre el motor con varias sartas y verifica que lo que calcula está
-  disponible y lo que le falta una entrada no.
+- **Regla**: la misma que el motor (`planGraph`), en tres pasos: (1) viabilidad estática — cada entrada obligatoria
+  la cubre un dato o la salida de **otro** módulo viable, menor punto fijo (un ciclo no se justifica a sí mismo); (2)
+  fuente de cada puerto — la elegida a mano si es válida (misma validación que el motor, `engine/explicitSource.ts`),
+  si no la primera candidata viable; (3) disponible = corre con esas fuentes (menor punto fijo). Así un módulo elegido a
+  mano para Rw que necesita el SP apagado deja a Sw «no disponible» (el motor lo bloquea), y una curva sin rol elegida
+  como RT cubre RT. `tests/tool-string-engine.test.ts` corre el motor con **todos** los módulos en «comparar» para los
+  dos pozos y once sartas (apagadas, planificación, desactivados, fuentes a mano) y exige coincidencia módulo por
+  módulo. La interfaz le pasa `disabled` y `sources` de la interpretación.
 - **Estados**: `available`, `needs-data` (solo planificación: correría con la sarta planificada pero el pozo no tiene los
   datos), `unavailable`, `disabled` (desactivado en la interpretación; tampoco cuenta como productor).
 - **Qué falta**: `missingInputs` (entradas directas sin cubrir, p. ej. PHIE) y `needs` (los datos medidos de la base de
   la cadena por el camino más corto entre los productores, p. ej. GR, con las herramientas que lo registran). En
   `needs-data`, `toolsWithoutData` = herramientas de la sarta sin esos datos.
 - `availabilityReason` arma el motivo en español («Falta RHOB (densidad volumétrica): prendé Densidad en la sarta.»,
-  «… agregá Densidad a la sarta.», «… el pozo no la tiene (la registra …).»); `offToolsFor` da las herramientas
+  «… agregá Densidad a la sarta.», «… el pozo no la tiene (la registra …).», «… «X», elegido a mano, no se puede
+  calcular con ninguna sarta …»); `offToolsFor` da las herramientas
   apagadas que lo habilitarían; `modulesEnabledBy(…, toolId)` lista los módulos que una herramienta habilita (para su
   ficha). Costo: ≈ 0,2 ms para los 45 módulos con el pozo de demo; la interfaz lo cachea por identidad.
 
@@ -121,7 +127,9 @@ atribución es estricta: planificar un laterolog sobre un pozo con datos de indu
 tiene … de Laterolog»), no usa la inducción como si fuera laterolog.
 
 La sarta planificada se conserva al volver al modo datos (`setToolStringMode`), y «Planificar desde la de los datos»
-copia herramientas y orden (las apagadas siguen apagadas).
+copia herramientas y orden (las apagadas empiezan apagadas en el plan). **Planificar no contamina el modo datos**: las
+apagadas del plan (`planOff`) son otra lista que las de los datos (`off`); apagar o agregar una herramienta en el plan
+no la apaga ni la prende en los datos, y al volver el cálculo ve exactamente lo mismo que antes de planificar (test).
 
 Descartado:
 - Visor sin cambios en planificación: planificar sería un ejercicio invisible y contradice «lo que pongas en la sarta
@@ -136,27 +144,30 @@ Descartado:
 ```ts
 interface ToolStringState {
   mode: 'data' | 'planning';
-  off: string[];    // apagadas; valen en los dos modos
-  order: string[];  // orden propio de la sarta de datos (arriba → abajo); las que faltan van debajo por orden típico
-  plan: string[];   // sarta planificada (arriba → abajo); se conserva al volver a datos
+  off: string[];     // apagadas en la sarta de datos (cambian el cálculo en modo datos)
+  order: string[];   // orden propio de la sarta de datos (arriba → abajo); las que faltan van debajo por orden típico
+  plan: string[];    // sarta planificada (arriba → abajo); se conserva al volver a datos
+  planOff: string[]; // apagadas en la sarta planificada (separadas: planificar no toca los datos)
 }
 ```
 
 - Un estado igual al de por defecto se **borra** (campo ausente): un proyecto que nunca tocó la sarta se guarda como
   antes. La sarta de datos no se guarda: se deriva de las curvas cada vez (reasignar un rol o cargar curvas la actualiza).
-- Recetas (`src/core/state/toolString.ts`), todas por `commit`: `setToolOn`, `setToolStringMode`, `startPlanning(…,
-  'data' | 'empty', tools)`, `addPlannedTool` (prende si estaba apagada), `removePlannedTool`, `moveTool` (en datos
+- Recetas (`src/core/state/toolString.ts`), todas por `commit`: `setToolOn` (sobre la lista del modo vigente), `setToolStringMode`, `startPlanning(…,
+  'data' | 'empty', tools)`, `addPlannedTool` (la prende en el plan si estaba apagada ahí), `removePlannedTool`, `moveTool` (en datos
   guarda el orden completo; en planificación reordena el plan), `resetToolString`. Agregar o quitar en modo datos lanza
   un error (la sarta sale de las curvas). Sin cambios devuelven el mismo proyecto (no ensucian el historial).
 - **Formato**: campo opcional sin cambiar la versión (como las plantillas de 7b). Al abrir, `sanitizeToolString` valida
   modo e ids y avisa lo descartado; no conoce el registro a propósito: un id bien formado que la app no conoce (módulo
   quitado) se conserva y `resolveToolString` lo ignora, así volver a agregar el módulo restituye la sarta. Proyectos
   viejos: abren en modo datos sin avisos (test).
-- **Snapshots** guardan la sarta (son la interpretación entera); `diffInterpretations` suma `tool-mode`, `tool-off` y
-  `tool-plan`.
+- **Snapshots** guardan la sarta (son la interpretación entera); `diffInterpretations` suma `tool-mode`, `tool-off`,
+  `tool-plan` y `tool-plan-off`.
 
 Descartado: subir a v7 con migración (ausente ya significa «por defecto»); guardar la sarta derivada completa (se
-desincroniza con los datos); estados separados de apagadas por modo (una herramienta apagada está apagada).
+desincroniza con los datos); una sola lista de apagadas para los dos modos (la primera versión: en la revisión se vio
+que agregar densidad al plan la prendía en los datos y apagar el GR en el plan lo apagaba al volver, o sea que un
+ensayo cambiaba la interpretación).
 
 ## D6. Conexión mínima
 

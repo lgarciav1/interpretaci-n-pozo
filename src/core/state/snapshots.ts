@@ -60,7 +60,7 @@ export type DiffEntry =
   | { kind: 'compare' | 'disabled'; moduleId: string; change: 'added' | 'removed' }
   /** Sarta (0032): modo, herramienta apagada (added = se apagó) o agregada/quitada de la sarta planificada. */
   | { kind: 'tool-mode'; before: ToolStringMode; after: ToolStringMode }
-  | { kind: 'tool-off' | 'tool-plan'; toolId: string; change: 'added' | 'removed' };
+  | { kind: 'tool-off' | 'tool-plan' | 'tool-plan-off'; toolId: string; change: 'added' | 'removed' };
 
 /**
  * Diferencias de `a` a `b`. Si se pasa el registro, los parámetros se comparan por valor efectivo
@@ -119,7 +119,8 @@ export function diffInterpretations(a: Interpretation, b: Interpretation, regist
   const ta = toolStringOf(a);
   const tb = toolStringOf(b);
   if (ta.mode !== tb.mode) out.push({ kind: 'tool-mode', before: ta.mode, after: tb.mode });
-  for (const [kind, la, lb] of [['tool-off', ta.off, tb.off] as const, ['tool-plan', ta.plan, tb.plan] as const]) {
+  const lists = [['tool-off', ta.off, tb.off], ['tool-plan', ta.plan, tb.plan], ['tool-plan-off', ta.planOff, tb.planOff]] as const;
+  for (const [kind, la, lb] of lists) {
     for (const id of lb) if (!la.includes(id)) out.push({ kind, toolId: id, change: 'added' });
     for (const id of la) if (!lb.includes(id)) out.push({ kind, toolId: id, change: 'removed' });
   }
@@ -154,6 +155,8 @@ export function describeDiff(entry: DiffEntry, ctx: { registry?: Registry; zones
       return `Sarta: modo ${entry.before === 'data' ? 'datos' : 'planificación'} → ${entry.after === 'data' ? 'datos' : 'planificación'}`;
     case 'tool-off':
       return `${entry.change === 'added' ? 'Se apaga' : 'Se prende'} ${ctx.registry?.tools.get(entry.toolId)?.name ?? entry.toolId} en la sarta`;
+    case 'tool-plan-off':
+      return `${entry.change === 'added' ? 'Se apaga' : 'Se prende'} ${ctx.registry?.tools.get(entry.toolId)?.name ?? entry.toolId} en la sarta planificada`;
     case 'tool-plan':
       return `${ctx.registry?.tools.get(entry.toolId)?.name ?? entry.toolId} ${entry.change === 'added' ? 'se agrega a' : 'se quita de'} la sarta planificada`;
   }

@@ -11,10 +11,12 @@
  *
  * Puro: sin React ni stores. Lo consume directo la vista de la sarta (fase 11c).
  */
-import type { Interpretation } from './interpretation';
+import { validateExplicitSource } from './engine/explicitSource';
+import type { Interpretation, SourceRef } from './interpretation';
 import { portOf, type AnyModule } from './module';
 import type { RoleCatalog, RoleId } from './roles';
 import type { ToolCatalog, ToolCurveRef, ToolDef } from './tools';
+import type { UnitId } from './units';
 
 // ---------------------------------------------------------------------------------------------------------------
 // Estado guardado
@@ -29,15 +31,26 @@ export type ToolStringMode = 'data' | 'planning';
 
 export interface ToolStringState {
   mode: ToolStringMode;
-  /** Herramientas apagadas (ids). Valen en los dos modos: una herramienta apagada está apagada. */
+  /** Herramientas apagadas en la sarta de datos (ids). Es lo único, con `order`, que cambia el cálculo en modo datos. */
   off: string[];
   /** Orden propio de la sarta de datos, arriba → abajo. Las que falten van debajo, por orden típico. */
   order: string[];
   /** Sarta planificada, arriba → abajo (se conserva al volver al modo datos). */
   plan: string[];
+  /**
+   * Herramientas apagadas en la sarta planificada. Aparte de `off` a propósito: planificar es un ensayo y no puede
+   * cambiar la interpretación del modo datos al volver (apagar o agregar una herramienta en el plan no la apaga ni la
+   * prende en los datos).
+   */
+  planOff: string[];
 }
 
-export const DEFAULT_TOOL_STRING: Readonly<ToolStringState> = Object.freeze({ mode: 'data', off: [], order: [], plan: [] }) as Readonly<ToolStringState>;
+export const DEFAULT_TOOL_STRING: Readonly<ToolStringState> = Object.freeze({ mode: 'data', off: [], order: [], plan: [], planOff: [] }) as Readonly<ToolStringState>;
+
+/** Herramientas apagadas en el modo vigente (`off` en datos, `planOff` en planificación). */
+export function offIdsOf(s: ToolStringState): readonly string[] {
+  return s.mode === 'planning' ? s.planOff : s.off;
+}
 
 /** Estado de la sarta de una interpretación (el de por defecto si no tiene). */
 export function toolStringOf(i: Pick<Interpretation, 'toolString'>): ToolStringState {
@@ -46,7 +59,7 @@ export function toolStringOf(i: Pick<Interpretation, 'toolString'>): ToolStringS
 
 /** true si el estado no cambia nada respecto del de por defecto (entonces no se guarda). */
 export function isDefaultToolString(s: ToolStringState | undefined): boolean {
-  return !s || (s.mode === 'data' && s.off.length === 0 && s.order.length === 0 && s.plan.length === 0);
+  return !s || (s.mode === 'data' && s.off.length === 0 && s.order.length === 0 && s.plan.length === 0 && s.planOff.length === 0);
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -118,7 +131,7 @@ export function resolveToolString(curves: readonly ToolCurveRef[], state: ToolSt
     if (!t) uncontrolled.push(c.id);
     else curvesOf.set(t.id, [...(curvesOf.get(t.id) ?? []), c]);
   }
-  const off = new Set(s.off);
+  const off = new Set(offIdsOf(s));
   const ids =
     s.mode === 'planning'
       ? [...new Set(s.plan)].filter((id) => tools.has(id))
@@ -168,6 +181,8 @@ export interface MissingNeed {
   port: string;
   /** Herramientas que lo registran (orden del catálogo). Vacío = ninguna herramienta lo mide y ningún módulo lo produce. */
   tools: string[];
+  /** Módulo elegido a mano para este puerto que no se puede calcular por ningún camino (p. ej. un ciclo de elecciones). */
+  chosen?: { id: string; name: string };
 }
 
 export interface ModuleAvailability {
@@ -195,58 +210,142 @@ export interface AvailabilityReport {
 export interface AvailabilityRegistry {
   readonly modules: readonly AnyModule[];
   readonly tools: ToolCatalog;
+  readonly roles: RoleCatalog;
+  get(id: string): AnyModule | undefined;
 }
 
+export interface AvailabilityOptions {
+  /** Módulos desactivados en la interpretación (`Interpretation.disabled`). */
+  disabled?: readonly string[];
+  /**
+   * Fuentes elegidas a mano (`Interpretation.sources`). El motor las respeta aunque no puedan correr (un módulo elegido
+   * para Rw que necesita el SP apagado bloquea a Sw), así que la disponibilidad también.
+   */
+  sources?: Readonly<Record<string, SourceRef>>;
+}
+
+/** Curva del pozo para la disponibilidad: la de la sarta más su unidad (valida las fuentes explícitas como el motor). */
+export type AvailabilityCurve = ToolCurveRef & { unit?: UnitId };
+
+/** Fuente de un puerto en la clausura: los datos del pozo o el id de un módulo. */
 const DATA = '@data';
+type Src = string;
+
+/** Fuentes explícitas válidas (las mismas que acepta `planGraph`): puertos con curva elegida y con módulo elegido. */
+interface Explicit {
+  curve: ReadonlySet<string>;
+  module: ReadonlyMap<string, string>;
+}
+
+function explicitChoices(
+  registry: AvailabilityRegistry,
+  visible: readonly AvailabilityCurve[],
+  sources: Readonly<Record<string, SourceRef>> | undefined,
+  disabled: ReadonlySet<string>,
+): Explicit {
+  const curve = new Set<string>();
+  const module = new Map<string, string>();
+  if (!sources) return { curve, module };
+  const byId = new Map(visible.map((c) => [c.id, c]));
+  for (const [port, ref] of Object.entries(sources)) {
+    // Una curva de una herramienta apagada no está en `visible`: queda en suspenso y el motor usa la fuente por defecto.
+    if (validateExplicitSource(registry, byId, disabled, port, ref)) continue;
+    if (ref.kind === 'curve') curve.add(port);
+    else module.set(port, ref.moduleId);
+  }
+  return { curve, module };
+}
+
+interface Closure {
+  available: ReadonlySet<string>;
+  /** Fuente con la que el motor alimenta `port` al consumidor `consumer` (null = ninguna candidata). */
+  sourceFor(port: string, consumer: string): Src | null;
+  /** true si la fuente de `port` para `consumer` corre (datos o un módulo disponible). */
+  covers(port: string, consumer?: string): boolean;
+  /** Puertos cubiertos (para un consumidor cualquiera). */
+  ports: ReadonlySet<string>;
+}
 
 /**
- * Menor punto fijo: un módulo está disponible si cada entrada obligatoria la cubre un dato o la salida de OTRO módulo
- * disponible (un ciclo no se justifica a sí mismo). Misma regla que la viabilidad de `planGraph`.
+ * Qué módulos corren, con las mismas reglas que `planGraph`:
+ * 1. Viabilidad estática (2b): menor punto fijo, optimista respecto de las fuentes elegidas (un ciclo no se justifica
+ *    a sí mismo).
+ * 2. Fuente de cada puerto (2c): la explícita si es válida; si no, la primera candidata viable (datos primero, después
+ *    módulos en orden de registro). Un módulo no se consume a sí mismo: toma la siguiente candidata.
+ * 3. Disponible = corre con esas fuentes (menor punto fijo): lo que el motor deja `ready`.
  */
-function closure(modules: readonly AnyModule[], covered: ReadonlySet<string>, disabled: ReadonlySet<string>): { available: Set<string>; ports: Set<string> } {
-  const providers = new Map<string, Set<string>>();
-  for (const p of covered) providers.set(p, new Set([DATA]));
-  const available = new Set<string>();
-  for (let changed = true; changed; ) {
-    changed = false;
-    for (const m of modules) {
-      if (disabled.has(m.id) || available.has(m.id)) continue;
-      const ok = Object.values(m.inputs).every((spec) => {
-        if (spec.optional) return true;
-        const by = providers.get(portOf(spec));
-        return !!by && [...by].some((x) => x !== m.id);
-      });
-      if (!ok) continue;
-      available.add(m.id);
-      changed = true;
-      for (const spec of Object.values(m.outputs)) {
-        const port = portOf(spec);
-        const by = providers.get(port) ?? new Set<string>();
-        by.add(m.id);
-        providers.set(port, by);
+function closure(modules: readonly AnyModule[], covered: ReadonlySet<string>, disabled: ReadonlySet<string>, explicit: Explicit): Closure {
+  const candidates = new Map<string, Src[]>();
+  const add = (port: string, s: Src) => {
+    const list = candidates.get(port);
+    if (!list) candidates.set(port, [s]);
+    else if (!list.includes(s)) list.push(s);
+  };
+  for (const p of covered) add(p, DATA);
+  for (const p of explicit.curve) add(p, DATA);
+  const active = modules.filter((m) => !disabled.has(m.id));
+  for (const m of active) for (const spec of Object.values(m.outputs)) add(portOf(spec), m.id);
+
+  const fixpoint = (ok: (m: AnyModule, done: ReadonlySet<string>) => boolean): Set<string> => {
+    const done = new Set<string>();
+    for (let changed = true; changed; ) {
+      changed = false;
+      for (const m of active) {
+        if (done.has(m.id) || !ok(m, done)) continue;
+        done.add(m.id);
+        changed = true;
       }
     }
+    return done;
+  };
+
+  // 1. Viabilidad estática.
+  const viable = fixpoint((m, done) =>
+    Object.values(m.inputs).every((spec) => spec.optional || (candidates.get(portOf(spec)) ?? []).some((s) => s !== m.id && (s === DATA || done.has(s)))),
+  );
+  const isViable = (s: Src) => s === DATA || viable.has(s);
+
+  // 2. Fuente elegida por puerto y por consumidor.
+  const chosen = new Map<string, Src>();
+  for (const [port, list] of candidates) {
+    const forced = explicit.module.get(port) ?? (explicit.curve.has(port) ? DATA : undefined);
+    chosen.set(port, forced ?? list.find(isViable) ?? list[0]!);
   }
-  return { available, ports: new Set(providers.keys()) };
+  const sourceFor = (port: string, consumer: string): Src | null => {
+    const c = chosen.get(port);
+    if (c !== undefined && c !== consumer) return c;
+    const list = candidates.get(port) ?? [];
+    return list.find((s) => s !== consumer && isViable(s)) ?? list.find((s) => s !== consumer) ?? null;
+  };
+
+  // 3. Lo que corre con esas fuentes.
+  const runsWith = (s: Src | null, done: ReadonlySet<string>) => s !== null && (s === DATA || done.has(s));
+  const available = fixpoint((m, done) => Object.values(m.inputs).every((spec) => spec.optional || runsWith(sourceFor(portOf(spec), m.id), done)));
+  const covers = (port: string, consumer = '') => runsWith(sourceFor(port, consumer), available);
+  const ports = new Set([...candidates.keys()].filter((p) => covers(p)));
+  return { available, sourceFor, covers, ports };
 }
 
 /**
  * Datos medidos que faltan para cubrir `port`, por el camino más corto: el propio rol si alguna herramienta lo mide, o
- * lo que falta a algún productor. null = imposible (nadie lo mide ni lo produce, o solo por un ciclo).
+ * lo que falta a algún productor. Si el puerto tiene un módulo elegido a mano, solo ese productor (el motor no usa
+ * otro). null = imposible (nadie lo mide ni lo produce, o solo por un ciclo).
  */
-function makeNeedFinder(modules: readonly AnyModule[], tools: ToolCatalog, ports: ReadonlySet<string>, disabled: ReadonlySet<string>) {
+function makeNeedFinder(registry: AvailabilityRegistry, cl: Closure, disabled: ReadonlySet<string>, explicit: Explicit) {
   const producers = new Map<string, AnyModule[]>();
-  for (const m of modules) {
+  for (const m of registry.modules) {
     if (disabled.has(m.id)) continue;
     for (const spec of Object.values(m.outputs)) producers.set(portOf(spec), [...(producers.get(portOf(spec)) ?? []), m]);
   }
   const memo = new Map<string, string[]>();
   const need = (port: string, visiting: ReadonlySet<string>): string[] | null => {
-    if (ports.has(port)) return [];
+    if (cl.covers(port)) return [];
     const hit = memo.get(port);
     if (hit) return hit;
-    let best: string[] | null = tools.toolsForRole(port).length ? [port] : null;
-    for (const p of producers.get(port) ?? []) {
+    const forced = explicit.module.get(port);
+    let best: string[] | null = !forced && registry.tools.toolsForRole(port).length ? [port] : null;
+    const options = forced ? [registry.get(forced)!] : (producers.get(port) ?? []);
+    for (const p of options) {
       if (visiting.has(p.id)) continue;
       const inner = new Set(visiting).add(p.id);
       const acc = new Set<string>();
@@ -276,7 +375,8 @@ function rolesOfEntries(entries: readonly ToolStringEntry[]): Set<string> {
 }
 
 /**
- * Disponibilidad de cada módulo del registro con la sarta resuelta.
+ * Disponibilidad de cada módulo del registro con la sarta resuelta. Misma regla que el motor (`planGraph`), incluidas
+ * las fuentes elegidas a mano (`opts.sources`) y los módulos desactivados.
  *
  * - Cubierto con datos = roles de las curvas que ven el motor y el visor (`curves` menos `resolved.excluded`).
  * - En planificación, además, cubierto en hipótesis = los roles que registran las herramientas prendidas de la sarta
@@ -284,29 +384,36 @@ function rolesOfEntries(entries: readonly ToolStringEntry[]): Set<string> {
  */
 export function moduleAvailability(
   registry: AvailabilityRegistry,
-  curves: readonly ToolCurveRef[],
+  curves: readonly AvailabilityCurve[],
   resolved: ResolvedToolString,
-  opts: { disabled?: readonly string[] } = {},
+  opts: AvailabilityOptions = {},
 ): AvailabilityReport {
   const disabled = new Set(opts.disabled ?? []);
+  const visible = resolved.excluded.size ? curves.filter((c) => !resolved.excluded.has(c.id)) : curves;
   const realCovered = new Set<string>();
-  for (const c of curves) if (c.role && !resolved.excluded.has(c.id)) realCovered.add(c.role);
-  const real = closure(registry.modules, realCovered, disabled);
+  for (const c of visible) if (c.role) realCovered.add(c.role);
+  const explicit = explicitChoices(registry, visible, opts.sources, disabled);
+  const real = closure(registry.modules, realCovered, disabled, explicit);
   const planning = resolved.mode === 'planning';
-  const hypo = planning ? closure(registry.modules, new Set([...realCovered, ...rolesOfEntries(resolved.entries)]), disabled) : real;
-  const needHypo = makeNeedFinder(registry.modules, registry.tools, hypo.ports, disabled);
-  const needReal = planning ? makeNeedFinder(registry.modules, registry.tools, real.ports, disabled) : needHypo;
+  const hypo = planning ? closure(registry.modules, new Set([...realCovered, ...rolesOfEntries(resolved.entries)]), disabled, explicit) : real;
+  const needHypo = makeNeedFinder(registry, hypo, disabled, explicit);
+  const needReal = planning ? makeNeedFinder(registry, real, disabled, explicit) : needHypo;
   const toolIds = (port: string) => registry.tools.toolsForRole(port).map((t) => t.id);
 
-  const leafNeeds = (m: AnyModule, ports: ReadonlySet<string>, need: ReturnType<typeof makeNeedFinder>): { missing: string[]; needs: MissingNeed[] } => {
+  const leafNeeds = (m: AnyModule, cl: Closure, need: ReturnType<typeof makeNeedFinder>): { missing: string[]; needs: MissingNeed[] } => {
     const missing: string[] = [];
     const leaves = new Map<string, MissingNeed>();
     for (const spec of Object.values(m.inputs)) {
       if (spec.optional) continue;
       const port = portOf(spec);
-      if (ports.has(port)) continue;
+      if (cl.covers(port, m.id)) continue;
       missing.push(port);
       const sub = need(port, new Set([m.id]));
+      const forced = explicit.module.get(port);
+      if (!sub && forced && !leaves.has(port)) {
+        leaves.set(port, { port, tools: [], chosen: { id: forced, name: registry.get(forced)?.name ?? forced } });
+        continue;
+      }
       for (const leaf of sub ?? [port]) if (!leaves.has(leaf)) leaves.set(leaf, { port: leaf, tools: sub ? toolIds(leaf) : [] });
     }
     return { missing, needs: [...leaves.values()] };
@@ -324,14 +431,14 @@ export function moduleAvailability(
     }
     if (hypo.available.has(m.id)) {
       // Correría con la sarta planificada: lo que falta son datos del pozo de herramientas que ya están en la sarta.
-      const { missing, needs } = leafNeeds(m, real.ports, needReal);
+      const { missing, needs } = leafNeeds(m, real, needReal);
       const planned = resolved.entries.filter((e) => e.on);
       const without = new Set<string>();
       for (const n of needs) for (const e of planned) if (e.tool.roles.includes(n.port)) without.add(e.tool.id);
       modules.set(m.id, { moduleId: m.id, status: 'needs-data', missingInputs: missing, needs, toolsWithoutData: [...without] });
       continue;
     }
-    const { missing, needs } = leafNeeds(m, hypo.ports, needHypo);
+    const { missing, needs } = leafNeeds(m, hypo, needHypo);
     modules.set(m.id, { moduleId: m.id, status: 'unavailable', missingInputs: missing, needs, toolsWithoutData: [] });
   }
   return { mode: resolved.mode, modules, covered: real.ports };
@@ -349,14 +456,15 @@ export function offToolsFor(av: ModuleAvailability, resolved: ResolvedToolString
 /** Módulos que dejarían de estar disponibles si se apaga una herramienta (para la ficha: «habilita …»). */
 export function modulesEnabledBy(
   registry: AvailabilityRegistry,
-  curves: readonly ToolCurveRef[],
+  curves: readonly AvailabilityCurve[],
   state: ToolStringState | undefined,
   toolId: string,
-  opts: { disabled?: readonly string[] } = {},
+  opts: AvailabilityOptions = {},
 ): string[] {
   const s = state ?? (DEFAULT_TOOL_STRING as ToolStringState);
-  const on = { ...s, off: s.off.filter((id) => id !== toolId) };
-  const off = { ...s, off: [...on.off, toolId] };
+  const key = s.mode === 'planning' ? 'planOff' : 'off';
+  const on = { ...s, [key]: s[key].filter((id) => id !== toolId) };
+  const off = { ...s, [key]: [...on[key], toolId] };
   const a = moduleAvailability(registry, curves, resolveToolString(curves, on, registry.tools), opts);
   const b = moduleAvailability(registry, curves, resolveToolString(curves, off, registry.tools), opts);
   const usable = (x: ModuleAvailability | undefined) => x?.status === 'available' || x?.status === 'needs-data';
@@ -387,13 +495,15 @@ export function availabilityReason(av: ModuleAvailability, ctx: { tools: ToolCat
     case 'unavailable': {
       const entries = new Map(resolved.entries.map((e) => [e.tool.id, e]));
       const parts = av.needs.map((n) => {
+        if (n.chosen) return `Falta ${what(n.port)}: «${n.chosen.name}», elegido a mano, no se puede calcular con ninguna sarta (p. ej. sus entradas forman un ciclo); elegí otra fuente.`;
         if (!n.tools.length) return `Falta ${what(n.port)}: ningún módulo disponible lo calcula.`;
         const offTools = n.tools.filter((id) => entries.get(id) && !entries.get(id)!.on && (resolved.mode === 'planning' || entries.get(id)!.hasData));
         if (offTools.length) return `Falta ${what(n.port)}: prendé ${or(offTools.map(name))} en la sarta.`;
         if (resolved.mode === 'planning') return `Falta ${what(n.port)}: agregá ${or(n.tools.map(name))} a la sarta.`;
         return `Falta ${what(n.port)}: el pozo no la tiene (la registra ${or(n.tools.map(name))}).`;
       });
-      return parts.join(' ');
+      // Sin faltantes directos: lo bloquea un ciclo entre fuentes elegidas a mano.
+      return parts.length ? parts.join(' ') : 'No se puede calcular con las fuentes elegidas a mano: forman un ciclo o dependen de un módulo que no corre.';
     }
   }
 }
@@ -433,6 +543,12 @@ export function sanitizeToolString(raw: unknown, where: string, warn: (m: string
     }
     return out;
   };
-  const state: ToolStringState = { mode, off: ids('off', 'la lista de apagadas'), order: ids('order', 'el orden'), plan: ids('plan', 'la sarta planificada') };
+  const state: ToolStringState = {
+    mode,
+    off: ids('off', 'la lista de apagadas'),
+    order: ids('order', 'el orden'),
+    plan: ids('plan', 'la sarta planificada'),
+    planOff: ids('planOff', 'la lista de apagadas de la sarta planificada'),
+  };
   return isDefaultToolString(state) ? undefined : state;
 }

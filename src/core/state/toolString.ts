@@ -13,7 +13,7 @@ import { getWellEntry, updateInterpretation, type Project } from './project';
 
 const sameIds = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
 const sameState = (a: ToolStringState, b: ToolStringState) =>
-  a.mode === b.mode && sameIds(a.off, b.off) && sameIds(a.order, b.order) && sameIds(a.plan, b.plan);
+  a.mode === b.mode && sameIds(a.off, b.off) && sameIds(a.order, b.order) && sameIds(a.plan, b.plan) && sameIds(a.planOff, b.planOff);
 
 /** Aplica `fn` al estado de la sarta de un pozo. Sin cambios devuelve el mismo proyecto. */
 function updateToolString(project: Project, wellId: string, fn: (s: ToolStringState) => ToolStringState): Project {
@@ -26,12 +26,16 @@ function updateToolString(project: Project, wellId: string, fn: (s: ToolStringSt
   });
 }
 
-/** Prende o apaga una herramienta (en los dos modos). */
+/**
+ * Prende o apaga una herramienta en la sarta del modo vigente: en datos cambia el cálculo; en planificación solo el
+ * plan (`planOff`), así volver al modo datos no arrastra lo que se ensayó.
+ */
 export function setToolOn(project: Project, wellId: string, toolId: string, on: boolean): Project {
   return updateToolString(project, wellId, (s) => {
-    const isOff = s.off.includes(toolId);
+    const key = s.mode === 'planning' ? 'planOff' : 'off';
+    const isOff = s[key].includes(toolId);
     if (isOff === !on) return s;
-    return { ...s, off: on ? s.off.filter((id) => id !== toolId) : [...s.off, toolId] };
+    return { ...s, [key]: on ? s[key].filter((id) => id !== toolId) : [...s[key], toolId] };
   });
 }
 
@@ -42,13 +46,15 @@ export function setToolStringMode(project: Project, wellId: string, mode: ToolSt
 
 /**
  * Pasa a planificación empezando de cero (`'empty'`) o desde la sarta de datos tal como se ve (`'data'`: mismas
- * herramientas y orden; las apagadas siguen apagadas).
+ * herramientas y orden; las apagadas en los datos empiezan apagadas en el plan). Reemplaza el plan anterior.
  */
 export function startPlanning(project: Project, wellId: string, from: 'data' | 'empty', tools: ToolCatalog): Project {
   const entry = getWellEntry(project, wellId);
   const current = toolStringOf(entry.interpretation);
-  const plan = from === 'empty' ? [] : resolveToolString(entry.well.curves, { ...current, mode: 'data' }, tools).entries.map((e) => e.tool.id);
-  return updateToolString(project, wellId, (s) => ({ ...s, mode: 'planning', plan }));
+  const entries = from === 'empty' ? [] : resolveToolString(entry.well.curves, { ...current, mode: 'data' }, tools).entries;
+  const plan = entries.map((e) => e.tool.id);
+  const planOff = entries.filter((e) => !e.on).map((e) => e.tool.id);
+  return updateToolString(project, wellId, (s) => ({ ...s, mode: 'planning', plan, planOff }));
 }
 
 function requirePlanning(s: ToolStringState, what: string): void {
@@ -59,11 +65,11 @@ function requirePlanning(s: ToolStringState, what: string): void {
 export function addPlannedTool(project: Project, wellId: string, toolId: string, index?: number): Project {
   return updateToolString(project, wellId, (s) => {
     requirePlanning(s, 'Agregar una herramienta');
-    const off = s.off.filter((id) => id !== toolId);
-    if (s.plan.includes(toolId)) return { ...s, off };
+    const planOff = s.planOff.filter((id) => id !== toolId);
+    if (s.plan.includes(toolId)) return { ...s, planOff };
     const plan = [...s.plan];
     plan.splice(index === undefined ? plan.length : Math.max(0, Math.min(plan.length, index)), 0, toolId);
-    return { ...s, off, plan };
+    return { ...s, planOff, plan };
   });
 }
 
@@ -71,7 +77,7 @@ export function addPlannedTool(project: Project, wellId: string, toolId: string,
 export function removePlannedTool(project: Project, wellId: string, toolId: string): Project {
   return updateToolString(project, wellId, (s) => {
     requirePlanning(s, 'Quitar una herramienta');
-    return s.plan.includes(toolId) ? { ...s, plan: s.plan.filter((id) => id !== toolId) } : s;
+    return s.plan.includes(toolId) ? { ...s, plan: s.plan.filter((id) => id !== toolId), planOff: s.planOff.filter((id) => id !== toolId) } : s;
   });
 }
 

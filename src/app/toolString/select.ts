@@ -1,6 +1,6 @@
 /**
  * Conexión de la sarta de perfilaje (docs/decisiones/0032) con la interfaz: curvas que ve el visor y disponibilidad de
- * módulos del pozo activo, con caché por identidad (curvas del pozo, estado de la sarta, módulos desactivados) para que
+ * módulos del pozo activo, con caché por identidad (curvas del pozo, estado de la sarta, módulos desactivados, fuentes) para que
  * los memos de React no se rompan en cada render. La lógica está en `src/core/toolString.ts`.
  */
 import type { Interpretation } from '../../core/interpretation';
@@ -32,14 +32,22 @@ export interface ToolStringView {
   status(moduleId: string): { availability: ModuleAvailability | undefined; reason: string };
 }
 
-let last: { curves: readonly Curve[]; state: Interpretation['toolString']; disabled: readonly string[]; view: ToolStringView } | null = null;
+let last: {
+  curves: readonly Curve[];
+  state: Interpretation['toolString'];
+  disabled: readonly string[];
+  sources: Interpretation['sources'];
+  view: ToolStringView;
+} | null = null;
 
 /** Sarta resuelta y disponibilidad de módulos de un pozo (caché de una entrada: la del pozo activo). */
 export function toolStringView(well: Well, interpretation: Interpretation): ToolStringView {
   const state = interpretation.toolString;
-  if (last && last.curves === well.curves && last.state === state && last.disabled === interpretation.disabled) return last.view;
+  const { disabled, sources } = interpretation;
+  if (last && last.curves === well.curves && last.state === state && last.disabled === disabled && last.sources === sources) return last.view;
   const resolved = resolveToolString(well.curves, state, registry.tools);
-  const availability = moduleAvailability(registry, well.curves, resolved, { disabled: interpretation.disabled });
+  // Mismas entradas que el motor: módulos desactivados y fuentes elegidas a mano (0032).
+  const availability = moduleAvailability(registry, well.curves, resolved, { disabled, sources });
   const ctx = { tools: registry.tools, roles: registry.roles, resolved };
   const view: ToolStringView = {
     resolved,
@@ -49,7 +57,7 @@ export function toolStringView(well: Well, interpretation: Interpretation): Tool
       return { availability: av, reason: av ? availabilityReason(av, ctx) : '' };
     },
   };
-  last = { curves: well.curves, state, disabled: interpretation.disabled, view };
+  last = { curves: well.curves, state, disabled, sources, view };
   return view;
 }
 

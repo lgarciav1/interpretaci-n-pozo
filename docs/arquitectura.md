@@ -317,13 +317,15 @@ Decisión: [`docs/decisiones/0032-sarta-de-perfilaje.md`](decisiones/0032-sarta-
   suyas con `tools` en el contrato; el registro las expone en `registry.tools`. El catálogo de pistas del visor agrupa
   las curvas medidas por herramienta. Fichas técnicas aparte (`toolSheets.ts`), vacías hasta la fase 11b.
 - **Estado** en `Interpretation.toolString` (opcional; ausente = modo datos sin nada apagado): modo `data` |
-  `planning`, apagadas, orden propio, sarta planificada. Recetas en `src/core/state/toolString.ts` (deshacer por
+  `planning`, apagadas de los datos, orden propio, sarta planificada y sus apagadas (`planOff`, aparte: planificar no
+  cambia la interpretación del modo datos). Recetas en `src/core/state/toolString.ts` (deshacer por
   `commit`); entra en snapshots y en su comparación; campo opcional validado al abrir, sin cambio de versión.
 - **Filtro, no edición**: `planGraph` saca de las candidatas las curvas de herramientas apagadas (o, en planificación,
   fuera de la sarta planificada); el visor, el catálogo de pistas y las figuras usan las mismas curvas visibles. Las
   pistas armadas y los datos no cambian. `sameEngineInputs` incluye la sarta.
-- **Disponibilidad** (`moduleAvailability`): clausura sobre el registro con la misma regla que la viabilidad del motor;
-  por módulo, estado (`available`, `needs-data`, `unavailable`, `disabled`), entradas que faltan, datos de la base de
+- **Disponibilidad** (`moduleAvailability`): clausura sobre el registro con las mismas reglas que el motor, incluidas
+  las fuentes elegidas a mano y los módulos desactivados (`tests/tool-string-engine.test.ts` lo verifica módulo por
+  módulo contra el motor); por módulo, estado (`available`, `needs-data`, `unavailable`, `disabled`), entradas que faltan, datos de la base de
   la cadena que faltan con las herramientas que los dan, y motivo en español. El panel de módulos lo muestra.
 - **Pendiente** (11c): la vista de la sarta (esquema 3D); hoy el control es la paleta de comandos (grupo «Sarta»).
 

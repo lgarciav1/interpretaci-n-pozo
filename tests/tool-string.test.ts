@@ -43,7 +43,7 @@ function demoProject(): Project {
   return addWell(createProject('Sarta'), demo.well, demo.zones);
 }
 const interpOf = (p: Project): Interpretation => getWellEntry(p, W).interpretation;
-const state = (partial: Partial<ToolStringState>): ToolStringState => ({ mode: 'data', off: [], order: [], plan: [], ...partial });
+const state = (partial: Partial<ToolStringState>): ToolStringState => ({ mode: 'data', off: [], order: [], plan: [], planOff: [], ...partial });
 const avail = (s: ToolStringState | undefined, curves = demo.well.curves, disabled: string[] = []) =>
   moduleAvailability(registry, curves, resolveToolString(curves, s, registry.tools), { disabled });
 const statusOf = (s: ToolStringState | undefined, id: string, curves = demo.well.curves) => avail(s, curves).modules.get(id)!;
@@ -200,19 +200,8 @@ describe('disponibilidad de módulos (clausura sobre el registro)', () => {
     expect(statusOf(state({}), 'sw-archie').status).toBe('available');
   });
 
-  it('coincide con el motor: lo que el motor calcula está disponible y lo que le falta una entrada no', () => {
-    const engine = new Engine(registry);
-    engine.setWell(toEngineWell(demo.well));
-    for (const s of [undefined, state({ off: ['gr'] }), state({ off: ['density', 'induction'] })]) {
-      const report = avail(s);
-      const run = engine.run({ ...emptyInterpretation(demo.zones), ...(s ? { toolString: s } : {}) });
-      for (const n of run.nodes) {
-        const st = report.modules.get(n.moduleId)!.status;
-        if (n.status === 'ok') expect([n.moduleId, st]).toEqual([n.moduleId, 'available']);
-        if (n.status === 'missing-input') expect([n.moduleId, st]).toEqual([n.moduleId, 'unavailable']);
-      }
-    }
-  }, 30_000);
+  // La comparación exhaustiva con el motor (todos los módulos, varias sartas, fuentes elegidas a mano) está en
+  // tests/tool-string-engine.test.ts.
 
   it('los módulos desactivados no cuentan como productores', () => {
     const r = avail(undefined, demo.well.curves, ['igr']);
@@ -240,6 +229,38 @@ describe('disponibilidad de módulos (clausura sobre el registro)', () => {
     expect(enabled).toContain('phi-density');
     expect(enabled).not.toContain('igr');
     expect(modulesEnabledBy(registry, demo.well.curves, undefined, 'gr')).toEqual(expect.arrayContaining(['igr', 'vsh', 'sw-archie']));
+    // en planificación mira la sarta planificada (sus apagadas son otras)
+    const plan = state({ mode: 'planning', plan: ['gr', 'density'], off: ['gr'] });
+    expect(modulesEnabledBy(registry, demo.well.curves, plan, 'gr')).toEqual(expect.arrayContaining(['igr', 'vsh']));
+  });
+
+  it('un módulo con herramienta propia entra en la sarta, el filtro y la disponibilidad sin tocar el núcleo', () => {
+    const dielectric = defineModule({
+      id: 'dielectric-sw',
+      name: 'Sw dieléctrica',
+      category: 'saturation',
+      workspace: 'petrophysics',
+      roles: [{ id: 'EPS', label: 'Permitividad', unit: 'unitless', family: 'other', origin: 'measured' }],
+      tools: [{ id: 'dielectric', name: 'Dieléctrica', short: 'DIE', family: 'other', description: 'Permitividad.', roles: ['EPS'], typicalOrder: 70 }],
+      inputs: { eps: input.curve('EPS') },
+      params: {},
+      outputs: { sw: output.curve('SW') },
+      compute: ({ n }) => ({ sw: new Float64Array(n) }),
+      docs: { summary: 's', equations: [], references: [] },
+    });
+    const r = createRegistry([...registry.modules, dielectric]);
+    const eps = { ...demo.well.curves.find((c) => c.id === 'GR')!, id: 'EPS1', mnemonic: 'EPS1', role: 'EPS', unit: 'unitless' as const };
+    const curves = [...demo.well.curves, eps];
+    expect(derivedToolIds(curves, r.tools)).toContain('dielectric');
+    const off = state({ off: ['dielectric'] });
+    expect([...excludedCurveIds(curves, off, r.tools)]).toEqual(['EPS1']);
+    const resolved = resolveToolString(curves, off, r.tools);
+    const av = moduleAvailability(r, curves, resolved).modules.get('dielectric-sw')!;
+    expect(av.status).toBe('unavailable');
+    expect(availabilityReason(av, { tools: r.tools, roles: r.roles, resolved })).toBe('Falta EPS (permitividad): prendé Dieléctrica en la sarta.');
+    expect(moduleAvailability(r, curves, resolveToolString(curves, undefined, r.tools)).modules.get('dielectric-sw')!.status).toBe('available');
+    const run = computeOnce(r, toEngineWell({ ...demo.well, curves }), { ...emptyInterpretation(demo.zones), compare: ['dielectric-sw'], toolString: off });
+    expect(run.nodes.find((n) => n.moduleId === 'dielectric-sw')?.status).toBe('missing-input');
   });
 });
 
@@ -312,7 +333,9 @@ describe('recetas de la sarta', () => {
 
   it('planificar desde los datos o desde cero, agregar, quitar, mover y volver al modo datos sin perder el plan', () => {
     const fromData = startPlanning(setToolOn(demoProject(), W, 'sp', false), W, 'data', registry.tools);
-    expect(toolStringOf(interpOf(fromData))).toEqual(state({ mode: 'planning', off: ['sp'], plan: ['gr', 'density', 'caliper', 'neutron', 'sonic', 'induction', 'sp'] }));
+    expect(toolStringOf(interpOf(fromData))).toEqual(
+      state({ mode: 'planning', off: ['sp'], plan: ['gr', 'density', 'caliper', 'neutron', 'sonic', 'induction', 'sp'], planOff: ['sp'] }),
+    );
     let p = startPlanning(demoProject(), W, 'empty', registry.tools);
     expect(toolStringOf(interpOf(p))).toEqual(state({ mode: 'planning' }));
     p = addPlannedTool(p, W, 'gr');
@@ -329,10 +352,31 @@ describe('recetas de la sarta', () => {
     expect('toolString' in interpOf(resetToolString(p, W))).toBe(false);
   });
 
-  it('agregar una herramienta apagada a la sarta planificada la prende', () => {
+  it('agregar una herramienta apagada a la sarta planificada la prende en el plan, no en los datos', () => {
     let p = startPlanning(setToolOn(demoProject(), W, 'gr', false), W, 'data', registry.tools);
     p = addPlannedTool(p, W, 'gr');
-    expect(toolStringOf(interpOf(p)).off).toEqual([]);
+    expect(toolStringOf(interpOf(p)).planOff).toEqual([]);
+    expect(toolStringOf(interpOf(p)).off).toEqual(['gr']);
+  });
+
+  it('planificar no contamina el modo datos al volver (lo que se apaga o agrega en el plan no cambia el cálculo)', () => {
+    // Datos: densidad apagada (p. ej. por datos malos). Se planifica de cero, se agrega densidad, se apaga el GR.
+    const p0 = setToolOn(demoProject(), W, 'density', false);
+    let p = startPlanning(p0, W, 'empty', registry.tools);
+    p = addPlannedTool(p, W, 'density');
+    p = addPlannedTool(p, W, 'gr');
+    p = setToolOn(p, W, 'gr', false);
+    const planned = resolveToolString(demo.well.curves, interpOf(p).toolString, registry.tools);
+    expect(planned.entries.map((e) => [e.tool.id, e.on])).toEqual([
+      ['density', true],
+      ['gr', false],
+    ]);
+    // Al volver, el cálculo ve exactamente lo mismo que antes de planificar.
+    const back = setToolStringMode(p, W, 'data');
+    const before = excludedCurveIds(demo.well.curves, interpOf(p0).toolString, registry.tools);
+    const after = excludedCurveIds(demo.well.curves, interpOf(back).toolString, registry.tools);
+    expect([...after].sort()).toEqual([...before].sort());
+    expect(toolStringOf(interpOf(back)).off).toEqual(['density']);
   });
 
   it('los snapshots guardan la sarta y la comparación la describe', () => {
@@ -344,6 +388,10 @@ describe('recetas de la sarta', () => {
       'Sarta: modo datos → planificación',
       'Se apaga Densidad en la sarta',
       'Rayos gamma se agrega a la sarta planificada',
+    ]);
+    const p3 = setToolOn(addPlannedTool(p2, W, 'gr'), W, 'gr', false);
+    expect(diffInterpretations(interpOf(addPlannedTool(p2, W, 'gr')), interpOf(p3), registry).map((d) => describeDiff(d, { registry }))).toEqual([
+      'Se apaga Rayos gamma en la sarta planificada',
     ]);
   });
 });
@@ -377,5 +425,7 @@ describe('guardar y abrir', () => {
     expect(sanitizeToolString({ mode: 'data', off: [] }, 'Pozo X', w)).toBeUndefined();
     // ids bien formados que la app no conoce se conservan (un módulo quitado y vuelto a agregar)
     expect(sanitizeToolString({ mode: 'planning', plan: ['dielectric'] }, 'Pozo X', w)).toEqual(state({ mode: 'planning', plan: ['dielectric'] }));
+    // las apagadas del plan se validan igual y sobreviven a guardar y abrir
+    expect(sanitizeToolString({ mode: 'planning', plan: ['gr'], planOff: ['gr', 7] }, 'Pozo X', w)).toEqual(state({ mode: 'planning', plan: ['gr'], planOff: ['gr'] }));
   });
 });

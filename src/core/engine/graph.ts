@@ -7,7 +7,8 @@ import { PORT_KIND_LABEL, portOf, type AnyModule } from '../module';
 import type { Registry } from '../registry';
 import type { RoleId } from '../roles';
 import { excludedCurveIds } from '../toolString';
-import { getUnit, type UnitId } from '../units';
+import type { UnitId } from '../units';
+import { validateExplicitSource } from './explicitSource';
 
 export interface Diagnostic {
   level: 'error' | 'warning' | 'info';
@@ -338,32 +339,6 @@ export function planGraph(registry: Registry, allCurves: readonly CurveMeta[], i
 /** true si el módulo `dep` alimenta a `node` solo a través de entradas opcionales. */
 export function feedsOnlyOptional(m: AnyModule, node: PlanNode, dep: string): boolean {
   return Object.entries(node.inputs).every(([key, src]) => !(src?.kind === 'module' && src.moduleId === dep) || !!m.inputs[key]?.optional);
-}
-
-function validateExplicitSource(
-  registry: Registry,
-  curvesById: Map<string, CurveMeta>,
-  disabled: Set<string>,
-  port: string,
-  ref: SourceRef,
-): string | null {
-  if (ref.kind === 'curve') {
-    if (!registry.roles.has(port)) return `El puerto ${port} no es una curva: no puede tener como fuente una curva medida.`;
-    const c = curvesById.get(ref.curveId);
-    if (!c) return `La curva '${ref.curveId}' elegida para ${port} no existe en el pozo.`;
-    // Con otro rol se admite, pero tiene que ser la misma magnitud (no se puede usar una densidad como Rt).
-    const expected = getUnit(registry.roles.unitOf(port));
-    const actual = c.unit !== undefined ? getUnit(c.unit) : undefined;
-    if (c.role !== port && expected && actual && actual.dimension !== expected.dimension) {
-      return `La curva '${c.mnemonic}' (${actual.label}) no puede ser ${port}: se esperaba una magnitud en ${expected.label}.`;
-    }
-    return null;
-  }
-  const m = registry.get(ref.moduleId);
-  if (!m) return `El módulo '${ref.moduleId}' elegido para ${port} no existe.`;
-  if (disabled.has(ref.moduleId)) return `El módulo '${m.name}' elegido para ${port} está desactivado.`;
-  if (!Object.values(m.outputs).some((s) => portOf(s) === port)) return `El módulo '${m.name}' no produce ${port}.`;
-  return null;
 }
 
 /** Busca un ciclo que pase por `start` dentro de `allowed`. Devuelve los nodos del ciclo en orden. */
