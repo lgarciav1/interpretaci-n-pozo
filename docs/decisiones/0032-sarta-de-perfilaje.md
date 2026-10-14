@@ -1,6 +1,6 @@
 # 0032 — Sarta de perfilaje: modelo, disponibilidad de módulos y filtro de curvas (fase 11a)
 
-- Estado: implementada (11a: núcleo y conexión mínima) y revisada (correcciones de la revisión independiente: fuentes
+- Estado: implementada (11a: núcleo y conexión mínima; la vista de la 11c está en 0033) y revisada (correcciones de la revisión independiente: fuentes
   elegidas a mano en la disponibilidad, apagadas del plan separadas, entradas «al menos una de»).
 - Alcance: catálogo de herramientas (`src/core/tools.ts`) y sus fichas (`src/core/toolSheets.ts`), modelo de la sarta
   (`src/core/toolString.ts`), recetas (`src/core/state/toolString.ts`), filtro en el motor (`planGraph`), visor,

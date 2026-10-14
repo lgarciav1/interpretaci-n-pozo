@@ -22,11 +22,16 @@ abrirla:
 
 - La **columna izquierda** pasa a ser la lista de la sarta (igual que el catálogo de «Armar pistas», 0016 D1: no le
   quita ancho al centro). Los dos modos se excluyen: abrir uno cierra el otro.
-- El **centro** muestra la vista 3D en lugar del visor, con la **ficha** como panel a la derecha de la vista cuando hay
-  una herramienta seleccionada (si el centro es angosto, la ficha se superpone a la vista).
-- El **inspector** (derecha) y el **dock** no cambian: al apagar la densidad se ve en vivo cómo las insignias de los
-  módulos pasan a «no disponible», que es la consecuencia que la vista quiere enseñar.
-- Escape, la X de la lista o el mismo botón vuelven al visor.
+- El **centro** (visor y dock) queda tapado por la vista 3D, con la **ficha** como panel a la derecha de la vista
+  cuando hay una herramienta seleccionada (si el centro mide menos de 760 px, la ficha se superpone a la vista). Visor y
+  dock **siguen montados** debajo (`inert`, `visibility: hidden`): al volver conservan la profundidad, el zoom y la
+  pestaña, y ya muestran las curvas con la sarta nueva.
+- El **inspector** (derecha) no cambia: al apagar la densidad se ve en vivo cómo las insignias de los módulos pasan a
+  «no disponible», que es la consecuencia que la vista quiere enseñar. La ficha y el pie de la lista lo repiten
+  («36 de 45 módulos disponibles»).
+- Escape cierra la ficha y, si no hay, la pantalla; también la X de la lista y «Volver al perfil».
+- Primera versión probada: el 3D solo en el lugar del visor, con el dock abajo. En una pantalla de 950 px de alto la
+  vista quedaba de ~470 px y la sarta era ilegible; se tapa también el dock.
 
 Descartado:
 - **Diálogo a pantalla completa**: tapa el inspector y el efecto de la sarta sobre los módulos deja de verse.
@@ -34,19 +39,24 @@ Descartado:
 - **Ficha en el inspector**: el inspector es colapsable y es justo donde se ven las insignias de disponibilidad.
 - **Lista y 3D juntos en la columna izquierda**: 292 px para una vista 3D es un sello postal.
 
-## D2. Escala: radios a escala real, largos comprimidos 10:1, regla radial
+## D2. Escala: radios a escala real, largos comprimidos 5:1, regla radial
 
 Una unidad de la escena = 1 cm **en dirección radial**: radios de herramientas, pozo, patines y profundidades de
-investigación están a escala real **entre sí**. En dirección axial, 1 m de herramienta = 10 cm de escena (compresión
-uniforme 10:1), así una sarta de 30 m mide lo mismo que el diámetro de la cáscara de la inducción profunda y la vista
-inicial muestra las dos cosas. La compresión es la misma para todas las herramientas: sus largos relativos son reales
-(la RMN de 16 m es seis veces la espectral de 2,6 m).
+investigación están a escala real **entre sí**. En dirección axial, 1 m de herramienta = 20 cm de escena (compresión
+uniforme 5:1): una sarta de 30 m mide 6 m de escena, algo más que el diámetro de la cáscara de la inducción profunda
+(~4,8 m en un pozo de 8,5 in), así la vista inicial muestra las dos cosas con proporciones de pozo. La compresión es la
+misma para todas las herramientas: sus largos relativos son reales (la RMN de 16 m es seis veces la espectral de
+2,6 m). Se probó 10:1 primero: la sarta del pozo de demostración quedaba como un disco ancho y bajo, con las cáscaras
+como platos; 5:1 se lee como un pozo.
 
 - La DOI se mide **desde la pared del pozo** (definición de `ToolSheet.investigation`, 0032): la cáscara de una curva
   tiene radio = radio del pozo + DOI. El pozo es el trépano del pozo cargado (mediana de BS; si no hay, del calibre;
   si no, 8,5 in marcado «esquemático»).
 - **Regla de escala radial** sobre la cara del corte (10 cm, 50 cm, 1 m, 2 m) y una leyenda fija: «Radios y
-  profundidades de investigación a escala real · largos comprimidos 10:1».
+  profundidades de investigación a escala real · largos comprimidos 5:1».
+- **Escala de piezas sin dato** (no son números de la ficha y no se presentan como tales): espesor del patín, ancho de
+  los flejes, cabeza de cable de 1,2 m, piezas chicas (electrodo del SP sin resistividad, calibre sin densidad,
+  temperatura) de 1 m.
 - Medidas faltantes en la ficha: largo genérico de 3 m y diámetro de 3,625 in, marcados **esquemático** en la ficha y
   en el rótulo; nunca se presentan como dato.
 
@@ -111,9 +121,15 @@ Descartado:
   no la tiene por curva, una con `investigation.typical`), del color de la curva en el visor (`curveStyle`), de la
   altura de la herramienta y visible en el cuarto recortado. El rango mínimo–máximo de la ficha es una **banda difusa**
   (degradé de opacidad que se apaga hacia los extremos). Sin dato de DOI (SP, temperatura), sin cáscara.
-- **Estados**: apagada = cuerpo gris translúcido y sin cáscaras; planificada sin datos en este pozo = contorno (cuerpo
-  casi transparente con aristas marcadas) y cáscaras más tenues; seleccionada = color de acento; bajo el puntero =
-  aclarada y con el nombre.
+- **Estados**: apagada = cuerpo gris translúcido y sin cáscaras (la formación no cambia de tamaño al apagar);
+  planificada sin datos en este pozo = contorno (cuerpo casi transparente con aristas punteadas) y cáscaras más
+  tenues; seleccionada = aristas continuas y un leve brillo del color de acento, **sin cambiar el color** (se sigue
+  leyendo la familia y si está apagada; la primera versión la pintaba de acento y una densidad seleccionada parecía
+  de resistividad); bajo el puntero = aclarada y con el nombre. Al seleccionar, rótulos con el nombre y la DOI de cada
+  cáscara («RT · 90 in»), que se corren para no superponerse; los de la regla que chocan se ocultan.
+- **Aproximado** en la vista: las cáscaras con DOI sin verificar tienen los bordes punteados.
+- **Simplificación aceptada**: las cáscaras de las herramientas de patín son cilíndricas completas aunque el patín lee
+  solo su lado del pozo (lo que se enseña es la profundidad radial).
 
 ## D6. Interacción y accesibilidad
 
@@ -124,7 +140,11 @@ Descartado:
   Clic en el vacío deselecciona.
 - **Lista** (fuente de verdad, accesible por teclado): cada fila es un botón que selecciona; interruptor prendida /
   apagada (`setToolOn`); arrastre por la manija con eventos de puntero (como 0016, sin drag and drop nativo) y
-  **Alt+↑/↓** para reordenar (`moveTool`); en planificación, **Supr** o el botón quitan y «Agregar herramienta» suma.
+  **Alt+↑/↓** para reordenar (`moveTool`); ↑/↓ recorren las filas; en planificación, **Supr** o el botón quitan y
+  «Agregar herramienta» suma.
+- **Centrar en la vista** (botón de la ficha): encuadra la herramienta con sus cáscaras desde el lado del corte. Si la
+  usuaria no movió la cámara, la vista inicial se reencuadra sola al cambiar el tamaño (abrir la ficha, la ventana) o
+  la sarta (agregar o quitar).
   Cada acción es un `commit` (Ctrl+Z la deshace) y se anuncia en una región `aria-live`.
 - **Modo** datos / planificación con un control segmentado: pasar a planificación con un plan vacío copia la sarta de
   los datos (`startPlanning(…, 'data')`); «Empezar de cero» la vacía.
@@ -143,11 +163,20 @@ Sin ecuaciones.
 regla y tintes de familia. Las cáscaras usan el color de la curva (`curveStyle`, 0004 D4). La escena se reconstruye al
 cambiar el tema (`useResolvedTheme`).
 
+## Medición
+
+- `dist/index.html`: 4.714.604 → 5.375.821 bytes (**+661 kB**, +14 %; comprimido con gzip, 2.259,9 → 2.430,5 kB: +171 kB). Casi todo es three
+  (el renderizador WebGL y sus shaders no se pueden descartar); el resto de la pantalla son ~25 kB. Abre con `file://`
+  sin internet.
+- Verificado en Chromium (Playwright, SwiftShader) sobre `dist/index.html` con el pozo de demostración, en claro y
+  oscuro: vista inicial, inducción con sus cinco cáscaras, ficha de la densidad, densidad apagada (36 de 45 módulos),
+  planificación con laterolog sin datos; sin WebGL (mensaje, la lista y la ficha andan), teclado (Alt+↓, Enter, Supr,
+  Escape), arrastre por la manija y deshacer. Sin errores de consola.
+
 ## Consecuencias
 
 - `TOOL_SHEETS` deja de estar vacía: `tests/tool-sheets.test.ts` compara cada número con el JSON de la investigación.
 - Los comandos de la paleta del grupo «Sarta» quedan como atajos; se suma «Abrir la sarta».
-- Crecimiento del HTML único: ver «Medición» al final.
 
 ## Abierto
 

@@ -87,7 +87,6 @@ export class ToolStringRenderer {
   private size = { w: 1, h: 1 };
   private down: { x: number; y: number } | null = null;
   private lastHover: string | null = null;
-  private textures: CanvasTexture[] = [];
   private disposed = false;
   /** La usuaria movió la cámara desde la última vista inicial (entonces no se reencuadra sola). */
   private userMoved = false;
@@ -264,7 +263,6 @@ export class ToolStringRenderer {
     this.controls.removeEventListener('start', this.onControlStart);
     this.controls.dispose();
     for (const [key, { object }] of [...this.objects]) this.remove(key, object);
-    for (const t of this.textures) t.dispose();
     this.renderer.dispose();
     this.renderer.forceContextLoss();
     canvas.remove();
@@ -293,7 +291,9 @@ export class ToolStringRenderer {
     this.renderer.domElement.style.height = '100%';
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
-    this.requestRender();
+    // Mientras la usuaria no mueva la cámara, la vista inicial se reencuadra con el tamaño (abrir la ficha, la ventana).
+    if (this.desc && !this.userMoved) this.resetView(false);
+    else this.requestRender();
   }
 
   private remove(key: string, object: Object3D): void {
@@ -416,7 +416,6 @@ export class ToolStringRenderer {
     tex.colorSpace = SRGBColorSpace;
     tex.wrapS = tex.wrapT = RepeatWrapping;
     tex.repeat.set(1, repeat);
-    this.textures.push(tex);
     return tex;
   }
 
@@ -706,8 +705,11 @@ function disposeObject(o: Object3D): void {
     const m = x as Mesh;
     if (m.geometry) m.geometry.dispose();
     const mat = (m as { material?: Material | Material[] }).material;
-    if (Array.isArray(mat)) mat.forEach((y) => y.dispose());
-    else mat?.dispose();
+    for (const y of Array.isArray(mat) ? mat : mat ? [mat] : []) {
+      // Las texturas no se liberan con el material (estratos de la formación).
+      (y as MeshStandardMaterial).map?.dispose();
+      y.dispose();
+    }
   });
 }
 

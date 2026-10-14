@@ -11,7 +11,7 @@ indicadores automáticos (0017), los modelos de Sw lado a lado, las fichas de zo
 módulo de RMN con su pista y su crossplot (0019, `0019-rmn.md`), capacidad de flujo, incertidumbre y lectura automática
 (0019, `0019-reservorio-e-incertidumbre.md`), el perfil radial de invasión (0020), los gráficos conectados al perfil
 con el Pickett interactivo (0021), el informe automático (0022), la calibración con corona (0023) y la sarta de
-perfilaje (0032).
+perfilaje (0032) con su configurador y vista 3D (0033).
 Este documento resume cómo encajan las piezas y cómo agregar un módulo.
 
 ## Ideas centrales
@@ -67,7 +67,7 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 | `src/app/` | arranque, worker (`engine.worker.ts`), puente con el motor, stores (`store/viewer.ts`: cursor y tramo visible), descubrimiento de superposiciones (`viewerOverlays.ts`), pantallas | sí |
 | `src/app/shell/` | armazón: barra superior, flujo guiado, inspector, dock (`dockPanels.tsx`: una entrada por panel), `ViewerSlot` (conecta stores con el visor: edición de zonas, modo marcar zona, encabezado, «Armar pistas»), `viewerOverlayList.ts` (superposiciones del visor de la app), `CurveEditor` (editor de escalas), diálogos | sí |
 | `src/app/tracks/` | «Armar pistas» (0016): panel con el catálogo (`TrackBuilder.tsx`), plantillas y diálogos (`Templates.tsx`), arrastre con eventos de puntero (`dnd.ts`) y acciones que traducen gestos a recetas con `commit` (`actions.ts`) | sí |
-| `src/app/toolString/` | sarta en la interfaz (0032): curvas visibles y disponibilidad del pozo activo con caché (`select.ts`), control temporal en la paleta de comandos (`commands.ts`) | sí |
+| `src/app/toolString/` | sarta en la interfaz (0032, 0033): curvas visibles y disponibilidad del pozo activo con caché (`select.ts`), lista de la columna izquierda (`ToolStringPanel.tsx`), vista 3D (`ToolStringView.tsx`) con la escena como descripción pura (`scene.ts`, sin three ni DOM, testeada) y su dibujo con three.js (`render3d.ts`), ficha (`ToolSheetCard.tsx`) y atajos en la paleta (`commands.ts`) | `scene.ts` no |
 | `src/app/flow/` | flujo guiado: definición de pasos y evaluación de estados (`flow.ts`, puro y testeado) | `flow.ts` no |
 | `src/ui/` | sistema de diseño: tokens, tema, paleta de curvas, componentes, `useCanvas`; contrato de panel. Guía en `src/ui/README.md`; muestra en `#ui` | sí |
 | `src/viewer/` | visor multipista: plantillas, resolución de pistas, viewport, ticks, reducción M4, rellenos, pilas (`stack.ts`), lectura, contrato de superposiciones (con elementos del teclado), gestos (`interaction.ts`), catálogo de herramientas y curvas para armar pistas (`catalog.ts`), dibujo en canvas (`*.ts`, puros o canvas) y los componentes `WellViewer.tsx`, `Minimap.tsx`, `WellHeader.tsx`, `layoutEdit.tsx` (modo «Armar pistas»: destinos y bordes de ancho). Guía en `src/viewer/README.md` | solo los `.tsx` |
@@ -320,14 +320,15 @@ mitad del binario sin comprimir.
 | Corrección de φ perfil → corona aplicada a la cadena (hoy la calibración es diagnóstica; 0023) | cuando se pida | Módulo alternativo de `PHIE` con la recta RMA por zona que escribe el panel «Calibración». |
 | Puesta en profundidad de la corona en pozos desviados (hoy en MD) | cuando haya un pozo desviado | Igual que los gradientes MDT: variable independiente TVD con la pista ubicada por MD. |
 
-## Sarta de perfilaje (fase 11a)
+## Sarta de perfilaje (fases 11a–11c)
 
 Decisión: [`docs/decisiones/0032-sarta-de-perfilaje.md`](decisiones/0032-sarta-de-perfilaje.md).
 
 - **Herramientas** (`src/core/tools.ts`): la única tabla rol medido → herramienta (`ToolDef`: roles que registra,
   familia, orden típico, prefijos de mnemónico para desempatar RT de inducción o de laterolog). Los módulos agregan las
   suyas con `tools` en el contrato; el registro las expone en `registry.tools`. El catálogo de pistas del visor agrupa
-  las curvas medidas por herramienta. Fichas técnicas aparte (`toolSheets.ts`), vacías hasta la fase 11b.
+  las curvas medidas por herramienta. Fichas técnicas aparte (`toolSheets.ts`), con los valores de la investigación de
+  la 11b (un test los compara con su JSON; los no verificados van marcados).
 - **Estado** en `Interpretation.toolString` (opcional; ausente = modo datos sin nada apagado): modo `data` |
   `planning`, apagadas de los datos, orden propio, sarta planificada y sus apagadas (`planOff`, aparte: planificar no
   cambia la interpretación del modo datos). Recetas en `src/core/state/toolString.ts` (deshacer por
@@ -339,7 +340,13 @@ Decisión: [`docs/decisiones/0032-sarta-de-perfilaje.md`](decisiones/0032-sarta-
   las fuentes elegidas a mano y los módulos desactivados (`tests/tool-string-engine.test.ts` lo verifica módulo por
   módulo contra el motor); por módulo, estado (`available`, `needs-data`, `unavailable`, `disabled`), entradas que faltan, datos de la base de
   la cadena que faltan con las herramientas que los dan, y motivo en español. El panel de módulos lo muestra.
-- **Pendiente** (11c): la vista de la sarta (esquema 3D); hoy el control es la paleta de comandos (grupo «Sarta»).
+- **Configurador y vista 3D** (fase 11c, [`0033`](decisiones/0033-vista-3d-de-la-sarta.md)): botón «Sarta» en la
+  barra del visor (o la paleta). La lista ocupa la columna izquierda (como «Armar pistas»; se excluyen) y es donde se
+  arma: modo, prender y apagar, reordenar (arrastre o Alt+↑/↓), agregar y quitar en planificación. La vista 3D tapa el
+  centro (visor y dock siguen montados debajo, inertes) y solo mira: pozo en corte, herramientas con su montaje y
+  cáscaras de profundidad de investigación por curva. Radios y DOI a escala real (1 unidad = 1 cm), largos comprimidos
+  5:1. `buildToolStringScene` (puro) → `ToolStringRenderer` (three.js, render a demanda, reutiliza mallas por clave,
+  libera todo al desmontar). Sin WebGL 2 la lista y la ficha siguen andando. Colores en `ThemeTokens.scene`.
 
 ## Petrofísica en módulos (fase 6a)
 
