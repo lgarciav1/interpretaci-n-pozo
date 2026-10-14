@@ -163,6 +163,64 @@ Sin ecuaciones.
 regla y tintes de familia. Las cáscaras usan el color de la curva (`curveStyle`, 0004 D4). La escena se reconstruye al
 cambiar el tema (`useResolvedTheme`).
 
+## D9. Pulido visual: ilustración técnica, no prototipo (11c, segunda pasada)
+
+La primera versión era correcta pero se leía como prototipo: la formación (un cilindro beige con rayas regulares)
+dominaba el cuadro y la sarta ocupaba ~15 %; las herramientas eran cilindros translúcidos de color con bordes
+punteados; luz plana; las cáscaras de inducción y laterolog se apilaban abajo en un abanico que tapaba todo. El
+objetivo es una **ilustración técnica pulida** (render de producto), no fotorrealismo, todo procedural y sin imágenes.
+
+- **Encuadre**: la vista inicial encuadra la **sarta** (de la cabeza a la última herramienta), no la caja de la
+  formación; la formación puede salir del cuadro a los costados. Cámara más baja (elevación ~15°) y de 3/4 (azimut
+  corrido del eje del corte) con un campo más cerrado (menos distorsión de perspectiva).
+- **Formación como corte de contexto**: sin la pared exterior del cilindro; quedan las dos caras del corte, la tapa y
+  la pared del pozo. Las caras y la tapa se **desvanecen** hacia el borde exterior y hacia abajo (la formación es
+  contexto, no protagonista) y sus colores se mezclan con el fondo del tema.
+- **Formación con datos reales**: en modo datos, el tramo de profundidad dibujado es el que muestra el visor (centrado
+  en él, del largo de la sarta a la misma compresión 5:1: las capas tienen su espesor real relativo a las
+  herramientas). El color sale de la **litología sugerida** del modelo de facies si el motor la calculó; si no, del
+  **GR** (índice de arcilla con P5–P95 del pozo, en cinco clases de arena a lutita), con la paleta de litología de la
+  app (`FILL_PALETTE`). Cada capa lleva una textura procedural de su litología (punteado en arenas, laminación en
+  lutitas, ladrillo en carbonatos). Contra la pared, en las capas permeables, **revoque** (borde oscuro) y **zona
+  invadida sugerida** (degradé del color del filtrado que se apaga hacia adentro, de largo esquemático proporcional a
+  la permeabilidad de la clase). Prender o apagar herramientas no cambia la roca: el color sale del pozo, no de la
+  sarta. En planificación o sin GR ni facies, una formación neutra con estratos suaves de los tokens.
+- **Herramientas de acero**: `MeshStandardMaterial` metálico con un ambiente generado en código (`RoomEnvironment` +
+  `PMREMGenerator`, sin imágenes); cuerpos torneados (chaflanes y collares en las uniones); el color de la familia
+  queda **solo como anillos identificadores** arriba y abajo de cada herramienta. Patines de polímero oscuro, brazos y
+  flejes de acero, cabeza con cuello de pesca. **Apagada**: gris mate opaco (sin reflejos), anillos grises.
+  **Planificada sin datos**: contorno de vidrio (borde fresnel del color de contorno, centro casi transparente) y
+  anillos punteados: se distingue de prendida y de apagada desde cualquier ángulo. **Seleccionada**: aro de luz del
+  color de acento alrededor de la silueta (fresnel), sin cambiar el color.
+- **Luz**: luz principal con sombras suaves (PCF con radio; mapa de sombras que se recalcula solo cuando cambia la
+  escena, no al mover la cámara) más relleno del ambiente; `ACESFilmicToneMapping`, salida sRGB, antialias. Render a
+  demanda como antes.
+- **Cáscaras de vidrio**: material propio (fresnel): el borde de la cáscara más marcado que el centro, sin tapas
+  macizas (solo el contorno de arriba y de abajo y las trazas sobre las caras del corte). Jerarquía: sin selección,
+  todas sutiles; con selección, las de la herramienta elegida fuertes y las demás casi transparentes.
+
+### Tres decisiones de la revisión (recomendadas por la orquestación, aceptadas por la usuaria)
+
+- **(a) Referencia de la profundidad de investigación por ficha**: `ToolSheet.investigationFrom: 'wall' | 'axis'`
+  (por defecto `'wall'`). La inducción de arreglo se especifica **desde el eje** (las curvas de 10 a 90 in son radios
+  de investigación medidos desde el centro del pozo): su cáscara tiene radio = DOI y no radio del pozo + DOI. El dibujo,
+  la leyenda («desde el eje») y la ficha respetan la referencia; la regla sigue midiendo desde la pared, que es una
+  distancia física sin ambigüedad. Si un pozo es tan ancho que una DOI desde el eje cae dentro del pozo, la cáscara se
+  apoya en la pared. Resuelve el punto «Abierto» de la primera versión.
+- **(b) Cáscaras de curvas que el pozo no tiene**: se atenúan (más tenues, contorno punteado, rótulo «no está»), igual
+  que el «no está» de la ficha. Ejemplo: la inducción del pozo de demostración no tiene AT20.
+- **(c) Elegir en la lista no mueve la cámara**: seleccionar una herramienta (en la lista o en la vista) solo la
+  resalta y abre la ficha; encuadrarla es una acción explícita con «Centrar en la vista». Una cámara que salta sola al
+  recorrer la lista con ↑/↓ marea y hace perder el contexto.
+
+Descartado:
+- **Posprocesado (SSAO, bloom, contornos en pantalla)**: más código de three (`EffectComposer` y pasadas), más
+  memoria de video y más costo por cuadro en una GPU integrada; las sombras y el fresnel dan la profundidad suficiente.
+- **Texturas de imagen (roca, metal cepillado)**: harían crecer el HTML y no responden a los datos del pozo.
+- **Formación coloreada por zonas**: las zonas A–E son unidades de interpretación, no litología; el GR y las facies
+  dicen qué roca es.
+- **Profundidad de la formación fija (mitad del pozo)**: desconectada de lo que la usuaria estaba mirando en el visor.
+
 ## Medición
 
 - `dist/index.html`: 4.714.604 → 5.375.821 bytes (**+661 kB**, +14 %; comprimido con gzip, 2.259,9 → 2.430,5 kB: +171 kB). Casi todo es three
