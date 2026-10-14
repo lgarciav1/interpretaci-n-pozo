@@ -11,7 +11,7 @@ const HEX = /^#[0-9a-f]{6}$/i;
 
 describe('tokens', () => {
   it('claro y oscuro definen exactamente las mismas claves', () => {
-    const keys = (t: (typeof THEMES)['light']) => ({ color: Object.keys(t.color).sort(), shadow: Object.keys(t.shadow).sort(), viewer: Object.keys(t.viewer).sort() });
+    const keys = (t: (typeof THEMES)['light']) => ({ color: Object.keys(t.color).sort(), shadow: Object.keys(t.shadow).sort(), viewer: Object.keys(t.viewer).sort(), scene: Object.keys(t.scene).sort() });
     expect(keys(THEMES.dark)).toEqual(keys(THEMES.light));
   });
 
