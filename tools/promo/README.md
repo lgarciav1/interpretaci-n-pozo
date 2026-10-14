@@ -1,6 +1,6 @@
 # Video promocional
 
-Fuentes del video `docs/promo/promo-interpretacion-de-pozo.mp4` (1920×1080, 60 fps, 80 s, con música original).
+Fuentes del video `docs/promo/promo-fiubalog.mp4` (1920×1080, 60 fps, 80 s, con música original).
 Todo se genera desde este repositorio: capturas reales de la app, las curvas del pozo del TP y una banda sonora
 sintetizada. No usa material de terceros.
 
@@ -28,7 +28,7 @@ llamar `render(t)` desde la consola (t en segundos).
 |---|---|
 | 0–7,5 s | Apertura: el pozo desciende, «Bajo la superficie, cada metro cuenta una historia.» |
 | 7,5–15 s | GR, resistividad, densidad–neutrón y sónico del pozo del TP se dibujan en profundidad. |
-| 15–20 s | Marca y título. |
+| 15–20 s | Marca y título: FiubaLog. |
 | 20–27,5 s | La app completa en pantalla; once pasos guiados. |
 | 27,5–32,5 s | Visor multipista. |
 | 32,5–37,5 s | Presiones MDT: gradientes, densidad de fluido y contactos (ejemplo sintético de la app). |

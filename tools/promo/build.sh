@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Genera docs/promo/promo-interpretacion-de-pozo.mp4 de punta a punta.
+# Genera docs/promo/promo-fiubalog.mp4 de punta a punta.
 # Requiere: npm ci, Python 3 con numpy y Pillow, ffmpeg, Playwright con Chromium.
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -22,5 +22,5 @@ ffmpeg -y -hide_banner -loglevel error -f concat -safe 0 -i seg/list.txt -i musi
 ffmpeg -y -hide_banner -loglevel error -i seg/master.mp4 -c:v libx264 -preset slow -b:v 4300k -pass 1 -passlogfile seg/p -an -f null /dev/null
 ffmpeg -y -hide_banner -loglevel error -i seg/master.mp4 -c:v libx264 -preset slow -b:v 4300k -maxrate 9000k -bufsize 12000k \
   -pass 2 -passlogfile seg/p -tune film -pix_fmt yuv420p -colorspace bt709 -color_primaries bt709 -color_trc bt709 \
-  -c:a aac -b:a 192k -movflags +faststart "$ROOT/docs/promo/promo-interpretacion-de-pozo.mp4"
-echo "Listo: docs/promo/promo-interpretacion-de-pozo.mp4"
+  -c:a aac -b:a 192k -movflags +faststart "$ROOT/docs/promo/promo-fiubalog.mp4"
+echo "Listo: docs/promo/promo-fiubalog.mp4"
