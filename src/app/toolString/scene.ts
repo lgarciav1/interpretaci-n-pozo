@@ -14,9 +14,12 @@ import { sameDimension, convert, type UnitId } from '../../core/units';
 import type { RoleId } from '../../core/roles';
 import type { ToolStringEntry } from '../../core/toolString';
 import { sheetOf, type ToolDef, type ToolFamily } from '../../core/tools';
-import type { SheetQuantity, ToolMounting, ToolSheet } from '../../core/toolSheets';
+import { investigationReference, type InvestigationReference, type SheetQuantity, type ToolMounting, type ToolSheet } from '../../core/toolSheets';
+import { mix } from '../../ui/color';
+import { fillColor } from '../../ui/curves';
 import { formatNumber } from '../../ui/format';
 import type { SceneColors } from '../../ui/tokens';
+import { clipLayers, depthWindow, type FormationColumn, type FormationSource, type LithPattern } from './formation';
 
 // ---------------------------------------------------------------------------------------------------------------
 // Constantes de escala y medidas esquemáticas
@@ -40,7 +43,13 @@ export const JOINT_GAP = 2;
 /** Lado al que se apoyan las herramientas excentralizadas y los patines (de perfil para la cámara inicial). */
 export const LEAN_AZIMUTH = (3 * Math.PI) / 4;
 /** Cuarto recortado de la formación: [inicio, largo] en θ. */
+// La cámara inicial mira al corte de 3/4 (azimut `VIEW_AZIMUTH`, elevación `VIEW_ELEVATION_DEG`): la cara en θ = 0
+// queda casi de frente (ahí van la regla y se leen las capas) y la de θ = π/2 en escorzo.
 export const CUT_WEDGE: readonly [number, number] = [0, Math.PI / 2];
+export const VIEW_AZIMUTH = Math.PI / 4 + 0.3;
+export const VIEW_ELEVATION_DEG = 13;
+/** Largo esquemático de la zona invadida en la capa más permeable, desde la pared (cm): una sugerencia, no un dato. */
+export const INVASION_CM = 30;
 /** Herramientas que son una pieza chica sin cuerpo propio en la sarta real. */
 const SUB_TOOLS: ReadonlySet<string> = new Set(['sp', 'caliper', 'temperature']);
 /** Herramientas de resistividad sobre las que va el electrodo del SP (en este orden de preferencia: la primera de la sarta). */
@@ -58,14 +67,18 @@ export type Vec3 = readonly [number, number, number];
 /** Qué se selecciona al tocar la pieza: una herramienta, o una pieza fija que solo dice qué es. */
 export type Pick = { toolId: string } | { fixed: string };
 /**
- * Aspecto de un cuerpo: `metal` (piezas fijas), `on`, `off` (gris translúcido), `ghost` (planificada sin datos: casi
- * transparente con aristas punteadas). La selección suma aristas del color de acento (`edge`) sin cambiar el color.
+ * Aspecto de un cuerpo: `metal` (piezas fijas), `on` (acero con anillos del color de la familia), `off` (gris mate),
+ * `ghost` (planificada sin datos: contorno de vidrio). La selección suma un aro del color de acento (`edge`) sin cambiar
+ * el color.
  */
 export type BodyLook = 'metal' | 'on' | 'off' | 'ghost';
 export type Emphasis = 'none' | 'hover' | 'selected';
 
 export interface Style {
+  /** Color que identifica la pieza: la familia en los anillos de una herramienta prendida, el gris de apagada… */
   color: string;
+  /** Color del cuerpo cuando no es `color` (el acero de una herramienta prendida). */
+  base?: string;
   opacity: number;
   look: BodyLook;
   emphasis: Emphasis;
@@ -80,26 +93,45 @@ interface Base {
 }
 
 export type ScenePrimitive =
-  | (Base & { kind: 'cylinder'; center: readonly [number, number]; y0: number; y1: number; radius: number; style: Style })
+  | (Base & {
+      kind: 'cylinder';
+      center: readonly [number, number];
+      y0: number;
+      y1: number;
+      radius: number;
+      style: Style;
+      /** Detalle del torneado: herramienta (chaflanes, collares y anillos identificadores) o cabeza (cuello de pesca). */
+      detail?: 'tool' | 'head';
+    })
   | (Base & { kind: 'pad'; azimuth: number; halfAngle: number; rInner: number; rOuter: number; y0: number; y1: number; style: Style })
   | (Base & { kind: 'rod'; from: Vec3; to: Vec3; radius: number; style: Style })
   | (Base & { kind: 'bow'; center: readonly [number, number]; azimuth: number; rIn: number; rOut: number; y0: number; y1: number; radius: number; style: Style })
   | (Base & { kind: 'ring'; center: readonly [number, number]; y: number; radius: number; height: number; style: Style });
+
+/** Jerarquía de las cáscaras: las de la herramienta elegida fuertes, las demás casi transparentes; sin selección, sutiles. */
+export type ShellEmphasis = 'strong' | 'normal' | 'faint';
 
 /** Cáscara de profundidad de investigación de una curva: losa en el cuarto recortado, de la pared hasta `radius`. */
 export interface ShellPrimitive {
   key: string;
   toolId: string;
   role: RoleId | null;
-  /** Profundidad de investigación desde la pared (cm) y el radio resultante desde el eje (cm). */
+  /** Profundidad de investigación de la ficha (cm), medida desde `from`, y el radio resultante desde el eje (cm). */
   doiCm: number;
+  from: InvestigationReference;
   radius: number;
   rWall: number;
   y0: number;
   y1: number;
   color: string;
+  emphasis: ShellEmphasis;
+  /** Opacidad del centro de la cáscara, de su borde (fresnel) y de su contorno. */
   opacity: number;
+  rim: number;
+  line: number;
   unverified: boolean;
+  /** El pozo tiene la curva (false: atenuada y punteada, como el «no está» de la ficha). */
+  present: boolean;
 }
 
 /** Rango mínimo–máximo de la ficha como banda difusa: opacidad máxima en `rPeak`, cero en `rMin` y `rMax`. */
@@ -115,13 +147,33 @@ export interface BandPrimitive {
   opacity: number;
 }
 
+/** Capa de la formación en el tramo dibujado (y de escena, arriba → abajo). */
+export interface StratumDesc {
+  y0: number;
+  y1: number;
+  color: string;
+  pattern: LithPattern;
+  /** Permeabilidad sugerida 0–1: revoque y zona invadida contra la pared. */
+  perm: number;
+}
+
 export interface EnvironmentDesc {
   rWall: number;
   rOuter: number;
+  /** Radio desde el que la formación se desvanece hacia el fondo (contexto, no protagonista). */
+  rFade: number;
   y0: number;
   y1: number;
   wedge: readonly [number, number];
-  colors: Pick2<SceneColors, 'formation' | 'formationAlt' | 'formationCut' | 'wall' | 'mud'>;
+  colors: Pick2<SceneColors, 'bg' | 'formation' | 'formationAlt' | 'formationCut' | 'wall' | 'mud' | 'mudcake' | 'filtrate'>;
+  /** Capas de arriba a abajo que cubren [y0, y1]. */
+  strata: StratumDesc[];
+  /** De dónde salen los colores: litología sugerida, GR, o neutra (planificación o sin datos). */
+  source: FormationSource | 'neutral';
+  /** Tramo del pozo dibujado (m), con datos. */
+  depth?: { top: number; base: number };
+  /** Largo esquemático de la zona invadida en la capa más permeable, desde la pared (cm). */
+  invasionCm: number;
   /** Cable desde la cabeza hasta arriba de la formación. */
   cable: { from: Vec3; to: Vec3; radius: number; color: string };
 }
@@ -133,10 +185,12 @@ export interface SceneLabel {
   position: Vec3;
   kind: 'tick' | 'shell' | 'tool';
   color?: string;
+  /** Atenuado (cáscara de una curva que el pozo no tiene). */
+  muted?: boolean;
 }
 
 export interface RulerDesc {
-  /** Desde la pared (0) hacia afuera, sobre el borde superior de la cara del corte en θ = π/2 (+x). */
+  /** Desde la pared (0) hacia afuera, sobre el borde superior de la cara del corte en θ = 0 (+z), la que mira de frente. */
   y: number;
   rWall: number;
   rEnd: number;
@@ -169,8 +223,10 @@ export interface ToolStringScene {
   ruler: RulerDesc;
   labels: SceneLabel[];
   tools: ToolLayout[];
-  /** Caja que encierra todo (para la vista inicial). */
+  /** Caja que encierra todo (formación incluida). */
   bounds: { min: Vec3; max: Vec3 };
+  /** Caja de la sarta, de la cabeza a la última herramienta (la vista inicial la encuadra). */
+  focus: { min: Vec3; max: Vec3 };
   boreholeDiameterIn: number;
   boreholeSchematic: boolean;
 }
@@ -189,6 +245,13 @@ export interface SceneInput {
   curveColor: (role: RoleId) => string;
   /** Ficha de una herramienta (por defecto `sheetOf`). */
   sheet?: (tool: ToolDef) => ToolSheet;
+  /** Tema (paleta de litología); claro por defecto. */
+  theme?: 'light' | 'dark';
+  /**
+   * Columna litológica del pozo y la profundidad en la que se centra el tramo dibujado (la del visor). Sin columna, o
+   * en planificación, la formación es neutra.
+   */
+  formation?: { column: FormationColumn; center: number } | null;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -259,9 +322,17 @@ export function shellSpecs(tool: ToolDef, sheet: ToolSheet): { role: RoleId | nu
 
 const PAD_THICKNESS = 1.4;
 const PAD_HALF_ANGLE = (26 * Math.PI) / 180;
-const SHELL_OPACITY = 0.2;
-const GHOST_SHELL_FACTOR = 0.55;
-const BAND_OPACITY = 0.22;
+/** Opacidades de las cáscaras por jerarquía: centro, borde (fresnel) y contorno. */
+export const SHELL_LOOK: Readonly<Record<ShellEmphasis, { opacity: number; rim: number; line: number; band: number }>> = {
+  strong: { opacity: 0.06, rim: 0.5, line: 0.95, band: 0.2 },
+  normal: { opacity: 0.03, rim: 0.2, line: 0.42, band: 0.08 },
+  faint: { opacity: 0, rim: 0.06, line: 0.13, band: 0.025 },
+};
+/** Factor de las cáscaras de una herramienta planificada sin datos y de una curva que el pozo no tiene. */
+const GHOST_SHELL_FACTOR = 0.6;
+const ABSENT_SHELL_FACTOR = 0.4;
+/** Mezcla de los colores de litología con el fondo: la formación es contexto. */
+const FORMATION_DIM: Record<'light' | 'dark', number> = { light: 0.24, dark: 0.3 };
 
 export function buildToolStringScene(input: SceneInput): ToolStringScene {
   const { colors } = input;
@@ -282,16 +353,16 @@ export function buildToolStringScene(input: SceneInput): ToolStringScene {
     const emphasis = emphasisOf(e.tool.id);
     // La selección no cambia el color (se sigue leyendo la familia y si está apagada): suma aristas de acento.
     const color = look === 'off' ? colors.off : base;
-    const opacity = look === 'off' ? 0.38 : look === 'ghost' ? 0.16 : 1;
+    const opacity = look === 'ghost' ? 0.12 : 1;
     const edge = emphasis === 'selected' ? input.accent : look === 'ghost' ? colors.outline : undefined;
-    return { color, opacity, look, emphasis, ...(edge ? { edge } : {}) };
+    return { color, opacity, look, emphasis, ...(look === 'on' ? { base: colors.toolBody } : {}), ...(edge ? { edge } : {}) };
   };
   const metal = (color: string): Style => ({ color, opacity: 1, look: 'metal', emphasis: 'none' });
 
   // Cabeza de cable (fija).
   const headLen = HEAD_LENGTH_M * AXIAL_SCENE_PER_M;
   const headR = Math.min((GENERIC_DIAMETER_IN * CM_PER_IN) / 2, rWall * 0.85);
-  primitives.push({ kind: 'cylinder', key: 'head', pick: { fixed: 'Cabeza de cable y telemetría' }, center: [0, 0], y0: -headLen, y1: 0, radius: headR, style: metal(colors.steel) });
+  primitives.push({ kind: 'cylinder', key: 'head', pick: { fixed: 'Cabeza de cable y telemetría' }, center: [0, 0], y0: -headLen, y1: 0, radius: headR, style: metal(colors.steel), detail: 'head' });
   primitives.push({ kind: 'cylinder', key: 'head-neck', pick: { fixed: 'Cabeza de cable y telemetría' }, center: [0, 0], y0: 0, y1: 3, radius: headR * 0.55, style: metal(colors.steelDark) });
   let cursor = -headLen - JOINT_GAP;
   let prevCenter: [number, number] = [0, 0];
@@ -325,7 +396,7 @@ export function buildToolStringScene(input: SceneInput): ToolStringScene {
 
     // Unión con la pieza de arriba.
     primitives.push({ kind: 'rod', key: `joint:${tool.id}`, from: [prevCenter[0], prevBottom, prevCenter[1]], to: [center[0], y1, center[1]], radius: Math.min(radius, headR) * 0.45, style: metal(colors.steelDark) });
-    primitives.push({ kind: 'cylinder', key: `body:${tool.id}`, pick, center, y0, y1, radius, style });
+    primitives.push({ kind: 'cylinder', key: `body:${tool.id}`, pick, center, y0, y1, radius, style, detail: 'tool' });
 
     if (mounting === 'pad') addPad(tool.id, center, radius, y0, y1, e, 'arm');
     if (mounting === 'centralized') {
@@ -350,7 +421,7 @@ export function buildToolStringScene(input: SceneInput): ToolStringScene {
     }
 
     // Profundidad de investigación (las apagadas no miden: sin cáscaras).
-    if (e.on) addShells(tool, sheet, y0, y1, lookOf(e) === 'ghost');
+    if (e.on) addShells(e, sheet, y0, y1, lookOf(e) === 'ghost');
 
     layouts.push({ toolId: tool.id, y0, y1, center, radius, lengthM, diameterIn, schematicLength: lenM === undefined, schematicDiameter: diaIn === undefined, mounting });
     prevCenter = center;
@@ -383,14 +454,17 @@ export function buildToolStringScene(input: SceneInput): ToolStringScene {
   const environment: EnvironmentDesc = {
     rWall,
     rOuter,
+    rFade: rWall + (rOuter - rWall) * 0.5,
     y0: formBottom,
     y1: formTop,
     wedge: CUT_WEDGE,
-    colors: { formation: colors.formation, formationAlt: colors.formationAlt, formationCut: colors.formationCut, wall: colors.wall, mud: colors.mud },
+    colors: { bg: colors.bg, formation: colors.formation, formationAlt: colors.formationAlt, formationCut: colors.formationCut, wall: colors.wall, mud: colors.mud, mudcake: colors.mudcake, filtrate: colors.filtrate },
+    ...strata(formBottom, formTop),
+    invasionCm: INVASION_CM,
     cable: { from: [0, 3, 0], to: [0, formTop + 70, 0], radius: 0.65, color: colors.cable },
   };
 
-  // Regla radial desde la pared, sobre el borde superior de la cara del corte en +x.
+  // Regla radial desde la pared, sobre el borde superior de la cara del corte en +z (la que mira de frente).
   const ruler: RulerDesc = { y: formTop + 0.6, rWall, rEnd: rOuter, ticks: [], color: colors.ruler };
   for (const [cm, label] of [
     [0, 'pared'],
@@ -403,7 +477,7 @@ export function buildToolStringScene(input: SceneInput): ToolStringScene {
     ruler.ticks.push({ r: rWall + cm, label });
   }
   // Rótulos de la regla: las medidas primero (si chocan en pantalla, el último se oculta: «pared»).
-  for (const t of [...ruler.ticks.slice(1), ruler.ticks[0]!]) labels.push({ key: `tick:${t.label}`, text: t.label, position: [t.r, ruler.y, 0], kind: 'tick' });
+  for (const t of [...ruler.ticks.slice(1), ruler.ticks[0]!]) labels.push({ key: `tick:${t.label}`, text: t.label, position: [0, ruler.y, t.r], kind: 'tick' });
 
   // Rótulo de la seleccionada y de sus cáscaras.
   const sel = input.selectedId ? layouts.find((l) => l.toolId === input.selectedId) : undefined;
@@ -415,16 +489,59 @@ export function buildToolStringScene(input: SceneInput): ToolStringScene {
       const [x, z] = dir(Math.PI / 4);
       labels.push({
         key: `shell:${s.key}`,
-        text: `${s.role ?? t.short} · ${formatNumber(s.doiCm / CM_PER_IN, { significant: 3, grouping: false })} in`,
+        text: `${s.role ?? t.short} · ${formatNumber(s.doiCm / CM_PER_IN, { significant: 3, grouping: false })} in${s.present ? '' : ' · no está'}`,
         position: [x * s.radius, s.y1, z * s.radius],
         kind: 'shell',
         color: s.color,
+        ...(s.present ? {} : { muted: true }),
       });
     }
   }
 
   const bounds = { min: [-rOuter, formBottom, -rOuter] as Vec3, max: [rOuter, formTop, rOuter] as Vec3 };
-  return { primitives, shells, bands, environment, ruler, labels, tools: layouts, bounds, boreholeDiameterIn: input.borehole.diameterIn, boreholeSchematic: input.borehole.schematic };
+  // Arriba entran la cabeza, la tapa de la formación y la regla (con sus rótulos).
+  const focusR = rWall + 6;
+  const focus = { min: [-focusR, bottom - 4, -focusR] as Vec3, max: [focusR, formTop + 14, focusR] as Vec3 };
+  return { primitives, shells, bands, environment, ruler, labels, tools: layouts, bounds, focus, boreholeDiameterIn: input.borehole.diameterIn, boreholeSchematic: input.borehole.schematic };
+
+  // -------------------------------------------------------------------------------------------------------------
+
+  /** Capas de la formación en [y0, y1]: del pozo (modo datos con columna) o neutras. */
+  function strata(y0: number, y1: number): Pick2<EnvironmentDesc, 'strata' | 'source' | 'depth'> {
+    const theme = input.theme ?? 'light';
+    const lengthM = (y1 - y0) / AXIAL_SCENE_PER_M;
+    const f = input.formation;
+    if (f && input.mode === 'data' && f.column.layers.length) {
+      const w = depthWindow(f.column, f.center, lengthM);
+      const yOf = (d: number) => y1 - (d - w.top) * AXIAL_SCENE_PER_M;
+      const dim = FORMATION_DIM[theme];
+      const layers = clipLayers(f.column, w.top, w.base);
+      const out: StratumDesc[] = layers.map((l) => {
+        const a = fillColor(l.a, theme).color;
+        const c = l.b ? mix(a, fillColor(l.b, theme).color, l.t) : a;
+        return { y0: yOf(l.base), y1: yOf(l.top), color: mix(c, colors.bg, dim), pattern: l.pattern, perm: l.perm };
+      });
+      // La columna puede ser más corta que el tramo: lo que falta abajo, con la última capa.
+      const last = out[out.length - 1];
+      if (last && last.y0 > y0) last.y0 = y0;
+      if (out[0] && out[0].y1 < y1) out[0].y1 = y1;
+      return { strata: out, source: f.column.source, depth: { top: w.top, base: Math.min(w.base, f.column.base) } };
+    }
+    // Neutra: estratos suaves de espesor irregular (semilla fija), sin litología ni permeabilidad.
+    let seed = 11;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+    const out: StratumDesc[] = [];
+    let y = y1;
+    let i = 0;
+    while (y > y0) {
+      const h = 14 + rnd() * 46;
+      const color = i % 2 ? colors.formationAlt : mix(colors.formation, colors.formationAlt, rnd() * 0.4);
+      out.push({ y0: Math.max(y0, y - h), y1: y, color, pattern: 'plain', perm: 0 });
+      y -= h;
+      i++;
+    }
+    return { strata: out, source: 'neutral' };
+  }
 
   // -------------------------------------------------------------------------------------------------------------
 
@@ -433,7 +550,8 @@ export function buildToolStringScene(input: SceneInput): ToolStringScene {
     return input.entries.flatMap((e) => {
       const sh = sheetFor(e.tool);
       const max = quantityIn(sh.investigation, 'max', 'in');
-      return [...shellSpecs(e.tool, sh).map((s) => s.doiIn), ...(max ? [max] : [])].map((d) => rWall + d * CM_PER_IN);
+      const axis = investigationReference(sh) === 'axis';
+      return [...shellSpecs(e.tool, sh).map((s) => s.doiIn), ...(max ? [max] : [])].map((d) => (axis ? Math.max(d * CM_PER_IN, rWall) : rWall + d * CM_PER_IN));
     });
   }
 
@@ -488,27 +606,39 @@ export function buildToolStringScene(input: SceneInput): ToolStringScene {
     });
   }
 
-  function addShells(tool: ToolDef, sheet: ToolSheet, y0: number, y1: number, ghost: boolean): void {
+  function addShells(e: ToolStringEntry, sheet: ToolSheet, y0: number, y1: number, ghost: boolean): void {
+    const tool = e.tool;
     const specs = shellSpecs(tool, sheet);
     const unverified = !!sheet.unverified?.some((k) => k === 'investigation' || k === 'investigationByRole');
     const inset = Math.min(1.2, (y1 - y0) * 0.05);
     const k = ghost ? GHOST_SHELL_FACTOR : 1;
     const fallback = tool.roles[0];
+    const from = investigationReference(sheet);
+    const emphasis: ShellEmphasis = !input.selectedId ? 'normal' : input.selectedId === tool.id ? 'strong' : 'faint';
+    const look = SHELL_LOOK[emphasis];
     for (const s of specs) {
       const role = s.role ?? fallback ?? null;
       const doiCm = s.doiIn * CM_PER_IN;
+      // En planificación sin datos no hay curvas que puedan faltar: la cáscara ya es tenue por `ghost`.
+      const present = ghost || (s.role ? e.roles.includes(s.role) : e.hasData);
+      const kk = k * (present ? 1 : ABSENT_SHELL_FACTOR);
       shells.push({
         key: `shell:${tool.id}:${s.role ?? 'tool'}`,
         toolId: tool.id,
         role: s.role,
         doiCm,
-        radius: rWall + doiCm,
+        from,
+        radius: radiusOf(doiCm, from),
         rWall,
         y0: y0 + inset,
         y1: y1 - inset,
         color: role ? input.curveColor(role) : colors.outline,
-        opacity: SHELL_OPACITY * k,
+        emphasis,
+        opacity: look.opacity * kk,
+        rim: look.rim * kk,
+        line: look.line * kk,
         unverified,
+        present,
       });
     }
     // Banda difusa del rango de la ficha, si va más allá de las cáscaras dibujadas.
@@ -524,14 +654,19 @@ export function buildToolStringScene(input: SceneInput): ToolStringScene {
     bands.push({
       key: `band:${tool.id}`,
       toolId: tool.id,
-      rMin: rWall + (min ?? typ) * CM_PER_IN,
-      rPeak: rWall + typ * CM_PER_IN,
-      rMax: rWall + (max ?? typ) * CM_PER_IN,
+      rMin: radiusOf((min ?? typ) * CM_PER_IN, from),
+      rPeak: radiusOf(typ * CM_PER_IN, from),
+      rMax: radiusOf((max ?? typ) * CM_PER_IN, from),
       y0: y0 + inset,
       y1: y1 - inset,
       color: peakRole ? input.curveColor(peakRole) : colors.outline,
-      opacity: BAND_OPACITY * k,
+      opacity: look.band * k,
     });
+  }
+
+  /** Radio desde el eje de una profundidad de investigación medida desde la pared o desde el eje (nunca dentro del pozo). */
+  function radiusOf(doiCm: number, from: InvestigationReference): number {
+    return from === 'axis' ? Math.max(doiCm, rWall + 0.5) : rWall + doiCm;
   }
 }
 
@@ -543,21 +678,24 @@ export function bandAlpha(b: Pick2<BandPrimitive, 'rMin' | 'rPeak' | 'rMax'>, r:
 }
 
 /**
- * Distancia de la cámara para que la caja entre en la vista con un campo vertical `fovDeg` y una relación de aspecto.
- * La cámara inicial mira al cuarto recortado desde arriba (elevación `elevationDeg`).
+ * Vista inicial: encuadra la sarta (`focus`, de la cabeza a la última herramienta), no la formación, que puede salir
+ * del cuadro a los costados. Mira al corte de 3/4 (`VIEW_AZIMUTH`) desde poco arriba (`VIEW_ELEVATION_DEG`), con un
+ * campo vertical `fovDeg` y la relación de aspecto de la vista.
  */
-export function initialCamera(scene: Pick2<ToolStringScene, 'bounds'>, aspect: number, fovDeg = 32, elevationDeg = 24): { position: Vec3; target: Vec3 } {
-  const { min, max } = scene.bounds;
+export function initialCamera(scene: Pick2<ToolStringScene, 'focus'>, aspect: number, fovDeg = 26, elevationDeg = VIEW_ELEVATION_DEG): { position: Vec3; target: Vec3 } {
+  const { min, max } = scene.focus;
   const target: Vec3 = [0, (min[1] + max[1]) / 2, 0];
   const height = max[1] - min[1];
   const width = Math.max(max[0] - min[0], max[2] - min[2]);
   const fov = (fovDeg * Math.PI) / 180;
   const el = (elevationDeg * Math.PI) / 180;
-  // Alto aparente: la altura proyectada más lo que asoma el disco de arriba por la elevación.
-  const apparentH = height * Math.cos(el) + width * Math.sin(el);
+  // Alto aparente: la altura proyectada más lo que asoma la tapa de arriba por la elevación; aire para los rótulos.
+  const apparentH = (height * Math.cos(el) + width * Math.sin(el)) * 1.14;
+  // A lo ancho, la sarta y un poco de formación a cada lado (seis radios del pozo).
+  const apparentW = width * 6;
   const needV = apparentH / 2 / Math.tan(fov / 2);
-  const needH = width / 2 / (Math.tan(fov / 2) * Math.max(0.2, aspect));
-  const d = Math.max(needV, needH) * 1.08 + width / 2;
-  const [x, z] = dir(Math.PI / 4);
+  const needH = apparentW / 2 / (Math.tan(fov / 2) * Math.max(0.2, aspect));
+  const d = Math.max(needV, needH) + width / 2;
+  const [x, z] = dir(VIEW_AZIMUTH);
   return { position: [x * d * Math.cos(el), target[1] + d * Math.sin(el), z * d * Math.cos(el)], target };
 }

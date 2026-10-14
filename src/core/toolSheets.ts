@@ -42,13 +42,33 @@ export const TOOL_MOUNTING_LABEL: Readonly<Record<ToolMounting, string>> = {
   eccentralized: 'Excentralizada',
 };
 
+/** Referencia de la profundidad de investigación: la pared del pozo o su eje. */
+export type InvestigationReference = 'wall' | 'axis';
+
+export const INVESTIGATION_REFERENCE_LABEL: Readonly<Record<InvestigationReference, string>> = {
+  wall: 'desde la pared',
+  axis: 'desde el eje del pozo',
+};
+
+/** Referencia de la profundidad de investigación de una ficha (la pared si no la declara). */
+export const investigationReference = (s: ToolSheet): InvestigationReference => s.investigationFrom ?? 'wall';
+
 export interface ToolSheet {
   /** Qué mide, en detalle (la línea corta está en `ToolDef.description`). */
   measures?: string;
   /** Principio físico, sin ecuaciones (las ecuaciones van solo en el módulo Ecuaciones). */
   principle?: string;
-  /** Profundidad de investigación radial desde la pared del pozo (la de la herramienta, o la más profunda). */
+  /**
+   * Profundidad de investigación radial (la de la herramienta, o la más profunda), medida desde la referencia de
+   * `investigationFrom`.
+   */
   investigation?: SheetQuantity;
+  /**
+   * Desde dónde se mide la profundidad de investigación (la de la herramienta y la de cada curva): la pared del pozo
+   * (por defecto) o el eje. La inducción de arreglo se especifica desde el eje: sus curvas de 10 a 90 in son radios de
+   * investigación (0033 D9 a).
+   */
+  investigationFrom?: InvestigationReference;
   /**
    * Profundidad de investigación por curva, cuando difiere (inducción de arreglo: 10, 20, 30, 60 y 90 in; laterolog
    * somero y profundo). La vista 3D dibuja una cáscara por curva.
@@ -121,6 +141,8 @@ export const TOOL_SHEETS: Readonly<Record<string, ToolSheet>> = {
   induction: {
     measures: 'Una bobina induce corrientes en la formación y arreglos de receptores dan cinco curvas con distinta profundidad, de la zona invadida a la virgen.',
     investigation: { typical: 90, min: 10, max: 90, unit: IN, note: 'Profundidades nominales; la real varía con la conductividad de la formación.' },
+    // Las curvas de la inducción de arreglo se nombran por su radio de investigación, medido desde el eje (0033 D9 a).
+    investigationFrom: 'axis',
     investigationByRole: {
       RA10: { typical: 10, unit: IN },
       RA20: { typical: 20, unit: IN },

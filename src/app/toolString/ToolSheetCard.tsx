@@ -7,7 +7,7 @@ import { useMemo, type ReactNode } from 'react';
 import type { Interpretation } from '../../core/interpretation';
 import { modulesEnabledBy, type ToolStringEntry } from '../../core/toolString';
 import { sheetOf, TOOL_FAMILY_LABEL, type ToolDef } from '../../core/tools';
-import { TOOL_MOUNTING_LABEL, type SheetQuantity, type ToolSheet } from '../../core/toolSheets';
+import { INVESTIGATION_REFERENCE_LABEL, investigationReference, TOOL_MOUNTING_LABEL, type SheetQuantity, type ToolSheet } from '../../core/toolSheets';
 import type { Well } from '../../core/well';
 import { registry } from '../../modules';
 import { Badge, Button, curveStyle, formatNumber, IconButton, useResolvedTheme } from '../../ui';
@@ -91,6 +91,10 @@ export function ToolSheetCard({ tool, entry, layout, view, well, interpretation,
 
   const state = !entry ? null : !entry.on ? { tone: 'neutral' as const, text: 'Apagada' } : !entry.hasData ? { tone: 'info' as const, text: planning ? 'Planificada · sin datos en este pozo' : 'Sin datos' } : { tone: 'ok' as const, text: 'Prendida' };
   const doiApprox = unverified(sheet, 'investigation') || unverified(sheet, 'investigationByRole');
+  // Referencia de la medida (0033 D9 a): la ficha la declara; la pared si no dice nada.
+  const hasDoi = sheet.investigation?.typical !== undefined || Object.keys(sheet.investigationByRole ?? {}).length > 0;
+  const refText = hasDoi ? `Medida ${INVESTIGATION_REFERENCE_LABEL[investigationReference(sheet)]}.` : undefined;
+  const doiNote = [refText, quantityText(sheet.investigation) ? sheet.investigation?.note : undefined].filter(Boolean).join(' ') || undefined;
   const host = layout?.hostId ? registry.tools.get(layout.hostId)?.name : undefined;
   const empty = Object.keys(sheet).length === 0;
 
@@ -139,7 +143,7 @@ export function ToolSheetCard({ tool, entry, layout, view, well, interpretation,
           <Row
             label="Prof. de investigación"
             mark={sheet.investigation?.typical !== undefined && doiApprox ? 'approx' : null}
-            note={quantityText(sheet.investigation) ? sheet.investigation?.note : undefined}
+            note={doiNote}
           >
             {quantityText(sheet.investigation) ?? sheet.investigation?.note ?? <span className="ts-sheet__muted">sin dato</span>}
           </Row>

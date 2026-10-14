@@ -101,6 +101,7 @@
 }
 .ts3d__label--tick { margin: calc(-22px * var(--ui-scale)) 0 0 0; color: var(--color-text); background: color-mix(in srgb, var(--color-surface) 78%, transparent); translate: -50% 0; }
 .ts3d__label--shell { margin: calc(-10px * var(--ui-scale)) 0 0 4px; border-left: 3px solid var(--ts3d-label-color); background: color-mix(in srgb, var(--color-surface) 88%, transparent); color: var(--color-text); box-shadow: var(--shadow-xs); }
+.ts3d__label--shell.is-muted { color: var(--color-text-subtle); border-left-style: dashed; box-shadow: none; opacity: 0.85; }
 .ts3d__label--tool { translate: calc(-100% - 22px) -50%; padding: 2px var(--space-2); background: var(--color-accent); color: var(--color-text-on-accent); font-weight: var(--weight-semibold); box-shadow: var(--shadow-sm); }
 .ts3d__tip { position: absolute; top: 0; left: 0; z-index: 2; padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); background: var(--color-surface-inverse); color: var(--color-text-inverse); font-size: var(--text-xs); font-weight: var(--weight-medium); white-space: nowrap; pointer-events: none; box-shadow: var(--shadow-md); }
 
@@ -126,12 +127,17 @@
 .ts-view__legend li b { min-width: calc(34px * var(--ui-scale)); font-family: var(--font-mono); font-weight: var(--weight-semibold); }
 .ts-view__legend li.is-ghost { color: var(--color-text-muted); }
 .ts-view__legend-swatches { display: flex; gap: 1px; width: calc(30px * var(--ui-scale)); }
-.ts-view__legend-swatches span { flex: 1; max-width: 10px; height: 10px; border-radius: 2px; }
+.ts-view__legend-swatches span { flex: 1; max-width: 10px; height: 10px; border-radius: 2px; background: var(--sw); }
+.ts-view__legend-swatches span.is-absent { border: 1px dashed var(--sw); background: transparent; opacity: 0.8; }
+.ts-view__legend li.is-selected b { color: var(--color-accent-text); }
+.ts-view__legend-ref { color: var(--color-text-subtle); }
+.ts-view__legend-formation { padding-top: var(--space-1); border-top: 1px solid var(--color-border-subtle); color: var(--color-text-muted); white-space: normal; line-height: var(--leading-normal); }
 .ts-view__legend-states { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); color: var(--color-text-muted); }
 .ts-view__state { display: inline-block; width: 14px; height: 9px; margin-left: var(--space-1); border-radius: 2px; }
 .ts-view__state--off { background: var(--color-border-strong); opacity: 0.7; }
 .ts-view__state--ghost { border: 1px dashed var(--color-accent); }
 .ts-view__state--dash { height: 0; border-top: 2px dashed var(--color-text-muted); border-radius: 0; }
+.ts-view__state--absent { width: 9px; border: 1px dashed var(--color-text-muted); }
 .ts-view__help { position: absolute; right: var(--space-3); bottom: var(--space-3); display: flex; align-items: center; gap: var(--space-1); max-width: 50%; margin: 0; color: var(--color-text-subtle); font-size: var(--text-xs); text-align: right; pointer-events: none; }
 @container tsview (max-width: 720px) { .ts-view__help { display: none; } .ts-view__legend { max-width: calc(100% - var(--space-6)); } }
 

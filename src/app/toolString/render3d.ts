@@ -1,14 +1,21 @@
 /**
- * Dibujo WebGL de la escena de la sarta (docs/decisiones/0033, D3–D4): traduce la descripción pura de `scene.ts` a
- * mallas de three.js. No decide nada de geometría ni de estados: solo materiales, luces, cámara e interacción.
+ * Dibujo WebGL de la escena de la sarta (docs/decisiones/0033, D3–D4 y D9): traduce la descripción pura de `scene.ts`
+ * a mallas de three.js. No decide nada de geometría ni de estados: materiales, luces, texturas procedurales, cámara e
+ * interacción.
  *
+ * - Ilustración técnica (D9): acero con reflejos de un ambiente generado en código (`RoomEnvironment` + PMREM, sin
+ *   imágenes), luz principal con sombras suaves, tone mapping ACES y salida sRGB; cáscaras de vidrio (fresnel);
+ *   formación con texturas procedurales hechas en un canvas a partir de sus capas.
  * - Render a demanda: se dibuja cuando cambian la cámara (evento `change` de los controles), la escena o el tamaño
  *   (`ResizeObserver`). El único bucle es el de la animación de «Vista inicial» (sin animación con movimiento reducido).
+ *   El mapa de sombras se recalcula solo cuando cambia algún objeto (la luz está fija en la escena).
  * - Reutiliza por clave: un objeto se reconstruye solo si su primitiva cambió (al pasar el puntero cambian 2–5 piezas).
  * - Rótulos en HTML (nítidos, con los tokens del CSS) sobre el lienzo, reposicionados en cada cuadro.
- * - `dispose()` libera geometrías, materiales, texturas, controles y el contexto.
+ * - `dispose()` libera geometrías, materiales, texturas, el ambiente, controles y el contexto.
  */
 import {
+  ACESFilmicToneMapping,
+  BackSide,
   BufferAttribute,
   BufferGeometry,
   CanvasTexture,
@@ -17,32 +24,37 @@ import {
   CylinderGeometry,
   DirectionalLight,
   DoubleSide,
-  BackSide,
   ExtrudeGeometry,
   Group,
   HemisphereLight,
   LineBasicMaterial,
   LineDashedMaterial,
   LineSegments,
+  type Material,
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
   type Object3D,
-  type Material,
+  PCFShadowMap,
   PerspectiveCamera,
+  PMREMGenerator,
   Quaternion,
   Raycaster,
   RepeatWrapping,
   Scene,
+  ShaderMaterial,
   Shape,
   Spherical,
   SRGBColorSpace,
+  type Texture,
   TubeGeometry,
   Vector2,
   Vector3,
   WebGLRenderer,
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { parseHex } from '../../ui/color';
 import { bandAlpha, dir, initialCamera, type BandPrimitive, type EnvironmentDesc, type Pick, type RulerDesc, type ScenePrimitive, type ShellPrimitive, type Style, type ToolStringScene, type Vec3 } from './scene';
 
 export interface RendererCallbacks {
@@ -62,8 +74,11 @@ export function hasWebGL2(): boolean {
   }
 }
 
-const FOV = 32;
+/** Campo vertical de la cámara: cerrado, para una perspectiva de render de producto (poca distorsión). */
+const FOV = 26;
 const UP = new Vector3(0, 1, 0);
+/** Dirección de la luz principal (arriba a la izquierda de la cámara inicial: la sombra de la sarta cae en la pared). */
+const KEY_DIR = new Vector3(0.42, 1.05, 0.95).normalize();
 
 /** Clave de reutilización: la primitiva entera (si cambia algo, se reconstruye ese objeto). */
 const sig = (x: unknown) => JSON.stringify(x);
@@ -73,6 +88,8 @@ export class ToolStringRenderer {
   private readonly scene = new Scene();
   private readonly camera = new PerspectiveCamera(FOV, 1, 1, 30000);
   private readonly controls: OrbitControls;
+  private readonly key: DirectionalLight;
+  private readonly envMap: Texture;
   private readonly objects = new Map<string, { object: Object3D; sig: string }>();
   private readonly pickables: Object3D[] = [];
   private readonly blockers: Object3D[] = [];
@@ -100,6 +117,12 @@ export class ToolStringRenderer {
     this.renderer = new WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'default' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.outputColorSpace = SRGBColorSpace;
+    this.renderer.toneMapping = ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1;
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = PCFShadowMap;
+    // La luz está fija en la escena: las sombras no cambian al mover la cámara (se piden en `setScene`).
+    this.renderer.shadowMap.autoUpdate = false;
     const canvas = this.renderer.domElement;
     canvas.className = 'ts3d__canvas';
     canvas.setAttribute('aria-hidden', 'true');
@@ -109,12 +132,25 @@ export class ToolStringRenderer {
     this.labelsLayer.setAttribute('aria-hidden', 'true');
     container.appendChild(this.labelsLayer);
 
-    this.scene.add(new HemisphereLight(0xffffff, 0x6b5a45, 1.9));
-    const key = new DirectionalLight(0xffffff, 2.1);
-    key.position.set(260, 520, 420);
-    this.scene.add(key);
-    const rim = new DirectionalLight(0xffffff, 0.7);
-    rim.position.set(-300, 120, -200);
+    // Ambiente generado en código (una habitación con luces de área): reflejos del acero sin imágenes externas.
+    const pmrem = new PMREMGenerator(this.renderer);
+    const room = new RoomEnvironment();
+    this.envMap = pmrem.fromScene(room, 0.04).texture;
+    room.dispose();
+    pmrem.dispose();
+    this.scene.environment = this.envMap;
+    this.scene.environmentIntensity = 0.75;
+
+    this.scene.add(new HemisphereLight(0xffffff, 0x8a7a66, 0.55));
+    this.key = new DirectionalLight(0xffffff, 2.1);
+    this.key.castShadow = true;
+    this.key.shadow.mapSize.set(2048, 2048);
+    this.key.shadow.radius = 5;
+    this.key.shadow.bias = -0.0004;
+    this.key.shadow.normalBias = 0.6;
+    this.scene.add(this.key, this.key.target);
+    const rim = new DirectionalLight(0xdfe8ff, 0.55);
+    rim.position.set(-300, 160, -260);
     this.scene.add(rim);
 
     this.controls = new OrbitControls(this.camera, canvas);
@@ -141,11 +177,12 @@ export class ToolStringRenderer {
   setScene(desc: ToolStringScene, background: string, fit = false): void {
     const first = !this.desc;
     // Si la sarta cambió de tamaño (agregar o quitar herramientas) y la cámara no se tocó, se reencuadra.
-    const bs = sig(desc.bounds);
+    const bs = sig(desc.focus);
     const grew = bs !== this.boundsSig;
     this.boundsSig = bs;
     this.desc = desc;
     this.scene.background = new Color(background);
+    let changed = false;
     const seen = new Set<string>();
     const put = (key: string, value: unknown, make: () => Object3D, pickable = false, blocker = false) => {
       seen.add(key);
@@ -159,15 +196,24 @@ export class ToolStringRenderer {
       this.objects.set(key, { object, sig: s });
       if (pickable) this.pickables.push(object);
       if (blocker) this.blockers.push(object);
+      changed = true;
     };
-    put('env', desc.environment, () => this.environment(desc.environment), false, true);
+    put('env', desc.environment, () => environment(desc.environment), false, true);
     put('ruler', desc.ruler, () => ruler(desc.ruler));
     for (const p of desc.primitives) put(p.key, p, () => primitive(p), !!p.pick);
     // Cáscaras: de afuera hacia adentro (las de adentro se ven a través de las de afuera).
     const shells = [...desc.shells].sort((a, b) => b.radius - a.radius);
     shells.forEach((s, i) => put(s.key, { s, i }, () => shell(s, i)));
     for (const b of desc.bands) put(b.key, b, () => band(b));
-    for (const [key, { object }] of [...this.objects]) if (!seen.has(key)) this.remove(key, object);
+    for (const [key, { object }] of [...this.objects]) {
+      if (seen.has(key)) continue;
+      this.remove(key, object);
+      changed = true;
+    }
+    if (changed) {
+      this.placeKeyLight(desc);
+      this.renderer.shadowMap.needsUpdate = true;
+    }
     this.buildLabels(desc);
     if (first || fit || (grew && !this.userMoved)) this.resetView(false);
     else this.requestRender();
@@ -230,7 +276,7 @@ export class ToolStringRenderer {
 
   /**
    * Encuadra una herramienta con sus cáscaras, mirando desde la dirección actual (desde el lado del corte si la cámara
-   * está del otro lado).
+   * está del otro lado). Solo con el botón «Centrar en la vista»: seleccionar no mueve la cámara (0033 D9 c).
    */
   focusTool(toolId: string): void {
     const d = this.desc;
@@ -239,8 +285,8 @@ export class ToolStringRenderer {
     const reach = Math.max(d.environment.rWall * 7, ...d.shells.filter((s) => s.toolId === toolId).map((s) => s.radius), ...d.bands.filter((b) => b.toolId === toolId).map((b) => b.rMax));
     const target = new Vector3(reach * 0.2 * Math.SQRT1_2, (t.y0 + t.y1) / 2, reach * 0.2 * Math.SQRT1_2);
     const dirv = this.camera.position.clone().sub(this.controls.target).normalize();
-    // Del lado del corte (θ entre 0 y π/2 mira a +x, +z): si no, la vista inicial.
-    if (dirv.x < 0.15 || dirv.z < 0.15) dirv.set(Math.SQRT1_2, 0.55, Math.SQRT1_2).normalize();
+    // Del lado del corte (θ entre 0 y π/2 mira a +x, +z): si no, una vista de 3/4 sobre el corte.
+    if (dirv.x < 0.15 || dirv.z < 0.15) dirv.set(0.8, 0.45, 0.55).normalize();
     const size = Math.max(reach * 2.2, (t.y1 - t.y0) * 1.5);
     const dist = size / 2 / Math.tan(((FOV * Math.PI) / 180) / 2) / Math.min(1, this.size.w / this.size.h);
     this.flyTo(target.clone().add(dirv.multiplyScalar(dist)), target, true);
@@ -263,6 +309,9 @@ export class ToolStringRenderer {
     this.controls.removeEventListener('start', this.onControlStart);
     this.controls.dispose();
     for (const [key, { object }] of [...this.objects]) this.remove(key, object);
+    this.key.shadow.dispose();
+    this.envMap.dispose();
+    this.scene.environment = null;
     this.renderer.dispose();
     this.renderer.forceContextLoss();
     canvas.remove();
@@ -280,6 +329,24 @@ export class ToolStringRenderer {
       this.placeLabels();
     });
   };
+
+  /** Luz principal y su cámara de sombras: cubren la sarta y la formación cercana. */
+  private placeKeyLight(desc: ToolStringScene): void {
+    const { min, max } = desc.bounds;
+    const center = new Vector3(0, (min[1] + max[1]) / 2, 0);
+    const half = Math.max(max[1] - min[1], (max[0] - min[0]) * 0.8) / 2 + 20;
+    this.key.target.position.copy(center);
+    this.key.position.copy(center).addScaledVector(KEY_DIR, half * 3);
+    const cam = this.key.shadow.camera;
+    cam.left = -half;
+    cam.right = half;
+    cam.top = half;
+    cam.bottom = -half;
+    cam.near = 1;
+    cam.far = half * 6;
+    cam.updateProjectionMatrix();
+    this.key.target.updateMatrixWorld();
+  }
 
   private resize(): void {
     const w = Math.max(1, this.container.clientWidth);
@@ -310,7 +377,7 @@ export class ToolStringRenderer {
     this.labelsLayer.replaceChildren();
     this.labels = desc.labels.map((l) => {
       const el = document.createElement('span');
-      el.className = `ts3d__label ts3d__label--${l.kind}`;
+      el.className = `ts3d__label ts3d__label--${l.kind}${l.muted ? ' is-muted' : ''}`;
       el.textContent = l.text;
       if (l.color) el.style.setProperty('--ts3d-label-color', l.color);
       this.labelsLayer.appendChild(el);
@@ -352,71 +419,6 @@ export class ToolStringRenderer {
       l.el.style.visibility = 'visible';
       l.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
     }
-  }
-
-  /** Formación en corte, pared, lodo y cable. */
-  private environment(env: EnvironmentDesc): Object3D {
-    const g = new Group();
-    const H = env.y1 - env.y0;
-    const ym = (env.y0 + env.y1) / 2;
-    const [w0, wl] = env.wedge;
-    const restStart = w0 + wl;
-    const restLen = Math.PI * 2 - wl;
-    const repeat = Math.max(1, H / 110);
-    const outerTex = this.strata(env.colors.formation, env.colors.formationAlt, repeat);
-    const cutTex = this.strata(env.colors.formationCut, env.colors.formation, repeat);
-    const wallTex = this.strata(env.colors.wall, mixHex(env.colors.wall, '#000000', 0.18), repeat);
-
-    const outer = new Mesh(new CylinderGeometry(env.rOuter, env.rOuter, H, 120, 1, true, restStart, restLen), new MeshStandardMaterial({ map: outerTex, roughness: 0.95, metalness: 0 }));
-    outer.position.y = ym;
-    const wall = new Mesh(new CylinderGeometry(env.rWall, env.rWall, H, 48, 1, true, restStart, restLen), new MeshStandardMaterial({ map: wallTex, roughness: 1, metalness: 0, side: BackSide }));
-    wall.position.y = ym;
-    const capMat = new MeshStandardMaterial({ color: new Color(env.colors.formationCut), roughness: 0.95, metalness: 0, side: DoubleSide });
-    const top = new Mesh(annularSector(env.rWall, env.rOuter, restStart, restStart + restLen, env.y1, 96), capMat);
-    const bottom = new Mesh(annularSector(env.rWall, env.rOuter, restStart, restStart + restLen, env.y0, 96), capMat);
-    const cutMat = new MeshStandardMaterial({ map: cutTex, roughness: 0.9, metalness: 0, side: DoubleSide });
-    const cutA = new Mesh(radialQuad(w0, env.rWall, env.rOuter, env.y0, env.y1), cutMat);
-    const cutB = new Mesh(radialQuad(w0 + wl, env.rWall, env.rOuter, env.y0, env.y1), cutMat);
-    // Lodo: caras del corte y superficie, translúcidas (sin escribir profundidad: no tapan la sarta).
-    const mudMat = new MeshBasicMaterial({ color: new Color(env.colors.mud), transparent: true, opacity: 0.16, depthWrite: false, side: DoubleSide });
-    const mudA = new Mesh(radialQuad(w0, 0, env.rWall, env.y0, env.y1), mudMat);
-    const mudB = new Mesh(radialQuad(w0 + wl, 0, env.rWall, env.y0, env.y1), mudMat);
-    const mudTop = new Mesh(annularSector(0.01, env.rWall, restStart, restStart + restLen, env.y1 - 0.4, 48), mudMat);
-    mudA.renderOrder = mudB.renderOrder = mudTop.renderOrder = 1;
-    // Cable.
-    const c = env.cable;
-    const cable = rodMesh(c.from, c.to, c.radius, new MeshStandardMaterial({ color: new Color(c.color), roughness: 0.6, metalness: 0.2 }));
-    // Borde del corte: líneas finas para que el recorte se lea como un corte.
-    const edgeMat = new LineBasicMaterial({ color: new Color(mixHex(env.colors.formationCut, '#000000', 0.35)), transparent: true, opacity: 0.6 });
-    const edges = new LineSegments(new BufferGeometry().setFromPoints([...edgeOf(w0, env), ...edgeOf(w0 + wl, env)]), edgeMat);
-    g.add(outer, wall, top, bottom, cutA, cutB, mudA, mudB, mudTop, cable, edges);
-    // Lo transparente no bloquea la selección.
-    for (const m of [mudA, mudB, mudTop, edges, cable]) m.raycast = () => {};
-    return g;
-  }
-
-  /** Textura de estratos: bandas horizontales de espesor irregular (semilla fija: siempre la misma). */
-  private strata(a: string, b: string, repeat: number): CanvasTexture {
-    const canvas = document.createElement('canvas');
-    canvas.width = 4;
-    canvas.height = 256;
-    const ctx = canvas.getContext('2d')!;
-    let seed = 7;
-    const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
-    let y = 0;
-    let i = 0;
-    while (y < 256) {
-      const h = 10 + Math.floor(rnd() * 34);
-      ctx.fillStyle = i % 2 ? b : mixHex(a, b, rnd() * 0.35);
-      ctx.fillRect(0, y, 4, h);
-      y += h;
-      i++;
-    }
-    const tex = new CanvasTexture(canvas);
-    tex.colorSpace = SRGBColorSpace;
-    tex.wrapS = tex.wrapT = RepeatWrapping;
-    tex.repeat.set(1, repeat);
-    return tex;
   }
 
   // ------------------------------------------------------------------------------------------------------------
@@ -476,24 +478,71 @@ export class ToolStringRenderer {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// Primitivas
+// Materiales
 
-function bodyMaterial(st: Style): Material {
+/**
+ * Vidrio con borde (fresnel): la opacidad va de `center` (mirando de frente) a `rim` (de canto). Sirve para las
+ * cáscaras, el contorno de una herramienta planificada sin datos y el aro de la seleccionada. Sin tone mapping: el color
+ * es el de la curva o del acento, tal cual.
+ */
+function fresnel(color: string, center: number, rim: number, power = 2.2): ShaderMaterial {
+  return new ShaderMaterial({
+    uniforms: { uColor: { value: new Color(color) }, uCenter: { value: center }, uRim: { value: rim }, uPower: { value: power } },
+    vertexShader: /* glsl */ `
+      varying vec3 vN;
+      varying vec3 vV;
+      void main() {
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vN = normalize(normalMatrix * normal);
+        vV = normalize(-mv.xyz);
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: /* glsl */ `
+      uniform vec3 uColor;
+      uniform float uCenter;
+      uniform float uRim;
+      uniform float uPower;
+      varying vec3 vN;
+      varying vec3 vV;
+      void main() {
+        float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), uPower);
+        gl_FragColor = linearToOutputTexel(vec4(uColor, mix(uCenter, uRim, f)));
+      }`,
+    transparent: true,
+    depthWrite: false,
+    side: DoubleSide,
+    toneMapped: false,
+  });
+}
+
+/** Acero: metálico con reflejos del ambiente. */
+const steel = (color: string, roughness = 0.3) => new MeshStandardMaterial({ color: new Color(color), metalness: 0.88, roughness });
+
+/** Material de una pieza según su aspecto (el cuerpo de una herramienta prendida lo arma `toolBody`). */
+function pieceMaterial(st: Style, kind: ScenePrimitive['kind']): Material {
   const color = new Color(st.color);
-  if (st.look === 'off' || st.look === 'ghost') {
-    const m = new MeshStandardMaterial({ color, transparent: true, opacity: st.opacity, depthWrite: false, roughness: 0.7, metalness: 0.05, side: DoubleSide });
-    if (st.emphasis === 'hover') m.emissive = color.clone().multiplyScalar(0.3);
-    if (st.emphasis === 'selected' && st.edge) m.emissive = new Color(st.edge).multiplyScalar(0.25);
-    return m;
+  let m: MeshStandardMaterial;
+  if (st.look === 'ghost') {
+    return new MeshBasicMaterial({ color: new Color(st.edge ?? st.color), transparent: true, opacity: 0.32, depthWrite: false });
+  } else if (st.look === 'off') {
+    m = new MeshStandardMaterial({ color, metalness: 0, roughness: 0.92, envMapIntensity: 0.5 });
+  } else if (kind === 'pad' && st.look === 'on') {
+    // Patines y zapatas: polímero oscuro, satinado.
+    m = new MeshStandardMaterial({ color, metalness: 0.15, roughness: 0.5 });
+  } else {
+    m = steel(st.color, st.look === 'metal' ? 0.28 : 0.34);
   }
-  const m = new MeshStandardMaterial({ color, roughness: st.look === 'metal' ? 0.35 : 0.5, metalness: st.look === 'metal' ? 0.55 : 0.25 });
-  if (st.emphasis === 'hover') m.emissive = color.clone().multiplyScalar(0.35);
-  if (st.emphasis === 'selected' && st.edge) m.emissive = new Color(st.edge).multiplyScalar(0.12);
+  if (st.emphasis === 'hover') m.emissive = new Color(0xffffff).multiplyScalar(0.1);
+  if (st.emphasis === 'selected' && st.edge) m.emissive = new Color(st.edge).multiplyScalar(0.28);
   return m;
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+// Primitivas
+
 function primitive(p: ScenePrimitive): Object3D {
-  const mat = bodyMaterial(p.style);
+  if (p.kind === 'cylinder' && p.detail) return turned(p);
+  const mat = pieceMaterial(p.style, p.kind);
   let mesh: Mesh;
   switch (p.kind) {
     case 'cylinder': {
@@ -524,76 +573,145 @@ function primitive(p: ScenePrimitive): Object3D {
       break;
     }
   }
-  if (p.style.look === 'off' || p.style.look === 'ghost') mesh.renderOrder = 2;
-  if (!p.style.edge) return mesh;
-  // Contorno: bordes arriba y abajo y cuatro generatrices; punteado en la planificada sin datos, continuo al seleccionar.
+  if (p.style.look === 'ghost') mesh.renderOrder = 2;
+  else mesh.castShadow = mesh.receiveShadow = true;
+  return mesh;
+}
+
+/**
+ * Cuerpo torneado: herramienta (chaflanes, collares en las uniones y dos anillos del color de la familia) o cabeza
+ * (cuello de pesca arriba). Prendida: acero; apagada: gris mate; planificada sin datos: contorno de vidrio con anillos
+ * punteados. Seleccionada: un aro de luz del color de acento alrededor de la silueta.
+ */
+function turned(p: Extract<ScenePrimitive, { kind: 'cylinder' }>): Object3D {
   const g = new Group();
-  g.add(mesh);
-  if (p.kind === 'cylinder') {
-    const edgeMat =
-      p.style.look === 'ghost'
-        ? new LineDashedMaterial({ color: new Color(p.style.edge), dashSize: 1.6, gapSize: 1, transparent: true, opacity: 0.95 })
-        : new LineBasicMaterial({ color: new Color(p.style.edge), transparent: true, opacity: 0.95 });
+  const st = p.style;
+  const r = p.radius;
+  const H = p.y1 - p.y0;
+  const [cx, cz] = p.center;
+  const at = (m: Mesh, y: number) => {
+    m.position.set(cx, y, cz);
+    if (st.look !== 'ghost') m.castShadow = m.receiveShadow = true;
+    g.add(m);
+    return m;
+  };
+  const ch = Math.min(r * 0.4, H * 0.08);
+  const neck = p.detail === 'head' ? Math.min(H * 0.35, 9) : ch;
+
+  if (st.look === 'ghost') {
+    // Contorno de vidrio: la silueta se marca desde cualquier ángulo; anillos punteados en los extremos.
+    const edge = st.edge ?? st.color;
+    at(new Mesh(new CylinderGeometry(r, r, H, 40, 1, true), fresnel(edge, 0.04, 0.8, 2.6)), (p.y0 + p.y1) / 2).renderOrder = 2;
     const pts: Vector3[] = [];
-    const ring = (y: number) => {
+    const ring = (y: number, rr: number) => {
       for (let i = 0; i < 48; i++) {
         const [a, b] = [(i / 48) * Math.PI * 2, ((i + 1) / 48) * Math.PI * 2];
-        pts.push(new Vector3(p.center[0] + Math.sin(a) * p.radius, y, p.center[1] + Math.cos(a) * p.radius), new Vector3(p.center[0] + Math.sin(b) * p.radius, y, p.center[1] + Math.cos(b) * p.radius));
+        pts.push(new Vector3(cx + Math.sin(a) * rr, y, cz + Math.cos(a) * rr), new Vector3(cx + Math.sin(b) * rr, y, cz + Math.cos(b) * rr));
       }
     };
-    ring(p.y0);
-    ring(p.y1);
-    for (let k = 0; k < 4; k++) {
-      const a = Math.PI / 4 + (k * Math.PI) / 2;
-      pts.push(new Vector3(p.center[0] + Math.sin(a) * p.radius, p.y0, p.center[1] + Math.cos(a) * p.radius), new Vector3(p.center[0] + Math.sin(a) * p.radius, p.y1, p.center[1] + Math.cos(a) * p.radius));
-    }
-    const lines = new LineSegments(new BufferGeometry().setFromPoints(pts), edgeMat);
+    ring(p.y0, r);
+    ring(p.y1, r);
+    const lines = new LineSegments(new BufferGeometry().setFromPoints(pts), new LineDashedMaterial({ color: new Color(edge), dashSize: 1.4, gapSize: 1, transparent: true, opacity: 0.95, toneMapped: false }));
     lines.computeLineDistances();
     lines.raycast = () => {};
     g.add(lines);
+    // Anillos identificadores, tenues.
+    if (p.detail === 'tool') for (const y of idRingYs(p.y0, p.y1, ch)) at(new Mesh(new CylinderGeometry(r * 1.01, r * 1.01, ringHeight(H), 40, 1, true), fresnel(st.color, 0.12, 0.7, 1.4)), y).renderOrder = 2;
+  } else {
+    const bodyColor = st.look === 'on' ? (st.base ?? st.color) : st.color;
+    const body = st.look === 'off' ? new MeshStandardMaterial({ color: new Color(bodyColor), metalness: 0, roughness: 0.92, envMapIntensity: 0.45 }) : steel(bodyColor, st.look === 'metal' ? 0.28 : 0.34);
+    if (st.emphasis === 'hover') body.emissive = new Color(0xffffff).multiplyScalar(st.look === 'off' ? 0.06 : 0.1);
+    // Fuste y chaflanes (troncos de cono con sus propias normales: aristas nítidas).
+    at(new Mesh(new CylinderGeometry(r, r, H - ch - neck, 48), body), p.y0 + ch + (H - ch - neck) / 2);
+    at(new Mesh(new CylinderGeometry(r, r * 0.62, ch, 48), body), p.y0 + ch / 2);
+    if (p.detail === 'head') {
+      // Cuello de pesca: cono, garganta y botón.
+      at(new Mesh(new CylinderGeometry(r * 0.5, r, neck * 0.55, 48), body), p.y1 - neck + (neck * 0.55) / 2);
+      at(new Mesh(new CylinderGeometry(r * 0.38, r * 0.38, neck * 0.25, 32), body), p.y1 - neck * 0.45 + (neck * 0.25) / 2);
+      at(new Mesh(new CylinderGeometry(r * 0.5, r * 0.5, neck * 0.2, 32), body), p.y1 - (neck * 0.2) / 2);
+    } else {
+      at(new Mesh(new CylinderGeometry(r * 0.62, r, ch, 48), body), p.y1 - ch / 2);
+      // Collares en las uniones, más oscuros.
+      const collar = st.look === 'off' ? body : steel(new Color(bodyColor).multiplyScalar(0.62).getStyle(), 0.24);
+      for (const y of [p.y0 + ch + 0.6, p.y1 - ch - 0.6]) at(new Mesh(new CylinderGeometry(r * 1.025, r * 1.025, 1.2, 48), collar), y);
+      // Anillos identificadores: el color de la familia (anodizado), o un gris más oscuro si está apagada.
+      const ringColor = st.look === 'off' ? new Color(st.color).multiplyScalar(0.78) : new Color(st.color);
+      const ringMat = new MeshStandardMaterial({ color: ringColor, metalness: st.look === 'off' ? 0 : 0.35, roughness: st.look === 'off' ? 0.9 : 0.38 });
+      if (st.look === 'on') ringMat.emissive = ringColor.clone().multiplyScalar(st.emphasis === 'hover' ? 0.35 : 0.14);
+      for (const y of idRingYs(p.y0, p.y1, ch)) at(new Mesh(new CylinderGeometry(r * 1.018, r * 1.018, ringHeight(H), 48), ringMat), y);
+    }
+  }
+  if (st.emphasis === 'selected' && st.edge) {
+    // Aro de selección: una funda de vidrio del color de acento, más ancha que la pieza, que se marca en la silueta.
+    const rh = r * 1.3 + 1.4;
+    const halo = new Mesh(new CylinderGeometry(rh, rh, H + 2.5, 40, 1, true), fresnel(st.edge, 0.03, 0.8, 2.2));
+    halo.renderOrder = 20;
+    halo.raycast = () => {};
+    at(halo, (p.y0 + p.y1) / 2).castShadow = false;
+    halo.receiveShadow = false;
   }
   return g;
 }
 
-/** Cáscara de una curva: pared cilíndrica en el cuarto recortado, tapas desde la pared y bordes marcados. */
+const ringHeight = (H: number) => Math.min(4.5, H * 0.1);
+/** Alturas de los anillos identificadores: cerca de cada extremo, dentro del fuste. */
+function idRingYs(y0: number, y1: number, ch: number): number[] {
+  const H = y1 - y0;
+  const h = ringHeight(H);
+  const off = ch + 1.2 + 1.6 + h / 2;
+  return H > 4 * off ? [y1 - off, y0 + off] : [(y0 + y1) / 2];
+}
+
+/**
+ * Cáscara de una curva: pared cilíndrica de vidrio en el cuarto recortado (borde más marcado que el centro), contorno
+ * arriba y abajo y trazas sobre las dos caras del corte. Las de la herramienta seleccionada pintan además, muy suave,
+ * la porción de formación que investigan sobre las caras. Punteadas si el dato es aproximado o la curva no está.
+ */
 function shell(s: ShellPrimitive, order: number): Object3D {
   const g = new Group();
-  const color = new Color(s.color);
   const [w0, wl] = [0, Math.PI / 2];
   const H = s.y1 - s.y0;
-  const side = new Mesh(
-    new CylinderGeometry(s.radius, s.radius, H, 48, 1, true, w0, wl),
-    new MeshBasicMaterial({ color, transparent: true, opacity: s.opacity, depthWrite: false, side: DoubleSide }),
-  );
-  side.position.y = (s.y0 + s.y1) / 2;
-  const capMat = new MeshBasicMaterial({ color, transparent: true, opacity: s.opacity * 0.7, depthWrite: false, side: DoubleSide });
-  const top = new Mesh(annularSector(s.rWall, s.radius, w0, w0 + wl, s.y1, 40), capMat);
-  const bottom = new Mesh(annularSector(s.rWall, s.radius, w0, w0 + wl, s.y0, 40), capMat);
-  // Bordes: arco de arriba y de abajo y las trazas sobre las dos caras del corte. Punteados si el dato es aproximado.
-  const edgeMat = s.unverified
-    ? new LineDashedMaterial({ color, dashSize: 2.2, gapSize: 1.4, transparent: true, opacity: 0.95 })
-    : new LineBasicMaterial({ color, transparent: true, opacity: 0.95 });
+  const ro = 3 + order;
+  if (s.rim > 0.005) {
+    const side = new Mesh(new CylinderGeometry(s.radius, s.radius, H, 64, 1, true, w0, wl), fresnel(s.color, s.opacity, s.rim, 2.4));
+    side.position.y = (s.y0 + s.y1) / 2;
+    side.renderOrder = ro;
+    g.add(side);
+  }
+  if (s.emphasis === 'strong') {
+    // Lo que la curva investiga, sobre las caras del corte: se acumula hacia la pared, donde leen todas.
+    const mat = new MeshBasicMaterial({ color: new Color(s.color), transparent: true, opacity: s.opacity * 0.6, depthWrite: false, side: DoubleSide, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    for (const a of [w0, w0 + wl]) {
+      const m = new Mesh(radialQuad(a, s.rWall, s.radius, s.y0, s.y1), mat);
+      m.renderOrder = ro;
+      g.add(m);
+    }
+  }
+  const dashed = s.unverified || !s.present;
+  const edgeMat = dashed
+    ? new LineDashedMaterial({ color: new Color(s.color), dashSize: 2.2, gapSize: 1.6, transparent: true, opacity: s.line, toneMapped: false, depthWrite: false })
+    : new LineBasicMaterial({ color: new Color(s.color), transparent: true, opacity: s.line, toneMapped: false, depthWrite: false });
   const pts: Vector3[] = [];
   for (const y of [s.y0, s.y1]) {
-    for (let i = 0; i < 32; i++) {
-      const a = w0 + (wl * i) / 32;
-      const b = w0 + (wl * (i + 1)) / 32;
+    for (let i = 0; i < 40; i++) {
+      const a = w0 + (wl * i) / 40;
+      const b = w0 + (wl * (i + 1)) / 40;
       pts.push(new Vector3(Math.sin(a) * s.radius, y, Math.cos(a) * s.radius), new Vector3(Math.sin(b) * s.radius, y, Math.cos(b) * s.radius));
     }
   }
   for (const a of [w0, w0 + wl]) pts.push(new Vector3(Math.sin(a) * s.radius, s.y0, Math.cos(a) * s.radius), new Vector3(Math.sin(a) * s.radius, s.y1, Math.cos(a) * s.radius));
   const edges = new LineSegments(new BufferGeometry().setFromPoints(pts), edgeMat);
-  if (s.unverified) edges.computeLineDistances();
-  for (const m of [side, top, bottom]) m.renderOrder = 3 + order;
-  edges.renderOrder = 3 + order;
-  g.add(side, top, bottom, edges);
+  if (dashed) edges.computeLineDistances();
+  edges.renderOrder = ro;
+  g.add(edges);
+  g.traverse((o) => (o.raycast = () => {}));
   return g;
 }
 
 /** Banda difusa del rango: tapas con degradé de opacidad (máxima en el valor típico). */
 function band(b: BandPrimitive): Object3D {
   const g = new Group();
-  const mat = new MeshBasicMaterial({ color: new Color(b.color), vertexColors: true, transparent: true, depthWrite: false, side: DoubleSide });
+  const mat = new MeshBasicMaterial({ color: new Color(b.color), vertexColors: true, transparent: true, depthWrite: false, side: DoubleSide, toneMapped: false });
   for (const y of [b.y0, b.y1]) {
     const geo = annularSector(b.rMin, b.rMax, 0, Math.PI / 2, y, 40, 16);
     // Alfa por vértice (color blanco: el color lo da el material).
@@ -606,17 +724,265 @@ function band(b: BandPrimitive): Object3D {
     geo.setAttribute('color', new BufferAttribute(col, 4));
     const m = new Mesh(geo, mat);
     m.renderOrder = 2;
+    m.raycast = () => {};
     g.add(m);
   }
   return g;
 }
 
 function ruler(r: RulerDesc): Object3D {
-  const pts: Vector3[] = [new Vector3(r.rWall, r.y, 0), new Vector3(r.rEnd, r.y, 0)];
-  for (const t of r.ticks) pts.push(new Vector3(t.r, r.y, -0.2), new Vector3(t.r, r.y + 5, -0.2));
-  const lines = new LineSegments(new BufferGeometry().setFromPoints(pts), new LineBasicMaterial({ color: new Color(r.color) }));
+  // Sobre la cara del corte en θ = 0 (plano x = 0, hacia +z), apenas delante de ella.
+  const x = 0.3;
+  const pts: Vector3[] = [new Vector3(x, r.y, r.rWall), new Vector3(x, r.y, r.rEnd)];
+  for (const t of r.ticks) pts.push(new Vector3(x, r.y, t.r), new Vector3(x, r.y + 5, t.r));
+  const lines = new LineSegments(new BufferGeometry().setFromPoints(pts), new LineBasicMaterial({ color: new Color(r.color), toneMapped: false }));
   lines.raycast = () => {};
   return lines;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Formación
+
+/**
+ * Formación en corte (D9): las dos caras del corte y la tapa, con la textura de sus capas y desvanecidas hacia el borde
+ * exterior y hacia abajo; la pared del pozo con el revoque en las capas permeables; lodo y cable.
+ */
+function environment(env: EnvironmentDesc): Object3D {
+  const g = new Group();
+  const H = env.y1 - env.y0;
+  const ym = (env.y0 + env.y1) / 2;
+  const [w0, wl] = env.wedge;
+  const restStart = w0 + wl;
+  const restLen = Math.PI * 2 - wl;
+
+  // El color del material oscurece un poco la textura: la formación no compite en brillo con la sarta.
+  const faceMat = new MeshStandardMaterial({ map: faceTexture(env), color: new Color(0.8, 0.8, 0.8), transparent: true, roughness: 0.92, metalness: 0, side: DoubleSide, envMapIntensity: 0.3 });
+  const cutA = new Mesh(radialQuad(w0, env.rWall, env.rOuter, env.y0, env.y1), faceMat);
+  const cutB = new Mesh(radialQuad(w0 + wl, env.rWall, env.rOuter, env.y0, env.y1), faceMat);
+  const wallTex = wallTexture(env);
+  wallTex.repeat.set(5, 1);
+  const wall = new Mesh(new CylinderGeometry(env.rWall, env.rWall, H, 64, 1, true, restStart, restLen), new MeshStandardMaterial({ map: wallTex, transparent: true, roughness: 0.85, metalness: 0, side: BackSide, envMapIntensity: 0.35 }));
+  wall.position.y = ym;
+  // Tapa: el color de la capa de arriba, desvanecida hacia el borde exterior.
+  const top = topCap(env, restStart, restLen);
+  for (const m of [cutA, cutB, wall, top]) {
+    m.receiveShadow = true;
+    m.renderOrder = 0;
+  }
+  // Lodo: caras del corte y superficie, translúcidas (sin escribir profundidad: no tapan la sarta).
+  const mudMat = new MeshBasicMaterial({ color: new Color(env.colors.mud), transparent: true, opacity: 0.1, depthWrite: false, side: DoubleSide, toneMapped: false });
+  const mudA = new Mesh(radialQuad(w0, 0, env.rWall, env.y0, env.y1), mudMat);
+  const mudB = new Mesh(radialQuad(w0 + wl, 0, env.rWall, env.y0, env.y1), mudMat);
+  const mudTop = new Mesh(annularSector(0.01, env.rWall, restStart, restStart + restLen, env.y1 - 0.4, 48), mudMat);
+  mudA.renderOrder = mudB.renderOrder = mudTop.renderOrder = 1;
+  const c = env.cable;
+  const cable = rodMesh(c.from, c.to, c.radius, new MeshStandardMaterial({ color: new Color(c.color), roughness: 0.55, metalness: 0.3 }));
+  cable.castShadow = true;
+  g.add(cutA, cutB, wall, top, mudA, mudB, mudTop, cable);
+  // Lo transparente no bloquea la selección.
+  for (const m of [mudA, mudB, mudTop, cable]) m.raycast = () => {};
+  return g;
+}
+
+/** Generador pseudoaleatorio con semilla fija (la formación sale siempre igual). */
+function rng(seed: number): () => number {
+  let s = seed % 2147483647 || 1;
+  return () => ((s = (s * 16807) % 2147483647) - 1) / 2147483646;
+}
+
+/** Ruido de valor suave en [−1, 1] sobre una grilla de 64×64 (bilineal, periódico). */
+function valueNoise(seed: number): (x: number, y: number) => number {
+  const N = 64;
+  const r = rng(seed);
+  const grid = Float32Array.from({ length: N * N }, () => r() * 2 - 1);
+  return (x, y) => {
+    const xi = Math.floor(x);
+    const yi = Math.floor(y);
+    const fx = x - xi;
+    const fy = y - yi;
+    const sx = fx * fx * (3 - 2 * fx);
+    const sy = fy * fy * (3 - 2 * fy);
+    const at = (i: number, j: number) => grid[(((j % N) + N) % N) * N + (((i % N) + N) % N)]!;
+    const a = at(xi, yi) + (at(xi + 1, yi) - at(xi, yi)) * sx;
+    const b = at(xi, yi + 1) + (at(xi + 1, yi + 1) - at(xi, yi + 1)) * sx;
+    return a + (b - a) * sy;
+  };
+}
+
+/** Hash entero → [0, 1) (para granos y juntas sin guardar una tabla). */
+function hash2(x: number, y: number): number {
+  let h = (x * 374761393 + y * 668265263) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
+/** Componentes sRGB 0–255 de un color (el canvas trabaja en sRGB; `Color` de three guarda lineal). */
+const rgb = (hex: string): [number, number, number] => {
+  const [r, g, b] = parseHex(hex);
+  return [r, g, b];
+};
+const smooth = (a: number, b: number, x: number) => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+
+/** Capa de cada fila del canvas (fila 0 = arriba). */
+function rowStrata(env: EnvironmentDesc, rows: number): Int32Array {
+  const out = new Int32Array(rows);
+  const H = env.y1 - env.y0;
+  let k = 0;
+  for (let row = 0; row < rows; row++) {
+    const y = env.y1 - ((row + 0.5) / rows) * H;
+    while (k < env.strata.length - 1 && y < env.strata[k]!.y0) k++;
+    out[row] = k;
+  }
+  return out;
+}
+
+/**
+ * Textura de las caras del corte: ancho = radio (de la pared al borde exterior), alto = profundidad. Cada capa con el
+ * dibujo de su litología, una línea fina en cada contacto, revoque y zona invadida contra la pared en las permeables, y
+ * el canal alfa que desvanece la formación hacia afuera y hacia abajo.
+ */
+function faceTexture(env: EnvironmentDesc): CanvasTexture {
+  const W = 768;
+  const H = Math.max(256, Math.min(2048, Math.round((env.y1 - env.y0) * 2)));
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d')!;
+  const img = ctx.createImageData(W, H);
+  const px = img.data;
+  const rows = rowStrata(env, H);
+  const cols = env.strata.map((s) => rgb(s.color));
+  const filtrate = rgb(env.colors.filtrate);
+  const cake = rgb(env.colors.mudcake);
+  const bg = rgb(env.colors.bg);
+  const noise = valueNoise(3);
+  const span = env.rOuter - env.rWall;
+  const pxPerCm = W / span;
+  const rowsPerUnit = H / (env.y1 - env.y0);
+  for (let row = 0; row < H; row++) {
+    const k = rows[row]!;
+    const st = env.strata[k]!;
+    const [r0, g0, b0] = cols[k]!;
+    const contact = row > 0 && rows[row - 1] !== k;
+    // Fila dentro de la capa (para la laminación) y franja de ladrillos.
+    const yUnits = row / rowsPerUnit;
+    // Laminación: láminas finas de tono apenas distinto (lutitas).
+    const lam = st.pattern === 'shale' ? (hash2(Math.floor(yUnits * 2.4), 7) - 0.5) * 0.12 : 0;
+    const course = Math.floor(yUnits / 3.2);
+    const bottomFade = 1 - smooth(0.82, 1, row / H);
+    for (let x = 0; x < W; x++) {
+      const cm = (x + 0.5) / pxPerCm;
+      const r = env.rWall + cm;
+      let shade = 1 + noise(x / 40, row / 40) * 0.05 + lam;
+      switch (st.pattern) {
+        case 'sand': {
+          // Granos de 2×2 texeles (los de un texel se pierden al alejarse).
+          const h = hash2(x >> 1, row >> 1);
+          if (h > 0.9) shade -= 0.15;
+          else if (h < 0.04) shade += 0.09;
+          break;
+        }
+        case 'shale':
+          shade += (hash2(x >> 5, row) - 0.5) * 0.025;
+          break;
+        case 'carbonate': {
+          // Ladrillos: hiladas de 3,2 unidades de alto y 6 cm de largo, trabadas.
+          const joint = yUnits - course * 3.2 < 0.3 || (cm + (course % 2) * 3) % 6 < 0.45;
+          if (joint) shade -= 0.1;
+          break;
+        }
+        case 'evaporite':
+          if ((x + row) % 14 < 1.5) shade -= 0.08;
+          break;
+        case 'coal':
+          shade += (hash2(x, row) - 0.5) * 0.08;
+          break;
+        default:
+          break;
+      }
+      if (contact) shade -= 0.22;
+      let R = r0 * shade;
+      let G = g0 * shade;
+      let B = b0 * shade;
+      if (st.perm > 0.04) {
+        // Zona invadida: el filtrado desplaza al fluido de la formación cerca de la pared; se apaga hacia adentro.
+        const L = env.invasionCm * st.perm;
+        if (cm < L) {
+          const t = Math.pow(1 - cm / L, 1.3) * 0.7 * Math.min(1, st.perm * 1.4);
+          R += (filtrate[0] - R) * t;
+          G += (filtrate[1] - G) * t;
+          B += (filtrate[2] - B) * t;
+        }
+        // Revoque contra la pared (esquemático: ~1,2 cm).
+        if (cm < 1.2 * Math.min(1, st.perm + 0.3)) [R, G, B] = cake;
+      }
+      // Desvanecido hacia el fondo (afuera y abajo): el color tiende al fondo y el alfa a cero.
+      const fade = (1 - smooth(env.rFade, env.rOuter, r)) * bottomFade;
+      const i = (row * W + x) * 4;
+      px[i] = R + (bg[0] - R) * (1 - fade) * 0.4;
+      px[i + 1] = G + (bg[1] - G) * (1 - fade) * 0.4;
+      px[i + 2] = B + (bg[2] - B) * (1 - fade) * 0.4;
+      px[i + 3] = 255 * fade;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  const tex = new CanvasTexture(canvas);
+  tex.colorSpace = SRGBColorSpace;
+  tex.anisotropy = 4;
+  return tex;
+}
+
+/** Textura de la pared del pozo: la capa (más oscura) y el revoque en las permeables, alrededor y a lo alto. */
+function wallTexture(env: EnvironmentDesc): CanvasTexture {
+  const W = 64;
+  const H = Math.max(256, Math.min(2048, Math.round((env.y1 - env.y0) * 1.6)));
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d')!;
+  const img = ctx.createImageData(W, H);
+  const px = img.data;
+  const rows = rowStrata(env, H);
+  const cols = env.strata.map((s) => rgb(s.color));
+  const cake = rgb(env.colors.mudcake);
+  const noise = valueNoise(5);
+  for (let row = 0; row < H; row++) {
+    const k = rows[row]!;
+    const st = env.strata[k]!;
+    const base = st.perm > 0.04 ? cake : cols[k]!.map((v) => v * 0.82);
+    const fade = 1 - smooth(0.82, 1, row / H);
+    for (let x = 0; x < W; x++) {
+      const shade = 1 + noise(x / 12, row / 30) * (st.perm > 0.04 ? 0.08 : 0.05);
+      const i = (row * W + x) * 4;
+      px[i] = base[0]! * shade;
+      px[i + 1] = base[1]! * shade;
+      px[i + 2] = base[2]! * shade;
+      px[i + 3] = 255 * fade;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  const tex = new CanvasTexture(canvas);
+  tex.colorSpace = SRGBColorSpace;
+  tex.wrapS = RepeatWrapping;
+  return tex;
+}
+
+/** Tapa de la formación con el color de la capa de arriba, opaca junto al pozo y desvanecida hacia afuera. */
+function topCap(env: EnvironmentDesc, t0: number, len: number): Mesh {
+  const rings = 14;
+  const geo = annularSector(env.rWall, env.rOuter, t0, t0 + len, env.y1, 120, rings);
+  const pos = geo.getAttribute('position');
+  const col = new Float32Array(pos.count * 4);
+  for (let i = 0; i < pos.count; i++) {
+    const r = Math.hypot(pos.getX(i), pos.getZ(i));
+    col.set([1, 1, 1, 1 - smooth(env.rFade, env.rOuter, r)], i * 4);
+  }
+  geo.setAttribute('color', new BufferAttribute(col, 4));
+  const topColor = new Color(env.strata[0]?.color ?? env.colors.formationCut).lerp(new Color(env.colors.bg), 0.12);
+  return new Mesh(geo, new MeshStandardMaterial({ color: topColor, vertexColors: true, transparent: true, roughness: 0.95, metalness: 0, side: DoubleSide, envMapIntensity: 0.35 }));
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -657,7 +1023,7 @@ function annularSector(rIn: number, rOut: number, t0: number, t1: number, y: num
   return g;
 }
 
-/** Rectángulo vertical en el ángulo θ, de r0 a r1 y de y0 a y1, con UV (v a lo alto, para la textura de estratos). */
+/** Rectángulo vertical en el ángulo θ, de r0 a r1 y de y0 a y1, con UV (u a lo ancho, v a lo alto). */
 function radialQuad(theta: number, r0: number, r1: number, y0: number, y1: number): BufferGeometry {
   const [dx, dz] = dir(theta);
   const g = new BufferGeometry();
@@ -684,20 +1050,10 @@ function sectorSolid(rIn: number, rOut: number, t0: number, t1: number, y0: numb
     const t = t0 + ((t1 - t0) * i) / n;
     shape.lineTo(Math.sin(t) * rIn, -Math.cos(t) * rIn);
   }
-  const g = new ExtrudeGeometry(shape, { depth: y1 - y0, bevelEnabled: false });
+  const g = new ExtrudeGeometry(shape, { depth: y1 - y0, bevelEnabled: true, bevelThickness: 0.25, bevelSize: 0.2, bevelSegments: 1 });
   g.rotateX(-Math.PI / 2);
   g.translate(0, y0, 0);
   return g;
-}
-
-function edgeOf(theta: number, env: EnvironmentDesc): Vector3[] {
-  const [dx, dz] = dir(theta);
-  const p = (r: number, y: number) => new Vector3(dx * r, y, dz * r);
-  return [p(env.rWall, env.y1), p(env.rOuter, env.y1), p(env.rOuter, env.y1), p(env.rOuter, env.y0), p(env.rWall, env.y0), p(env.rWall, env.y1)];
-}
-
-function mixHex(a: string, b: string, t: number): string {
-  return `#${new Color(a).lerp(new Color(b), t).getHexString()}`;
 }
 
 function disposeObject(o: Object3D): void {
@@ -706,10 +1062,9 @@ function disposeObject(o: Object3D): void {
     if (m.geometry) m.geometry.dispose();
     const mat = (m as { material?: Material | Material[] }).material;
     for (const y of Array.isArray(mat) ? mat : mat ? [mat] : []) {
-      // Las texturas no se liberan con el material (estratos de la formación).
+      // Las texturas no se liberan con el material (capas de la formación).
       (y as MeshStandardMaterial).map?.dispose();
       y.dispose();
     }
   });
 }
-

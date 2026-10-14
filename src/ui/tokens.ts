@@ -219,19 +219,24 @@ export interface SceneColors {
   wall: string;
   /** Lodo dentro del pozo (translúcido). */
   mud: string;
+  /** Revoque contra la pared en las capas permeables y filtrado de la zona invadida (0033 D9). */
+  mudcake: string;
+  filtrate: string;
   /** Metal de la cabeza, uniones, flejes y brazos. */
   steel: string;
   steelDark: string;
+  /** Acero del cuerpo de una herramienta prendida (el color de la familia va en sus anillos). */
+  toolBody: string;
   cable: string;
   /** Patín de las herramientas apoyadas contra la pared. */
   pad: string;
-  /** Herramienta apagada (gris translúcido). */
+  /** Herramienta apagada (gris mate). */
   off: string;
   /** Aristas de una herramienta planificada sin datos en el pozo. */
   outline: string;
   /** Regla de escala radial y sus rótulos. */
   ruler: string;
-  /** Tinte del cuerpo por familia de herramienta. */
+  /** Anillos identificadores por familia de herramienta (y la lista). */
   familyGamma: string;
   familyNuclear: string;
   familyResistivity: string;
@@ -319,16 +324,19 @@ const light: ThemeTokens = {
   },
   scene: {
     bg: '#eef0f3',
-    formation: '#cdb89a',
-    formationAlt: '#bea683',
-    formationCut: '#d9c7ab',
+    formation: '#d6cdbf',
+    formationAlt: '#c9beac',
+    formationCut: '#ddd5c8',
     wall: '#a8916f',
     mud: '#7d8a99',
-    steel: '#9aa3ad',
-    steelDark: '#5f6873',
+    mudcake: '#6b5a45',
+    filtrate: '#6f9cc7',
+    steel: '#b4bcc6',
+    steelDark: '#6e7782',
+    toolBody: '#5a626c',
     cable: '#2b3038',
-    pad: '#3d434c',
-    off: '#b4bac2',
+    pad: '#2f343b',
+    off: '#adb3ba',
     outline: '#4f55d8',
     ruler: '#2b3038',
     familyGamma: '#5f9e6e',
@@ -411,16 +419,19 @@ const dark: ThemeTokens = {
   },
   scene: {
     bg: '#0e1013',
-    formation: '#5a4c3b',
-    formationAlt: '#4c4033',
-    formationCut: '#6a5a46',
+    formation: '#4a433a',
+    formationAlt: '#3f3931',
+    formationCut: '#544b40',
     wall: '#3f352a',
     mud: '#4a5a6c',
-    steel: '#a7b0bb',
-    steelDark: '#6d7682',
+    mudcake: '#2a231b',
+    filtrate: '#4d82b3',
+    steel: '#b9c2cc',
+    steelDark: '#76808c',
+    toolBody: '#6b737e',
     cable: '#c9ced5',
     pad: '#2a2e35',
-    off: '#555b63',
+    off: '#4b5058',
     outline: '#8086ff',
     ruler: '#d6dae0',
     familyGamma: '#6fb37f',

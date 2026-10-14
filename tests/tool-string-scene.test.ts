@@ -59,15 +59,20 @@ const layout = (s: ReturnType<typeof scene>, id: string) => s.tools.find((t) => 
 const prims = (s: ReturnType<typeof scene>, toolId: string) => s.primitives.filter((p) => p.pick && 'toolId' in p.pick && p.pick.toolId === toolId);
 
 describe('escena de la sarta: escala', () => {
-  it('las profundidades de investigación están a escala real desde la pared (la inducción profunda ≫ la microrresistividad)', () => {
+  it('las profundidades de investigación están a escala real desde su referencia (la inducción profunda ≫ la microrresistividad)', () => {
     const s = scene();
     const ind = s.shells.filter((x) => x.toolId === 'induction');
     expect(ind.map((x) => x.role)).toEqual(['RA10', 'RA20', 'RA30', 'RM', 'RT']);
+    // La inducción de arreglo se especifica desde el eje (0033 D9 a): el radio de la cáscara es la DOI.
     for (const [x, doi] of ind.map((x, i) => [x, [10, 20, 30, 60, 90][i]!] as const)) {
-      expect(x.radius - rWall).toBeCloseTo(doi * CM_PER_IN, 9);
+      expect(x.from).toBe('axis');
+      expect(x.radius).toBeCloseTo(doi * CM_PER_IN, 9);
       expect(x.rWall).toBeCloseTo(rWall, 9);
     }
+    // Las demás, desde la pared: radio del pozo + DOI.
     const rxo = s.shells.find((x) => x.toolId === 'microresistivity')!;
+    expect(rxo.from).toBe('wall');
+    expect(rxo.radius - rWall).toBeCloseTo(2 * CM_PER_IN, 9);
     expect(rxo.doiCm).toBeCloseTo(2 * CM_PER_IN, 9);
     // Lo que la vista enseña: 90 in contra 2 in, en la misma escala que los radios de las herramientas.
     expect(ind.at(-1)!.doiCm / rxo.doiCm).toBeCloseTo(45, 9);
@@ -199,13 +204,18 @@ describe('escena de la sarta: piezas', () => {
 });
 
 describe('escena de la sarta: estados', () => {
-  it('apagada: gris translúcida y sin cáscaras; la formación no cambia de tamaño', () => {
+  it('apagada: gris mate y sin cáscaras; la formación no cambia de tamaño', () => {
     const on = scene();
     const off = scene({ off: ['induction'] });
     const body = off.primitives.find((p) => p.key === 'body:induction') as Extract<ScenePrimitive, { kind: 'cylinder' }>;
     expect(body.style.look).toBe('off');
     expect(body.style.color).toBe(THEMES.light.scene.off);
-    expect(body.style.opacity).toBeLessThan(1);
+    expect(body.style.base).toBeUndefined();
+    // Prendida: cuerpo de acero, el color de la familia en los anillos.
+    const onBody = on.primitives.find((p) => p.key === 'body:induction') as Extract<ScenePrimitive, { kind: 'cylinder' }>;
+    expect(onBody.style.base).toBe(THEMES.light.scene.toolBody);
+    expect(onBody.style.color).toBe(THEMES.light.scene.familyResistivity);
+    expect(onBody.detail).toBe('tool');
     expect(off.shells.filter((x) => x.toolId === 'induction')).toEqual([]);
     expect(off.environment.rOuter).toBe(on.environment.rOuter);
   });
@@ -232,8 +242,39 @@ describe('escena de la sarta: estados', () => {
     expect(offSel.style.color).toBe(THEMES.light.scene.off);
     expect(offSel.style.edge).toBe(ACCENT);
     expect((s.primitives.find((p) => p.key === 'body:gr') as Extract<ScenePrimitive, { kind: 'cylinder' }>).style.emphasis).toBe('hover');
-    expect(s.labels.filter((l) => l.kind === 'shell').map((l) => l.text)).toEqual(['RA10 · 10 in', 'RA20 · 20 in', 'RA30 · 30 in', 'RM · 60 in', 'RT · 90 in']);
+    // El pozo no tiene AT20: su rótulo lo dice, atenuado.
+    expect(s.labels.filter((l) => l.kind === 'shell').map((l) => l.text)).toEqual(['RA10 · 10 in', 'RA20 · 20 in · no está', 'RA30 · 30 in', 'RM · 60 in', 'RT · 90 in']);
+    expect(s.labels.filter((l) => l.muted).map((l) => l.text)).toEqual(['RA20 · 20 in · no está']);
     expect(s.labels.find((l) => l.kind === 'tool')!.text).toBe('Inducción');
+  });
+
+  it('cáscaras: sin selección todas sutiles; con selección, las de la elegida fuertes y las demás casi transparentes', () => {
+    const none = scene();
+    const sel = scene({}, { selectedId: 'induction' });
+    const rt = (s: ReturnType<typeof scene>) => s.shells.find((x) => x.key === 'shell:induction:RT')!;
+    const den = (s: ReturnType<typeof scene>) => s.shells.find((x) => x.toolId === 'density')!;
+    expect(rt(none).emphasis).toBe('normal');
+    expect(rt(sel).emphasis).toBe('strong');
+    expect(den(sel).emphasis).toBe('faint');
+    for (const k of ['opacity', 'rim', 'line'] as const) {
+      expect(rt(sel)[k]).toBeGreaterThan(rt(none)[k]);
+      expect(den(sel)[k]).toBeLessThan(den(none)[k]);
+    }
+    // El borde (fresnel) siempre más marcado que el centro.
+    for (const x of [...none.shells, ...sel.shells]) expect(x.rim).toBeGreaterThan(x.opacity);
+  });
+
+  it('las cáscaras de curvas que el pozo no tiene se atenúan (como el «no está» de la ficha)', () => {
+    const s = scene();
+    const ra20 = s.shells.find((x) => x.key === 'shell:induction:RA20')!;
+    const ra30 = s.shells.find((x) => x.key === 'shell:induction:RA30')!;
+    expect(ra20.present).toBe(false);
+    expect(ra30.present).toBe(true);
+    expect(ra20.rim).toBeLessThan(ra30.rim);
+    expect(ra20.line).toBeLessThan(ra30.line);
+    // En planificación sin datos no falta ninguna curva en particular: tenues por estar sin datos, no «no está».
+    const plan = scene({ mode: 'planning', plan: ['laterolog'] });
+    expect(plan.shells.every((x) => x.present)).toBe(true);
   });
 
   it('las claves son únicas (el renderizador reutiliza mallas por clave)', () => {
@@ -258,11 +299,15 @@ describe('escena de la sarta: auxiliares', () => {
     expect(shellSpecs(sonic, {})).toEqual([]);
   });
 
-  it('la vista inicial mira al centro desde el lado del corte y se aleja más en una vista angosta', () => {
+  it('la vista inicial encuadra la sarta desde el lado del corte y se aleja más en una vista angosta', () => {
     const s = scene();
     const wide = initialCamera(s, 2);
-    const narrow = initialCamera(s, 0.6);
-    expect(wide.target[1]).toBeCloseTo((s.bounds.min[1] + s.bounds.max[1]) / 2, 9);
+    const narrow = initialCamera(s, 0.25);
+    expect(wide.target[1]).toBeCloseTo((s.focus.min[1] + s.focus.max[1]) / 2, 9);
+    // La caja de la sarta va de la cabeza a la última herramienta y es mucho más angosta que la formación.
+    expect(s.focus.min[1]).toBeLessThan(Math.min(...s.tools.map((t) => t.y0)));
+    expect(s.focus.max[1]).toBeGreaterThan(s.ruler.y);
+    expect(s.focus.max[0]).toBeLessThan(s.environment.rOuter / 5);
     expect(wide.position[0]).toBeGreaterThan(0);
     expect(wide.position[2]).toBeGreaterThan(0);
     expect(wide.position[1]).toBeGreaterThan(wide.target[1]);
