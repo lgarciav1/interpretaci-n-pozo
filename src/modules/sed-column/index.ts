@@ -14,6 +14,8 @@ export default defineModule({
     gr: input.optionalCurve('GR'), vsh: input.optionalCurve('VSH'), quartz: input.optionalCurve('V_QUARTZ'), calcite: input.optionalCurve('V_CALCITE'),
     dolomite: input.optionalCurve('V_DOLOMITE'), clay: input.optionalCurve('V_CLAY'), phi: input.optionalCurve('PHI_MINERAL'), coal: input.optionalCurve('IND_COAL'), shale: input.optionalCurve('IND_SHALE'),
   },
+  // Sin GR, Vsh ni inversión mineral la columna queda «sin clasificación» (0032).
+  inputGroups: [{ inputs: ['gr', 'vsh', 'quartz', 'calcite', 'dolomite', 'clay'], label: 'el GR, el Vsh o la inversión mineral' }],
   params: {
     // SIN VERIFICAR: los seis defaults y límites son decisiones operativas configurables.
     sedClayThreshold: param.number({ label: 'Umbral de arcilla', tooltip: 'Arcilla mineral o Vsh por encima de este valor se interpreta como lutita.', default: D.sedClayThreshold, min: .05, max: .95, step: .01, unit: 'v/v', group: 'Clasificación' }),

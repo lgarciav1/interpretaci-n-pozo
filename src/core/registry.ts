@@ -206,6 +206,24 @@ export function createRegistry(modules: readonly AnyModule[], options: RegistryO
         problems.push(`${where(m)}: la entrada '${key}' tiene un tipo desconocido.`);
       }
     }
+    // Grupos «al menos N de» (0032): sobre entradas opcionales existentes, sin repetir, con un mínimo alcanzable.
+    const groups = m.inputGroups ?? [];
+    if (!Array.isArray(groups)) problems.push(`${where(m)}: inputGroups debe ser una lista.`);
+    else {
+      groups.forEach((g, i) => {
+        const keys = Array.isArray(g?.inputs) ? g.inputs : [];
+        const label = `el grupo de entradas ${i + 1}`;
+        if (keys.length === 0) problems.push(`${where(m)}: ${label} no tiene entradas.`);
+        if (new Set(keys).size !== keys.length) problems.push(`${where(m)}: ${label} repite entradas.`);
+        for (const k of keys) {
+          const spec = m.inputs?.[k];
+          if (!spec) problems.push(`${where(m)}: ${label} nombra la entrada '${k}', que no existe.`);
+          else if (!spec.optional) problems.push(`${where(m)}: ${label} incluye '${k}', que es obligatoria (en un grupo van entradas opcionales).`);
+        }
+        const min = g?.min ?? 1;
+        if (!Number.isInteger(min) || min < 1 || min > Math.max(1, keys.length)) problems.push(`${where(m)}: ${label} pide un mínimo inválido (${String(g?.min)}).`);
+      });
+    }
   }
 
   // 5. Parámetros (incluye compatibilidad de compartidos)

@@ -13,7 +13,7 @@ import { Engine, toEngineWell, type EngineRunResult } from '../src/core/engine/e
 import { emptyInterpretation, type Interpretation, type SourceRef } from '../src/core/interpretation';
 import { defineModule, input, output, type AnyModule } from '../src/core/module';
 import { createRegistry, type Registry } from '../src/core/registry';
-import { availabilityReason, moduleAvailability, resolveToolString, type AvailabilityReport, type ToolStringState } from '../src/core/toolString';
+import { availabilityReason, moduleAvailability, offToolsFor, resolveToolString, type AvailabilityReport, type ToolStringState } from '../src/core/toolString';
 import type { Curve, Well, Zone } from '../src/core/well';
 import { readWellFile } from '../src/io';
 import { registry } from '../src/modules';
@@ -144,4 +144,137 @@ describe('fuentes elegidas a mano', () => {
       'Falta PHIT (porosidad total): «B», elegido a mano, no se puede calcular con ninguna sarta (p. ej. sus entradas forman un ciclo); elegí otra fuente.',
     );
   }, 60_000);
+});
+
+// ── entradas «al menos N de» (inputGroups) ──────────────────────────────────────────────────────────────────────
+
+describe('grupos de entradas «al menos N de»', () => {
+  const base = { category: 'other', workspace: 'petrophysics', params: {}, docs: { summary: 's', equations: [], references: [] } } as const;
+  const ctxOf = (s: ToolStringState | undefined, curves = demo.well.curves) => ({
+    tools: registry.tools,
+    roles: registry.roles,
+    resolved: resolveToolString(curves, s, registry.tools),
+  });
+  const avOf = (s: ToolStringState | undefined, id: string, curves = demo.well.curves) =>
+    moduleAvailability(registry, curves, resolveToolString(curves, s, registry.tools)).modules.get(id)!;
+
+  it('el registro valida los grupos: entradas existentes y opcionales, sin repetir, mínimo alcanzable', () => {
+    const mk = (inputGroups: unknown) =>
+      defineModule({
+        ...base,
+        id: 'g',
+        name: 'G',
+        inputs: { a: input.optionalCurve('GR'), b: input.optionalCurve('RHOB'), c: input.curve('NPHI') },
+        outputs: { y: output.curve('PHIT') },
+        compute: ({ n }) => ({ y: new Float64Array(n) }),
+        inputGroups: inputGroups as never,
+      });
+    expect(() => createRegistry([mk([{ inputs: ['a', 'b'] }])])).not.toThrow();
+    expect(() => createRegistry([mk([{ inputs: ['a', 'zz'] }])])).toThrow(/nombra la entrada 'zz', que no existe/);
+    expect(() => createRegistry([mk([{ inputs: ['a', 'c'] }])])).toThrow(/incluye 'c', que es obligatoria/);
+    expect(() => createRegistry([mk([{ inputs: ['a', 'a'] }])])).toThrow(/repite entradas/);
+    expect(() => createRegistry([mk([{ inputs: ['a', 'b'], min: 3 }])])).toThrow(/mínimo inválido/);
+    expect(() => createRegistry([mk([{ inputs: [] }])])).toThrow(/no tiene entradas/);
+  });
+
+  it('PHIT sin ninguna porosidad: el motor no lo corre y la sarta dice «densidad, neutrón o sónico»', () => {
+    const s = state({ off: ['density', 'neutron', 'sonic'] });
+    const engine = new Engine(registry);
+    engine.setWell(toEngineWell(demo.well));
+    const run = engine.run({ ...emptyInterpretation(demo.zones), compare: ['phit'], toolString: s });
+    expect(run.nodes.find((n) => n.moduleId === 'phit')?.status).toBe('missing-input');
+    expect(run.outputs.some((o) => o.port === 'PHIT')).toBe(false);
+    const phitMsgs = run.diagnostics.filter((d) => d.moduleId === 'phit').map((d) => d.message);
+    expect(phitMsgs).toEqual([expect.stringMatching(/necesita al menos una de estas entradas: PHID, PHIN o PHIS/)]);
+
+    const phit = avOf(s, 'phit');
+    expect(phit.status).toBe('unavailable');
+    expect(phit.missingGroups).toEqual([
+      {
+        ports: ['PHID', 'PHIN', 'PHIS'],
+        min: 1,
+        have: 0,
+        label: 'una porosidad de densidad, neutrón o sónico',
+        needs: [
+          { port: 'RHOB', tools: ['density'] },
+          { port: 'NPHI', tools: ['neutron'] },
+          { port: 'DT', tools: ['sonic'] },
+        ],
+      },
+    ]);
+    expect(availabilityReason(phit, ctxOf(s))).toBe('Falta una porosidad de densidad, neutrón o sónico: prendé Densidad, Neutrón o Sónico en la sarta.');
+    expect(offToolsFor(phit, ctxOf(s).resolved).map((t) => t.id)).toEqual(['density', 'neutron', 'sonic']);
+    // aguas abajo, el camino más corto pasa por el grupo
+    const sw = avOf(s, 'sw-archie');
+    expect(sw.status).toBe('unavailable');
+    expect(sw.needs).toEqual([{ port: 'RHOB', tools: ['density'] }]);
+    // con una sola porosidad alcanza
+    expect(avOf(state({ off: ['density', 'sonic'] }), 'phit').status).toBe('available');
+  }, 60_000);
+
+  it('en planificación: vacía pide agregar; con densidad planificada en un pozo sin densidad, «sin datos»', () => {
+    const empty = state({ mode: 'planning' });
+    expect(availabilityReason(avOf(empty, 'phit'), ctxOf(empty))).toBe('Falta una porosidad de densidad, neutrón o sónico: agregá Densidad, Neutrón o Sónico a la sarta.');
+    const curves = demo.well.curves.filter((c) => !['RHOB', 'PEF', 'DRHO'].includes(c.role ?? ''));
+    const plan = state({ mode: 'planning', plan: ['gr', 'density'] });
+    const phit = avOf(plan, 'phit', curves);
+    expect(phit.status).toBe('needs-data');
+    expect(phit.toolsWithoutData).toEqual(['density']);
+    expect(availabilityReason(phit, ctxOf(plan, curves))).toBe('Correría con la sarta planificada, pero el pozo no tiene RHOB (densidad volumétrica) de Densidad.');
+  });
+
+  it('«al menos dos de» (litología sugerida): con una sola curva no está disponible y lo dice', () => {
+    const s = state({ mode: 'planning', plan: ['gr'] });
+    const lf = avOf(s, 'lithology-facies');
+    expect(lf.status).toBe('unavailable');
+    expect(lf.missingGroups[0]).toMatchObject({ min: 2, have: 1 });
+    expect(availabilityReason(lf, ctxOf(s))).toBe(
+      'Faltan al menos dos curvas entre rayos gamma, densidad, neutrón, factor fotoeléctrico, sónico y resistividad profunda (hay 1): ' +
+        'agregá Densidad, Neutrón, Sónico, Inducción o Laterolog a la sarta.',
+    );
+    expect(avOf(state({ mode: 'planning', plan: ['gr', 'density'] }), 'lithology-facies').status).toBe('available');
+  });
+
+  it('si las fuentes que cumplían el grupo no corren, queda bloqueado (en el plan y en tiempo de cálculo), igual que en la disponibilidad', () => {
+    const grp = defineModule({
+      ...base,
+      id: 'grp',
+      name: 'Grupo',
+      inputs: { d: input.optionalCurve('PHID'), s: input.optionalCurve('PHIS') },
+      inputGroups: [{ inputs: ['d', 's'] }],
+      outputs: { y: output.curve('PHIT') },
+      compute: ({ n }) => ({ y: new Float64Array(n) }),
+    });
+    // Plan: PHIS sale de 'q', que necesita VSH elegido a mano desde 's-nphi' (sin NPHI no corre).
+    const q = defineModule({ ...base, id: 'q', name: 'Q', inputs: { v: input.curve('VSH') }, outputs: { y: output.curve('PHIS') }, compute: ({ n }) => ({ y: new Float64Array(n) }) });
+    const sN = defineModule({ ...base, id: 's-nphi', name: 'S', inputs: { x: input.curve('NPHI') }, outputs: { v: output.curve('VSH') }, compute: ({ n }) => ({ v: new Float64Array(n) }) });
+    const tG = defineModule({ ...base, id: 't-gr', name: 'T', inputs: { g: input.curve('GR') }, outputs: { v: output.curve('VSH') }, compute: ({ n }) => ({ v: new Float64Array(n) }) });
+    const r1 = createRegistry([grp, q, tG, sN]);
+    const noNphi = { ...demo.well, curves: demo.well.curves.filter((c) => c.role !== 'NPHI' && c.role !== 'RHOB') };
+    const planned = compareWithEngine(noNphi, demo.zones, { name: 'plan', sources: { VSH: { kind: 'module', moduleId: 's-nphi' } } }, r1);
+    expect(planned.mismatches).toEqual([]);
+    expect(planned.run.nodes.find((n) => n.moduleId === 'grp')?.status).toBe('blocked');
+    expect(compareWithEngine(noNphi, demo.zones, { name: 'libre' }, r1).run.nodes.find((n) => n.moduleId === 'grp')?.status).toBe('ok');
+
+    // Cálculo: la única fuente del grupo falla al calcular → bloqueado, sin llamar a compute.
+    let called = false;
+    const boom = defineModule({
+      ...base,
+      id: 'boom',
+      name: 'Boom',
+      inputs: { g: input.curve('GR') },
+      outputs: { y: output.curve('PHIS') },
+      compute: () => {
+        throw new Error('falla');
+      },
+    });
+    const grp2 = { ...grp, compute: (ctx: Parameters<typeof grp.compute>[0]) => ((called = true), grp.compute(ctx)) };
+    const r2 = createRegistry([grp2, boom]);
+    const engine = new Engine(r2);
+    engine.setWell(toEngineWell(noNphi));
+    const run = engine.run({ ...emptyInterpretation(demo.zones), compare: ['grp'] });
+    expect(run.nodes.find((n) => n.moduleId === 'boom')?.status).toBe('error');
+    expect(run.nodes.find((n) => n.moduleId === 'grp')?.status).toBe('blocked');
+    expect(called).toBe(false);
+  });
 });

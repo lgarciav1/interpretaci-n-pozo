@@ -3,7 +3,7 @@
  * y qué falta. No calcula nada: es puro y barato (se rehace en cada corrida).
  */
 import type { Interpretation, SourceRef } from '../interpretation';
-import { PORT_KIND_LABEL, portOf, type AnyModule } from '../module';
+import { describeInputGroup, PORT_KIND_LABEL, portOf, unmetInputGroup, type AnyModule } from '../module';
 import type { Registry } from '../registry';
 import type { RoleId } from '../roles';
 import { excludedCurveIds } from '../toolString';
@@ -138,8 +138,9 @@ export function planGraph(registry: Registry, allCurves: readonly CurveMeta[], i
   }
 
   //    2b. Viabilidad estática: un módulo "puede correr" si cada entrada requerida tiene alguna candidata que pueda
-  //        correr y no sea él mismo. Menor punto fijo (un ciclo no se justifica a sí mismo); optimista respecto de
-  //        las fuentes elegidas. Sirve para elegir la fuente por defecto y para soltar entradas opcionales.
+  //        correr y no sea él mismo, y cada grupo «al menos N de» tiene N entradas así. Menor punto fijo (un ciclo no
+  //        se justifica a sí mismo); optimista respecto de las fuentes elegidas. Sirve para elegir la fuente por
+  //        defecto y para soltar entradas opcionales.
   const viable = new Set<string>();
   const notSelf = (ref: SourceRef, id: string) => !(ref.kind === 'module' && ref.moduleId === id);
   const isViable = (ref: SourceRef) => ref.kind === 'curve' || viable.has(ref.moduleId);
@@ -147,9 +148,10 @@ export function planGraph(registry: Registry, allCurves: readonly CurveMeta[], i
     changed = false;
     for (const m of registry.modules) {
       if (disabled.has(m.id) || viable.has(m.id)) continue;
-      const ok = Object.values(m.inputs).every(
-        (spec) => spec.optional || (candidates.get(portOf(spec)) ?? []).some((c) => notSelf(c, m.id) && isViable(c)),
-      );
+      const canFeed = (spec: AnyModule['inputs'][string]) => (candidates.get(portOf(spec)) ?? []).some((c) => notSelf(c, m.id) && isViable(c));
+      const ok =
+        Object.values(m.inputs).every((spec) => spec.optional || canFeed(spec)) &&
+        !unmetInputGroup(m, (key) => !!m.inputs[key] && canFeed(m.inputs[key]!));
       if (ok) {
         viable.add(m.id);
         changed = true;
@@ -201,12 +203,15 @@ export function planGraph(registry: Registry, allCurves: readonly CurveMeta[], i
     const inputs: Record<string, SourceRef | null> = {};
     const deps = new Set<string>();
     let status: NodeStatus = 'ready';
+    // Avisos de entradas opcionales soltadas: se publican solo si el módulo igual corre (si un grupo «al menos N de»
+    // queda sin cumplir, decir «se calcula sin …» sería contradictorio).
+    const dropped: Diagnostic[] = [];
     for (const [key, spec] of Object.entries(m.inputs)) {
       const port = portOf(spec);
       let src = sourceFor(port, id);
       if (src?.kind === 'module' && spec.optional && !isViable(src)) {
         // Entrada opcional cuya fuente no puede correr: el módulo corre sin ella (no se bloquea por algo opcional).
-        diagnostics.push({
+        dropped.push({
           level: 'info',
           code: 'missing-input',
           moduleId: id,
@@ -237,6 +242,18 @@ export function planGraph(registry: Registry, allCurves: readonly CurveMeta[], i
               : `${moduleLabel(m, id)} necesita ${spec.kind === 'scalar' ? 'el valor' : `el dato (${PORT_KIND_LABEL[spec.kind]})`} ${port} (${what}) y ningún módulo activo lo calcula.`,
         });
       }
+    }
+    // Grupos «al menos N de» (0032): con las entradas opcionales que quedaron.
+    const unmet = unmetInputGroup(m, (key) => !!inputs[key]);
+    if (!unmet) diagnostics.push(...dropped);
+    if (status === 'ready' && unmet) {
+      status = 'missing-input';
+      diagnostics.push({
+        level: 'error',
+        code: 'missing-input',
+        moduleId: id,
+        message: `${moduleLabel(m, id)} necesita ${describeInputGroup(m, unmet)}, y no hay ninguna fuente que pueda calcularse.`,
+      });
     }
     nodes.set(id, { moduleId: id, reason: reasons.get(id)!, inputs, deps: [...deps], status });
   }
@@ -328,6 +345,20 @@ export function planGraph(registry: Registry, allCurves: readonly CurveMeta[], i
           code: 'blocked',
           moduleId: id,
           message: `${moduleLabel(registry.get(id), id)} no se puede calcular porque ${moduleLabel(registry.get(bad), bad)} no se pudo calcular.`,
+        });
+        continue;
+      }
+      // Soltar entradas opcionales puede dejar un grupo «al menos N de» sin cumplir.
+      const m = registry.get(id)!;
+      const unmet = unmetInputGroup(m, (key) => !!n.inputs[key]);
+      if (unmet) {
+        n.status = 'blocked';
+        changed = true;
+        diagnostics.push({
+          level: 'warning',
+          code: 'blocked',
+          moduleId: id,
+          message: `${moduleLabel(m, id)} no se puede calcular: necesita ${describeInputGroup(m, unmet)} y los módulos que las daban no se pudieron calcular.`,
         });
       }
     }

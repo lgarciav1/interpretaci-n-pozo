@@ -31,6 +31,8 @@ export default defineModule({
     dt: input.optionalCurve('DT'),
     rt: input.optionalCurve('RT', { label: 'Resistividad profunda' }),
   },
+  // El agrupamiento necesita al menos dos curvas (0032): con menos, el motor no lo corre y la sarta lo marca.
+  inputGroups: [{ inputs: ['gr', 'rhob', 'nphi', 'dt', 'rt'], min: 2, label: 'al menos dos curvas entre rayos gamma, densidad, neutrón, sónico y resistividad profunda' }],
   params: {},
   outputs: {
     scan: output.table(EF_SCAN_TABLE, {

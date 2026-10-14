@@ -184,22 +184,49 @@ ensayo cambiaba la interpretación).
 Queda sin filtrar (abierto): los selectores del histograma y del crossplot, la lista de curvas medidas de la columna
 izquierda y la superposición de calidad siguen mostrando todas las curvas del pozo.
 
-## D7. Lo que consume la vista 3D (fase 11c)
+## D7. Entradas «al menos N de» en el contrato de módulos (revisión de la 11a)
+
+`phit` declaraba sus tres entradas (PHID, PHIN, PHIS) opcionales, así que figuraba disponible —y el motor lo corría,
+devolviendo una curva vacía con aviso— sin ninguna herramienta de porosidad; con él, toda la cadena hasta Sw y el
+sumario. El contrato suma `inputGroups?: { inputs, min?, label? }[]` (`src/core/module.ts`): al menos `min` (por
+defecto 1) de esas entradas opcionales tienen que tener una fuente que corra.
+
+- **Motor** (`planGraph`): un grupo sin cumplir hace al módulo no viable (2b), lo deja `missing-input` con el mensaje
+  «necesita al menos una de estas entradas: PHID, PHIN o PHIS (…)», y `blocked` si las fuentes que lo cumplían no
+  corren (propagación del paso 6 o falla al calcular en `Engine.run`). Los avisos «se calcula sin X (opcional)» solo
+  se publican si el módulo igual corre.
+- **Disponibilidad**: la misma regla en la clausura; `missingGroups` dice qué grupo falta, cuántas opciones hay y qué
+  datos daría cada opción (unión); el camino más corto aguas abajo elige las opciones más baratas. Motivo: «Falta una
+  porosidad de densidad, neutrón o sónico: prendé Densidad, Neutrón o Sónico en la sarta.» (o «agregá … a la sarta»,
+  o «el pozo no tiene esos datos …»); con mínimo 2, «Faltan al menos dos curvas entre … (hay 1): …».
+- **Registro**: claves existentes y opcionales, sin repetir, `1 ≤ min ≤ cantidad`. TypeScript verifica las claves.
+- **Aplicado** a `phit`, `perm-coates` (porosidad RMN o efectiva), `sed-column` (GR, Vsh o inversión mineral; sin ellos
+  la columna queda «sin clasificación») y, con mínimo 2 (lo que ya exigía su código), `lithology-facies`,
+  `electrofacies` y `electrofacies-scan`. `temp-gradient` no lleva grupo: no tiene entradas porque calcula la
+  temperatura desde parámetros (superficie y gradiente); es un modelo y corre con cualquier sarta, lo que es correcto
+  (con la herramienta de temperatura apagada, TEMP sale de él).
+
+Descartado:
+- `input.anyOf([...])` como una entrada compuesta: cambia la forma de `ctx.inputs` (una entrada con varias curvas) y
+  obliga a reescribir los módulos; el grupo deja las entradas como estaban.
+- Marca por entrada (`optionalCurve('PHID', { group: 'phi' })`) con el mínimo en otro lado: el grupo queda disperso y el
+  mínimo sin dueño.
+- Dejar el chequeo dentro de `compute` (aviso y curva vacía): el motor no puede saberlo antes de correr y la sarta
+  diría «disponible».
+
+## D8. Lo que consume la vista 3D (fase 11c)
 
 - `resolveToolString(curvas, estado, registry.tools)` → `entries` arriba → abajo con `tool` (nombre, rótulo, familia,
   roles), `on`, `hasData`, `curveIds`, `roles` con datos; `outsidePlan` y `uncontrolled`.
 - `sheetOf(tool)` → ficha (longitud, diámetro y montaje para el dibujo; investigación y resolución para la ficha);
   vacía hasta la 11b: la vista dibuja con medidas por defecto.
-- `moduleAvailability` + `availabilityReason` (estado y motivo por módulo), `modulesEnabledBy` (qué habilita cada
-  herramienta), `offToolsFor`.
+- `moduleAvailability` (con `disabled` y `sources` de la interpretación) + `availabilityReason` (estado y motivo por
+  módulo), `modulesEnabledBy` (qué habilita cada herramienta), `offToolsFor`.
 - Recetas de D5 para los gestos (arrastrar para reordenar = `moveTool`; clic en el interruptor = `setToolOn`).
 - `toolStringView(pozo, interpretación)` / `useToolStringView()` (caché por identidad) en `src/app/toolString/select.ts`.
 
 ## Preguntas abiertas
 
-- Módulos con entradas «al menos una de» (p. ej. `phit` tiene PHID, PHIN y PHIS opcionales): el contrato no lo
-  expresa, así que `phit` (y lo que cuelga de PHIT) figura disponible sin ninguna herramienta de porosidad, igual que lo
-  trata el motor. Propuesta: `input.anyOf([...])` en el contrato, que usen el motor y la disponibilidad.
 - Reasignar a mano la herramienta de una curva (una RT con mnemónico ambiguo que en realidad es de laterolog): hoy no
   se puede; propuesta: `assign: Record<curveId, toolId>` en el estado si aparece el caso.
 - Herramientas que dan datos puntuales (probador de formación MDT, coronas laterales): no están en el catálogo porque no

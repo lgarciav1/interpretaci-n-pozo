@@ -121,6 +121,8 @@ defineModule({
   tools?: [...],                   // herramientas de perfilaje nuevas (sarta, 0032) que registran roles medidos
   inputs:  { gr: input.curve('GR'), cal: input.optionalCurve('CALI'), k: input.scalar('K_REF'),
              t: input.table('ZONE_SUMMARY'), h: input.zoneScalar('HPHISH_PAY') },   // + optionalScalar/Table/ZoneScalar
+  inputGroups?: [{ inputs: ['phid', 'phin'], min: 1, label: 'una porosidad de densidad o neutrón' }],
+                                   // «al menos N de» sobre entradas opcionales (0032): el motor y la sarta lo respetan
   params:  { grClean: param.number({ label, tooltip, default, min, max, step, unit, scale, scope: 'zone', shared }) ,
              method: param.enum({ ... }), useX: param.boolean({ ... }) },
   outputs: { igr: output.curve('IGR'), total: output.scalar('X_TOTAL', {...}), byZone: output.table('X', {...}),
@@ -129,6 +131,16 @@ defineModule({
   docs: { summary, equations: [{ latex }], references: [...] },
 });
 ```
+
+**Entradas «al menos N de»** (`inputGroups`, 0032): un módulo cuyas entradas son todas opcionales pero necesita alguna
+(PHIT combina las porosidades que haya, pero sin ninguna no hay nada que combinar) lo declara con un grupo sobre esas
+claves (`min` por defecto 1; `label` completa el motivo «Falta …»). El registro valida que las claves existan, sean
+opcionales y que el mínimo sea alcanzable; las claves se verifican también en tiempo de compilación. Si el grupo no se
+cumple, el motor no corre el módulo (`missing-input`; `blocked` si las fuentes que lo cumplían no corrieron, en el plan
+o al calcular) y la disponibilidad de la sarta lo marca «no disponible» con lo que daría cada opción. Usan grupos `phit`
+(densidad, neutrón o sónico), `perm-coates` (porosidad RMN o efectiva), `sed-column` (GR, Vsh o inversión mineral) y,
+con mínimo 2, `lithology-facies`, `electrofacies` y `electrofacies-scan`. Un módulo sin entradas (como
+`temp-gradient`, que calcula la temperatura desde parámetros) corre siempre: es un modelo, no depende de la sarta.
 
 `compute` está tipada a partir de las declaraciones: `ctx.inputs.gr` es una curva, `ctx.inputs.cal` puede ser
 `undefined`, `ctx.inputs.t` es una tabla de solo lectura, `ctx.inputs.h` un `Readonly<Record<zoneId, number>>`,

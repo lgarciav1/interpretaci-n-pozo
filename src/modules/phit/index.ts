@@ -42,6 +42,8 @@ export default defineModule({
     phin: input.optionalCurve('PHIN'),
     phis: input.optionalCurve('PHIS'),
   },
+  // Sin ninguna porosidad no hay nada que combinar: el motor no lo corre y la sarta lo marca «no disponible» (0032).
+  inputGroups: [{ inputs: ['phid', 'phin', 'phis'], label: 'una porosidad de densidad, neutrón o sónico' }],
   params: {
     method: param.enum({
       label: 'Método',

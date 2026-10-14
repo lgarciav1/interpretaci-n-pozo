@@ -17,6 +17,8 @@ export default defineModule({
     phie: input.optionalCurve('PHIE'),
     bvi: input.curve('BVI_NMR'),
   },
+  // Sin porosidad (RMN ni efectiva) la permeabilidad queda sin dato: hace falta alguna (0032).
+  inputGroups: [{ inputs: ['phiNmr', 'phie'], label: 'una porosidad (RMN o efectiva de perfiles)' }],
   params: {
     porosity: param.enum({
       label: 'Porosidad',

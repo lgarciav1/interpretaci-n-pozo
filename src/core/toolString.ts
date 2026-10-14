@@ -13,7 +13,7 @@
  */
 import { validateExplicitSource } from './engine/explicitSource';
 import type { Interpretation, SourceRef } from './interpretation';
-import { portOf, type AnyModule } from './module';
+import { groupMin, portOf, unmetInputGroup, type AnyModule, type InputGroupSpec } from './module';
 import type { RoleCatalog, RoleId } from './roles';
 import type { ToolCatalog, ToolCurveRef, ToolDef } from './tools';
 import type { UnitId } from './units';
@@ -197,6 +197,20 @@ export interface ModuleAvailability {
   needs: MissingNeed[];
   /** 'needs-data': herramientas de la sarta planificada sin los datos que hacen falta en este pozo. */
   toolsWithoutData: string[];
+  /** Grupos «al menos N de» sin cumplir (p. ej. PHIT sin ninguna porosidad), con lo que daría cada opción. */
+  missingGroups: MissingInputGroup[];
+}
+
+/** Un grupo «al menos N de» (`inputGroups` del contrato) que no se cumple. */
+export interface MissingInputGroup {
+  /** Puertos del grupo, en el orden del contrato. */
+  ports: string[];
+  min: number;
+  /** Cuántos están cubiertos. */
+  have: number;
+  label?: string;
+  /** Datos medidos de la base de la cadena que darían alguna de las opciones que faltan (unión, sin repetir). */
+  needs: MissingNeed[];
 }
 
 export interface AvailabilityReport {
@@ -299,10 +313,11 @@ function closure(modules: readonly AnyModule[], covered: ReadonlySet<string>, di
     return done;
   };
 
-  // 1. Viabilidad estática.
-  const viable = fixpoint((m, done) =>
-    Object.values(m.inputs).every((spec) => spec.optional || (candidates.get(portOf(spec)) ?? []).some((s) => s !== m.id && (s === DATA || done.has(s)))),
-  );
+  // 1. Viabilidad estática (entradas obligatorias y grupos «al menos N de»).
+  const viable = fixpoint((m, done) => {
+    const feeds = (port: string) => (candidates.get(port) ?? []).some((s) => s !== m.id && (s === DATA || done.has(s)));
+    return Object.values(m.inputs).every((spec) => spec.optional || feeds(portOf(spec))) && !unmetInputGroup(m, (k) => !!m.inputs[k] && feeds(portOf(m.inputs[k]!)));
+  });
   const isViable = (s: Src) => s === DATA || viable.has(s);
 
   // 2. Fuente elegida por puerto y por consumidor.
@@ -320,7 +335,10 @@ function closure(modules: readonly AnyModule[], covered: ReadonlySet<string>, di
 
   // 3. Lo que corre con esas fuentes.
   const runsWith = (s: Src | null, done: ReadonlySet<string>) => s !== null && (s === DATA || done.has(s));
-  const available = fixpoint((m, done) => Object.values(m.inputs).every((spec) => spec.optional || runsWith(sourceFor(portOf(spec), m.id), done)));
+  const available = fixpoint((m, done) => {
+    const runs = (port: string) => runsWith(sourceFor(port, m.id), done);
+    return Object.values(m.inputs).every((spec) => spec.optional || runs(portOf(spec))) && !unmetInputGroup(m, (k) => !!m.inputs[k] && runs(portOf(m.inputs[k]!)));
+  });
   const covers = (port: string, consumer = '') => runsWith(sourceFor(port, consumer), available);
   const ports = new Set([...candidates.keys()].filter((p) => covers(p)));
   return { available, sourceFor, covers, ports };
@@ -360,12 +378,30 @@ function makeNeedFinder(registry: AvailabilityRegistry, cl: Closure, disabled: R
         sub.forEach((x) => acc.add(x));
         if (best && acc.size >= best.length) break; // no mejora
       }
+      // Grupos «al menos N de»: las opciones más baratas que falten para llegar al mínimo.
+      for (const g of p.inputGroups ?? []) {
+        if (!ok) break;
+        const picked = cheapestGroupOptions(p, g, (port) => need(port, inner));
+        if (!picked) ok = false;
+        else picked.forEach((x) => acc.add(x));
+      }
       if (ok && (!best || acc.size < best.length)) best = [...acc];
     }
     if (best) memo.set(port, best);
     return best;
   };
   return need;
+}
+
+/**
+ * Lo que falta para cumplir un grupo «al menos N de»: los datos de las opciones más baratas hasta llegar al mínimo
+ * ([] si ya se cumple; null si no hay suficientes opciones posibles).
+ */
+function cheapestGroupOptions(m: AnyModule, g: InputGroupSpec, need: (port: string) => string[] | null): string[] | null {
+  const options = g.inputs.flatMap((k) => (m.inputs[k] ? [need(portOf(m.inputs[k]!))] : [])).filter((x): x is string[] => x !== null);
+  const min = groupMin(g);
+  if (options.length < min) return null;
+  return [...new Set(options.sort((a, b) => a.length - b.length).slice(0, min).flat())];
 }
 
 function rolesOfEntries(entries: readonly ToolStringEntry[]): Set<string> {
@@ -400,7 +436,7 @@ export function moduleAvailability(
   const needReal = planning ? makeNeedFinder(registry, real, disabled, explicit) : needHypo;
   const toolIds = (port: string) => registry.tools.toolsForRole(port).map((t) => t.id);
 
-  const leafNeeds = (m: AnyModule, cl: Closure, need: ReturnType<typeof makeNeedFinder>): { missing: string[]; needs: MissingNeed[] } => {
+  const leafNeeds = (m: AnyModule, cl: Closure, need: ReturnType<typeof makeNeedFinder>): { missing: string[]; needs: MissingNeed[]; groups: MissingInputGroup[] } => {
     const missing: string[] = [];
     const leaves = new Map<string, MissingNeed>();
     for (const spec of Object.values(m.inputs)) {
@@ -416,30 +452,47 @@ export function moduleAvailability(
       }
       for (const leaf of sub ?? [port]) if (!leaves.has(leaf)) leaves.set(leaf, { port: leaf, tools: sub ? toolIds(leaf) : [] });
     }
-    return { missing, needs: [...leaves.values()] };
+    const groups: MissingInputGroup[] = [];
+    for (const g of m.inputGroups ?? []) {
+      const ports = g.inputs.flatMap((k) => (m.inputs[k] ? [portOf(m.inputs[k]!)] : []));
+      const have = ports.filter((p) => cl.covers(p, m.id)).length;
+      const min = groupMin(g);
+      if (have >= min) continue;
+      const opts = new Map<string, MissingNeed>();
+      for (const p of ports) {
+        if (cl.covers(p, m.id)) continue;
+        for (const leaf of need(p, new Set([m.id])) ?? []) if (!opts.has(leaf)) opts.set(leaf, { port: leaf, tools: toolIds(leaf) });
+      }
+      groups.push({ ports, min, have, ...(g.label ? { label: g.label } : {}), needs: [...opts.values()] });
+    }
+    return { missing, needs: [...leaves.values()], groups };
   };
 
   const modules = new Map<string, ModuleAvailability>();
   for (const m of registry.modules) {
     if (disabled.has(m.id)) {
-      modules.set(m.id, { moduleId: m.id, status: 'disabled', missingInputs: [], needs: [], toolsWithoutData: [] });
+      modules.set(m.id, { moduleId: m.id, status: 'disabled', missingInputs: [], needs: [], toolsWithoutData: [], missingGroups: [] });
       continue;
     }
     if (real.available.has(m.id)) {
-      modules.set(m.id, { moduleId: m.id, status: 'available', missingInputs: [], needs: [], toolsWithoutData: [] });
+      modules.set(m.id, { moduleId: m.id, status: 'available', missingInputs: [], needs: [], toolsWithoutData: [], missingGroups: [] });
       continue;
     }
     if (hypo.available.has(m.id)) {
       // Correría con la sarta planificada: lo que falta son datos del pozo de herramientas que ya están en la sarta.
-      const { missing, needs } = leafNeeds(m, real, needReal);
+      const { missing, needs, groups } = leafNeeds(m, real, needReal);
       const planned = resolved.entries.filter((e) => e.on);
+      const plannedRole = (port: string) => planned.some((e) => e.tool.roles.includes(port));
+      // De los grupos, lo que daría la sarta planificada (es lo que le falta al pozo): se suma a `needs` para el motivo.
+      const all = [...needs];
+      for (const g of groups) for (const n of g.needs) if (plannedRole(n.port) && !all.some((x) => x.port === n.port)) all.push(n);
       const without = new Set<string>();
-      for (const n of needs) for (const e of planned) if (e.tool.roles.includes(n.port)) without.add(e.tool.id);
-      modules.set(m.id, { moduleId: m.id, status: 'needs-data', missingInputs: missing, needs, toolsWithoutData: [...without] });
+      for (const n of all) for (const e of planned) if (e.tool.roles.includes(n.port)) without.add(e.tool.id);
+      modules.set(m.id, { moduleId: m.id, status: 'needs-data', missingInputs: missing, needs: all, toolsWithoutData: [...without], missingGroups: groups });
       continue;
     }
-    const { missing, needs } = leafNeeds(m, hypo, needHypo);
-    modules.set(m.id, { moduleId: m.id, status: 'unavailable', missingInputs: missing, needs, toolsWithoutData: [] });
+    const { missing, needs, groups } = leafNeeds(m, hypo, needHypo);
+    modules.set(m.id, { moduleId: m.id, status: 'unavailable', missingInputs: missing, needs, toolsWithoutData: [], missingGroups: groups });
   }
   return { mode: resolved.mode, modules, covered: real.ports };
 }
@@ -449,7 +502,7 @@ export function moduleAvailability(
  * falta. Para el botón «Prender …» del panel del módulo.
  */
 export function offToolsFor(av: ModuleAvailability, resolved: ResolvedToolString): ToolDef[] {
-  const wanted = new Set(av.needs.map((n) => n.port));
+  const wanted = new Set([...av.needs, ...av.missingGroups.flatMap((g) => g.needs)].map((n) => n.port));
   return resolved.entries.filter((e) => !e.on && e.tool.roles.some((r) => wanted.has(r)) && (resolved.mode === 'planning' || e.hasData)).map((e) => e.tool);
 }
 
@@ -494,14 +547,26 @@ export function availabilityReason(av: ModuleAvailability, ctx: { tools: ToolCat
       }.`;
     case 'unavailable': {
       const entries = new Map(resolved.entries.map((e) => [e.tool.id, e]));
+      const offAmong = (ids: readonly string[]) => ids.filter((id) => entries.get(id) && !entries.get(id)!.on && (resolved.mode === 'planning' || entries.get(id)!.hasData));
       const parts = av.needs.map((n) => {
         if (n.chosen) return `Falta ${what(n.port)}: «${n.chosen.name}», elegido a mano, no se puede calcular con ninguna sarta (p. ej. sus entradas forman un ciclo); elegí otra fuente.`;
         if (!n.tools.length) return `Falta ${what(n.port)}: ningún módulo disponible lo calcula.`;
-        const offTools = n.tools.filter((id) => entries.get(id) && !entries.get(id)!.on && (resolved.mode === 'planning' || entries.get(id)!.hasData));
+        const offTools = offAmong(n.tools);
         if (offTools.length) return `Falta ${what(n.port)}: prendé ${or(offTools.map(name))} en la sarta.`;
         if (resolved.mode === 'planning') return `Falta ${what(n.port)}: agregá ${or(n.tools.map(name))} a la sarta.`;
         return `Falta ${what(n.port)}: el pozo no la tiene (la registra ${or(n.tools.map(name))}).`;
       });
+      for (const g of av.missingGroups) {
+        const head = g.label
+          ? `${g.min > 1 ? 'Faltan' : 'Falta'} ${g.label}${g.min > 1 && g.have > 0 ? ` (hay ${g.have})` : ''}`
+          : `Falta${g.min === 1 ? ' al menos una de' : `n al menos ${g.min} de`} ${or(g.ports.map(what))}${g.min > 1 && g.have > 0 ? ` (hay ${g.have})` : ''}`;
+        const toolsOf = [...new Set(g.needs.flatMap((n) => n.tools))];
+        const offTools = offAmong(toolsOf);
+        if (!toolsOf.length) parts.push(`${head}: ningún módulo disponible la calcula.`);
+        else if (offTools.length) parts.push(`${head}: prendé ${or(offTools.map(name))} en la sarta.`);
+        else if (resolved.mode === 'planning') parts.push(`${head}: agregá ${or(toolsOf.map(name))} a la sarta.`);
+        else parts.push(`${head}: el pozo no tiene esos datos (los registra ${or(toolsOf.map(name))}).`);
+      }
       // Sin faltantes directos: lo bloquea un ciclo entre fuentes elegidas a mano.
       return parts.length ? parts.join(' ') : 'No se puede calcular con las fuentes elegidas a mano: forman un ciclo o dependen de un módulo que no corre.';
     }
