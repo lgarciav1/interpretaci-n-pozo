@@ -1,4 +1,4 @@
-# Webapp de interpretación de registros de pozo
+# FiubaLog — webapp de interpretación de registros de pozo
 
 TP de Interpretación de Perfiles (FIUBA, 2C 2026). Webapp multimodular y autocontenida para interpretar perfiles de pozo: carga de datos, visor multipista, interpretación petrofísica, zonas, cutoffs, sumario y módulos adicionales. Entrega: diciembre 2026.
 

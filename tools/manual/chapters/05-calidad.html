@@ -1,0 +1,55 @@
+<h1 class="chapter-title">Control de calidad</h1>
+<p class="lede">Antes de interpretar, saber dónde desconfiar. El control de calidad revisa cada curva y el estado del pozo, y lo resume en un semáforo.</p>
+
+<div class="prose">
+<p>El control de calidad <b>no modifica ni descarta datos</b>: solo informa. Se calcula al cargar el pozo y se vuelve a calcular si cambian las curvas o sus roles. Sus observaciones nunca impiden interpretar.</p>
+</div>
+
+<h2>El semáforo</h2>
+<div class="grid">
+  <div class="tile"><h4><span class="chip"><span class="dot" style="background:#22a559"></span>Bien</span></h4><p>Sin observaciones, o solo informativas.</p></div>
+  <div class="tile"><h4><span class="chip"><span class="dot" style="background:#e3a008"></span>Revisar</span></h4><p>Algo merece una mirada: picos, faltantes, valores fuera de rango, tramos con derrumbe.</p></div>
+  <div class="tile"><h4><span class="chip"><span class="dot" style="background:#e5484d"></span>Mala</span></h4><p>La curva está vacía o el problema afecta a una parte grande de las muestras.</p></div>
+</div>
+<div class="prose"><p>El color de cada curva es el de su peor observación. El resumen cuenta cuántas hay de cada uno: el pozo del TP da «4 bien · 13 revisar · 1 mala».</p></div>
+
+<h2>Qué se revisa</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Problema</th><th>Cuándo se marca</th><th>Semáforo</th></tr></thead>
+<tbody>
+<tr><td><b>Curva sin datos</b></td><td>Ningún valor válido.</td><td>Mala</td></tr>
+<tr><td><b>Datos faltantes</b></td><td>Hasta 5 % sin dato es solo informativo; más de 5 %, revisar; más de 50 %, mala.</td><td>Revisar o mala</td></tr>
+<tr><td><b>Fuera de rango físico</b></td><td>Valores imposibles para el tipo de curva (por ejemplo PE fuera de 0–20 b/e, RHOB fuera de 1–3,2 g/cm³).</td><td>Revisar; mala si supera el 5 %</td></tr>
+<tr><td><b>Picos aislados</b></td><td>Hasta tres muestras seguidas que se apartan mucho de sus vecinas y de la dispersión de la curva. Las resistividades se evalúan en escala logarítmica.</td><td>Revisar; mala si supera el 1 %</td></tr>
+<tr><td><b>Valor constante</b></td><td>25 o más muestras seguidas con exactamente el mismo valor (unos 3,8 m con paso de 0,1524 m).</td><td>Revisar; mala si supera el 20 %</td></tr>
+<tr><td><b>Caliper inválido</b></td><td>Caliper menor que 5 in.</td><td>Revisar; mala si supera el 20 %</td></tr>
+<tr><td><b>Derrumbe</b></td><td>Caliper mayor que el diámetro de trépano más 1 in. El trépano sale de la curva BS o, si no hay, se asume 8,5 in.</td><td>Informativo</td></tr>
+<tr><td><b>Curvas de patín no confiables</b></td><td>Densidad, PE y corrección de densidad en los tramos con derrumbe o caliper inválido.</td><td>Revisar</td></tr>
+</tbody></table></div>
+<aside class="callout note" data-title="Sin caliper">
+<p>El estado del pozo necesita una curva con rol de caliper. Sin ella, la app avisa «Sin caliper: no se pudo evaluar el estado del pozo.» y el resto de los controles sigue funcionando.</p>
+</aside>
+
+<h2>Dónde se ve</h2>
+<div class="prose">
+<ul>
+<li><b>En el asistente de carga</b>, en el paso «Control de calidad».</li>
+<li><b>En la columna izquierda</b>, en la sección «Calidad» y en el punto de color junto a cada curva medida. Pasá el mouse sobre el punto para leer las observaciones.</li>
+<li><b>Sobre el perfil</b>: los tramos con derrumbe o caliper inválido aparecen rayados sobre las curvas afectadas, con una barra en la pista del caliper.</li>
+<li><b>En el informe completo</b>, con el botón «Informe» o «Ver informe completo».</li>
+</ul>
+</div>
+
+<h2>Revisar la calidad</h2>
+<figure data-shot="step-qc" class="wide"><figcaption>El paso «Calidad»: el semáforo, el estado del pozo y las curvas con observaciones, las peores primero.</figcaption></figure>
+<ol class="steps">
+<li>Abrí el paso «Calidad» en la barra del flujo.</li>
+<li>Leé el resumen del semáforo y el estado del pozo.</li>
+<li>Recorré «Curvas con observaciones»: cada curva muestra su peor observación.</li>
+<li>Para ver todas las curvas, abrí «Ver informe completo».</li>
+<li>Cuando termines, «Marcar como revisada». El paso queda «Completo» y la columna izquierda muestra «revisada».</li>
+</ol>
+<figure data-shot="qc-report" class="wide"><figcaption>El informe completo de calidad: estado del pozo con los tramos de derrumbe y la tabla por curva con faltantes, rango P1–P99 y observaciones.</figcaption></figure>
+<aside class="callout tip" data-title="Al cargar con el asistente">
+<p>Si cargaste el pozo con el asistente, ya viste el control de calidad y el paso queda revisado. Podés volver a abrirlo cuando quieras con «Reabrir paso».</p>
+</aside>

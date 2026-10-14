@@ -1,0 +1,103 @@
+<h1 class="chapter-title">El visor multipista</h1>
+<p class="lede">El perfil completo del pozo, dibujado al instante y con las convenciones de lectura de la industria. Las zonas, los resultados y las calibraciones se superponen sobre las mismas pistas.</p>
+
+<figure data-shot="viewer-full" class="wide" data-marks="4,2.5;45,2.5;70,2.5;90,2.5;50,7.5;30,15;20,55;98,55"><figcaption>El visor con el pozo del TP completo.</figcaption></figure>
+<ol class="legend">
+<li><b>Pozo y zonas.</b> El nombre muestra u oculta el encabezado; la ficha indica cuántas zonas hay o cuál se está editando.</li>
+<li><b>Plantilla de pistas.</b> «De fábrica», una plantilla propia o «Personalizadas».</li>
+<li><b>Herramientas.</b> «Sarta», «Pistas», «Tendencia» y «Marcar zona».</li>
+<li><b>Tramo, escala y zoom.</b> El intervalo visible, la escala vertical y los botones «Alejar», «Acercar» y «Ver todo el pozo».</li>
+<li><b>Encabezado del pozo.</b> Intervalo, paso, cantidad de curvas (medidas + calculadas) y zonas.</li>
+<li><b>Encabezados de pista.</b> Cada curva con su nombre, su escala y el valor bajo el cursor.</li>
+<li><b>Cuerpo.</b> Las curvas, la grilla, la profundidad y la franja de zonas.</li>
+<li><b>Minimapa.</b> El pozo entero con el GR; el rectángulo es la ventana visible.</li>
+</ol>
+
+<h2>Las pistas de fábrica</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Pista</th><th>Qué muestra</th></tr></thead>
+<tbody>
+<tr><td>«Correlación»</td><td>GR con respaldo, SP, caliper y diámetro de trépano. Relleno de arcilla y arena a partir del GR, y de derrumbe donde el caliper supera al trépano.</td></tr>
+<tr><td>«Prof.»</td><td>Profundidad en metros y franja de zonas.</td></tr>
+<tr><td>«Resistividad»</td><td>Escala logarítmica de 0,2 a 2000 ohm·m. La profunda (RT) en rojo, encima de las demás.</td></tr>
+<tr><td>«Densidad · neutrón»</td><td>Densidad (1,95–2,95 g/cm³) y neutrón (0,45 a −0,15), con PE y corrección de densidad. Amarillo donde el neutrón cruza a la derecha de la densidad (gas) y marrón donde se separa a la izquierda (arcilla).</td></tr>
+<tr><td>«Sónico»</td><td>DT (140 a 40 µs/ft) y DTS.</td></tr>
+<tr><td>«Interpretación»</td><td>Vsh, IGR y toda curva calculada que no tenga otra pista. El «+N» del encabezado abre la lista completa.</td></tr>
+<tr><td>«Porosidad · Sw»</td><td>PHIE, SW y BVW, con relleno de hidrocarburo en verde.</td></tr>
+<tr><td>«Presión»</td><td>Solo con presiones MDT cargadas.</td></tr>
+<tr><td>«Litología»</td><td>Columna que cierra a 100 %: arcilla, matriz, agua e hidrocarburo.</td></tr>
+<tr><td>«Permeabilidad»</td><td>PERM en escala logarítmica de 0,01 a 10.000 mD.</td></tr>
+<tr><td>«Banderas»</td><td>Reservorio neto, pay neto y las banderas de los módulos.</td></tr>
+<tr><td>«Indicadores»</td><td>Déficit de RMN, derrumbe, carbón, gas y arcilla.</td></tr>
+</tbody></table></div>
+<div class="prose"><p>Las pistas sin datos se ocultan solas o dicen qué falta, por ejemplo «Sin densidad ni neutrón en este pozo.». El espacio Geología tiene sus propias pistas de fábrica: GR espectral, litología, sónico, RMN y las de los módulos geológicos.</p></div>
+
+<h2>Moverse por el pozo</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Acción</th><th>Con el mouse</th><th>Con el teclado</th></tr></thead>
+<tbody>
+<tr><td>Desplazar</td><td>Rueda, arrastrar el fondo o la ventana del minimapa</td><td><kbd>Re Pág</kbd> <kbd>Av Pág</kbd> · <kbd>Inicio</kbd> <kbd>Fin</kbd></td></tr>
+<tr><td>Acercar o alejar</td><td><kbd>Ctrl</kbd> + rueda (centrado en el puntero), doble clic, pellizco</td><td><kbd>+</kbd> <kbd>−</kbd></td></tr>
+<tr><td>Ver todo el pozo</td><td>«Ver todo el pozo»</td><td><kbd>0</kbd></td></tr>
+<tr><td>Ir a una zona</td><td>Su pastilla en el encabezado o doble clic en la franja de zonas</td><td>—</td></tr>
+<tr><td>Saltar a un lugar</td><td>Clic en el minimapa</td><td>—</td></tr>
+</tbody></table></div>
+<div class="prose"><p>Muchos paneles tienen un botón «Ver en el visor»: tablas de tramos, tendencias, pruebas MDT, plugs, puntos del crossplot. El visor se desplaza y hace zoom a ese tramo.</p></div>
+
+<h2>Leer valores</h2>
+<div class="prose">
+<p>Al pasar el puntero sobre el perfil aparece un cursor horizontal en todas las pistas, con la profundidad y un punto sobre cada curva. <b>El valor de cada curva se lee en su encabezado</b>, al lado del nombre, en su unidad. En la columna litológica, cada componente muestra su fracción.</p>
+<p>Con el teclado, <kbd>Tab</kbd> lleva el foco al visor y <kbd>↑</kbd> <kbd>↓</kbd> mueven el cursor. Los elementos superpuestos (zonas, derrumbes, puntos de presión, plugs, tendencias) tienen su propio tooltip que dice qué son y qué se puede hacer con ellos.</p>
+</div>
+<figure data-shot="viewer-cursor" class="wide"><figcaption>La zona C a escala de detalle, con el cursor: cada encabezado muestra la lectura de su curva a esa profundidad.</figcaption></figure>
+
+<h2>Escala, color y trazo de una curva</h2>
+<div class="prose"><p>Un clic en el nombre de una curva, en su encabezado, abre el editor «Escala y color».</p></div>
+<figure data-shot="curve-editor" class="half"><figcaption>El editor de la curva GR.</figcaption></figure>
+<div class="prose">
+<ul>
+<li><b>«Aplicar los cambios a»</b>: «Esta curva» o todas las de su rol (por ejemplo, «Todas las GR»). Las curvas calculadas se ajustan siempre para todo su rol.</li>
+<li><b>Escala</b>: «Lineal» o «Log», «Invertir», «Mínimo» y «Máximo».</li>
+<li><b>Aspecto</b>: «Color», «Trazo» (continua, rayada, punteada, raya y punto) y «Grosor».</li>
+<li><b>«Curva de respaldo»</b>: lo que pasa del máximo vuelve a entrar corrido un ancho de escala, como el GR de fábrica.</li>
+<li><b>«Ocultar curva»</b> y <b>«Restablecer»</b>. Una curva oculta queda como un ojo tachado en el encabezado de su pista, para volver a mostrarla.</li>
+</ul>
+</div>
+
+<h2>Marcar un tramo y verlo en los gráficos</h2>
+<ol class="steps">
+<li>Mantené <kbd>Mayús</kbd> y arrastrá sobre el perfil, en cualquier pista.</li>
+<li>Al soltar, el tramo queda marcado con su rango y su cantidad de muestras, y la barra del visor muestra «Sel. N».</li>
+<li>El crossplot resalta esos puntos y el histograma suma una serie «Selección».</li>
+<li>Para limpiar la selección, <kbd>Esc</kbd> o la ✕ de la ficha «Sel. N».</li>
+</ol>
+<figure data-shot="linked-selection" class="wide"><figcaption>Un tramo marcado en el visor con <kbd>Mayús</kbd> + arrastre, resaltado en el crossplot.</figcaption></figure>
+<div class="prose"><p>La selección también funciona al revés: un clic en una clase del histograma, o un rectángulo o lazo en el crossplot, marca esas muestras en el visor.</p></div>
+
+<h2>Armar pistas</h2>
+<div class="prose"><p>El botón «Pistas» abre el panel «Armar pistas» en la columna izquierda y pasa el visor a modo de edición. Se sale con <kbd>Esc</kbd> o con el mismo botón.</p></div>
+<figure data-shot="track-builder" class="wide"><figcaption>El catálogo de herramientas y curvas, a la izquierda, y el visor en modo de edición.</figcaption></figure>
+<div class="prose">
+<p>El catálogo agrupa todo lo que se puede agregar: <b>herramientas</b> (una pista completa con sus curvas, escalas y rellenos de convención) y <b>curvas sueltas</b>. El buscador «Buscar curva o herramienta» filtra por mnemónico, rol o nombre. Las curvas que el pozo no tiene aparecen deshabilitadas.</p>
+</div>
+<div class="table-wrap"><table>
+<thead><tr><th>Para</th><th>Hacé esto</th></tr></thead>
+<tbody>
+<tr><td>Agregar una curva a una pista</td><td>Arrastrala del catálogo a la pista. Una curva puede estar en varias pistas.</td></tr>
+<tr><td>Crear una pista nueva</td><td>Arrastrá una herramienta o una curva a un espacio entre dos pistas: aparece la barra «Pista nueva». Sin mouse, el botón «+» de cada fila ofrece «En una pista nueva».</td></tr>
+<tr><td>Mover una pista</td><td>Arrastrá su manija, o <kbd>Alt</kbd> <kbd>←</kbd> <kbd>→</kbd>.</td></tr>
+<tr><td>Cambiar el ancho</td><td>Arrastrá el borde derecho del encabezado, o <kbd>Alt</kbd> <kbd>Mayús</kbd> <kbd>←</kbd> <kbd>→</kbd>.</td></tr>
+<tr><td>Mover o quitar una curva</td><td>Arrastrala a otra pista, o usá el menú «Mover o quitar» de su fila.</td></tr>
+<tr><td>Renombrar o quitar una pista</td><td>Menú de la manija: «Renombrar…» o «Quitar pista» (<kbd>Supr</kbd>).</td></tr>
+</tbody></table></div>
+<aside class="callout note" data-title="Los rellenos viajan con las curvas">
+<p>Los rellenos de una curva (arcilla y arena del GR, hidrocarburo de la Sw) se mueven con ella. Los rellenos entre dos curvas, como el cruce densidad–neutrón, aparecen donde estén las dos juntas.</p>
+</aside>
+
+<h3>Plantillas propias</h3>
+<ol class="steps">
+<li>Armá las pistas como quieras.</li>
+<li>«Guardar como plantilla…», en el menú de plantillas o en el panel, y poné un nombre.</li>
+<li>Para aplicarla, elegila en el menú de plantillas. «Restablecer la de fábrica» vuelve a las pistas de la app.</li>
+</ol>
+<div class="prose"><p>Las plantillas se guardan con el proyecto y son de cada espacio de trabajo: Petrofísica y Geología tienen las suyas. Todo cambio en las pistas se deshace con <kbd>Ctrl</kbd> <kbd>Z</kbd>.</p></div>

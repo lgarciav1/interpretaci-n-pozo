@@ -1,0 +1,59 @@
+<h1 class="chapter-title">Datos de corona y calibración</h1>
+<p class="lede">Los plugs de corona puestos en profundidad contra el perfil, un modelo k–φ que se aplica a todo el pozo y la calibración de la densidad de matriz y del exponente de cementación.</p>
+
+<h2>Cargar plugs</h2>
+<div class="prose">
+<p>En la pestaña «Corona», «Cargar plugs» abre el asistente «Cargar plugs de corona», con los mismos pasos que el de presiones. Para practicar, «Usar plugs de ejemplo» agrega 42 plugs inventados en dos coronas, a propósito corridos en profundidad respecto del perfil.</p>
+<p>La tabla lleva <b>una fila por plug</b> con la profundidad y al menos la porosidad o la permeabilidad. Son opcionales la densidad de grano, el factor de formación F, la corona o corrida, el identificador y la descripción. La porosidad puede estar en % o en v/v.</p>
+</div>
+
+<h2>El panel «Corona»</h2>
+<figure data-shot="corona" class="wide"><figcaption>Plugs, puesta en profundidad y modelo k–φ, con el ejemplo cargado.</figcaption></figure>
+<div class="table-wrap"><table>
+<thead><tr><th>Columna</th><th>Qué hay</th></tr></thead>
+<tbody>
+<tr><td>«Plugs»</td><td>Cada plug con su casilla, su profundidad corregida, φ, k, densidad de grano, F y calidad. La app propone descartar los dudosos («φ fuera de rango», «plug fisurado o dañado»…). Un clic en la fila lleva el visor al plug.</td></tr>
+<tr><td>«Puesta en profundidad»</td><td>Una tarjeta por corona con su «Desplazamiento», la sugerencia («Sugerido +2,40 m · r 0,99»), el botón «Usar sugerido» y un minigráfico de la correlación en función del desplazamiento.</td></tr>
+<tr><td>«Modelo k–φ»</td><td>Permeabilidad (log) contra porosidad con los plugs y el perfil de fondo, la ecuación del modelo, su R² y «Aplicar al pozo».</td></tr>
+</tbody></table></div>
+
+<h2>Poner la corona en profundidad</h2>
+<ol class="steps">
+<li>Mirá el visor: cada corona tiene una barra en la pista «Prof.» («C1», «C2») y sus plugs de φ se dibujan sobre la escala de la PHIE.</li>
+<li>En la tarjeta de cada corona, leé la sugerencia: es el desplazamiento que mejor correlaciona la φ de los plugs con la del perfil.</li>
+<li>Hacé clic en «Usar sugerido». También podés escribir el «Desplazamiento» o arrastrar un plug arriba o abajo en el visor: se mueve toda su corona.</li>
+<li>Comprobá que los plugs siguen la forma de la curva.</li>
+</ol>
+<figure data-shot="core-viewer" class="wide"><figcaption>Plugs sobre el visor: φ sobre la porosidad, k sobre la permeabilidad y la densidad de grano sobre la densidad, un color por corona.</figcaption></figure>
+<div class="prose"><p>«Correlacionar φ con» elige contra qué curva se compara: PHIE, PHIT o una curva medida como NPHI o la porosidad de RMN.</p></div>
+
+<h2>Modelo k–φ</h2>
+<ol class="steps">
+<li>Con los plugs en profundidad, «Ajustar modelo k–φ» (si todavía no hay uno). El modelo es exponencial: una recta en el gráfico semilogarítmico.</li>
+<li>Revisá la ecuación, el R² y los plugs fuera del ajuste. Arrastrando un rectángulo sobre el gráfico dejás afuera los plugs que quedan fuera de él.</li>
+<li>Elegí «Plugs de»: todo el pozo o una zona.</li>
+<li>«Aplicar al pozo», con «y usarlo para PERM» marcado, hace que la permeabilidad de la cadena salga del modelo de corona.</li>
+</ol>
+<div class="prose"><p>El indicador dice si el modelo está «Sin aplicar», «Aplicado» o «Desactualizado» (el ajuste cambió y hay que volver a aplicarlo).</p></div>
+
+<h2>Calibración</h2>
+<div class="prose"><p>La pestaña «Calibración» compara el perfil con la corona ya puesta en profundidad y escribe valores calibrados en la cadena. El selector «Aplicar en» define el alcance: todo el pozo o una zona, usando solo los plugs que caen en ella.</p></div>
+<figure data-shot="calibration" class="wide"><figcaption>El panel «Calibración»: porosidad del perfil contra la de corona, densidad de matriz y exponente de cementación.</figcaption></figure>
+<div class="table-wrap"><table>
+<thead><tr><th>Columna</th><th>Qué hace</th></tr></thead>
+<tbody>
+<tr><td>«Porosidad · perfil vs. corona»</td><td>Diagnóstico: sesgo, RMSE y R² del perfil contra los plugs, con las rectas 1:1, de eje mayor reducido y de mínimos cuadrados. No corrige la porosidad de la cadena.</td></tr>
+<tr><td>«Densidad de matriz»</td><td>Tres estimaciones: la densidad de grano de los plugs, la que iguala la φ de densidad con la de corona y la densidad de matriz aparente del perfil. «Aplicar» escribe la elegida en la porosidad por densidad.</td></tr>
+<tr><td>«Exponente de cementación m»</td><td>Desde el factor de formación de los plugs (con a fija o libre) o desde el perfil en zonas acuíferas. «Aplicar m» o «Aplicar a y m» lo escriben en un paso.</td></tr>
+</tbody></table></div>
+
+<h2>Tipos de roca</h2>
+<div class="prose"><p>Con plugs cargados, la pestaña «Tipos de roca» clasifica la roca de tres maneras:</p></div>
+<figure data-shot="rock-types" class="wide"><figcaption>La pestaña «Tipos de roca», con el gráfico de Winland y las clases por radio de garganta.</figcaption></figure>
+<div class="prose">
+<ul>
+<li><b>«Winland · Pittman»</b>: k contra φ con las isolíneas de radio de garganta (0,1; 0,5; 2 y 10 µm) y los plugs coloreados por clase, de «Nano» a «Mega». «Llevar al pozo» clasifica el perfil en la pista «Tipo de roca».</li>
+<li><b>«Unidades de flujo · FZI»</b>: el índice de calidad de reservorio contra la porosidad normalizada, con las unidades de flujo agrupadas solas o con límites a mano, y la bondad de la clasificación (GVF).</li>
+<li><b>«Presión capilar»</b>: curvas Pc–Sw, función J de Leverett y distribución de gargantas de un <b>ejemplo de libro</b>, no del pozo.</li>
+</ul>
+</div>

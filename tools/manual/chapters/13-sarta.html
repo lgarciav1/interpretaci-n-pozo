@@ -1,0 +1,59 @@
+<h1 class="chapter-title">Sarta de perfilaje</h1>
+<p class="lede">Qué herramientas corrieron en el pozo, qué pasa si apagás una y hasta dónde lee cada una, en una vista 3D a escala real.</p>
+
+<div class="prose"><p>El botón «Sarta» de la barra del visor abre la pantalla de la sarta: la lista de herramientas reemplaza a la columna izquierda y la vista 3D ocupa el centro. El visor queda debajo, sin perder su posición. Se vuelve con «Volver al perfil» o <kbd>Esc</kbd>.</p></div>
+<figure data-shot="sarta" class="wide"><figcaption>La sarta del pozo del TP: la lista de herramientas, la vista 3D con las profundidades de investigación y su leyenda.</figcaption></figure>
+
+<h2>La lista de herramientas</h2>
+<div class="prose">
+<p>Las herramientas se ordenan de arriba hacia abajo, como van en la sarta. Cada fila muestra la sigla, el nombre y las curvas del pozo que entrega (por ejemplo, «Densidad» entrega <code>ZDEN · PE</code>). El interruptor de la derecha la prende o la apaga.</p>
+<p>El selector «Modo de la sarta» ofrece dos modos:</p>
+</div>
+<div class="grid">
+  <div class="tile"><h4>Datos</h4><p>La sarta que corrió, deducida de las curvas del pozo. Apagar una herramienta es hacer de cuenta que no corrió.</p></div>
+  <div class="tile"><h4>Planificación</h4><p>La sarta que pedirías: agregá o quitá herramientas y mirá qué módulos podrías correr.</p></div>
+</div>
+
+<h2>Apagar una herramienta</h2>
+<div class="prose">
+<p>En modo «Datos», al apagar una herramienta sus curvas desaparecen del visor, de los selectores, de los gráficos, del control de calidad y de los módulos que las necesitan. Los datos siguen en el pozo: al prenderla, todo vuelve como estaba.</p>
+<p>El pie de la lista cuenta los módulos disponibles. En el pozo del TP, apagar «Densidad» pasa de «45 de 45 módulos disponibles» a 39.</p>
+</div>
+<aside class="callout tip" data-title="Para qué sirve">
+<p>Para responder preguntas como «¿qué podría interpretar sin la densidad?» o «¿qué agrega una RMN?». Cada cambio se deshace con <kbd>Ctrl</kbd> <kbd>Z</kbd>.</p>
+</aside>
+<div class="prose">
+<p>Cada módulo puede quedar «disponible», «sin datos» (disponible con la sarta planificada), «no disponible» o «desactivado». En el panel del paso, un módulo no disponible lo dice con su motivo y, si alcanza con prender una herramienta, ofrece el botón, por ejemplo «Prender Densidad».</p>
+</div>
+
+<h2>Planificar una sarta</h2>
+<ol class="steps">
+<li>Elegí «Planificación». La primera vez parte de una copia de la sarta de los datos.</li>
+<li>«Agregar herramienta» suma una de las que faltan; la ✕ de cada fila la quita. «Empezar de…» permite copiar la sarta de los datos o empezar de cero.</li>
+<li>Reordená arrastrando la manija de cada fila, o con <kbd>Alt</kbd> <kbd>↑</kbd> <kbd>↓</kbd>.</li>
+<li>Mirá en el pie y en el panel del paso qué módulos correrían con esa sarta.</li>
+</ol>
+
+<h2>La vista 3D</h2>
+<div class="prose">
+<p>La sarta se dibuja dentro de un pozo cortado, con una regla de escala. Los radios y profundidades de investigación son reales; los largos de las herramientas están comprimidos 5:1. La formación se colorea por la litología sugerida (si el modelo de facies ya corrió) o por el GR.</p>
+<p>Cada herramienta lleva <b>cáscaras translúcidas</b> cuyo radio es su profundidad de investigación, una por curva y con su color. La leyenda «Profundidad de investigación · desde la pared» lo resume: GR 4 in, densidad 4 in, neutrón 10 in, sónico 8 in, RMN 3 in, inducción de 10 a 90 in.</p>
+</div>
+<div class="table-wrap"><table>
+<thead><tr><th>Para</th><th>Mouse</th><th>Teclado</th></tr></thead>
+<tbody>
+<tr><td>Girar</td><td>Arrastrar</td><td>Flechas</td></tr>
+<tr><td>Mover</td><td>Clic derecho o dos dedos</td><td>—</td></tr>
+<tr><td>Acercar o alejar</td><td>Rueda</td><td><kbd>+</kbd> <kbd>−</kbd></td></tr>
+<tr><td>Volver a la vista inicial</td><td>«Vista inicial»</td><td><kbd>Inicio</kbd></td></tr>
+<tr><td>Ver la ficha de una herramienta</td><td>Clic en la herramienta</td><td>Elegirla en la lista</td></tr>
+</tbody></table></div>
+
+<h2>Ficha técnica</h2>
+<div class="prose">
+<p>Un clic en una herramienta abre su ficha: qué mide y con qué principio, las curvas que entrega y la profundidad de investigación de cada una, la resolución vertical, el montaje, el largo y el diámetro, las limitaciones, los módulos que habilita y las fuentes. Los valores de una sola fuente llevan la marca «aproximado».</p>
+</div>
+<figure data-shot="sarta-card" class="wide"><figcaption>La ficha del calibre.</figcaption></figure>
+<aside class="callout note" data-title="Sin WebGL">
+<p>Si el navegador no tiene WebGL 2, la vista 3D dice «Sin vista 3D». La lista y las fichas siguen funcionando.</p>
+</aside>

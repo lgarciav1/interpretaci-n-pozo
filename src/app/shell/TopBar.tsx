@@ -79,7 +79,7 @@ export function TopBar() {
     <header className="shell-topbar">
       <div className="shell-brand">
         <BrandMark />
-        <span className="shell-brand__name">Interpretación de pozo</span>
+        <span className="shell-brand__name">FiubaLog</span>
       </div>
       <nav className="shell-context" aria-label="Proyecto y pozo">
         <span className="shell-context__project" title="Proyecto">

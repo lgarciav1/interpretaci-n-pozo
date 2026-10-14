@@ -1,0 +1,58 @@
+<h1 class="chapter-title">Presiones MDT</h1>
+<p class="lede">Presión contra profundidad, un gradiente por fluido, la densidad de cada uno y los contactos donde se cortan, superpuestos al perfil para compararlos con la saturación.</p>
+
+<h2>Cargar las presiones</h2>
+<div class="prose">
+<p>En la pestaña «Presiones MDT» del dock, «Cargar presiones» abre el asistente. Para practicar, «Usar presiones de ejemplo» agrega 21 pruebas inventadas sobre el pozo del TP (no son mediciones del pozo, y la insignia «Ejemplo sintético» lo recuerda siempre).</p>
+</div>
+<div class="prose">
+<p>La tabla puede ser Excel, CSV o LAS, con <b>una fila por prueba</b>:</p>
+<ul>
+<li><b>Obligatorias</b>: profundidad medida (MD) y presión de formación.</li>
+<li><b>Opcionales</b>: profundidad vertical (TVD), movilidad, presión hidrostática del lodo antes y después, calidad o resultado, tipo de prueba, comentario e identificador.</li>
+</ul>
+<p>Los encabezados se reconocen en español o en inglés («Depth», «Prof.», «MD», «Pressure», «Presión», «Mobility», «Calidad»…) y por su unidad. Todo se convierte a metros, psi y mD/cP.</p>
+</div>
+<ol class="steps">
+<li>En «Archivo», arrastrá la tabla o hacé clic para elegirla.</li>
+<li>En «Columnas», revisá qué es cada columna en la lista «Es» («Profundidad MD», «Presión de formación», «Movilidad»…), su unidad y la confianza.</li>
+<li>Revisá la vista previa de las pruebas: las que la app propone descartar se pueden volver a incluir después.</li>
+<li>«Cargar N pruebas».</li>
+</ol>
+
+<h2>El panel</h2>
+<figure data-shot="mdt" class="wide"><figcaption>El panel con el ejemplo: la tabla de pruebas, los gradientes de gas, petróleo y agua, y los contactos.</figcaption></figure>
+<div class="prose">
+<ul>
+<li><b>Barra</b>: el conjunto de presiones, «Movilidad mín.» (por debajo se propone descartar la prueba) y la unidad de presión: psi, bar, kPa o kg/cm².</li>
+<li><b>«Pruebas»</b>: una fila por prueba con su casilla para incluirla o descartarla, MD, presión, movilidad, calidad y el fluido del gradiente que la usa. Un clic en la fila lleva el visor a esa prueba.</li>
+<li><b>«Gradientes»</b>: una tarjeta por gradiente con el valor en psi/ft y bar/m, la <b>densidad del fluido</b> en g/cm³, el R², la cantidad de puntos y el tramo. Una insignia compara la densidad con la típica: «Coincide con petróleo», «Parece agua», «Densidad no física»…</li>
+<li><b>«Contactos»</b>: donde se cortan dos gradientes vecinos. «CGP» es el contacto gas–petróleo, «CAP» el contacto agua–petróleo y «CGA» el contacto gas–agua, con su profundidad y su presión.</li>
+</ul>
+</div>
+<aside class="callout note" data-title="Las propuestas no deciden">
+<p>La app propone descartar las pruebas con problemas («prueba seca», «tight», «sobrecargada», «sello perdido», «movilidad baja»…), pero la decisión es tuya. Las que cambiaste a mano llevan la marca «a mano».</p>
+</aside>
+
+<h2>Trazar un gradiente</h2>
+<ol class="steps">
+<li>En «Gradientes», junto a «Nuevo:», elegí el fluido: «Gas», «Petróleo» o «Agua».</li>
+<li>Arrastrá sobre el visor, de arriba hacia abajo, el tramo con los puntos de ese fluido. Mientras arrastrás ves la recta, el gradiente y la densidad.</li>
+<li>Al soltar aparece la tarjeta. Si la insignia de densidad no coincide con el fluido, cambiá el «Fluido».</li>
+<li>Repetí con los otros fluidos. Con dos gradientes vecinos aparece el contacto: en «Contactos» y como una línea punteada que cruza todas las pistas del visor.</li>
+</ol>
+<aside class="callout tip" data-title="Nivel de agua libre">
+<p>Por presiones se obtiene el nivel de agua libre. El contacto que se ve en la Sw queda algo más arriba, por la zona de transición capilar: compararlos es justamente la idea de superponerlos.</p>
+</aside>
+
+<h2>La pista «Presión»</h2>
+<figure data-shot="mdt-viewer" class="wide"><figcaption>La pista «Presión» con los puntos por fluido, las rectas de gradiente y los contactos cruzando todas las pistas.</figcaption></figure>
+<div class="prose">
+<ul>
+<li><b>Punto lleno</b> del color del fluido: prueba incluida.</li>
+<li><b>Círculo vacío con ×</b>: prueba descartada.</li>
+<li><b>Anillo de advertencia</b>: incluida aunque se proponía descartarla.</li>
+<li><b>Triángulo en el borde</b>: fuera de la escala de la pista.</li>
+</ul>
+<p>El tooltip de cada punto muestra la prueba, su profundidad, la presión, la movilidad, la calidad y el fluido. Un clic lo incluye o lo descarta de los ajustes; con el teclado, <kbd>Tab</kbd> recorre los puntos e <kbd>Intro</kbd> alterna.</p>
+</div>

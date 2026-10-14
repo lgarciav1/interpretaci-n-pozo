@@ -1,0 +1,64 @@
+<h1 class="chapter-title">Geología</h1>
+<p class="lede">El espacio de trabajo Geología lee el pozo como lo haría un geólogo: litología sugerida, electrofacies, electrosecuencias, mineralogía, sismograma sintético y una columna sedimentológica estimada.</p>
+
+<div class="prose"><p>Cambiá a «Geología» con el selector de la barra superior. El pozo y la interpretación son los mismos; cambian el flujo guiado, los módulos y las pistas del visor. El flujo comparte «Cargar», «Calidad» y «Zonas», y suma dos pasos:</p></div>
+<div class="grid">
+  <div class="tile"><h4>Litología</h4><p>Litología sugerida por aprendizaje automático y electrofacies.</p></div>
+  <div class="tile"><h4>Geología</h4><p>Zonas sugeridas, electrosecuencias, tipo de arcilla, mineralogía, carbono orgánico, sismograma sintético y columna sedimentológica.</p></div>
+</div>
+<figure data-shot="geology" class="wide"><figcaption>El espacio Geología: GR espectral, electrosecuencias, litología, mineralogía, impedancia, reflectividad, sintético y columna.</figcaption></figure>
+
+<h2>Litología sugerida</h2>
+<div class="prose">
+<p>«Litología sugerida (random forest)» propone la litología de cada muestra con un modelo entrenado en pozos del Mar del Norte (FORCE 2020). <b>Es una sugerencia con probabilidad, no una litología medida.</b> Distingue doce clases: arenisca, arenisca/lutita, lutita, marga, dolomía, caliza, creta, halita, anhidrita, toba, carbón y basamento.</p>
+<ul>
+<li>La pista «Litología (ML)» apila, por muestra, la clase ganadora (con un ancho igual a su probabilidad), la segunda y la tercera. Debajo de la «Probabilidad mínima», la ganadora se atenúa.</li>
+<li>«Uso del PE»: el modelo puede ignorar el factor fotoeléctrico si es sospechoso. En el pozo del TP el PE sugiere baritina en el lodo, y el panel explica que se usa el modelo sin PE.</li>
+<li>«Importancia de las curvas» muestra cuánto usa el modelo cada curva (no cuánto acierta).</li>
+</ul>
+</div>
+<figure data-shot="geo-facies" class="wide"><figcaption>Litología sugerida con su panel: modelo usado, importancia de las curvas y pista con probabilidades.</figcaption></figure>
+
+<h2>Electrofacies</h2>
+<div class="prose">
+<p>«Electrofacies» agrupa las muestras por su respuesta de perfiles, <b>sin etiquetas</b>: los grupos son de respuesta, no litologías.</p>
+<ul>
+<li>«Método»: mezcla gaussiana o k-means. «Cantidad de electrofacies»: automática o de 2 a 8.</li>
+<li>«Elección de k» muestra el criterio por cantidad de grupos (BIC o inercia) con el sugerido marcado. Un clic en una barra elige k; «Usar el sugerido» vuelve a la sugerencia.</li>
+<li>La tabla «Grupos» muestra el centro de cada grupo (GR, densidad, neutrón, Rt), ordenados de menor a mayor GR. En la pista, cada grupo tiene un color, más tenue cuanto menor es la pertenencia.</li>
+</ul>
+</div>
+<figure data-shot="geo-electrofacies" class="wide"><figcaption>Electrofacies con la elección de k y los centros de cada grupo.</figcaption></figure>
+
+<h2>Electrosecuencias</h2>
+<div class="prose"><p>Clasifica la forma del GR por zona y por tramo: «Cilindro», «Embudo», «Campana», «Simétrico», «Serrado» o «Sin forma», con una confianza alta, media o baja. «Forma por zona» abre la descripción y la interpretación de cada una y lleva el visor a la zona. La pista «Electrosec.» las dibuja como íconos.</p></div>
+<figure data-shot="geo-electroseq" class="wide"><figcaption>Electrosecuencias por zona y por tramo.</figcaption></figure>
+
+<h2>Mineralogía y arcillas</h2>
+<div class="prose">
+<ul>
+<li><b>«Mineralogía · PE–densidad»</b> invierte la proporción de cuarzo, calcita, dolomita, arcilla y porosidad. «Ver columna mineral» agrega la pista «Mineralogía» y «Ver PE–densidad» abre el crossplot con esa plantilla.</li>
+<li><b>«Tipo de arcilla · GR espectral»</b> estima la afinidad de arcilla por zona con el cociente torio/potasio, y marca uranio alto. «Ver Th–K por zona» abre el crossplot «Torio–potasio». Las afinidades son aproximadas.</li>
+<li><b>«Carbono orgánico · Passey»</b> estima el TOC con el método Δlog R; es una estimación orientativa. Agrega las pistas «Passey · ciclos», «TOC» y «Generadora».</li>
+</ul>
+</div>
+
+<h2>Sismograma sintético</h2>
+<div class="prose">
+<p>Con sónico y densidad, el módulo calcula la impedancia acústica, la reflectividad y el sintético con una ondícula Ricker. El visor suma las pistas «Impedancia acústica», «Reflectividad» y «Sintético · 4 repeticiones» (la misma traza repetida cuatro veces con los lóbulos positivos rellenos, como en una sección sísmica).</p>
+<p>El tiempo es relativo al tope del registro: sin check-shot ni VSP no es un amarre absoluto. El panel exporta el sintético en tiempo, la relación tiempo–profundidad y un LAS.</p>
+</div>
+<figure data-shot="geo-synthetic" class="wide"><figcaption>El sismograma sintético con la ondícula y la relación tiempo–profundidad.</figcaption></figure>
+
+<h2>Columna sedimentológica</h2>
+<div class="prose">
+<p>La pista «Columna» dibuja capas con las tramas de litología estándar (FGDC/USGS); el ancho de cada capa es el grano estimado. Lee la inversión mineral si existe; si no, el Vsh o el GR. En carbonatos el ancho es un sustituto del GR o del Vsh, no una textura medida.</p>
+<ul>
+<li>El panel resume el espesor por litología, en todo el pozo o por zona.</li>
+<li>La lista «Capas» lleva el visor a cada capa; un clic en una capa del visor la selecciona.</li>
+</ul>
+</div>
+<figure data-shot="geo-column" class="wide"><figcaption>La columna sedimentológica estimada, con las tramas y espesores por litología.</figcaption></figure>
+<aside class="callout warn" data-title="Una estimación">
+<p>La columna, la litología sugerida y las electrofacies se calculan a partir de los perfiles: no describen un testigo. Todas lo dicen con su insignia («Estimación», «Sugerencia», «Sin etiquetas»).</p>
+</aside>

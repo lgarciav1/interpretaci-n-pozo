@@ -1,0 +1,84 @@
+<h1 class="chapter-title">Zonas</h1>
+<p class="lede">Las zonas dividen el pozo en tramos con nombre, color y tipo. Con ellas se ajustan parámetros distintos por capa, se filtran los gráficos y se arman el sumario y el volumen.</p>
+
+<div class="prose">
+<p>Las zonas nunca se superponen. Sin zonas, todos los parámetros valen para todo el pozo; con zonas, cada parámetro marcado «por zona» puede tener un valor propio en cada una.</p>
+</div>
+
+<h2>De dónde salen</h2>
+<div class="grid">
+  <div class="tile"><h4>Del archivo</h4><p>Una columna <code>ZONA</code> con el nombre de la zona en cada fila. El tope y la base salen de la primera y la última profundidad.</p></div>
+  <div class="tile"><h4>Marcadas en el visor</h4><p>Con «Marcar zona», arrastrando sobre el perfil.</p></div>
+  <div class="tile"><h4>Sugeridas</h4><p>El módulo «Zonas sugeridas» propone límites donde cambia el GR. Vos decidís cuáles aceptar.</p></div>
+</div>
+
+<h2>Marcar una zona nueva</h2>
+<ol class="steps">
+<li>Activá el modo con «Marcar zona» en la barra del visor, con «Marcar» en la sección «Zonas» de la columna izquierda o desde la paleta de comandos.</li>
+<li>Arrastrá verticalmente sobre el perfil, del tope a la base de la zona nueva. Mientras arrastrás, ves el tramo propuesto.</li>
+<li>Al soltar se crea la zona («Z1», «Z2»…) y queda elegida para editar.</li>
+</ol>
+<div class="prose">
+<p>Los límites se ajustan a la muestra más cercana y una zona mide al menos 0,5 m. El tramo nuevo nunca pisa otras zonas:</p>
+<ul>
+<li>Si empezás a arrastrar <b>dentro de una zona</b>, esa zona se parte en tres: arriba queda la original, en el medio la nueva y abajo un resto llamado «… inf.» que conserva los parámetros de la original.</li>
+<li>Si empezás <b>en un hueco sin zona</b>, la nueva ocupa solo ese hueco.</li>
+</ul>
+<p><kbd>Esc</kbd> sale del modo sin crear nada.</p>
+</div>
+
+<h2>Mover topes, bases y contactos</h2>
+<div class="prose">
+<p>En el visor, cada tope, base o contacto se toma acercando el puntero a la línea. Un <b>contacto</b> es el límite que comparten dos zonas vecinas: al moverlo se mueven juntas la base de la de arriba y el tope de la de abajo.</p>
+<ul>
+<li>Arrastrá la línea: se ve la profundidad y el espesor, frena contra la zona vecina y nunca deja una zona de menos de 0,5 m. <kbd>Esc</kbd> cancela.</li>
+<li>Con teclado: <kbd>Tab</kbd> llega a cada límite, <kbd>↑</kbd> <kbd>↓</kbd> lo mueven una muestra (con <kbd>Mayús</kbd>, diez).</li>
+<li>Un clic en la franja de zonas del visor elige la zona para editar sus parámetros; un doble clic la muestra entera.</li>
+</ul>
+</div>
+<figure data-shot="viewer-zone" class="wide"><figcaption>La zona C en el visor, con sus límites listos para arrastrar.</figcaption></figure>
+
+<h2>Editar una zona</h2>
+<ol class="steps">
+<li>Hacé clic en la zona en la tabla «Zonas» de la columna izquierda (o en el visor).</li>
+<li>Debajo aparece el editor con «Nombre», «Tipo», «Color», el tramo y su espesor.</li>
+<li>Cambiá lo que necesites. El nombre se guarda con <kbd>Intro</kbd> o al salir del campo.</li>
+<li>Para volver a los parámetros globales, cerrá el chip «Parámetros de · Zona …».</li>
+</ol>
+<figure data-shot="zone-editor" class="narrow"><figcaption>El editor de zona en la columna izquierda.</figcaption></figure>
+<div class="table-wrap"><table>
+<thead><tr><th>Tipo</th><th>Efecto</th></tr></thead>
+<tbody>
+<tr><td>«Formación»</td><td>Etiqueta. Es el tipo de las zonas importadas del archivo.</td></tr>
+<tr><td>«Reservorio»</td><td>Etiqueta, visible en el sumario y en las fichas.</td></tr>
+<tr><td>«Sello»</td><td>La zona no aporta pay ni volumen: su ficha dice «Sello: no aporta volumen».</td></tr>
+<tr><td>«Otra»</td><td>Etiqueta.</td></tr>
+</tbody></table></div>
+<div class="prose"><p>«Borrar zona» pide confirmación. Sus muestras quedan sin zona y vuelven a usar los parámetros globales. Todo se deshace con <kbd>Ctrl</kbd> <kbd>Z</kbd>.</p></div>
+
+<h2>Fichas de zona</h2>
+<div class="prose"><p>La pestaña «Zonas» del dock muestra una ficha por zona. Un clic en la ficha lleva el visor a esa zona.</p></div>
+<figure data-shot="zone-cards" class="wide"><figcaption>Fichas de zona del pozo del TP: semáforo de pay, espesores netos, porosidad y saturación del pay, minigráficos de φ y Sw, y el volumen in situ.</figcaption></figure>
+<div class="prose">
+<ul>
+<li><b>Semáforo de pay</b>: «Pay» (verde), «Pay marginal» (ámbar: menos de 1 m neto o N/G pay menor a 10 %), «Sin pay» o «Sin dato».</li>
+<li><b>Espesores</b>: bruto, «Neto reservorio» y «Neto pay», con el N/G pay.</li>
+<li><b>Promedios del pay</b>: «φ pay» y «Sw pay», y dos minigráficos de φ y Sw en profundidad.</li>
+<li><b>«In situ»</b>: el volumen de la zona en MMbbl y Mm³ (o Bcf y MMm³ para gas).</li>
+</ul>
+<p>Los valores aparecen cuando el sumario por zona tiene resultado, es decir, después de los pasos «Arcilla» a «Cutoffs».</p>
+</div>
+
+<h2>Zonas sugeridas</h2>
+<div class="prose">
+<p>El módulo «Zonas sugeridas» (en el paso «Geología» del espacio Geología, o desde «Todos los módulos») propone límites donde cambia el nivel del GR, y opcionalmente también la densidad y la resistividad. Solo propone: las zonas las aceptás vos.</p>
+</div>
+<ol class="steps">
+<li>Abrí «Zonas sugeridas» y ajustá la «Penalización por límite» (más alta, menos zonas), el «Espesor mínimo de zona» y el «Salto mínimo de GR».</li>
+<li>En «Herramientas», revisá la lista de límites («L1», «L2»…), ordenados por fuerza. Cada uno muestra el salto de GR y avisa si ya hay un tope cerca.</li>
+<li>Ajustá la «Profundidad del límite» si hace falta, escribiéndola o arrastrando su línea discontinua en el visor.</li>
+<li>«Aceptar» parte la zona que lo contiene. «Aceptar visibles» acepta todos los que pasan el filtro de «Fuerza mínima».</li>
+</ol>
+<aside class="callout tip" data-title="Cuando los topes no se ven en el GR">
+<p>Activá «Sumar la densidad» y «Sumar la resistividad profunda (log)»: los límites pasan a considerar también esas curvas.</p>
+</aside>

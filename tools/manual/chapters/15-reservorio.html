@@ -1,0 +1,67 @@
+<h1 class="chapter-title">Reservorio y volumen</h1>
+<p class="lede">De las curvas a los números que importan: cuánto pay hay, cuánto cambia con cada cutoff, cómo fluye y cuánto hidrocarburo hay en el lugar, con su incertidumbre.</p>
+
+<h2>Cutoffs</h2>
+<div class="prose">
+<p>El paso «Cutoffs» fija los cortes de <b>Vsh máxima</b>, <b>porosidad mínima</b> y <b>Sw máxima</b>. Una muestra es reservorio neto si pasa los dos primeros, y pay neto si además pasa el de saturación. Los tres son parámetros compartidos y admiten un valor por zona. También se ajustan arrastrando sus líneas en el histograma y en el crossplot.</p>
+</div>
+
+<h3>Sensibilidad a los cutoffs</h3>
+<div class="prose">
+<p>«Sensibilidad a los cutoffs» muestra, para cada corte, cómo cambian el espesor neto pay y el volumen in situ si lo movés. Ayuda a ver si el resultado depende mucho de un umbral.</p>
+<ul>
+<li>«Ver la sensibilidad de»: el total o una zona.</li>
+<li>Tres gráficos, uno por cutoff, con el valor vigente y su lectura.</li>
+<li><b>La línea del cutoff vigente se arrastra</b>: al soltar, cambia el parámetro (global, o de la zona elegida).</li>
+</ul>
+</div>
+<figure data-shot="res-sensitivity" class="wide"><figcaption>Sensibilidad del pay neto y del volumen a cada cutoff.</figcaption></figure>
+
+<h2>Sumario por zona</h2>
+<div class="prose">
+<p>El paso «Sumario» arma la tabla por zona: espesor bruto, neto reservorio, neto pay, relación neto/bruto, y los promedios de porosidad, saturación, Vsh y permeabilidad del pay. Aparece en la pestaña «Resultados», en las fichas de zona y en el informe, y se exporta con los datos del pozo.</p>
+</div>
+
+<h3>Capacidad de flujo y Lorenz</h3>
+<div class="prose">
+<p>Muestra cómo se reparten el almacenaje (φ·h) y el flujo (k·h) a lo largo del pozo.</p>
+<ul>
+<li><b>«Lorenz Lc»</b>: el coeficiente de Lorenz, de 0 (homogéneo) hacia 1 (muy heterogéneo).</li>
+<li><b>«Flujo k·h»</b> en mD·m y <b>«Almacenaje φ·h»</b> en m.</li>
+<li>Las curvas de Lorenz, estratigráfica (por profundidad) y ordenada, contra la diagonal homogénea. Un clic en la curva estratigráfica lleva el visor a ese tramo.</li>
+<li>Tablas de capacidades por zona y de tramos, con los acumulados.</li>
+</ul>
+</div>
+<figure data-shot="res-lorenz" class="wide"><figcaption>Curvas de Lorenz y capacidades de flujo y almacenaje.</figcaption></figure>
+
+<h3>Lectura automática del pozo</h3>
+<div class="prose">
+<p>Un párrafo que resume el pozo y una tarjeta por tramo candidato, ordenados por importancia (espesor por porosidad por saturación de hidrocarburo). Cada tarjeta dice el fluido probable (gas, petróleo, agua o dudoso), la confianza, la profundidad, la zona y las evidencias. Un clic lleva el visor al tramo y «Copiar lectura» copia el texto para el informe.</p>
+<p>Es una lectura con reglas explícitas, no una interpretación firmada: sirve como punto de partida y como control.</p>
+</div>
+<figure data-shot="res-reading" class="wide"><figcaption>La lectura automática del pozo del TP.</figcaption></figure>
+
+<h2>Volumen in situ</h2>
+<div class="prose">
+<p>El paso «Volumen» calcula el petróleo o el gas in situ de cada zona a partir del espesor equivalente de hidrocarburo (h·φ·Sh del pay), el área y el factor de volumen. Por zona se eligen el «Área», el «Fluido» y el factor de volumen del petróleo o del gas. Las zonas de tipo «Sello» no aportan volumen.</p>
+</div>
+<aside class="callout note" data-title="Volumen, no reservas">
+<p>El resultado es volumen in situ: no aplica factor de recobro ni criterios económicos. El informe lo aclara en «Advertencias y limitaciones».</p>
+</aside>
+
+<h3>Incertidumbre del volumen</h3>
+<div class="prose">
+<p>«Incertidumbre del volumen» corre una simulación de Monte Carlo sobre el área, el factor de volumen, la porosidad, la saturación y los cutoffs. Se calcula a pedido con «Calcular» para que los controles sigan respondiendo; si después cambia algo, avisa «Resultados desactualizados» y ofrece «Recalcular».</p>
+<ul>
+<li><b>«P90 · baja»</b>, <b>«P50 · central»</b> y <b>«P10 · alta»</b>, con su diferencia respecto del determinista. P90 es el volumen que se supera con 90 % de probabilidad.</li>
+<li>La <b>distribución</b> con la curva de probabilidad de superar y las líneas P90, P50, P10 y determinista.</li>
+<li>El <b>tornado</b>: una barra por parámetro, ordenadas por cuánto mueven el resultado.</li>
+</ul>
+<p>Los parámetros del módulo eligen la distribución (triangular, uniforme o normal truncada), las iteraciones, la semilla (misma semilla, mismo resultado), si el área y el factor de volumen se correlacionan entre zonas, y el rango de cada variable.</p>
+</div>
+<figure data-shot="res-uncertainty" class="wide"><figcaption>Incertidumbre del volumen: P90, P50 y P10, la distribución y el tornado.</figcaption></figure>
+
+<h2>Resonancia magnética</h2>
+<div class="prose">
+<p>Si el pozo tiene RMN, el módulo «Resonancia magnética — fluido libre y ligado» calcula el fluido libre, el agua ligada a la arcilla, la saturación irreducible y la diferencia con la porosidad de densidad–neutrón. La pista «RMN» los dibuja con rellenos (agua irreducible, fluido libre y agua de arcilla) y la porosidad de densidad–neutrón encima. Donde esta supera a la de RMN se marca el «Déficit de RMN» en la pista «Indicadores»: una alerta de posible gas, crudo pesado o microporosidad, no un diagnóstico.</p>
+</div>

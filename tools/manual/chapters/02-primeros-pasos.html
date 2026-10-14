@@ -1,0 +1,33 @@
+<h1 class="chapter-title">Primeros pasos</h1>
+<p class="lede">Un pozo interpretado de punta a punta en cinco minutos, con los datos del TP que vienen incluidos en la app.</p>
+
+<h2>Abrir FiubaLog</h2>
+<div class="prose">
+<p>Hacé doble clic en el archivo HTML de FiubaLog. La app arranca con un <b>pozo sintético de demostración</b> ya cargado dentro de un proyecto llamado «Demostración», para que puedas explorarla sin datos propios.</p>
+</div>
+<figure data-shot="first-open" class="wide"><figcaption>La app al abrirse, con el pozo de demostración. Arriba, la barra superior y los once pasos del flujo guiado; a la izquierda, los datos del pozo; en el centro, el visor; a la derecha, el panel del paso.</figcaption></figure>
+
+<h2>De punta a punta en cinco minutos</h2>
+<ol class="steps">
+<li><b>Cargá el pozo del TP.</b> Hacé clic en «Cargar pozo» y después en «Cargar datos del TP». La app lee el archivo y pasa sola al paso «Columnas».</li>
+<li><b>Revisá las columnas.</b> Cada columna del archivo ya tiene su rol propuesto: <code>ZDEN</code> como densidad (RHOB), <code>AT90</code> como resistividad profunda (RT), <code>PE</code> como factor fotoeléctrico… todas con confianza «alta». Hacé clic en «Siguiente: control de calidad».</li>
+<li><b>Mirá la calidad y cargá.</b> El semáforo resume el estado de cada curva (4 bien, 13 para revisar, 1 mala) y marca los tramos con derrumbe. Las observaciones no impiden cargar: hacé clic en «Cargar».</li>
+<li><b>Las zonas ya están.</b> El archivo trae la columna <code>ZONA</code>, así que el paso «Zonas» queda completo con las zonas A a E.</li>
+<li><b>Recorré los pasos de cálculo.</b> Hacé clic en «Arcilla», «Porosidad», «Rw», «Saturación», «Permeabilidad» y «Cutoffs», en ese orden. Cada paso abre su método recomendado, con valores por defecto razonables, y calcula al instante.</li>
+<li><b>Ajustá lo que haga falta.</b> Mové los controles del panel derecho: por ejemplo, en «Arcilla», el «GR de arena limpia» y el «GR de arcilla». Todo lo que depende del parámetro (porosidad efectiva, Sw, pay neto, volumen) se recalcula mientras arrastrás.</li>
+<li><b>Leé el resultado.</b> Abrí «Sumario» y «Volumen». La pestaña «Resultados» del panel inferior muestra el neto pay, el h·φ·Sh y el petróleo in situ; la pestaña «Zonas», una ficha por zona.</li>
+<li><b>Guardá.</b> «Proyecto» → «Guardar proyecto» descarga un archivo <code>.pozo.json</code> con todo lo que hiciste.</li>
+</ol>
+<figure data-shot="overview" class="wide"><figcaption>El pozo del TP interpretado: los once pasos completos, las curvas calculadas en el visor y los resultados en el panel inferior.</figcaption></figure>
+
+<aside class="callout ok" data-title="Listo">
+<p>Con eso tenés un pozo interpretado. Los capítulos siguientes cuentan cada parte en detalle: qué hace cada paso, cómo se leen los gráficos y cómo se calibra con presiones y corona.</p>
+</aside>
+
+<h2>Lo que conviene saber desde el principio</h2>
+<div class="grid">
+  <div class="tile"><h4>Todo se deshace</h4><p>Cada cambio sobre la interpretación tiene su <kbd>Ctrl</kbd> <kbd>Z</kbd>. El botón de deshacer dice qué va a deshacer.</p></div>
+  <div class="tile"><h4>Parámetros por zona</h4><p>Elegí una zona arriba de los parámetros y lo que cambies valdrá solo para ella.</p></div>
+  <div class="tile"><h4>Varios métodos, uno manda</h4><p>Cada resultado lo alimenta un método. Los demás se pueden calcular para comparar sin cambiar la cadena.</p></div>
+  <div class="tile"><h4>Buscá cualquier acción</h4><p><kbd>Ctrl</kbd> <kbd>K</kbd> abre la paleta de comandos: escribí «saturación», «tema oscuro» o «exportar».</p></div>
+</div>
