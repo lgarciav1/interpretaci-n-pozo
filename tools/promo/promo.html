@@ -422,7 +422,7 @@ function scene2(t) {
       ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(x0, Math.round(y) + 0.5); ctx.lineTo(x0 + TRACK_W, Math.round(y) + 0.5); ctx.stroke();
     }
-    if (major) { ctx.fillStyle = 'rgba(160,160,170,0.75)'; ctx.fillText(fmt(d), TRACK_X0 - 52, y); }
+    if (major && Math.abs(y - yOf(tipD)) > 26) { ctx.fillStyle = 'rgba(160,160,170,0.75)'; ctx.fillText(fmt(d), TRACK_X0 - 52, y); }
   }
   // bandas de zona
   for (let z = 0; z < ZONES.length; z++) {
@@ -961,7 +961,7 @@ function s7(t) {
   const cfg = [
     { fx0: 0.5, fy0: 0.5, z0: 1.0, fx1: 0.55, fy1: 0.55, z1: 1.12 },
     { fx0: 0.45, fy0: 0.5, z0: 1.0, fx1: 0.4, fy1: 0.6, z1: 1.12 },
-    { fx0: 0.5, fy0: 0.5, z0: 1.0, fx1: 0.72, fy1: 0.45, z1: 1.2 },
+    { fx0: 0.5, fy0: 0.5, z0: 1.0, fx1: 0.62, fy1: 0.5, z1: 1.08 },
   ];
   cards.forEach((c, i) => featureCard(c, t, T[i], T[i] + 3.75 + (i === 2 ? 0 : 0.15), cfg[i]));
   ['#s7a', '#s7b', '#s7c'].forEach((id, i) => revealBlock($(id), t, T[i] + 0.2, T[i] + 3.2, { dur: 0.75 }));
