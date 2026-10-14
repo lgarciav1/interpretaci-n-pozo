@@ -1,7 +1,7 @@
 /**
- * Control TEMPORAL de la sarta de perfilaje (fase 11a, docs/decisiones/0032) desde la paleta de comandos (Ctrl/Cmd+K,
- * buscar «sarta»): prender y apagar herramientas, planificar y volver al modo datos. La pantalla de la sarta (esquema
- * 3D, fase 11c) lo reemplaza; estas acciones pueden quedar como atajo. Cada una es un `commit` (se deshace con Ctrl+Z).
+ * Atajos de la sarta de perfilaje en la paleta de comandos (Ctrl/Cmd+K, buscar «sarta»; docs/decisiones/0032 y 0033):
+ * abrir la pantalla de la sarta (lista + vista 3D), prender y apagar herramientas, planificar y volver al modo datos.
+ * Cada acción sobre la sarta es un `commit` (se deshace con Ctrl+Z).
  */
 import { activeWellEntry } from '../../core/state/project';
 import { addPlannedTool, removePlannedTool, resetToolString, setToolOn, setToolStringMode, startPlanning } from '../../core/state/toolString';
@@ -9,6 +9,7 @@ import { isDefaultToolString } from '../../core/toolString';
 import { registry } from '../../modules';
 import type { Command, CommandSource } from '../../ui';
 import { useProject } from '../store/project';
+import { useUi } from '../store/ui';
 import { toolStringView } from './select';
 
 const GROUP = 'Sarta';
@@ -21,14 +22,24 @@ export const commands: CommandSource = () => {
   const commit = useProject.getState().commit;
   const { resolved } = toolStringView(entry.well, entry.interpretation);
   const planning = resolved.mode === 'planning';
-  const out: Command[] = resolved.entries.map((e) => ({
+  const open = useUi.getState().toolStringOpen;
+  const out: Command[] = [
+    {
+      id: 'tool-string:open',
+      title: open ? 'Cerrar la sarta y volver al perfil' : 'Abrir la sarta (lista y vista 3D)',
+      group: GROUP,
+      keywords: [...KEYWORDS, '3d', 'profundidad de investigacion', 'ficha'],
+      run: () => useUi.getState().set({ toolStringOpen: !useUi.getState().toolStringOpen }),
+    },
+  ];
+  out.push(...resolved.entries.map((e): Command => ({
     id: `tool-string:toggle:${e.tool.id}`,
     title: `${e.on ? 'Apagar' : 'Prender'} ${e.tool.name} en la sarta`,
     group: GROUP,
     keywords: [...KEYWORDS, e.tool.short, ...e.tool.roles],
     detail: e.on ? (e.hasData ? 'prendida' : 'prendida, sin datos') : 'apagada',
     run: () => commit(`${e.on ? 'Apagar' : 'Prender'} ${e.tool.name}`, (p) => setToolOn(p, wellId, e.tool.id, !e.on)),
-  }));
+  })));
   if (planning) {
     const inPlan = new Set(resolved.entries.map((e) => e.tool.id));
     for (const t of registry.tools.all()) {

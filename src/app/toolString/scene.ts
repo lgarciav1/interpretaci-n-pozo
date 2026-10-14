@@ -5,7 +5,7 @@
  *
  * Escala (D2): una unidad de escena = 1 cm en dirección radial (radios de herramientas, pozo y profundidades de
  * investigación a escala real entre sí); en dirección axial, 1 m de herramienta = `AXIAL_SCENE_PER_M` unidades
- * (compresión uniforme 10:1). El eje del pozo es el eje y (arriba = y mayor); la sarta empieza en y = 0 y baja.
+ * (compresión uniforme 5:1). El eje del pozo es el eje y (arriba = y mayor); la sarta empieza en y = 0 y baja.
  *
  * Ángulos: los de `CylinderGeometry` de three (θ = 0 apunta a +z, θ = π/2 a +x). El cuarto recortado de la formación es
  * θ ∈ [0, π/2] (mira a la cámara inicial); lo apoyado contra la pared va hacia `LEAN_AZIMUTH`, de perfil para la cámara.
@@ -22,8 +22,8 @@ import type { SceneColors } from '../../ui/tokens';
 // Constantes de escala y medidas esquemáticas
 
 export const CM_PER_IN = 2.54;
-/** Compresión axial: 1 m de herramienta = 10 unidades (10 cm) de escena. */
-export const AXIAL_COMPRESSION = 10;
+/** Compresión axial: 1 m de herramienta = 20 unidades (20 cm) de escena (5:1). */
+export const AXIAL_COMPRESSION = 5;
 export const AXIAL_SCENE_PER_M = 100 / AXIAL_COMPRESSION;
 /** Largo esquemático de una herramienta sin largo en la ficha (no es un dato: la ficha lo marca «esquemático»). */
 export const GENERIC_LENGTH_M = 3;
@@ -229,6 +229,11 @@ const FAMILY_KEY: Record<ToolFamily, keyof SceneColors> = {
   other: 'familyOther',
 };
 
+/** Tinte del cuerpo de una herramienta por familia (lo usan la escena y la lista). */
+export function familyColor(family: ToolFamily, colors: SceneColors): string {
+  return colors[FAMILY_KEY[family] ?? 'familyOther'];
+}
+
 /** Profundidades de investigación a dibujar: una por curva si la ficha las tiene, si no la de la herramienta. */
 export function shellSpecs(tool: ToolDef, sheet: ToolSheet): { role: RoleId | null; doiIn: number }[] {
   const out: { role: RoleId | null; doiIn: number }[] = [];
@@ -315,7 +320,7 @@ export function buildToolStringScene(input: SceneInput): ToolStringScene {
     const offset = mounting === 'eccentralized' ? rWall - radius : mounting === 'pad' ? Math.max(0, rWall - radius - PAD_THICKNESS) : 0;
     const center: [number, number] = offset ? [lean[0] * offset, lean[1] * offset] : [0, 0];
     const pick = { toolId: tool.id };
-    const style = styleOf(e, colors[FAMILY_KEY[tool.family] ?? 'familyOther']);
+    const style = styleOf(e, familyColor(tool.family, colors));
 
     // Unión con la pieza de arriba.
     primitives.push({ kind: 'rod', key: `joint:${tool.id}`, from: [prevCenter[0], prevBottom, prevCenter[1]], to: [center[0], y1, center[1]], radius: Math.min(radius, headR) * 0.45, style: metal(colors.steelDark) });
@@ -395,8 +400,9 @@ export function buildToolStringScene(input: SceneInput): ToolStringScene {
   ] as const) {
     if (rWall + cm > rOuter - 2) continue;
     ruler.ticks.push({ r: rWall + cm, label });
-    labels.push({ key: `tick:${cm}`, text: label, position: [rWall + cm, ruler.y, 0], kind: 'tick' });
   }
+  // Rótulos de la regla: las medidas primero (si chocan en pantalla, el último se oculta: «pared»).
+  for (const t of [...ruler.ticks.slice(1), ruler.ticks[0]!]) labels.push({ key: `tick:${t.label}`, text: t.label, position: [t.r, ruler.y, 0], kind: 'tick' });
 
   // Rótulo de la seleccionada y de sus cáscaras.
   const sel = input.selectedId ? layouts.find((l) => l.toolId === input.selectedId) : undefined;

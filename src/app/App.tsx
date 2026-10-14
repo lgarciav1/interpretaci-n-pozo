@@ -21,6 +21,8 @@ import { Inspector } from './shell/Inspector';
 import { TopBar } from './shell/TopBar';
 import { ViewerSlot } from './shell/ViewerSlot';
 import { TrackBuilderSlot } from './tracks/TrackBuilder';
+import { ToolStringPanel } from './toolString/ToolStringPanel';
+import { ToolStringView } from './toolString/ToolStringView';
 import { LAYOUT_LIMITS, shellSize, shellSizeCss, useUi, type ShellLayout, type ShellPart } from './store/ui';
 import './shell/shell.css';
 
@@ -102,13 +104,23 @@ export function App() {
   const setUi = useUi((s) => s.set);
   // «Armar pistas»: el catálogo ocupa la columna izquierda (no le quita ancho al perfil). docs/decisiones/0016.
   const building = useUi((s) => s.trackBuilder);
+  // Sarta (docs/decisiones/0033): la lista ocupa la columna izquierda y la vista 3D tapa el centro (visor y dock
+  // siguen montados debajo, inertes, para no perder la profundidad, el zoom ni la pestaña del dock).
+  const toolStringOpen = useUi((s) => s.toolStringOpen);
 
   return (
     <div className="shell" ref={ref}>
       <TopBar />
       <FlowBar />
       <div className="shell-main">
-        {building ? (
+        {toolStringOpen ? (
+          <>
+            <aside className="shell-side shell-side--left shell-side--builder" aria-label="Sarta de perfilaje">
+              <ToolStringPanel />
+            </aside>
+            <ShellHandle kind="left" />
+          </>
+        ) : building ? (
           <>
             <aside className="shell-side shell-side--left shell-side--builder" aria-label="Armar pistas">
               <TrackBuilderSlot />
@@ -133,9 +145,16 @@ export function App() {
         )}
 
         <main className="shell-center">
-          <ViewerSlot />
-          {!dockCollapsed && <ShellHandle kind="dock" />}
-          <Dock />
+          <div className={`shell-center__content${toolStringOpen ? ' is-covered' : ''}`} inert={toolStringOpen}>
+            <ViewerSlot />
+            {!dockCollapsed && <ShellHandle kind="dock" />}
+            <Dock />
+          </div>
+          {toolStringOpen && (
+            <div className="shell-stage__cover">
+              <ToolStringView />
+            </div>
+          )}
         </main>
 
         {rightCollapsed ? (

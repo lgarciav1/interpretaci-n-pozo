@@ -113,6 +113,11 @@ export interface UiStore {
   zoneMarking: boolean;
   /** Modo «Armar pistas»: catálogo al costado del visor y encabezados editables (docs/decisiones/0016). */
   trackBuilder: boolean;
+  /**
+   * Pantalla de la sarta (docs/decisiones/0033): lista en la columna izquierda y vista 3D en lugar del visor. Se
+   * excluye con `trackBuilder` (las dos usan la columna izquierda).
+   */
+  toolStringOpen: boolean;
   /** Asistente de carga abierto (con `tp` arranca leyendo los datos del TP). */
   loadDialog: null | { source?: 'tp' };
   snapshotsOpen: boolean;
@@ -139,6 +144,7 @@ export const useUi = create<UiStore>()((set) => ({
   dockTab: 'results',
   zoneMarking: false,
   trackBuilder: false,
+  toolStringOpen: false,
   loadDialog: null,
   snapshotsOpen: false,
   curtain: null,
@@ -149,6 +155,12 @@ export const useUi = create<UiStore>()((set) => ({
   set: (patch) => set(patch),
   setLayout: (patch) => set((s) => ({ layout: { ...s.layout, ...patch } })),
 }));
+
+// «Armar pistas» y la sarta usan la columna izquierda: abrir uno cierra el otro.
+useUi.subscribe((s, prev) => {
+  if (s.toolStringOpen && !prev.toolStringOpen && s.trackBuilder) useUi.setState({ trackBuilder: false });
+  else if (s.trackBuilder && !prev.trackBuilder && s.toolStringOpen) useUi.setState({ toolStringOpen: false });
+});
 
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
 useUi.subscribe((s, prev) => {

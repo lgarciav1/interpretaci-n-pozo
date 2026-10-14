@@ -95,7 +95,7 @@ describe('escena de la sarta: escala', () => {
     const gr = layout(s, 'gr');
     expect(gr.diameterIn).toBe(3.6);
     expect(layout(s, 'induction' as string)).toBeUndefined();
-    expect(AXIAL_SCENE_PER_M).toBe(10);
+    expect(AXIAL_SCENE_PER_M).toBe(20);
     expect(GENERIC_DIAMETER_IN).toBeGreaterThan(0);
   });
 

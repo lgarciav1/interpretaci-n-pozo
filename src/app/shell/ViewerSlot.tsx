@@ -395,6 +395,16 @@ export function ViewerSlot() {
       <TemplateMenu workspace={workspace} overlays={OVERLAYS} />
       <Button
         size="sm"
+        variant="ghost"
+        icon="tool-string"
+        title="Sarta de perfilaje: qué herramientas corrieron, prenderlas y apagarlas, planificar otra y ver su profundidad de investigación en 3D"
+        onClick={() => setUi({ toolStringOpen: true })}
+        data-testid="open-tool-string"
+      >
+        Sarta
+      </Button>
+      <Button
+        size="sm"
         variant={building ? 'primary' : 'ghost'}
         icon="tracks"
         aria-pressed={building}
