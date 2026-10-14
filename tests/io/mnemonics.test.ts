@@ -31,6 +31,13 @@ describe('suggestRole', () => {
     }
   });
 
+  it('el laterolog somero (LLS) es RS con la misma confianza que LLD (RT) y LLM (RM)', () => {
+    expect(suggestRole('LLS')).toEqual({ role: 'RS', unit: 'ohm.m', confidence: 'high' });
+    expect(suggestRole('LLS').confidence).toBe(suggestRole('LLD').confidence);
+    expect(suggestRole('LLS').confidence).toBe(suggestRole('LLM').confidence);
+    expect(suggestRole('lls:1').role).toBe('RS');
+  });
+
   it('normaliza mayúsculas, espacios y sufijos :1', () => {
     expect(normalizeMnemonic('  gr:1 ')).toBe('GR');
     expect(normalizeMnemonic('phi bvi')).toBe('PHI_BVI');

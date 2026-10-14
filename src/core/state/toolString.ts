@@ -39,6 +39,15 @@ export function setToolOn(project: Project, wellId: string, toolId: string, on: 
   });
 }
 
+/**
+ * Vuelve a mostrar los datos de una herramienta (atajo de los estados vacíos «RHOB está oculta»): en datos la prende;
+ * en planificación la agrega a la sarta planificada o la prende ahí si estaba apagada.
+ */
+export function showTool(project: Project, wellId: string, toolId: string): Project {
+  const s = toolStringOf(getWellEntry(project, wellId).interpretation);
+  return s.mode === 'planning' ? addPlannedTool(project, wellId, toolId) : setToolOn(project, wellId, toolId, true);
+}
+
 /** Cambia de modo conservando la sarta planificada (volver a «datos» no la borra). */
 export function setToolStringMode(project: Project, wellId: string, mode: ToolStringMode): Project {
   return updateToolString(project, wellId, (s) => (s.mode === mode ? s : { ...s, mode }));

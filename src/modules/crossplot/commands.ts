@@ -10,7 +10,7 @@ import { commitPlotConfig } from '../../app/plots/connect';
 import { selectActiveEntry, useProject } from '../../app/store/project';
 import { useResults } from '../../app/store/results';
 import { useUi } from '../../app/store/ui';
-import { registry } from '../index';
+import { plotContextOf } from '../../app/plots/context';
 import { crossplotTemplatePatch } from '../../plots/crossplot/applyTemplate';
 import { CROSSPLOT_TEMPLATE_DEFS } from '../../plots/crossplot/templates';
 import { clearPlotSelection, getPlotLink } from '../../plots/link';
@@ -46,7 +46,7 @@ export const commands: CommandSource = () => {
       run: () => {
         const entry = selectActiveEntry(useProject.getState());
         if (!entry) return;
-        const ctx = { well: entry.well, interpretation: entry.interpretation, computed: computedCurves(useResults.getState().result, entry.well), catalog: registry.roles };
+        const ctx = plotContextOf(entry.well, entry.interpretation, computedCurves(useResults.getState().result, entry.well));
         const r = crossplotTemplatePatch(ctx, t.id);
         if (!r.ok) {
           toast({ tone: 'warn', title: r.title, description: r.description });

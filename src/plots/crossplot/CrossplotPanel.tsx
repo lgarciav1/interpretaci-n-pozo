@@ -14,6 +14,7 @@
 import { Fragment, memo, useEffect, useMemo, useState } from 'react';
 import type { SourceRef } from '../../core/interpretation';
 import type { CrossplotConfig, CrossplotTemplateId } from '../../core/plots';
+import type { HiddenCurve } from '../../core/toolString';
 import type { ParamState } from '../../core/params';
 import type { TrendSpec } from '../../core/trends';
 import type { TrendModel } from '../../petro/regression';
@@ -24,9 +25,9 @@ import { SHARED_PARAMS } from '../../modules/sharedParams';
 import { Badge, Button, Chip, EmptyState, IconButton, Menu, SEQUENTIAL_PALETTE, SegmentedControl, curveStyle, ensureContrast, fillColor, formatNumber, rampColor, toast, useThemeTokens, withAlpha, type MenuEntry } from '../../ui';
 import type { ThemeTokens } from '../../ui/tokens';
 import type { Zone } from '../../core/well';
-import { ControlGroup, CurveSelect, DriverCallout, ScaleControl, SelectionSummary, ZoneFilterChips } from '../controls';
+import { ControlGroup, CurveSelect, DriverCallout, HiddenCurveNote, HiddenCurveState, ScaleControl, SelectionSummary, ZoneFilterChips } from '../controls';
 import { CUTOFF_PASSES, cutoffParamFor, cutoffScope, normalizeCutoff, paramStep, resolveCutoffLine, type CutoffLine, type CutoffParamKey } from '../cutoffs';
-import { effectiveScale, engineInputData, keyForRole, plotCurveOptions, resolvePlotCurve, zoneFilter, type PlotCurve, type ZoneFilter } from '../data';
+import { effectiveScale, engineInputData, hiddenCurveOfKey, keyForRole, plotCurveOptions, resolvePlotCurve, zoneFilter, type PlotCurve, type ZoneFilter } from '../data';
 import { formatParam, grGuides, grWrite, inactiveDriver, normalizeParam, nudgeParam, paramChangeLabel, paramOfGuide, paramWrite, plotParamValue, plotScope, PLOT_PARAMS, RW_CORRECT_STORAGE, storedParamValue, type ParamWrite, type PlotScope } from '../params';
 import { clearPlotSelection, getPlotLink, makeSelection, setPlotLink, setPlotSelection } from '../link';
 import { cloudMask, maskFromCloud, pointsInShape, unionMask, type DataPolygon, type SelectionShape } from '../selection';
@@ -67,6 +68,8 @@ export interface CrossplotPanelProps {
   onRemoveTrend(id: string): void;
   /** Sacar del ajuste de una tendencia los puntos con esas claves (o volver a incluir todos con `keys = null`). */
   onExcludeFromTrend(id: string, keys: readonly string[] | null): void;
+  /** Vuelve a mostrar la herramienta de una curva oculta por la sarta (atajo del estado vacío). */
+  onShowTool?(hidden: HiddenCurve): void;
 }
 
 /** Herramienta de selección elegida (estado de interfaz de la sesión: sobrevive a cerrar y abrir la pestaña). */
@@ -551,6 +554,10 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
   const cy = useMemo(() => resolvePlotCurve(ctx, yKey), [ctx, yKey]);
   const colorKey = config.color.kind === 'curve' ? config.color.curve : null;
   const cc = useMemo(() => resolvePlotCurve(ctx, colorKey), [ctx, colorKey]);
+  // Curvas elegidas que la sarta oculta (0032): se conserva la elección y se dice por qué no se ven.
+  const hiddenX = cx ? null : hiddenCurveOfKey(ctx, xKey);
+  const hiddenY = cy ? null : hiddenCurveOfKey(ctx, yKey);
+  const hiddenColor = cc ? null : hiddenCurveOfKey(ctx, colorKey);
   const xScale = effectiveScale(config.xScale, cx);
   const yScale = effectiveScale(config.yScale, cy);
   const filter = useMemo(() => zoneFilter(depth, zones, config.zones), [depth, zones, config.zones]);
@@ -716,7 +723,7 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
     return k >= 0 ? { layerId: 'cloud', index: k } : null;
   }, [props.cursorDepth, cloud, depth]);
 
-  if (options.length < 2) return <EmptyState size="sm" icon="scatter" title="Faltan curvas" description="Hacen falta al menos dos curvas para un crossplot." />;
+  if (options.length < 2) return <EmptyState size="sm" icon="scatter" title="Faltan curvas" description={ctx.hidden?.size ? 'Hacen falta al menos dos curvas para un crossplot y la sarta oculta las demás: prendé herramientas en la sarta.' : 'Hacen falta al menos dos curvas para un crossplot.'} />;
 
   // ── acciones ─────────────────────────────────────────────────────────────────────────────────────────────────
   const setAxisCurve = (axis: 'x' | 'y', key: string) =>
@@ -870,7 +877,12 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
 
   const colorValue = config.color.kind === 'curve' ? config.color.curve : config.color.kind === 'zone' ? '__zone' : '__none';
   const tplDef = templateDef(config.template);
-  const templateItems: MenuEntry[] = CROSSPLOT_TEMPLATE_DEFS.map((t) => ({ id: t.id, label: t.label, description: t.description, icon: config.template === t.id ? 'check' : undefined, onSelect: () => applyTemplate(t.id) }));
+  const templateItems: MenuEntry[] = CROSSPLOT_TEMPLATE_DEFS.map((t) => {
+    // Plantilla cuyos ejes oculta la sarta: sigue en el menú (al elegirla, el aviso dice qué herramienta prender).
+    const r = ctx.hidden ? crossplotTemplatePatch(ctx, t.id) : null;
+    const off = r && !r.ok && r.hidden ? r.hidden : null;
+    return { id: t.id, label: t.label, description: off ? `${t.description} · ${off.mnemonic} oculta por la sarta` : t.description, icon: config.template === t.id ? 'check' : undefined, onSelect: () => applyTemplate(t.id) };
+  });
   const trendItems: MenuEntry[] = MODELS.map((m) => ({ id: m, label: MODEL_LABEL[m], onSelect: () => addTrend(m) }));
   const n = cloud?.idx.length ?? 0;
 
@@ -885,7 +897,7 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
             <ControlGroup title="Ejes" aside={<IconButton size="sm" icon="swap" label="Intercambiar X e Y" onClick={swap} />}>
               <div className="plot-row">
                 <span className="plot-row__axis">X</span>
-                <CurveSelect label="Curva del eje X" value={xKey} options={options} onChange={(v) => setAxisCurve('x', v)} />
+                <CurveSelect label="Curva del eje X" value={xKey} options={options} hidden={hiddenX} onChange={(v) => setAxisCurve('x', v)} />
               </div>
               <div className="plot-row">
                 <span className="plot-row__axis" />
@@ -894,7 +906,7 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
               </div>
               <div className="plot-row">
                 <span className="plot-row__axis">Y</span>
-                <CurveSelect label="Curva del eje Y" value={yKey} options={options} onChange={(v) => setAxisCurve('y', v)} />
+                <CurveSelect label="Curva del eje Y" value={yKey} options={options} hidden={hiddenY} onChange={(v) => setAxisCurve('y', v)} />
               </div>
               <div className="plot-row">
                 <span className="plot-row__axis" />
@@ -907,12 +919,14 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
                 label="Color de los puntos"
                 value={colorValue}
                 options={options}
+                hidden={hiddenColor}
                 extra={[
                   { value: '__zone', label: 'Por zona' },
                   { value: '__none', label: 'Un solo color' },
                 ]}
                 onChange={(v) => onChange({ color: v === '__zone' ? { kind: 'zone' } : v === '__none' ? { kind: 'none' } : { kind: 'curve', curve: v } }, 'Cambiar el color del crossplot')}
               />
+              {hiddenColor && <HiddenCurveNote hidden={hiddenColor} what="Color" {...(props.onShowTool ? { onShowTool: props.onShowTool } : {})} />}
             </ControlGroup>
             <ControlGroup title="Zonas">
               <ZoneFilterChips zones={filter.zones} selected={filter.selected} onChange={(ids) => onChange({ zones: ids }, 'Filtrar el crossplot por zona')} />
@@ -1069,7 +1083,9 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
           </aside>
         </div>
         <div className="plot-panel__main">
-          {!cx || !cy ? (
+          {hiddenX || hiddenY ? (
+            <HiddenCurveState hidden={(hiddenX ?? hiddenY)!} icon="scatter" {...(props.onShowTool ? { onShowTool: props.onShowTool } : {})} />
+          ) : !cx || !cy ? (
             <EmptyState size="sm" icon="scatter" title="Elegí las curvas" description="Una de las curvas elegidas ya no está en el pozo o todavía se está calculando." />
           ) : !xAxis || !yAxis || n === 0 ? (
             <EmptyState size="sm" icon="scatter" title="Sin puntos" description="Las dos curvas no tienen valores juntos en las zonas elegidas." />

@@ -5,13 +5,17 @@
 import type { ReactNode } from 'react';
 import type { AxisScaleChoice } from '../core/plots';
 import type { Zone } from '../core/well';
-import { Button, Callout, Chip, SegmentedControl, Select, formatNumber } from '../ui';
+import { hiddenCurveReason, showToolLabel, type HiddenCurve } from '../core/toolString';
+import { Button, Callout, Chip, EmptyState, SegmentedControl, Select, formatNumber, type IconName } from '../ui';
 import { selectionTitle, type PlotSelection } from './link';
 import type { CurveOption } from './data';
 import './plots.css';
 
-/** Selector de curva con las medidas y las calculadas agrupadas. */
-export function CurveSelect({ value, options, onChange, label, placeholder, extra }: { value: string | null; options: readonly CurveOption[]; onChange(v: string): void; label: string; placeholder?: string; extra?: readonly { value: string; label: string }[] }) {
+/**
+ * Selector de curva con las medidas y las calculadas agrupadas. Si la curva elegida ya no está entre las opciones, se
+ * muestra deshabilitada: «(oculta por la sarta)» si la sarta la oculta (`hidden`), si no «(sin datos)».
+ */
+export function CurveSelect({ value, options, onChange, label, placeholder, extra, hidden }: { value: string | null; options: readonly CurveOption[]; onChange(v: string): void; label: string; placeholder?: string; extra?: readonly { value: string; label: string }[]; hidden?: HiddenCurve | null }) {
   const groups = new Map<string, { value: string; label: string }[]>();
   for (const o of options) {
     if (!groups.has(o.group)) groups.set(o.group, []);
@@ -25,7 +29,7 @@ export function CurveSelect({ value, options, onChange, label, placeholder, extr
       aria-label={label}
       value={value ?? ''}
       {...(placeholder !== undefined ? { placeholder } : {})}
-      options={[...(extra ?? []), ...(known ? [] : [{ value: value!, label: `${value} (sin datos)`, disabled: true }])]}
+      options={[...(extra ?? []), ...(known ? [] : [{ value: value!, label: hidden ? `${hidden.mnemonic} (oculta por la sarta)` : `${value} (sin datos)`, disabled: true }])]}
       groups={[...groups.entries()].map(([g, opts]) => ({ label: g, options: opts }))}
       onChange={onChange}
     />
@@ -119,5 +123,49 @@ export function SelectionSummary({ selection, onClear }: { selection: PlotSelect
         Limpiar
       </Button>
     </div>
+  );
+}
+
+/**
+ * Estado vacío de un gráfico cuya curva elegida oculta la sarta de perfilaje (docs/decisiones/0032): dice cuál y por
+ * qué, y ofrece prender la herramienta. No es un error: el dato sigue en el pozo y la elección del gráfico se conserva.
+ */
+export function HiddenCurveState({ hidden, icon, onShowTool }: { hidden: HiddenCurve; icon: IconName; onShowTool?: (h: HiddenCurve) => void }) {
+  return (
+    <EmptyState
+      size="sm"
+      icon={icon}
+      title={`${hidden.mnemonic} está oculta`}
+      description={`${hiddenCurveReason(hidden)} El dato sigue en el pozo: al volver a mostrarla, el gráfico vuelve como estaba.`}
+      actions={
+        onShowTool ? (
+          <Button size="sm" variant="secondary" icon="eye" onClick={() => onShowTool(hidden)}>
+            {showToolLabel(hidden)}
+          </Button>
+        ) : undefined
+      }
+    />
+  );
+}
+
+/** Aviso compacto (controles del gráfico) de una curva elegida que oculta la sarta: el color por tercera curva. */
+export function HiddenCurveNote({ hidden, what, onShowTool }: { hidden: HiddenCurve; what: string; onShowTool?: (h: HiddenCurve) => void }) {
+  return (
+    <Callout
+      tone="info"
+      className="plot-driver"
+      title={`${what}: ${hidden.mnemonic} está oculta`}
+      {...(onShowTool
+        ? {
+            actions: (
+              <Button size="sm" variant="secondary" icon="eye" onClick={() => onShowTool(hidden)}>
+                {showToolLabel(hidden)}
+              </Button>
+            ),
+          }
+        : {})}
+    >
+      {hiddenCurveReason(hidden)}
+    </Callout>
   );
 }

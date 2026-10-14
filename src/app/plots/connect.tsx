@@ -8,7 +8,8 @@ import type { SourceRef } from '../../core/interpretation';
 import type { CrossplotConfig, HistogramConfig, PlotKind } from '../../core/plots';
 import { plotConfig, updatePlotConfig } from '../../core/state/plots';
 import { activeWellEntry, makeId, setModuleEnabled, setParam, setSource } from '../../core/state/project';
-import { registry } from '../../modules';
+import { showTool } from '../../core/state/toolString';
+import { showToolLabel, type HiddenCurve } from '../../core/toolString';
 import { SHARED_PARAMS } from '../../modules/sharedParams';
 import type { CutoffParamKey } from '../../plots/cutoffs';
 import type { ParamWrite } from '../../plots/params';
@@ -16,17 +17,21 @@ import type { SeriesContext } from '../../plots/trend/series';
 import type { GuidePhase } from '../../plots/xy/XYPlot';
 import { EmptyState } from '../../ui';
 import { computedCurves } from '../computed';
+import { plotContextOf } from './context';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useResults } from '../store/results';
 import { useUi } from '../store/ui';
 
-/** Contexto de series del pozo activo (pozo, interpretación, calculadas activas, roles); null sin pozo. */
+/**
+ * Contexto de series del pozo activo (pozo según la sarta, interpretación, calculadas activas, roles, curvas ocultas);
+ * null sin pozo.
+ */
 export function usePlotContext(): SeriesContext | null {
   const entry = useProject(selectActiveEntry);
   const result = useResults((s) => s.result);
   return useMemo(() => {
     if (!entry) return null;
-    return { well: entry.well, interpretation: entry.interpretation, computed: computedCurves(result, entry.well), catalog: registry.roles };
+    return plotContextOf(entry.well, entry.interpretation, computedCurves(result, entry.well));
   }, [entry, result]);
 }
 
@@ -100,6 +105,17 @@ export function chooseModuleSource(port: string, moduleId: string, label: string
   const entry = activeWellEntry(useProject.getState().project);
   if (!entry) return;
   useProject.getState().commit(label, (p) => setSource(setModuleEnabled(p, entry.well.id, moduleId, true), entry.well.id, port, { kind: 'module', moduleId }));
+}
+
+/**
+ * Vuelve a mostrar los datos de una herramienta oculta por la sarta (atajo de «RHOB está oculta»): la prende o, en
+ * planificación, la agrega a la sarta planificada. Entra en deshacer; la configuración del gráfico no cambió, así que
+ * la curva elegida vuelve sola.
+ */
+export function showHiddenTool(h: Pick<HiddenCurve, 'toolId' | 'toolName' | 'reason'>): void {
+  const entry = activeWellEntry(useProject.getState().project);
+  if (!entry) return;
+  useProject.getState().commit(showToolLabel(h), (p) => showTool(p, entry.well.id, h.toolId));
 }
 
 /**

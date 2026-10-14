@@ -666,6 +666,33 @@ export function runQc(well: Well, options: QcOptions = {}): QcReport {
   return { wellId: well.id, samples: depth.length, curves, borehole, status, options: o };
 }
 
+/** Curvas ocultas: un `Set` de ids o cualquier colección con `has` y `size` (un `Map` por id). */
+export interface CurveIdFilter {
+  readonly size: number;
+  has(curveId: string): boolean;
+}
+
+const restrictCache = new WeakMap<QcReport, { excluded: CurveIdFilter; report: QcReport }>();
+
+/**
+ * El reporte visto a través de la sarta de perfilaje (docs/decisiones/0032): sin las curvas ocultas y, si el caliper
+ * está oculto, sin la evaluación del pozo (derrumbes): esa información sale del caliper y la sarta lo saca de la vista.
+ * Las curvas de patín ocultas salen de `affectedCurveIds`. No recalcula nada (el control se hizo sobre el archivo
+ * entero) y devuelve EL MISMO reporte si no hay nada oculto; mismo objeto derivado para el mismo conjunto.
+ */
+export function restrictQcReport(report: QcReport, excluded: CurveIdFilter): QcReport {
+  if (excluded.size === 0) return report;
+  const hit = restrictCache.get(report);
+  if (hit && hit.excluded === excluded) return hit.report;
+  const curves = report.curves.filter((c) => !excluded.has(c.curveId));
+  const b = report.borehole;
+  const borehole = !b || excluded.has(b.caliperId) ? null : { ...b, affectedCurveIds: b.affectedCurveIds.filter((id) => !excluded.has(id)) };
+  const status: QcStatus = curves.some((c) => c.status === 'bad') ? 'bad' : curves.some((c) => c.status === 'warning') ? 'warning' : 'ok';
+  const out: QcReport = { ...report, curves, borehole, status };
+  restrictCache.set(report, { excluded, report: out });
+  return out;
+}
+
 export function getCurveQc(report: QcReport, curveId: string): CurveQc | undefined {
   return report.curves.find((c) => c.curveId === curveId);
 }

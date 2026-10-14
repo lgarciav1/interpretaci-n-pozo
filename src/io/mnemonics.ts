@@ -55,7 +55,7 @@ add('DTS', 'us/ft', 'high', ['DTS', 'DTSM', 'DTSH', 'DT4S', 'DTSHEAR']);
 add('RT', 'ohm.m', 'high', ['RT', 'AT90', 'ILD', 'LLD', 'RDEP', 'RILD', 'LLDC', 'RLLD', 'AHT90', 'AF90', 'M2R9', 'RLA5', 'HDRS', 'RT90']);
 add('RT', 'ohm.m', 'medium', ['RD', 'RESD', 'RESDEEP', 'RES_DEEP']);
 add('RM', 'ohm.m', 'high', ['RM', 'AT60', 'ILM', 'RILM', 'AHT60', 'AF60', 'M2R6', 'RLA3', 'RMED', 'LLM']);
-add('RS', 'ohm.m', 'high', ['RS', 'SFL', 'SFLU', 'RSFL', 'RESS']);
+add('RS', 'ohm.m', 'high', ['RS', 'SFL', 'SFLU', 'RSFL', 'RESS', 'LLS']);
 add('RXO', 'ohm.m', 'high', ['RXO', 'MSFL', 'RMSFL', 'MCFL', 'RXOZ', 'RXO8', 'MLL', 'PROX']);
 add('RA10', 'ohm.m', 'high', ['AT10', 'AHT10', 'AF10', 'M2R1']);
 add('RA20', 'ohm.m', 'high', ['AT20', 'AHT20', 'AF20', 'M2R2']);

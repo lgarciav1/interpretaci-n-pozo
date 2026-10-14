@@ -9,12 +9,13 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import type { SourceRef } from '../../core/interpretation';
+import type { HiddenCurve } from '../../core/toolString';
 import { HISTOGRAM_BINS, type HistogramConfig } from '../../core/plots';
 import { Button, Checkbox, DataTable, EmptyState, IconButton, NumberField, curveStyle, ensureContrast, fillColor, formatNumber, useThemeTokens } from '../../ui';
-import { ControlGroup, CurveSelect, DriverCallout, ScaleControl, SelectionSummary, ZoneFilterChips } from '../controls';
+import { ControlGroup, CurveSelect, DriverCallout, HiddenCurveState, ScaleControl, SelectionSummary, ZoneFilterChips } from '../controls';
 import { CUTOFF_PASSES, cutoffParamFor, cutoffScope, normalizeCutoff, paramStep, resolveCutoffLine, type CutoffParamKey } from '../cutoffs';
 import { formatParam, grGuides, grWrite, inactiveDriver, paramChangeLabel, paramOfGuide, plotParamValue, plotScope, PLOT_PARAMS, type ParamWrite } from '../params';
-import { depthRuns, effectiveScale, keyForRole, plotCurveOptions, resolvePlotCurve, zoneFilter } from '../data';
+import { depthRuns, effectiveScale, hiddenCurveOfKey, keyForRole, plotCurveOptions, resolvePlotCurve, zoneFilter } from '../data';
 import { clearPlotSelection, getPlotLink, makeSelection, setPlotLink, setPlotSelection } from '../link';
 import { binsMask, sameEdges, toggleBin } from '../selection';
 import { usePlotSelection } from '../useLink';
@@ -36,6 +37,8 @@ export interface HistogramPanelProps {
   sources: Readonly<Record<string, SourceRef>> | null;
   /** Usar un módulo como fuente de un puerto («Usar índice de arcilla por GR»). */
   onUseModule(port: string, moduleId: string, label: string): void;
+  /** Vuelve a mostrar la herramienta de una curva oculta por la sarta (atajo del estado vacío). */
+  onShowTool?(hidden: HiddenCurve): void;
 }
 
 const fmt = (v: number) => formatNumber(v, { significant: 3 });
@@ -50,7 +53,7 @@ interface Series {
   stats: SampleStats;
 }
 
-export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams, sources, onUseModule }: HistogramPanelProps) {
+export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams, sources, onUseModule, onShowTool }: HistogramPanelProps) {
   const theme = useThemeTokens();
   const [preview, setPreview] = useState<{ id: string; value: number } | null>(null);
   // Rango del eje congelado mientras se arrastra una línea de GR (si no, el eje que la incluye crecería con ella).
@@ -58,6 +61,8 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams,
   const options = useMemo(() => plotCurveOptions(ctx), [ctx]);
   const key = config.curve ?? keyForRole(ctx, 'GR') ?? options[0]?.value ?? null;
   const curve = useMemo(() => resolvePlotCurve(ctx, key), [ctx, key]);
+  // Curva elegida que la sarta oculta (0032): estado vacío con el motivo; la elección se conserva.
+  const hidden = curve ? null : hiddenCurveOfKey(ctx, key);
   const scale = effectiveScale(config.scale, curve);
   const depth = ctx.well.depth.values;
   const zones = ctx.interpretation.zones;
@@ -109,7 +114,7 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams,
     return { curve, empty: false as const, edges, bins: range.bins, series, counts, values, bars, lines, yMax: yr.max, total, outside };
   }, [curve, scale, filter, config.bins, config.byZone, config.normalize, config.cumulative, theme.name, theme.color.accent, ctx.catalog, selection]);
 
-  if (options.length === 0) return <EmptyState size="sm" icon="histogram" title="Sin curvas" description="El pozo no tiene curvas para graficar." />;
+  if (options.length === 0) return <EmptyState size="sm" icon="histogram" title="Sin curvas" description={ctx.hidden?.size ? 'La sarta oculta todas las curvas del pozo: prendé herramientas en la sarta.' : 'El pozo no tiene curvas para graficar.'} />;
 
   const scope = cutoffScope(config.zones, zones);
   const line = curve ? resolveCutoffLine('x', curve, config.cutoffs, ctx.interpretation.params, scope, preview) : null;
@@ -234,7 +239,7 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams,
         <div className="plot-panel__side">
           <div className="plot-panel__controls">
             <ControlGroup title="Curva">
-              <CurveSelect label="Curva del histograma" value={key} options={options} onChange={(v) => onChange({ curve: v }, 'Cambiar la curva del histograma')} />
+              <CurveSelect label="Curva del histograma" value={key} options={options} hidden={hidden} onChange={(v) => onChange({ curve: v }, 'Cambiar la curva del histograma')} />
               <div className="plot-row">
                 <span className="plot-row__label">Escala</span>
                 <ScaleControl label="Escala del eje x" value={config.scale} onChange={(v) => onChange({ scale: v }, 'Cambiar la escala del histograma')} />
@@ -347,7 +352,9 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams,
           </aside>
         </div>
         <div className="plot-panel__main">
-          {!curve ? (
+          {hidden ? (
+            <HiddenCurveState hidden={hidden} icon="histogram" {...(onShowTool ? { onShowTool } : {})} />
+          ) : !curve ? (
             <EmptyState size="sm" icon="histogram" title="Elegí una curva" description="La curva elegida ya no está en el pozo o todavía se está calculando." />
           ) : !xAxis || !model || model.empty ? (
             <EmptyState size="sm" icon="histogram" title="Sin datos para graficar" description="La curva no tiene valores en las zonas elegidas." />

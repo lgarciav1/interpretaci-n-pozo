@@ -4,7 +4,7 @@
  * paneles y las superposiciones. El worker del motor nunca importa estos archivos.
  */
 import type { SeriesRef } from '../../core/trends';
-import { registry } from '../../modules';
+import { plotContextOf } from '../plots/context';
 import { createSeriesRegistry, curveSeriesProvider, type ResolvedSeries, type SeriesContext, type TrendSeriesProvider } from '../../plots/trend/series';
 import type { ViewerData } from '../../viewer/overlay';
 
@@ -24,9 +24,12 @@ function moduleProviders(): TrendSeriesProvider[] {
 
 export const seriesRegistry = createSeriesRegistry([curveSeriesProvider, ...moduleProviders()]);
 
-/** Contexto de los proveedores a partir de los datos del visor (pozo, interpretación y calculadas activos). */
+/**
+ * Contexto de los proveedores a partir de los datos del visor (pozo, interpretación y calculadas activos), con el pozo
+ * según la sarta (0032): una tendencia sobre una curva de una herramienta apagada queda «sin datos» hasta prenderla.
+ */
 export function contextOf(data: Pick<ViewerData, 'well' | 'interpretation' | 'computed'>): SeriesContext {
-  return { well: data.well, interpretation: data.interpretation, computed: data.computed, catalog: registry.roles };
+  return plotContextOf(data.well, data.interpretation, data.computed);
 }
 
 export function resolveSeries(data: Pick<ViewerData, 'well' | 'interpretation' | 'computed'>, ref: SeriesRef): ResolvedSeries | null {

@@ -78,6 +78,7 @@ describe('catálogo de herramientas', () => {
     expect(owner('ILD', 'RT')).toBe('induction');
     expect(owner('LLD', 'RT')).toBe('laterolog');
     expect(owner('RLA5', 'RT')).toBe('laterolog');
+    expect(owner('LLS', 'RS')).toBe('laterolog');
     expect(owner('RD', 'RT')).toBe('induction'); // sin pista: la primera del catálogo
     expect(owner('GR', 'GR')).toBe('gr');
     expect(owner('SGR', 'GR')).toBe('spectral-gr');

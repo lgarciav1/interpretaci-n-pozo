@@ -8,6 +8,7 @@ import { deleteZone, updateZone, validateZoneName } from '../../core/state/zones
 import type { Curve, Zone, ZoneKind } from '../../core/well';
 import { unitLabel } from '../../core/units';
 import type { OutputRecord } from '../../core/engine/engine';
+import { hiddenByTool, hiddenCurveReason, showToolLabel } from '../../core/toolString';
 import { registry } from '../../modules';
 import {
   Badge,
@@ -28,6 +29,8 @@ import {
   type SelectOption,
 } from '../../ui';
 import { openStep, useFlow } from '../flow/useFlow';
+import { hiddenCurvesOf, visibleWell } from '../plots/context';
+import { showHiddenTool } from '../plots/connect';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useWellQc } from '../store/qc';
 import { useResults } from '../store/results';
@@ -66,6 +69,9 @@ export function WellPanel() {
 
   const { well, interpretation } = entry;
   const d = well.depth.values;
+  // Sarta (0032): la lista muestra las curvas que ve el resto de la app; las ocultas se nombran abajo, por herramienta.
+  const shown = visibleWell(well, interpretation).curves;
+  const hiddenGroups = hiddenByTool(hiddenCurvesOf(well, interpretation));
   const computed = result?.outputs.filter((o) => o.kind === 'curve') ?? [];
   const roleOptions: SelectOption[] = [{ value: '', label: '—' }, ...registry.roles.all().map((r) => ({ value: r.id, label: r.id }))];
   const qcOf = (id: string) => qc?.curves.find((x) => x.curveId === id);
@@ -181,20 +187,39 @@ export function WellPanel() {
         )}
       </Section>
 
-      <Section title="Curvas medidas" meta={well.curves.length}>
+      <Section title="Curvas medidas" meta={shown.length === well.curves.length ? well.curves.length : `${shown.length} de ${well.curves.length}`}>
         {well.curves.length === 0 ? (
           <EmptyState size="sm" icon="curve" title="Sin curvas" description="El archivo no trajo curvas. Volvé a cargarlo revisando el mapeo de columnas." />
         ) : (
-          <DataTable
-            dense
-            className="well-panel__table"
-            data-testid="curves-table"
-            caption="Curvas medidas"
-            rows={well.curves}
-            rowKey={(c) => c.id}
-            rowProps={(c) => ({ 'data-curve': c.id, 'data-qc': qcOf(c.id)?.status })}
-            columns={curveColumns}
-          />
+          <>
+            {shown.length > 0 && (
+              <DataTable
+                dense
+                className="well-panel__table"
+                data-testid="curves-table"
+                caption="Curvas medidas"
+                rows={shown}
+                rowKey={(c) => c.id}
+                rowProps={(c) => ({ 'data-curve': c.id, 'data-qc': qcOf(c.id)?.status })}
+                columns={curveColumns}
+              />
+            )}
+            {hiddenGroups.length > 0 && (
+              <ul className="well-panel__hidden" aria-label="Curvas ocultas por la sarta" data-testid="curves-hidden">
+                {hiddenGroups.map((g) => (
+                  <li key={g.toolId} className="well-panel__hidden-row">
+                    <Icon name="eye-off" size={14} className="well-panel__hidden-icon" />
+                    <span className="well-panel__hidden-text">
+                      <span className="mono">{g.mnemonics.join(', ')}</span> {g.mnemonics.length === 1 ? 'oculta' : 'ocultas'}. {hiddenCurveReason(g)}
+                    </span>
+                    <Button size="sm" variant="ghost" icon="eye" className="well-panel__hidden-action" onClick={() => showHiddenTool(g)}>
+                      {showToolLabel(g)}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
         )}
       </Section>
 
