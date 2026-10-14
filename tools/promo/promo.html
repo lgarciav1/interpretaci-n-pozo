@@ -961,7 +961,7 @@ function s7(t) {
   const cfg = [
     { fx0: 0.5, fy0: 0.5, z0: 1.0, fx1: 0.55, fy1: 0.55, z1: 1.12 },
     { fx0: 0.45, fy0: 0.5, z0: 1.0, fx1: 0.4, fy1: 0.6, z1: 1.12 },
-    { fx0: 0.5, fy0: 0.5, z0: 1.0, fx1: 0.62, fy1: 0.5, z1: 1.08 },
+    { fx0: 0.5, fy0: 0.5, z0: 1.0, fx1: 0.5, fy1: 0.5, z1: 1.035 },
   ];
   cards.forEach((c, i) => featureCard(c, t, T[i], T[i] + 3.75 + (i === 2 ? 0 : 0.15), cfg[i]));
   ['#s7a', '#s7b', '#s7c'].forEach((id, i) => revealBlock($(id), t, T[i] + 0.2, T[i] + 3.2, { dur: 0.75 }));
