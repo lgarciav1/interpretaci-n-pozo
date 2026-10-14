@@ -59,7 +59,7 @@ export type Vec3 = readonly [number, number, number];
 export type Pick = { toolId: string } | { fixed: string };
 /**
  * Aspecto de un cuerpo: `metal` (piezas fijas), `on`, `off` (gris translúcido), `ghost` (planificada sin datos: casi
- * transparente con aristas).
+ * transparente con aristas punteadas). La selección suma aristas del color de acento (`edge`) sin cambiar el color.
  */
 export type BodyLook = 'metal' | 'on' | 'off' | 'ghost';
 export type Emphasis = 'none' | 'hover' | 'selected';
@@ -280,9 +280,10 @@ export function buildToolStringScene(input: SceneInput): ToolStringScene {
   const styleOf = (e: ToolStringEntry, base: string): Style => {
     const look = lookOf(e);
     const emphasis = emphasisOf(e.tool.id);
-    const color = emphasis === 'selected' ? input.accent : look === 'off' ? colors.off : base;
+    // La selección no cambia el color (se sigue leyendo la familia y si está apagada): suma aristas de acento.
+    const color = look === 'off' ? colors.off : base;
     const opacity = look === 'off' ? 0.38 : look === 'ghost' ? 0.16 : 1;
-    const edge = look === 'ghost' ? (emphasis === 'selected' ? input.accent : colors.outline) : emphasis === 'selected' ? input.accent : undefined;
+    const edge = emphasis === 'selected' ? input.accent : look === 'ghost' ? colors.outline : undefined;
     return { color, opacity, look, emphasis, ...(edge ? { edge } : {}) };
   };
   const metal = (color: string): Style => ({ color, opacity: 1, look: 'metal', emphasis: 'none' });

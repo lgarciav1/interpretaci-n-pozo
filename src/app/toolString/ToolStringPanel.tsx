@@ -154,7 +154,7 @@ export function ToolStringPanel() {
     <aside className="ts-panel" aria-label="Sarta de perfilaje">
       <header className="ts-panel__head">
         <div className="ts-panel__titles">
-          <span className="ts-panel__overline">{`Pozo ${entry.well.name}`}</span>
+          <span className="ts-panel__overline">{entry.well.name}</span>
           <h2 className="ts-panel__title">Sarta de perfilaje</h2>
         </div>
         <IconButton icon="x" size="sm" label="Cerrar la sarta y volver al perfil" onClick={() => setUi({ toolStringOpen: false })} />

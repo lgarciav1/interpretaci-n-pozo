@@ -237,12 +237,12 @@ export class ToolStringRenderer {
     const d = this.desc;
     const t = d?.tools.find((x) => x.toolId === toolId);
     if (!d || !t) return;
-    const reach = Math.max(t.radius * 6, ...d.shells.filter((s) => s.toolId === toolId).map((s) => s.radius), ...d.bands.filter((b) => b.toolId === toolId).map((b) => b.rMax), d.environment.rWall * 2.5);
-    const target = new Vector3(reach * 0.35 * Math.SQRT1_2, (t.y0 + t.y1) / 2, reach * 0.35 * Math.SQRT1_2);
+    const reach = Math.max(d.environment.rWall * 7, ...d.shells.filter((s) => s.toolId === toolId).map((s) => s.radius), ...d.bands.filter((b) => b.toolId === toolId).map((b) => b.rMax));
+    const target = new Vector3(reach * 0.2 * Math.SQRT1_2, (t.y0 + t.y1) / 2, reach * 0.2 * Math.SQRT1_2);
     const dirv = this.camera.position.clone().sub(this.controls.target).normalize();
     // Del lado del corte (θ entre 0 y π/2 mira a +x, +z): si no, la vista inicial.
     if (dirv.x < 0.15 || dirv.z < 0.15) dirv.set(Math.SQRT1_2, 0.55, Math.SQRT1_2).normalize();
-    const size = Math.max(reach * 1.25, (t.y1 - t.y0) * 1.4);
+    const size = Math.max(reach * 2.2, (t.y1 - t.y0) * 1.5);
     const dist = size / 2 / Math.tan(((FOV * Math.PI) / 180) / 2) / Math.min(1, this.size.w / this.size.h);
     this.flyTo(target.clone().add(dirv.multiplyScalar(dist)), target, true);
     this.userMoved = true;
@@ -482,11 +482,14 @@ export class ToolStringRenderer {
 function bodyMaterial(st: Style): Material {
   const color = new Color(st.color);
   if (st.look === 'off' || st.look === 'ghost') {
-    return new MeshStandardMaterial({ color, transparent: true, opacity: st.opacity, depthWrite: false, roughness: 0.7, metalness: 0.05, side: DoubleSide });
+    const m = new MeshStandardMaterial({ color, transparent: true, opacity: st.opacity, depthWrite: false, roughness: 0.7, metalness: 0.05, side: DoubleSide });
+    if (st.emphasis === 'hover') m.emissive = color.clone().multiplyScalar(0.3);
+    if (st.emphasis === 'selected' && st.edge) m.emissive = new Color(st.edge).multiplyScalar(0.25);
+    return m;
   }
   const m = new MeshStandardMaterial({ color, roughness: st.look === 'metal' ? 0.35 : 0.5, metalness: st.look === 'metal' ? 0.55 : 0.25 });
   if (st.emphasis === 'hover') m.emissive = color.clone().multiplyScalar(0.35);
-  if (st.emphasis === 'selected') m.emissive = color.clone().multiplyScalar(0.22);
+  if (st.emphasis === 'selected' && st.edge) m.emissive = new Color(st.edge).multiplyScalar(0.12);
   return m;
 }
 
@@ -524,11 +527,14 @@ function primitive(p: ScenePrimitive): Object3D {
   }
   if (p.style.look === 'off' || p.style.look === 'ghost') mesh.renderOrder = 2;
   if (!p.style.edge) return mesh;
-  // Contorno (planificada sin datos o seleccionada): bordes arriba y abajo y cuatro generatrices punteadas.
+  // Contorno: bordes arriba y abajo y cuatro generatrices; punteado en la planificada sin datos, continuo al seleccionar.
   const g = new Group();
   g.add(mesh);
   if (p.kind === 'cylinder') {
-    const edgeMat = new LineDashedMaterial({ color: new Color(p.style.edge), dashSize: 1.6, gapSize: 1, transparent: true, opacity: 0.95 });
+    const edgeMat =
+      p.style.look === 'ghost'
+        ? new LineDashedMaterial({ color: new Color(p.style.edge), dashSize: 1.6, gapSize: 1, transparent: true, opacity: 0.95 })
+        : new LineBasicMaterial({ color: new Color(p.style.edge), transparent: true, opacity: 0.95 });
     const pts: Vector3[] = [];
     const ring = (y: number) => {
       for (let i = 0; i < 48; i++) {

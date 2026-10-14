@@ -222,11 +222,15 @@ describe('escena de la sarta: estados', () => {
     expect(sn.opacity).toBeLessThan(sg.opacity);
   });
 
-  it('seleccionada: color de acento, rótulo con su nombre y una etiqueta por cáscara', () => {
+  it('seleccionada: aristas de acento sin perder el color de la familia ni el gris de apagada, rótulos', () => {
     const s = scene({}, { selectedId: 'induction', hoverId: 'gr' });
     const body = s.primitives.find((p) => p.key === 'body:induction') as Extract<ScenePrimitive, { kind: 'cylinder' }>;
     expect(body.style.emphasis).toBe('selected');
-    expect(body.style.color).toBe(ACCENT);
+    expect(body.style.edge).toBe(ACCENT);
+    expect(body.style.color).toBe(THEMES.light.scene.familyResistivity);
+    const offSel = scene({ off: ['density'] }, { selectedId: 'density' }).primitives.find((p) => p.key === 'body:density') as Extract<ScenePrimitive, { kind: 'cylinder' }>;
+    expect(offSel.style.color).toBe(THEMES.light.scene.off);
+    expect(offSel.style.edge).toBe(ACCENT);
     expect((s.primitives.find((p) => p.key === 'body:gr') as Extract<ScenePrimitive, { kind: 'cylinder' }>).style.emphasis).toBe('hover');
     expect(s.labels.filter((l) => l.kind === 'shell').map((l) => l.text)).toEqual(['RA10 · 10 in', 'RA20 · 20 in', 'RA30 · 30 in', 'RM · 60 in', 'RT · 90 in']);
     expect(s.labels.find((l) => l.kind === 'tool')!.text).toBe('Inducción');
