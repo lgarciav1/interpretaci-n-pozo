@@ -49,8 +49,8 @@ misma para todas las herramientas: sus largos relativos son reales (la RMN de 16
 2,6 m). Se probó 10:1 primero: la sarta del pozo de demostración quedaba como un disco ancho y bajo, con las cáscaras
 como platos; 5:1 se lee como un pozo.
 
-- La DOI se mide **desde la pared del pozo** (definición de `ToolSheet.investigation`, 0032): la cáscara de una curva
-  tiene radio = radio del pozo + DOI. El pozo es el trépano del pozo cargado (mediana de BS; si no hay, del calibre;
+- La DOI se mide **desde la referencia que declara la ficha** (D9 a): por defecto desde la pared del pozo (radio de la
+  cáscara = radio del pozo + DOI); la inducción de arreglo, desde el eje (radio = DOI). El pozo es el trépano del pozo cargado (mediana de BS; si no hay, del calibre;
   si no, 8,5 in marcado «esquemático»).
 - **Regla de escala radial** sobre la cara del corte (10 cm, 50 cm, 1 m, 2 m) y una leyenda fija: «Radios y
   profundidades de investigación a escala real · largos comprimidos 5:1».
@@ -121,13 +121,14 @@ Descartado:
   no la tiene por curva, una con `investigation.typical`), del color de la curva en el visor (`curveStyle`), de la
   altura de la herramienta y visible en el cuarto recortado. El rango mínimo–máximo de la ficha es una **banda difusa**
   (degradé de opacidad que se apaga hacia los extremos). Sin dato de DOI (SP, temperatura), sin cáscara.
-- **Estados**: apagada = cuerpo gris translúcido y sin cáscaras (la formación no cambia de tamaño al apagar);
+- **Estados** (primera versión; D9 cambia el aspecto, no la lógica): apagada = cuerpo gris translúcido y sin cáscaras (la formación no cambia de tamaño al apagar);
   planificada sin datos en este pozo = contorno (cuerpo casi transparente con aristas punteadas) y cáscaras más
   tenues; seleccionada = aristas continuas y un leve brillo del color de acento, **sin cambiar el color** (se sigue
   leyendo la familia y si está apagada; la primera versión la pintaba de acento y una densidad seleccionada parecía
   de resistividad); bajo el puntero = aclarada y con el nombre. Al seleccionar, rótulos con el nombre y la DOI de cada
   cáscara («RT · 90 in»), que se corren para no superponerse; los de la regla que chocan se ocultan.
-- **Aproximado** en la vista: las cáscaras con DOI sin verificar tienen los bordes punteados.
+- **Aproximado** en la vista: las cáscaras con DOI sin verificar tienen los bordes punteados (también las de curvas
+  que el pozo no tiene, D9 b).
 - **Simplificación aceptada**: las cáscaras de las herramientas de patín son cilíndricas completas aunque el patín lee
   solo su lado del pozo (lo que se enseña es la profundidad radial).
 
@@ -142,7 +143,8 @@ Descartado:
   apagada (`setToolOn`); arrastre por la manija con eventos de puntero (como 0016, sin drag and drop nativo) y
   **Alt+↑/↓** para reordenar (`moveTool`); ↑/↓ recorren las filas; en planificación, **Supr** o el botón quitan y
   «Agregar herramienta» suma.
-- **Centrar en la vista** (botón de la ficha): encuadra la herramienta con sus cáscaras desde el lado del corte. Si la
+- **Centrar en la vista** (botón de la ficha): encuadra la herramienta con sus cáscaras desde el lado del corte. Es la
+  única forma de mover la cámara hacia una herramienta: seleccionarla no la mueve (D9 c). Si la
   usuaria no movió la cámara, la vista inicial se reencuadra sola al cambiar el tamaño (abrir la ficha, la ventana) o
   la sarta (agregar o quitar).
   Cada acción es un `commit` (Ctrl+Z la deshace) y se anuncia en una región `aria-live`.
@@ -197,7 +199,29 @@ objetivo es una **ilustración técnica pulida** (render de producto), no fotorr
   demanda como antes.
 - **Cáscaras de vidrio**: material propio (fresnel): el borde de la cáscara más marcado que el centro, sin tapas
   macizas (solo el contorno de arriba y de abajo y las trazas sobre las caras del corte). Jerarquía: sin selección,
-  todas sutiles; con selección, las de la herramienta elegida fuertes y las demás casi transparentes.
+  todas sutiles; con selección, las de la herramienta elegida fuertes y las demás casi transparentes. Las de la
+  elegida pintan además, muy suave, la porción de las caras del corte que investigan (se acumula hacia la pared, donde
+  leen todas las curvas).
+
+### Cómo quedó (detalles medidos sobre las capturas)
+
+- **Cámara inicial**: azimut π/4 + 0,3 (la cara en θ = 0 casi de frente, a la izquierda de la sarta; la de θ = π/2 en
+  escorzo), elevación 13°, campo vertical 26°. Encuadra de la base de la última herramienta a la regla, con un 14 % de
+  aire. La **regla** pasó a la cara que mira de frente (θ = 0) y la **leyenda** arriba a la derecha (a la izquierda
+  tapaba la regla); la nota de la formación («Formación 8.066,6–8.085,3 m · color por litología sugerida») abajo a la
+  izquierda. Con la ficha abierta se oculta la ayuda de gestos.
+- **Formación**: las caras se desvanecen desde la mitad del radio exterior (`rFade`) y en el 18 % de abajo; la tapa,
+  antes (de canto y bien iluminada, una tapa ancha se leía como un disco que flota). Colores de litología mezclados
+  con el fondo (24 % en claro, 40 % en oscuro) y material al 80 %: la sarta de acero es lo más contrastado del cuadro.
+  Textura de las caras de 768 px a lo ancho (granos de 2×2 texeles: los de uno se pierden con el mipmap). Revoque de
+  ~1,2 cm y zona invadida de hasta 30 cm × permeabilidad sugerida, **esquemáticos** (no salen de Rxo ni de ningún
+  cálculo).
+- **Costo**: las caras del corte usan `MeshLambertMaterial` y **no reciben sombras** (cubren media pantalla y el
+  filtrado de sombras por píxel era el costo más grande); la sombra de la sarta cae en la pared del pozo, que sí las
+  recibe, y en las propias herramientas. Las piezas de cada herramienta se funden por material (3 mallas por
+  herramienta en lugar de 7). El mapa de sombras se recalcula solo cuando cambia algún objeto.
+- **Selección**: funda de vidrio del color de acento (r × 1,3 + 1,4) alrededor de la herramienta; en una herramienta
+  de 10 px de ancho un borde fresnel ajustado no se ve.
 
 ### Tres decisiones de la revisión (recomendadas por la orquestación, aceptadas por la usuaria)
 
@@ -223,7 +247,15 @@ Descartado:
 
 ## Medición
 
-- `dist/index.html`: 4.714.604 → 5.375.821 bytes (**+661 kB**, +14 %; comprimido con gzip, 2.259,9 → 2.430,5 kB: +171 kB). Casi todo es three
+- Pulido visual (D9): `dist/index.html` 5.381.295 → 5.406.064 bytes (**+24,8 kB**, +0,5 %; con gzip 2.426,1 → 2.433,2 kB:
+  +7,2 kB). `RoomEnvironment`, `PMREMGenerator` y `mergeGeometries` son de three (ya incluido); las texturas son
+  procedurales (canvas), sin imágenes.
+- Costo por cuadro, medido en Chromium con **SwiftShader** (WebGL por CPU: sirve para comparar, no es una GPU) a
+  1366×768, girando con el teclado: 87 ms antes del pulido → ~150 ms después (sin sombras ni ambiente serían ~100 ms;
+  la primera versión del pulido, con caras PBR que recibían sombras, ~200 ms). En una GPU integrada son pocos
+  milisegundos; además se dibuja solo a demanda. La textura de la formación (768 × hasta 2048 texeles) se genera una
+  vez por cambio de pozo, tema o largo de la sarta, no al girar ni al seleccionar.
+- Primera versión: `dist/index.html`: 4.714.604 → 5.375.821 bytes (**+661 kB**, +14 %; comprimido con gzip, 2.259,9 → 2.430,5 kB: +171 kB). Casi todo es three
   (el renderizador WebGL y sus shaders no se pueden descartar); el resto de la pantalla son ~25 kB. Abre con `file://`
   sin internet.
 - Verificado en Chromium (Playwright, SwiftShader) sobre `dist/index.html` con el pozo de demostración, en claro y
@@ -238,9 +270,10 @@ Descartado:
 
 ## Abierto
 
-- La DOI de la inducción suele darse como radio desde el **eje** del pozo, no desde la pared; la app usa la definición
-  única de la ficha (desde la pared). La diferencia es el radio del pozo (~11 cm en 8,5 in): visible en la curva de
-  10 in, despreciable en la de 90 in. Si la cátedra lo pide, un campo `from: 'axis' | 'wall'` en `SheetQuantity`.
+- Resuelto en D9 (a): la referencia de la DOI (eje o pared) la declara cada ficha. Falta confirmar con bibliografía si
+  el laterolog y el sónico se especifican desde el eje; hoy van desde la pared.
+- La zona invadida y el revoque son esquemáticos; podrían salir de los datos (separación RXO/RT, diámetro de invasión
+  de un módulo de tornado) cuando haya un módulo que lo calcule.
 - Las herramientas sin largo en la ficha se dibujan con 3 m esquemáticos; con fichas de catálogo de una empresa se
   reemplazan sin tocar la vista.
 - Herramientas de puntos (MDT, coronas laterales) en el esquema (0032, abierto).

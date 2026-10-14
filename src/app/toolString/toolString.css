@@ -144,7 +144,8 @@
 .ts-view__state--absent { width: 9px; border: 1px dashed var(--color-text-muted); }
 .ts-view__help { position: absolute; right: var(--space-3); bottom: var(--space-3); display: flex; align-items: center; gap: var(--space-1); max-width: 50%; margin: 0; color: var(--color-text-subtle); font-size: var(--text-xs); text-align: right; pointer-events: none; }
 /* Con la ficha abierta la vista se angosta: la ayuda de los gestos cede el lugar a la nota de la formación. */
-.ts-view__body.has-sheet .ts-view__help { display: none; }
+.ts-view__body.has-sheet .ts-view__help,
+.ts-view__body.has-sheet .ts-view__legend-states { display: none; }
 @container tsview (max-width: 720px) {
   .ts-view__help { display: none; }
   .ts-view__legend { max-width: min(250px, calc(100% - var(--space-6))); }

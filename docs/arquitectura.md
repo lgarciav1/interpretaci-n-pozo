@@ -67,7 +67,7 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 | `src/app/` | arranque, worker (`engine.worker.ts`), puente con el motor, stores (`store/viewer.ts`: cursor y tramo visible), descubrimiento de superposiciones (`viewerOverlays.ts`), pantallas | sí |
 | `src/app/shell/` | armazón: barra superior, flujo guiado, inspector, dock (`dockPanels.tsx`: una entrada por panel), `ViewerSlot` (conecta stores con el visor: edición de zonas, modo marcar zona, encabezado, «Armar pistas»), `viewerOverlayList.ts` (superposiciones del visor de la app), `CurveEditor` (editor de escalas), diálogos | sí |
 | `src/app/tracks/` | «Armar pistas» (0016): panel con el catálogo (`TrackBuilder.tsx`), plantillas y diálogos (`Templates.tsx`), arrastre con eventos de puntero (`dnd.ts`) y acciones que traducen gestos a recetas con `commit` (`actions.ts`) | sí |
-| `src/app/toolString/` | sarta en la interfaz (0032, 0033): curvas visibles y disponibilidad del pozo activo con caché (`select.ts`), lista de la columna izquierda (`ToolStringPanel.tsx`), vista 3D (`ToolStringView.tsx`) con la escena como descripción pura (`scene.ts`, sin three ni DOM, testeada) y su dibujo con three.js (`render3d.ts`), ficha (`ToolSheetCard.tsx`) y atajos en la paleta (`commands.ts`) | `scene.ts` no |
+| `src/app/toolString/` | sarta en la interfaz (0032, 0033): curvas visibles y disponibilidad del pozo activo con caché (`select.ts`), lista de la columna izquierda (`ToolStringPanel.tsx`), vista 3D (`ToolStringView.tsx`) con la escena como descripción pura (`scene.ts`, sin three ni DOM, testeada), la columna litológica del pozo para la formación (`formation.ts`, pura) y su dibujo con three.js (`render3d.ts`), ficha (`ToolSheetCard.tsx`) y atajos en la paleta (`commands.ts`) | `scene.ts` no |
 | `src/app/flow/` | flujo guiado: definición de pasos y evaluación de estados (`flow.ts`, puro y testeado) | `flow.ts` no |
 | `src/ui/` | sistema de diseño: tokens, tema, paleta de curvas, componentes, `useCanvas`; contrato de panel. Guía en `src/ui/README.md`; muestra en `#ui` | sí |
 | `src/viewer/` | visor multipista: plantillas, resolución de pistas, viewport, ticks, reducción M4, rellenos, pilas (`stack.ts`), lectura, contrato de superposiciones (con elementos del teclado), gestos (`interaction.ts`), catálogo de herramientas y curvas para armar pistas (`catalog.ts`), dibujo en canvas (`*.ts`, puros o canvas) y los componentes `WellViewer.tsx`, `Minimap.tsx`, `WellHeader.tsx`, `layoutEdit.tsx` (modo «Armar pistas»: destinos y bordes de ancho). Guía en `src/viewer/README.md` | solo los `.tsx` |
@@ -346,7 +346,10 @@ Decisión: [`docs/decisiones/0032-sarta-de-perfilaje.md`](decisiones/0032-sarta-
   centro (visor y dock siguen montados debajo, inertes) y solo mira: pozo en corte, herramientas con su montaje y
   cáscaras de profundidad de investigación por curva. Radios y DOI a escala real (1 unidad = 1 cm), largos comprimidos
   5:1. `buildToolStringScene` (puro) → `ToolStringRenderer` (three.js, render a demanda, reutiliza mallas por clave,
-  libera todo al desmontar). Sin WebGL 2 la lista y la ficha siguen andando. Colores en `ThemeTokens.scene`.
+  libera todo al desmontar). Sin WebGL 2 la lista y la ficha siguen andando. Colores en `ThemeTokens.scene`. Pulido
+  visual (0033 D9): acero con ambiente procedural (`RoomEnvironment` + PMREM), sombras a demanda, ACES; formación de
+  contexto con las capas del pozo (litología sugerida o GR) en el tramo que mostraba el visor; cáscaras de vidrio con
+  jerarquía por selección; la DOI con su referencia por ficha (`ToolSheet.investigationFrom`).
 
 ## Petrofísica en módulos (fase 6a)
 
