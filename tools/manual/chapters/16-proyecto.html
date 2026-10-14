@@ -1,0 +1,79 @@
+<h1 class="chapter-title">Proyecto, snapshots y exportación</h1>
+<p class="lede">Guardá todo en un archivo, volvé a cualquier estado de la interpretación y llevate los resultados en el formato que necesites.</p>
+
+<h2>Guardar y abrir el proyecto</h2>
+<div class="prose">
+<p>El menú «Proyecto» de la barra superior tiene dos acciones: <b>«Guardar proyecto»</b> (<kbd>Ctrl</kbd> <kbd>S</kbd>) descarga un archivo <code>.pozo.json</code>, y <b>«Abrir proyecto…»</b> (<kbd>Ctrl</kbd> <kbd>O</kbd>) lo vuelve a cargar.</p>
+</div>
+<div class="table-wrap"><table>
+<thead><tr><th>El proyecto guarda</th><th>No guarda (se recalcula o es de la vista)</th></tr></thead>
+<tbody><tr>
+<td>Todos los pozos con sus curvas, encabezado, presiones MDT y plugs de corona · la interpretación de cada pozo: zonas, parámetros globales y por zona, métodos elegidos y en comparación, tendencias, sarta · las marcas de los pasos · los snapshots · las pistas y plantillas propias del visor.</td>
+<td>Los resultados del motor y el control de calidad, que se recalculan al abrir · el paso abierto, la pestaña del dock, la zona en edición · el historial de deshacer · el tema, el tamaño y las medidas de los paneles.</td>
+</tr></tbody></table></div>
+<aside class="callout warn" data-title="Abrir reemplaza todo">
+<p>Abrir un proyecto reemplaza por completo el actual, sin preguntar, y vacía el historial de deshacer. Guardá antes si tenés cambios. Para empezar de cero, recargá la página: vuelve el pozo de demostración.</p>
+</aside>
+<div class="prose"><p>Las curvas van comprimidas dentro del archivo: un proyecto con un pozo pesa alrededor de medio megabyte. Los proyectos guardados con versiones anteriores de la app se abren y se actualizan solos.</p></div>
+
+<h2>Snapshots</h2>
+<div class="prose">
+<p>Un snapshot es una foto de la interpretación del pozo activo: zonas, parámetros, métodos elegidos y sarta. No copia las curvas ni los resultados, que se recalculan. Sirven para volver atrás o para comparar dos versiones de la interpretación.</p>
+</div>
+<figure data-shot="snapshots" class="half"><figcaption>El diálogo «Snapshots» con la comparación del sumario por zona.</figcaption></figure>
+<ol class="steps">
+<li><b>Guardar.</b> Abrí «Snapshots», escribí un nombre (opcional) y hacé clic en «Guardar snapshot». Sin nombre se llama «Snapshot 1», «Snapshot 2»…</li>
+<li><b>Restaurar.</b> «Restaurar» vuelve a la interpretación guardada. Se deshace con <kbd>Ctrl</kbd> <kbd>Z</kbd>.</li>
+<li><b>Comparar.</b> «Comparar» arma la tabla «Sumario por zona: A, B y diferencia»: para cada zona, el neto reservorio, el neto pay, φe, Sw, Vsh, k y el volumen, como «A → B» con la diferencia debajo. Debajo se listan los parámetros, zonas y métodos que cambiaron.</li>
+<li><b>Cortina.</b> «Cortina» dibuja sobre el visor una cortina que se arrastra: de un lado el snapshot («Antes»), del otro la interpretación actual («Después»). Se cierra con <kbd>Esc</kbd>.</li>
+</ol>
+
+<h2>Exportar</h2>
+<div class="prose"><p>«Exportar» (<kbd>Ctrl</kbd> <kbd>E</kbd>) ofrece tres cosas: datos del pozo, figuras e informe.</p></div>
+
+<h3>Datos del pozo</h3>
+<figure data-shot="export-data" class="half"><figcaption>Exportar datos: formato, tramo, unidades, valor de «sin dato» y curvas.</figcaption></figure>
+<div class="table-wrap"><table>
+<thead><tr><th>Opción</th><th>Valores</th></tr></thead>
+<tbody>
+<tr><td>«Formato»</td><td>«LAS 2.0», «CSV» (coma y punto decimal, encabezado <code>NOMBRE (unidad)</code>) o «Excel (.xlsx)» con hojas de curvas, zonas, sumario y encabezado.</td></tr>
+<tr><td>«Tramo»</td><td>Todo el pozo o una zona.</td></tr>
+<tr><td>«Profundidad en»</td><td>Metros o pies. Solo cambia la profundidad; las curvas conservan su unidad.</td></tr>
+<tr><td>«Sin dato»</td><td>Vacío (en LAS, −999,25), −999,25 o −9999.</td></tr>
+<tr><td>Curvas</td><td>Casillas para las medidas y las calculadas, con «Todas» y «Ninguna». «Incluir también las alternativas» suma las curvas de los métodos en comparación.</td></tr>
+<tr><td>«Incluir el sumario por zona»</td><td>En Excel es una hoja; en LAS o CSV se descarga un <code>.zip</code> con las curvas y el sumario.</td></tr>
+</tbody></table></div>
+<div class="prose"><p>Un LAS exportado se puede volver a cargar con «Cargar pozo».</p></div>
+
+<h3>Figuras</h3>
+<div class="prose">
+<p>Las figuras se dibujan siempre con el tema claro de impresión.</p>
+<ul>
+<li><b>Plantillas</b>: «Figura completa del perfil», «Solo pistas seleccionadas», «Perfil + sumario por zona» y «Crossplot con leyenda».</li>
+<li><b>Formatos</b>: PNG, SVG (vectorial) o PDF, una página A4 con título, datos del pozo, la figura y un pie con fecha y escala.</li>
+<li><b>Perfiles</b>: tramo (el visible, todo el pozo o una zona) y escala vertical de 1:100 a 1:5.000.</li>
+<li><b>Medidas</b>: ancho y alto en centímetros, margen, resolución (150, 300 o 600 ppp) y orientación.</li>
+</ul>
+<p>El diálogo muestra el tamaño resultante y avisa si la resolución pedida supera lo que el navegador puede dibujar; en ese caso conviene SVG, una escala menor o un tramo más corto.</p>
+</div>
+
+<h3>Informe automático</h3>
+<div class="prose">
+<p>El informe reúne la interpretación en un documento listo para imprimir:</p>
+<ul>
+<li>Encabezado del pozo y zonas interpretadas.</li>
+<li>Los métodos y parámetros efectivos de cada paso, globales y por zona.</li>
+<li>El sumario por zona y el volumen in situ.</li>
+<li>Advertencias y limitaciones: avisos de los módulos, control de calidad y estado del pozo.</li>
+<li>Figuras del perfil, completas o por zona, paginadas por pistas, y los gráficos que tengas abiertos.</li>
+</ul>
+</div>
+<ol class="steps">
+<li>En «Exportar», elegí «Informe». Completá título y autor si querés, y marcá el contenido.</li>
+<li>«Generar informe» arma una vista previa. Necesita que el motor haya terminado de calcular sin errores.</li>
+<li>«Guardar HTML» descarga el informe como un archivo que se abre sin conexión. Para PDF, usá el botón «Imprimir / Guardar como PDF» del informe (recomendado: A4 horizontal).</li>
+</ol>
+<figure data-shot="report" class="wide"><figcaption>Vista previa del informe automático.</figcaption></figure>
+<aside class="callout note" data-title="Una copia del momento">
+<p>El informe es una copia del estado al generarlo: no se recalcula al abrirlo. Si cambiás la interpretación, generá uno nuevo.</p>
+</aside>

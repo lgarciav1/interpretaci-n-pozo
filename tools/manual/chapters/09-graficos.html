@@ -1,0 +1,111 @@
+<h1 class="chapter-title">Histograma y crossplot</h1>
+<p class="lede">Cualquier curva contra cualquier otra, en dos clics. Los cutoffs y varios parámetros se eligen arrastrando sobre el gráfico, y el pozo se recalcula mientras movés la línea.</p>
+
+<div class="prose">
+<p>Los dos gráficos viven en pestañas del dock: «Histograma» y «Crossplot». Comparten la disposición: controles a la izquierda, gráfico en el centro y lecturas a la derecha. Su configuración se guarda en el proyecto, por pozo, y cada cambio se deshace con <kbd>Ctrl</kbd> <kbd>Z</kbd>.</p>
+</div>
+<aside class="callout tip" data-title="Más lugar para el gráfico">
+<p>Arrastrá el borde superior del dock para agrandarlo, u ocultá las columnas laterales con «Ocultar columna».</p>
+</aside>
+
+<h2>Controles comunes</h2>
+<div class="prose">
+<ul>
+<li><b>Curva</b>: una lista con las curvas medidas y calculadas, cada una con su rol («GR · Rayos gamma»).</li>
+<li><b>Escala</b>: «Auto», «Lin» o «Log». «Auto» usa la escala de la curva: logarítmica para resistividad y permeabilidad.</li>
+<li><b>Zonas</b>: «Todas» o una o más zonas. Con una sola zona filtrada, los cutoffs y parámetros que muevas se guardan para esa zona.</li>
+</ul>
+</div>
+
+<h2>Histograma</h2>
+<figure data-shot="histogram" class="wide"><figcaption>Histograma de GR por zona, normalizado a porcentaje, con las líneas de GR limpio y GR de arcilla.</figcaption></figure>
+<div class="prose">
+<ul>
+<li><b>«Clases»</b>: la cantidad de clases (de 3 a 200). Por defecto se calcula sola.</li>
+<li><b>«Un histograma por zona»</b> superpone una distribución por zona, con su color.</li>
+<li><b>«Normalizar a %»</b> compara zonas de distinto espesor.</li>
+<li><b>«Curva acumulada»</b> agrega la curva acumulada con un eje de 0 a 100 %.</li>
+</ul>
+<p>El panel «Estadísticos» muestra, por zona y en total, la cantidad de muestras, la media (geométrica en escala log) y los percentiles 10, 50 y 90 de las muestras.</p>
+</div>
+
+<h3>GR limpio y GR de arcilla sobre el gráfico</h3>
+<div class="prose"><p>En el histograma de GR hay dos líneas verticales: «GR limpio» y «GR arcilla». Son los parámetros del índice de rayos gamma. Arrastralas y el Vsh, la porosidad efectiva, la Sw y el pay se recalculan en vivo. Todo el arrastre es un solo paso de deshacer y <kbd>Esc</kbd> vuelve al valor anterior.</p></div>
+
+<h3>Cutoffs</h3>
+<div class="prose">
+<p>«Agregar cutoff libre» dibuja una línea vertical que se arrastra, con un rótulo como «Cutoff global · 0,35» y el porcentaje de muestras que pasan.</p>
+<ul>
+<li>Si la curva es <b>VSH, PHIE o SW</b>, la línea es el <b>cutoff real</b> del proyecto: moverla recalcula el pay, el sumario y el volumen.</li>
+<li>En cualquier otra curva es una <b>línea libre</b>: queda guardada en el gráfico pero no cambia la petrofísica.</li>
+</ul>
+</div>
+
+<h3>Del histograma al visor</h3>
+<div class="prose"><p>Al pasar el puntero sobre una clase, el visor marca los tramos de esas muestras. Un clic en la clase las selecciona (y se ven en el crossplot); <kbd>Mayús</kbd> + clic suma o quita clases.</p></div>
+
+<h2>Crossplot</h2>
+<figure data-shot="crossplot" class="wide"><figcaption>Crossplot densidad contra neutrón del pozo del TP, coloreado por zona.</figcaption></figure>
+<div class="prose">
+<ul>
+<li><b>«Ejes»</b>: la curva de X y la de Y, con su escala y el botón para invertir. Un botón intercambia X e Y.</li>
+<li><b>«Color»</b>: «Por zona», «Un solo color» o una tercera curva cualquiera, con su barra de color.</li>
+<li><b>«Cutoffs»</b>: los botones «X» e «Y» agregan una línea en cada eje. Con los dos, el panel derecho muestra el porcentaje de puntos en cada cuadrante.</li>
+<li><b>«Tendencias»</b>: «Agregar tendencia» ajusta los puntos visibles con un modelo lineal, logarítmico, exponencial o potencial.</li>
+</ul>
+<p>Cada punto es una muestra. Su tooltip da la profundidad, la zona y los valores; un clic lleva el visor a esa profundidad.</p>
+</div>
+
+<h3>Seleccionar puntos</h3>
+<ol class="steps">
+<li>En «Selección», elegí «Rectángulo» o «Lazo».</li>
+<li>Arrastrá sobre los puntos. Con <kbd>Mayús</kbd> se suman a la selección.</li>
+<li>Los puntos elegidos se resaltan, el visor marca esas muestras y el histograma suma la serie «Selección».</li>
+<li>«Limpiar» o <kbd>Esc</kbd> la borra.</li>
+</ol>
+
+<h3>Plantillas</h3>
+<div class="prose"><p>«Elegir plantilla» arma los ejes, las escalas y el color, y dibuja las líneas de referencia con los parámetros del proyecto.</p></div>
+<div class="table-wrap"><table>
+<thead><tr><th>Plantilla</th><th>Ejes</th><th>Referencias</th></tr></thead>
+<tbody>
+<tr><td>«Densidad–neutrón»</td><td>NPHI contra RHOB, color por GR</td><td>Líneas de arenisca, caliza y dolomía con marcas de porosidad, y el punto de matriz del proyecto.</td></tr>
+<tr><td>«Pickett»</td><td>RT contra PHIE (log–log), color por Vsh</td><td>Rectas de Sw 100, 50, 30 y 20 % con a, m, n y Rw del proyecto.</td></tr>
+<tr><td>«φ–Sw (Buckles)»</td><td>PHIE contra SW, color por Vsh</td><td>Hipérbolas de volumen de agua constante.</td></tr>
+<tr><td>«GR–Rt»</td><td>GR contra RT (log)</td><td>GR limpio y GR de arcilla.</td></tr>
+<tr><td>«RMN vs. densidad–neutrón»</td><td>PHIE contra PHIE de RMN</td><td>Recta 1:1 y umbral de déficit.</td></tr>
+<tr><td>«Torio–potasio»</td><td>POTA contra THOR</td><td>Regiones orientativas de arcillas.</td></tr>
+<tr><td>«PE–densidad»</td><td>PEF contra RHOB</td><td>Puntos minerales y mezclas con agua.</td></tr>
+</tbody></table></div>
+<figure data-shot="crossplot-dn" class="wide"><figcaption>Plantilla «Densidad–neutrón»: líneas de litología y el rombo del punto de matriz, que se arrastra.</figcaption></figure>
+<aside class="callout note" data-title="Límites orientativos">
+<p>Las regiones de «Torio–potasio» y «PE–densidad» son orientativas: conviene confirmarlas con corona o difracción de rayos X.</p>
+</aside>
+
+<h2>Parámetros elegidos sobre los gráficos</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Gráfico</th><th>Qué se arrastra</th><th>Qué cambia</th></tr></thead>
+<tbody>
+<tr><td>Histograma de GR y plantilla GR–Rt</td><td>Las líneas «GR limpio» y «GR arcilla»</td><td>Los extremos del índice de rayos gamma.</td></tr>
+<tr><td>Densidad–neutrón</td><td>El rombo del punto de matriz</td><td>La densidad de matriz (arriba y abajo) y la lectura del neutrón en la matriz (a los lados). Se pega a arenisca, caliza y dolomía.</td></tr>
+<tr><td>Pickett</td><td>El círculo y el cuadrado de la recta de agua</td><td>El círculo traslada la recta (cambia Rw); el cuadrado la rota (cambia m).</td></tr>
+</tbody></table></div>
+<div class="prose"><p>Todos tienen vista previa en vivo, valen para la zona filtrada o para todo el pozo, y son un solo paso de deshacer. Si el método que usa ese parámetro no es el que alimenta la cadena, la manija queda quieta y el panel ofrece cambiarlo: por ejemplo «Usar porosidad por densidad» o «Usar Rw manual».</p></div>
+<figure data-shot="crossplot-pickett" class="wide"><figcaption>Plantilla «Pickett» con las rectas de saturación del proyecto.</figcaption></figure>
+
+<h3>Pickett: la zona acuífera</h3>
+<div class="prose">
+<p>Con RT en X y PHIE en Y aparece el bloque «Zona acuífera (Sw = 1)». Elegí las zonas que sabés acuíferas: el panel ajusta la recta de agua sobre ellas y muestra m, la Rw de formación, la cantidad de puntos con su R² y la dispersión. «Ajustar recta a la zona acuífera» escribe m y Rw en un solo paso. «Una recta por zona» dibuja una recta de agua por zona con sus propios parámetros.</p>
+</div>
+
+<h2>Perfil radial de invasión</h2>
+<div class="prose">
+<p>La pestaña «Perfil radial» muestra, a la profundidad del cursor del visor, cómo cambia la resistividad desde el pozo hacia la formación. Necesita al menos tres curvas de inducción de arreglo (AT10 a AT90).</p>
+<ul>
+<li>Arriba, un corte con el pozo, la zona invadida y la formación virgen, y las campanas que muestran de dónde lee cada curva.</li>
+<li>Abajo, un punto por curva en el radio al que lee y el perfil escalonado ajustado, con la Rt resultante.</li>
+<li>A la derecha, el estado del ajuste («Ajuste bueno», «Ajuste dudoso», «Invasión no resuelta»…) y las lecturas: Rxo, Rt, diámetro de invasión di, Rxo/Rt y desajuste.</li>
+</ul>
+<p>«Fijar esta profundidad» deja el perfil quieto mientras movés el cursor; en el visor aparece una línea con la etiqueta «Perfil radial».</p>
+</div>
+<figure data-shot="radial" class="wide"><figcaption>El perfil radial de invasión.</figcaption></figure>

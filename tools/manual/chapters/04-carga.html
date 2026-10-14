@@ -1,0 +1,71 @@
+<h1 class="chapter-title">Cargar datos</h1>
+<p class="lede">Excel, LAS 2.0 o CSV. FiubaLog reconoce cada columna por su nombre y su unidad, y te deja corregir todo antes de cargar.</p>
+
+<h2>Formatos admitidos</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Formato</th><th>Extensiones</th><th>Cómo se lee</th></tr></thead>
+<tbody>
+<tr><td><b>Excel</b></td><td><code>.xlsx</code> <code>.xlsm</code></td><td>Se leen los valores guardados (las fórmulas no se evalúan). Con varias hojas se toma la primera con datos y aparece el selector «Hoja».</td></tr>
+<tr><td><b>LAS 2.0</b></td><td><code>.las</code></td><td>Secciones ~V, ~W, ~C, ~P, ~O y ~A, con o sin WRAP. Usa el valor NULL declarado y pasa los metadatos al encabezado del pozo.</td></tr>
+<tr><td><b>Texto delimitado</b></td><td><code>.csv</code> <code>.tsv</code> <code>.txt</code></td><td>Separador coma, punto y coma o tabulación, y decimal punto o coma: los detecta solo. Ignora las líneas que empiezan con <code>#</code>. Un <code>.txt</code> con contenido LAS se lee como LAS.</td></tr>
+</tbody></table></div>
+
+<h3>Cómo tiene que ser el archivo</h3>
+<div class="prose">
+<ul>
+<li><b>Una fila de encabezado</b> con los nombres de las columnas, opcionalmente seguida de una fila de unidades. La unidad también puede ir en el nombre: <code>GR (gAPI)</code>, <code>DT [us/ft]</code>.</li>
+<li><b>Una columna de profundidad.</b> Se reconoce por el nombre (<code>DEPTH</code>, <code>DEPT</code>, <code>MD</code>, <code>PROF</code>, <code>PROFUNDIDAD</code>…); si ninguna se llama así, se usa la primera con un aviso. Se convierte siempre a metros y tiene que crecer de fila en fila (o decrecer de punta a punta: en ese caso se invierte).</li>
+<li><b>Opcionalmente, una columna de zonas</b> con el nombre de la zona en cada fila (<code>ZONA</code>, <code>ZONE</code>, <code>FORMACION</code>, <code>FM</code>…).</li>
+<li><b>Sin dato</b> se reconoce como celda vacía, <code>NULL</code>, <code>NaN</code>, <code>NA</code>, <code>#N/A</code>, <code>-</code> o los valores −999,25, −999, −9999 y −99999.</li>
+</ul>
+</div>
+
+<h2>El asistente de carga</h2>
+<div class="prose"><p>«Cargar pozo» abre un asistente de tres pasos: <b>Archivo</b>, <b>Columnas</b> y <b>Control de calidad</b>.</p></div>
+<figure data-shot="load-dialog" class="half"><figcaption>Paso «Archivo»: arrastrá un archivo o usá los datos del TP incluidos en la app.</figcaption></figure>
+<ol class="steps">
+<li><b>Elegí el archivo.</b> Arrastralo sobre el recuadro «Arrastrá un archivo acá o hacé clic para elegirlo», o hacé clic y buscalo. La tarjeta «Datos del TP» carga el pozo del TP con «Cargar datos del TP».</li>
+<li><b>Revisá las columnas.</b> El «Nombre del pozo» se completa solo (con el campo WELL del LAS o con el nombre del archivo). La tabla «Mapeo de columnas» muestra qué entendió la app de cada columna, y «Primeras filas» te deja comprobar que los números se leyeron bien.</li>
+<li><b>Seguí al control de calidad.</b> «Siguiente: control de calidad» arma el pozo y calcula el semáforo de cada curva.</li>
+<li><b>Cargá.</b> «Cargar» agrega el pozo al proyecto, lo deja como activo y marca el paso «Calidad» como revisado.</li>
+</ol>
+<figure data-shot="load-columns" class="wide"><figcaption>Paso «Columnas» con el pozo del TP: cada columna tiene su tipo, su rol, su unidad y la confianza del reconocimiento.</figcaption></figure>
+
+<h3>La tabla «Mapeo de columnas»</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>Columna</th><th>Qué indica</th></tr></thead>
+<tbody>
+<tr><td>«Columna»</td><td>El nombre tal como viene en el archivo.</td></tr>
+<tr><td>«Unidad en el archivo»</td><td>El texto de unidad original, solo como referencia.</td></tr>
+<tr><td>«Tipo»</td><td>«Profundidad», «Curva», «Zona» o «Ignorar». Tiene que haber exactamente una profundidad y como mucho una columna de zonas.</td></tr>
+<tr><td>«Rol»</td><td>Qué representa la curva, por ejemplo «RHOB · Densidad volumétrica». Define qué módulos la usan.</td></tr>
+<tr><td>«Unidad»</td><td>La unidad de los datos. Las opciones son las compatibles con el rol; la conversión se hace sola al calcular.</td></tr>
+<tr><td>«Id en el pozo»</td><td>El nombre interno de la curva (por defecto, el de la columna).</td></tr>
+<tr><td>«Confianza»</td><td>Qué tan seguro es el reconocimiento: «alta», «media», «baja», «—» (no reconocida) o «manual» si lo cambiaste vos.</td></tr>
+</tbody></table></div>
+<aside class="callout tip" data-title="Revisá las confianzas medias y bajas">
+<p>Un mnemónico ambiguo, como <code>DEN</code> o <code>CNL</code>, se reconoce con confianza media. Conviene confirmarlo antes de cargar. La lista completa de mnemónicos reconocidos está en el <a href="#glosario">Glosario</a>.</p>
+</aside>
+<aside class="callout note" data-title="Curvas ya interpretadas">
+<p>Si el archivo trae una curva calculada (por ejemplo <code>VSH</code> o <code>PHIE</code>), asignale ese rol: pasa a ser una fuente medida y la cadena la usa en lugar de calcularla. Un archivo con <code>VSH</code> completa directamente el paso «Arcilla».</p>
+</aside>
+
+<h3>Si algo sale mal</h3>
+<div class="prose">
+<ul>
+<li>«No se pudo leer el archivo»: el formato no se reconoce o el archivo está dañado. El cuadro dice el motivo.</li>
+<li>«Profundidad duplicada en la fila N»: la profundidad se repite o retrocede. Corregí el archivo.</li>
+<li>«La unidad '…' de la curva '…' no es compatible con el rol …»: elegí otra unidad u otro rol para esa columna.</li>
+<li>Una curva con rol pero sin unidad se carga con la unidad usual del rol y un aviso en «Avisos de la lectura».</li>
+</ul>
+</div>
+<figure data-shot="load-qc" class="wide"><figcaption>Paso «Control de calidad»: resumen del pozo, avisos de la lectura y semáforo por curva. Las observaciones no impiden cargar.</figcaption></figure>
+
+<h2>Varios pozos en un proyecto</h2>
+<div class="prose">
+<p>Cada carga agrega un pozo al proyecto; no se reemplaza nada. El último cargado queda como activo, y con más de un pozo la sección «Pozo» muestra el selector «Pozo activo». También se cambia desde la paleta de comandos con «Cambiar al pozo …».</p>
+<p>Cada pozo tiene su propia interpretación: zonas, parámetros, métodos elegidos, marcas de los pasos y snapshots. Todos se guardan juntos en el mismo archivo de proyecto.</p>
+</div>
+<aside class="callout tip" data-title="Nombres distintos">
+<p>Si cargás dos archivos con el mismo nombre de pozo, la app no los renombra. Cambiá el «Nombre del pozo» en el paso «Columnas» para distinguirlos en el selector.</p>
+</aside>

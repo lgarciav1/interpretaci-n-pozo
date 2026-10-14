@@ -1,0 +1,88 @@
+<h1 class="chapter-title">El flujo guiado</h1>
+<p class="lede">Once pasos, de la carga al volumen in situ. Cada paso dice qué falta, ofrece los métodos que corresponden y se completa solo cuando el resultado existe.</p>
+
+<figure data-shot="flowbar" class="wide"><figcaption>La barra del flujo guiado: los pasos completos llevan ✓; a la derecha, cuántos están resueltos.</figcaption></figure>
+
+<h2>Cómo funciona</h2>
+<div class="prose">
+<p>Cada paso tiene un estado, que se ve en la barra y en el panel derecho:</p>
+</div>
+<div class="table-wrap"><table>
+<thead><tr><th>Estado</th><th>Significa</th></tr></thead>
+<tbody>
+<tr><td>«Completo»</td><td>El resultado del paso existe (la app lo detecta sola) o lo marcaste vos.</td></tr>
+<tr><td>«En curso»</td><td>Algún método del paso ya calculó, pero falta el resultado que lo completa: por ejemplo, «En curso: falta VSH.».</td></tr>
+<tr><td>«Pendiente»</td><td>Todavía no hay nada calculado.</td></tr>
+<tr><td>«Saltado»</td><td>Lo marcaste para no hacerlo.</td></tr>
+<tr><td>«Sin módulos todavía»</td><td>El espacio de trabajo no tiene métodos para ese paso.</td></tr>
+<tr><td>«Necesita un pozo»</td><td>Hay que cargar un pozo primero.</td></tr>
+</tbody></table></div>
+<div class="prose">
+<p>Se elige un paso con un clic, o con <kbd>←</kbd> <kbd>→</kbd> e <kbd>Intro</kbd> cuando el foco está en la barra. El siguiente paso por resolver lleva un punto. En el encabezado del panel derecho están las acciones del paso:</p>
+<ul>
+<li>«Marcar completo» y «Saltar», en los pasos pendientes o en curso.</li>
+<li>«Reabrir paso», que quita una marca puesta a mano.</li>
+<li>Un botón con el nombre del paso siguiente, para avanzar.</li>
+</ul>
+<p>Las marcas se guardan por pozo dentro del proyecto. Lo que se completa solo no se guarda: se recalcula a partir de los datos.</p>
+</div>
+
+<h2>Los once pasos de Petrofísica</h2>
+<!--flow:petrophysics-->
+<aside class="callout note" data-title="Cuándo un resultado está disponible">
+<p>Un paso se completa si su resultado lo produce el método elegido sin error, o si el pozo trae una curva medida con ese rol. Un archivo que ya trae <code>VSH</code> completa «Arcilla» sin calcular nada.</p>
+</aside>
+
+<h2>Los cinco pasos de Geología</h2>
+<div class="prose"><p>El espacio de trabajo «Geología» comparte los tres primeros pasos y suma dos propios: la litología y la lectura geológica. Ver el capítulo <a href="#geologia">Geología</a>.</p></div>
+<!--flow:geology-->
+
+<h2>Trabajar en un paso</h2>
+<figure data-shot="inspector-arcilla" class="half"><figcaption>El panel del paso «Arcilla»: la lista de métodos, el método abierto y sus parámetros.</figcaption></figure>
+<ol class="steps">
+<li><b>Elegí el paso</b> en la barra. Si tiene varios métodos, el panel muestra la lista; cada uno con un punto de estado y los resultados que produce.</li>
+<li><b>Abrí un método</b> para ver su panel. Abrirlo no lo convierte en el elegido: solo lo muestra.</li>
+<li><b>Ajustá los parámetros.</b> Cada uno es un control deslizante con su campo numérico, un selector o un interruptor. El control marca el valor por defecto y el «?» explica qué es.</li>
+<li><b>Mirá el resultado</b> en el visor, en «Resultados» o en los gráficos. Todo se recalcula mientras movés el control.</li>
+</ol>
+<div class="table-wrap"><table>
+<thead><tr><th>Punto de estado</th><th>Significa</th></tr></thead>
+<tbody>
+<tr><td>«Calculado»</td><td>El método corrió sin problemas.</td></tr>
+<tr><td>«Faltan entradas»</td><td>Le falta alguna curva o algún resultado previo.</td></tr>
+<tr><td>«Error»</td><td>El cálculo falló; el panel explica por qué.</td></tr>
+<tr><td>«Bloqueado»</td><td>Depende de otro método que no pudo calcular.</td></tr>
+<tr><td>«No corre»</td><td>Es una alternativa que no se está calculando.</td></tr>
+</tbody></table></div>
+<div class="prose">
+<p>En el campo numérico, <kbd>↑</kbd> <kbd>↓</kbd> cambian el valor (con <kbd>Mayús</kbd>, de a diez pasos), <kbd>Intro</kbd> confirma y <kbd>Esc</kbd> descarta. Cuando un parámetro se modificó aparece un botón para volver: «por defecto» en los valores globales, «usar global» en una zona.</p>
+<p>El botón Σ del encabezado de cada método abre sus ecuaciones en la pantalla «Ecuaciones».</p>
+</div>
+
+<h2>Parámetros globales y por zona</h2>
+<div class="prose">
+<p>Arriba de los parámetros está el selector «Editar parámetros de», con «Global» y un botón por zona (con más de seis zonas, una lista desplegable).</p>
+<ul>
+<li>Con <b>«Global»</b> elegido, los valores valen para todo el pozo.</li>
+<li>Con <b>una zona</b> elegida, lo que cambies vale solo para esa zona: queda un valor propio, marcado «de la zona», y el resto del pozo sigue con el global.</li>
+<li>Los parámetros que no admiten valor por zona se ven deshabilitados mientras hay una zona elegida.</li>
+</ul>
+<p>La zona elegida es la misma en toda la app: se elige también desde la tabla de zonas o con un clic en la franja de zonas del visor. La barra del visor muestra «Zona C» con una ✕ para volver a lo global.</p>
+</div>
+<aside class="callout tip" data-title="Parámetros compartidos">
+<p>Los parámetros con la insignia «compartido», como el «GR de arena limpia», los exponentes a, m y n o los cutoffs, son uno solo para todos los métodos que los usan. Moverlo en un método lo cambia en todos.</p>
+</aside>
+
+<h2>Elegir el método y comparar</h2>
+<div class="prose">
+<p>Varios métodos pueden producir el mismo resultado: por ejemplo, la porosidad sónica se calcula con Wyllie o con Raymer-Hunt-Gardner, y la saturación con Archie, Simandoux o Indonesia. Solo uno alimenta el resto de la cadena: la <b>fuente</b>.</p>
+<p>Por defecto la fuente es la curva medida, si el pozo la trae; si no, el primer método que puede correr. Para cambiarla, abrí cualquiera de los métodos y elegí otra en la sección «Método». Todo lo que depende de ese resultado se recalcula.</p>
+<p>El interruptor <b>«Comparar»</b> calcula un método aunque no sea la fuente. Sus curvas aparecen en el visor y en «Curvas calculadas» con la insignia «alternativa», pero no alimentan el sumario ni el volumen.</p>
+</div>
+<figure data-shot="sw-compare" class="wide"><figcaption>«Ver modelos de Sw lado a lado», en el paso «Saturación», arma una pista con Archie, Simandoux e Indonesia juntos.</figcaption></figure>
+
+<h2>Módulos fuera del flujo</h2>
+<div class="prose">
+<p>El botón «Todos los módulos», arriba a la derecha del panel del paso, abre un menú con todos los métodos del espacio de trabajo agrupados por categoría. Si elegís uno que pertenece a un paso, se abre ese paso. Los que no tienen paso (los indicadores, la resonancia magnética, la invasión escalonada, las zonas sugeridas en Petrofísica) se muestran bajo «Fuera del flujo guiado».</p>
+</div>
+<figure data-shot="all-modules" class="narrow"><figcaption>El menú «Todos los módulos».</figcaption></figure>

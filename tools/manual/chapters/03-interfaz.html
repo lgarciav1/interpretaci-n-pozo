@@ -1,0 +1,90 @@
+<h1 class="chapter-title">La interfaz</h1>
+<p class="lede">Una sola pantalla con todo a mano: el pozo a la izquierda, el perfil en el centro, el paso que estás resolviendo a la derecha y los gráficos abajo.</p>
+
+<figure data-shot="overview" class="wide" data-marks="28,3.2;40,8.8;9,45;46,36;46,82;88,45"><figcaption>Las seis partes de la pantalla.</figcaption></figure>
+<ol class="legend">
+<li><b>Barra superior.</b> Proyecto y pozo activo, espacio de trabajo, estado del motor, deshacer, cargar, snapshots, exportar y preferencias.</li>
+<li><b>Barra del flujo guiado.</b> Los pasos de la interpretación y el progreso.</li>
+<li><b>Datos del pozo.</b> El pozo, su calidad, las curvas medidas y calculadas, y las zonas.</li>
+<li><b>Visor multipista.</b> El perfil completo, con zonas, curvas y resultados.</li>
+<li><b>Panel inferior (dock).</b> Resultados, avisos y gráficos, en pestañas.</li>
+<li><b>Panel del paso (inspector).</b> Los métodos y parámetros del paso abierto.</li>
+</ol>
+
+<h2>Barra superior</h2>
+<figure data-shot="topbar" class="wide"><figcaption>De izquierda a derecha: marca, proyecto y pozo, espacio de trabajo, estado del motor, deshacer y rehacer, acciones y preferencias.</figcaption></figure>
+<div class="table-wrap"><table>
+<thead><tr><th>Elemento</th><th>Qué hace</th></tr></thead>
+<tbody>
+<tr><td>Proyecto › Pozo</td><td>Muestra el nombre del proyecto y del pozo activo.</td></tr>
+<tr><td>«Petrofísica» · «Geología»</td><td>Cambia el espacio de trabajo: el flujo guiado, la lista de módulos y la plantilla de pistas del visor. El pozo y la interpretación son los mismos en los dos.</td></tr>
+<tr><td>Estado del motor</td><td>«Listo · 2 ms» cuando terminó de calcular, «Calculando…» mientras trabaja. Un clic abre la pestaña «Motor» con el detalle.</td></tr>
+<tr><td>Deshacer · Rehacer</td><td>El tooltip dice qué se va a deshacer, por ejemplo «Deshacer: Mover tope de C».</td></tr>
+<tr><td>«Cargar pozo»</td><td>Abre el asistente de carga. Ver <a href="#carga">Cargar datos</a>.</td></tr>
+<tr><td>«Snapshots»</td><td>Guarda y compara estados de la interpretación. El número indica cuántos tiene el pozo activo.</td></tr>
+<tr><td>«Exportar»</td><td>Datos, figuras e informe.</td></tr>
+<tr><td>«Proyecto»</td><td>«Guardar proyecto» y «Abrir proyecto…».</td></tr>
+<tr><td>Σ</td><td>Abre la pantalla «Ecuaciones».</td></tr>
+<tr><td>Lupa</td><td>Abre la paleta de comandos (<kbd>Ctrl</kbd> <kbd>K</kbd>).</td></tr>
+<tr><td>A · A · A</td><td>Tamaño de la interfaz: compacto, normal o grande.</td></tr>
+<tr><td>Pantalla · sol · luna</td><td>Tema del sistema, claro u oscuro.</td></tr>
+</tbody></table></div>
+<div class="prose"><p>Si la ventana es angosta, la barra pierde rótulos por etapas y deja solo los íconos; ninguna función desaparece y los nombres siguen en los tooltips.</p></div>
+
+<h2>Datos del pozo</h2>
+<div class="prose">
+<p>La columna izquierda reúne todo lo que sabés del pozo activo, de arriba abajo:</p>
+<ul>
+<li><b>«Pozo»</b>: nombre, intervalo, cantidad de muestras y paso de muestreo. Con más de un pozo en el proyecto, el nombre se convierte en el selector «Pozo activo».</li>
+<li><b>«Calidad»</b>: el semáforo resumido, una línea sobre el estado del pozo (derrumbes, caliper) y el botón «Informe» con el detalle. Ver <a href="#calidad">Control de calidad</a>.</li>
+<li><b>«Curvas medidas»</b>: cada curva con su punto de semáforo, su rol y su unidad. El rol se puede cambiar desde acá.</li>
+<li><b>«Curvas calculadas»</b>: lo que produjeron los módulos, con el método que las calculó. La insignia «alternativa» marca las que se calculan para comparar pero no alimentan la cadena.</li>
+<li><b>«Zonas»</b>: la tabla de zonas, el botón «Marcar» y el editor de la zona elegida. Ver <a href="#zonas">Zonas</a>.</li>
+</ul>
+</div>
+
+<h2>Panel inferior</h2>
+<div class="prose"><p>Las pestañas del dock agrupan resultados y gráficos. Un clic en cualquier pestaña despliega el panel si estaba oculto.</p></div>
+<figure data-shot="results" class="wide"><figcaption>La pestaña «Resultados»: valores del pozo como fichas, valores por zona y las tablas que publican los módulos.</figcaption></figure>
+<div class="table-wrap"><table>
+<thead><tr><th>Pestaña</th><th>Qué muestra</th></tr></thead>
+<tbody>
+<tr><td>«Resultados»</td><td>Valores escalares (neto pay, petróleo in situ, coeficiente de Lorenz…), la tabla «Valores por zona» y las tablas de los módulos. Los resultados de métodos alternativos llevan la marca «alternativa».</td></tr>
+<tr><td>«Avisos»</td><td>Las advertencias de los módulos en el último cálculo: parámetros incoherentes, entradas fuera de rango, extrapolaciones.</td></tr>
+<tr><td>«Tendencias»</td><td>Ajustes y gradientes. Ver <a href="#tendencias">Tendencias y gradientes</a>.</td></tr>
+<tr><td>«Calibración», «Corona»</td><td>Plugs de corona y calibración. Ver <a href="#corona">Datos de corona</a>.</td></tr>
+<tr><td>«Crossplot», «Histograma»</td><td>Gráficos libres. Ver <a href="#graficos">Histograma y crossplot</a>.</td></tr>
+<tr><td>«Agua de formación»</td><td>Calculadora de Rw por salinidad y temperatura.</td></tr>
+<tr><td>«Perfil radial»</td><td>Perfil radial de invasión a la profundidad del cursor.</td></tr>
+<tr><td>«Presiones MDT»</td><td>Pruebas de presión, gradientes y contactos. Ver <a href="#mdt">Presiones MDT</a>.</td></tr>
+<tr><td>«Tipos de roca»</td><td>FZI, Winland y unidades de flujo.</td></tr>
+<tr><td>«Zonas»</td><td>Una ficha por zona con pay, porosidad, saturación y volumen.</td></tr>
+<tr><td>«Motor»</td><td>Datos técnicos del cálculo: dónde corre, cuánto tardó, qué se recalculó y qué se reusó.</td></tr>
+</tbody></table></div>
+
+<h2>Ocultar y redimensionar paneles</h2>
+<div class="prose">
+<p>Para darle más lugar al perfil:</p>
+<ul>
+<li>La columna izquierda y el panel del paso se ocultan con «Ocultar columna»; queda una franja delgada con el botón para volver a mostrarlos.</li>
+<li>El dock se oculta con «Ocultar paneles» y vuelve con «Mostrar paneles» o con un clic en cualquier pestaña.</li>
+<li>Los separadores entre paneles se arrastran. Con el foco en un separador, las flechas lo mueven de a 16 px (con <kbd>Mayús</kbd>, 64 px) y <kbd>Intro</kbd> oculta el panel.</li>
+</ul>
+<p>Mientras no arrastres un separador, los paneles se adaptan solos al tamaño de la ventana para que el perfil conserve espacio. Las medidas se recuerdan en el navegador, no en el proyecto.</p>
+</div>
+
+<h2>Tamaño de interfaz y tema</h2>
+<div class="prose">
+<p>Los tres botones «A» de la barra superior eligen el tamaño: <b>Compacto</b>, <b>Normal</b> (el de arranque) o <b>Grande</b>. Escalan el texto, los controles y también los rótulos dibujados en el visor y los gráficos.</p>
+<p>El selector de tema ofrece <b>sistema</b> (sigue al sistema operativo), <b>claro</b> y <b>oscuro</b>. Las figuras exportadas y el informe usan siempre el tema claro de impresión, sea cual sea el de la pantalla.</p>
+</div>
+<figure data-shot="overview-dark" class="wide"><figcaption>El mismo pozo en tema oscuro. Los colores de curva se ajustan para mantener el contraste.</figcaption></figure>
+
+<h2>Deshacer y rehacer</h2>
+<div class="prose">
+<p><kbd>Ctrl</kbd> <kbd>Z</kbd> deshace y <kbd>Ctrl</kbd> <kbd>Mayús</kbd> <kbd>Z</kbd> (o <kbd>Ctrl</kbd> <kbd>Y</kbd>) rehace. Se deshace todo cambio sobre el proyecto: parámetros, métodos elegidos, zonas, roles de curvas, pistas, snapshots restaurados, pozos cargados y marcas de pasos. El historial guarda hasta 100 pasos.</p>
+<p>Los cambios seguidos del mismo tipo, como arrastrar un control o tocar varias veces una flecha, se funden en un solo paso. Lo que es solo de vista (el paso abierto, la pestaña, el tema, el tamaño de los paneles) no entra en el historial. Abrir un proyecto lo vacía.</p>
+</div>
+<aside class="callout note" data-title="En un campo de texto">
+<p>Si el foco está en un campo numérico o de texto, <kbd>Ctrl</kbd> <kbd>Z</kbd> deshace lo que escribiste en ese campo, como en cualquier formulario.</p>
+</aside>

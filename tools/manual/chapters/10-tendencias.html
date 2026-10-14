@@ -1,0 +1,51 @@
+<h1 class="chapter-title">Tendencias y gradientes</h1>
+<p class="lede">Ajustá una recta, una logarítmica, una exponencial o una potencial sobre cualquier curva o gráfico, y leé su ecuación, su R² y el gradiente en unidades de campo.</p>
+
+<div class="prose">
+<p>Una tendencia se ajusta sobre un tramo de una curva del visor, sobre los puntos de un gráfico (crossplot, modelo k–φ de corona) o sobre las presiones MDT. Se guarda con el pozo, entra en deshacer y en los snapshots.</p>
+</div>
+<div class="grid">
+  <div class="tile"><h4>Lineal</h4><p>Gradientes de presión y temperatura.</p></div>
+  <div class="tile"><h4>Logarítmica</h4><p>Cambios que se atenúan con la profundidad.</p></div>
+  <div class="tile"><h4>Exponencial</h4><p>Compactación del sónico o la porosidad; modelo k–φ.</p></div>
+  <div class="tile"><h4>Potencial</h4><p>Relaciones de ley de potencias entre curvas.</p></div>
+</div>
+
+<h2>Trazar una tendencia sobre el perfil</h2>
+<ol class="steps">
+<li>Hacé clic en «Tendencia», en la barra del visor (o en «Nueva tendencia» del panel «Tendencias»).</li>
+<li>Arrastrá de arriba hacia abajo, junto a la curva que querés ajustar. Mientras arrastrás, la recta, la ecuación, el R² y el gradiente se actualizan en vivo.</li>
+<li>Al soltar se guarda la tendencia y se abre el panel «Tendencias» con ella elegida. Sobre el visor queda una etiqueta con la ecuación, el R² y el gradiente.</li>
+</ol>
+<figure data-shot="trend-viewer" class="wide"><figcaption>Una tendencia sobre el sónico, con su etiqueta en el visor y el detalle en el panel «Tendencias».</figcaption></figure>
+<div class="prose"><p><kbd>Esc</kbd> sale de la herramienta sin crear nada. Para una recta a mano, «A mano» en el panel: apretá en un punto de la curva y soltá en otro. La recta queda dibujada, sus dos puntos se pueden mover y no tiene R².</p></div>
+
+<h2>Editar una tendencia</h2>
+<div class="prose">
+<p>A la izquierda del panel «Tendencias» está la lista de tendencias del pozo, con su color, la curva, el modelo y el R². El ojo la muestra u oculta en el visor. A la derecha, el detalle de la elegida:</p>
+<ul>
+<li><b>«Modelo de la tendencia»</b>: «Lineal», «Log», «Exp» o «Potencial». Cambiarlo reajusta al instante.</li>
+<li><b>Ecuación y lecturas</b>: R², cantidad de puntos y «Fuera del ajuste» (puntos excluidos a mano, sin dato o fuera del dominio del modelo, como valores ≤ 0 en un logaritmo).</li>
+<li><b>«Gradiente»</b>: la pendiente respecto de la profundidad. En los modelos no lineales se evalúa en el centro del tramo.</li>
+<li><b>«Curva»</b> y <b>«Tramo del ajuste»</b>. «Elegir tramo» lo cambia arrastrando en el visor; «Usar zona como tramo…» lo ata a una zona, y si movés un tope el tramo lo sigue.</li>
+<li><b>«Extender fuera del tramo (punteada)»</b> prolonga la tendencia más allá del tramo.</li>
+</ul>
+<p>En el visor, la tendencia tiene manijas en el tope y la base que se arrastran. Un clic sobre una muestra del tramo la excluye del ajuste; «Volver a incluir los N puntos excluidos» las devuelve.</p>
+</div>
+<figure data-shot="trends" class="wide"><figcaption>El panel «Tendencias» con los gradientes de las presiones de ejemplo.</figcaption></figure>
+
+<h2>Gradientes en unidades de campo</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Magnitud</th><th>Se lee en</th></tr></thead>
+<tbody>
+<tr><td>Presión</td><td><b>psi/ft</b>, bar/m, kPa/m y la densidad de fluido equivalente en g/cm³ (agua dulce: 1 g/cm³ ≈ 0,433 psi/ft).</td></tr>
+<tr><td>Temperatura</td><td><b>°C/100 m</b> y °F/100 ft.</td></tr>
+<tr><td>Lentitud (compactación)</td><td><b>µs/ft por m</b> y µs/ft por 1000 ft.</td></tr>
+<tr><td>Otras curvas</td><td>Unidad de la curva por metro.</td></tr>
+</tbody></table></div>
+
+<h2>Tendencias sobre gráficos</h2>
+<div class="prose">
+<p>En el crossplot, «Agregar tendencia» ajusta los puntos visibles (los de las zonas filtradas) con el modelo elegido. La ecuación y el R² aparecen sobre el gráfico y se editan en el mismo panel «Tendencias»; ahí el gradiente se llama «Pendiente», porque el eje no es la profundidad. Los puntos seleccionados se pueden excluir del ajuste.</p>
+<p>El modelo k–φ de la corona y los gradientes de presión de MDT son también tendencias: exponencial y lineal, respectivamente.</p>
+</div>
