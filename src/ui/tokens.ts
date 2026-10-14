@@ -425,7 +425,7 @@ const dark: ThemeTokens = {
     wall: '#3f352a',
     mud: '#4a5a6c',
     mudcake: '#2a231b',
-    filtrate: '#4d82b3',
+    filtrate: '#3a6487',
     steel: '#b9c2cc',
     steelDark: '#76808c',
     toolBody: '#6b737e',

@@ -255,7 +255,9 @@ export function ToolStringView() {
           {!glError && (
             <>
               <div className="ts-view__legend">
-                <span className="ts-view__legend-title">Profundidad de investigación</span>
+                <span className="ts-view__legend-title">
+                  Profundidad de investigación <span className="ts-view__legend-ref">· desde la pared</span>
+                </span>
                 <ul aria-label="Profundidad de investigación por herramienta">
                   {legend.map((l) => (
                     <li key={l.id} className={[l.ghost ? 'is-ghost' : '', l.selected ? 'is-selected' : ''].filter(Boolean).join(' ') || undefined}>
@@ -265,7 +267,7 @@ export function ToolStringView() {
                         ))}
                       </span>
                       <b>{l.short}</b> {l.range}
-                      <span className="ts-view__legend-ref">{l.axis ? 'desde el eje' : 'desde la pared'}</span>
+                      {l.axis && <span className="ts-view__legend-ref">desde el eje</span>}
                     </li>
                   ))}
                 </ul>
@@ -279,8 +281,11 @@ export function ToolStringView() {
                     </>
                   )}
                 </span>
-                <span className="ts-view__legend-formation">{formationNote}</span>
               </div>
+              <p className="ts-view__formation">
+                <span className={`ts-view__formation-swatch is-${env.source}`} aria-hidden="true" />
+                {formationNote}
+              </p>
               <p className="ts-view__help" aria-hidden="true">
                 <Icon name="info" size={12} /> Arrastrá para girar · clic derecho o dos dedos para mover · rueda para acercar · clic para ver la ficha
               </p>

@@ -332,7 +332,7 @@ export const SHELL_LOOK: Readonly<Record<ShellEmphasis, { opacity: number; rim: 
 const GHOST_SHELL_FACTOR = 0.6;
 const ABSENT_SHELL_FACTOR = 0.4;
 /** Mezcla de los colores de litología con el fondo: la formación es contexto. */
-const FORMATION_DIM: Record<'light' | 'dark', number> = { light: 0.24, dark: 0.3 };
+const FORMATION_DIM: Record<'light' | 'dark', number> = { light: 0.24, dark: 0.4 };
 
 export function buildToolStringScene(input: SceneInput): ToolStringScene {
   const { colors } = input;
