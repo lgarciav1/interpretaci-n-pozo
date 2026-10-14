@@ -77,14 +77,13 @@ describe('Fase 10c: litología sugerida por random forest', () => {
     expect(warnings(r).some((m) => m.includes('PE usado por elección del usuario'))).toBe(true);
   });
 
-  it('sin curvas suficientes la salida queda vacía y avisada', () => {
+  it('sin curvas suficientes el motor no lo corre y dice qué falta (grupo «al menos dos de», 0032)', () => {
     const e = new Engine(registry, { checkInputs: true });
     e.setWell(synthWell([curve('GR', 'GR', Array.from({ length: 50 }, (_, i) => 40 + i))]));
     const r = e.run(interp());
-    const cls = out(PORT.cls, r) as Float64Array;
-    expect(cls.every((v) => Number.isNaN(v))).toBe(true);
-    expect((out(SUMMARY_TABLE, r) as TableValue).rows).toEqual([]);
-    expect(warnings(r).some((m) => m.includes('Faltan curvas'))).toBe(true);
+    expect(r.nodes.find((x) => x.moduleId === 'lithology-facies')?.status).toBe('missing-input');
+    expect(r.outputs.some((o) => o.port === PORT.cls)).toBe(false);
+    expect(r.diagnostics.some((d) => d.moduleId === 'lithology-facies' && d.message.includes('al menos 2 de estas entradas'))).toBe(true);
   });
 
   it('avisa las curvas que el modelo usa y faltan', () => {

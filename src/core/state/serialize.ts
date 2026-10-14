@@ -11,6 +11,7 @@
 import { emptyDisplay, sanitizeDisplay, type DisplaySettings } from '../display';
 import type { Interpretation } from '../interpretation';
 import { createPointSet, isNumericColumn, sanitizePointSetDecisions, type PointColumn, type PointSet } from '../pointSets';
+import { sanitizeToolString } from '../toolString';
 import { sanitizeTrends } from '../trends';
 import { createWell, type Curve, type Well } from '../well';
 import { emptyProgress, type FlowProgress, type Project, type Snapshot } from './project';
@@ -28,6 +29,8 @@ export const PROJECT_FORMAT = 'pozo-proyecto';
  *   configuración (valores por defecto); el campo es opcional, así que no hay que tocar nada.
  *   La fase 7b (docs/decisiones/0016) suma, sin cambiar la versión, dos campos opcionales: `display.trackTemplates`
  *   (plantillas de pistas propias) y `TrackSpec.hidden` (pistas de superposición quitadas). Ausentes = ninguna.
+ *   La fase 11a (docs/decisiones/0032) suma, también sin cambiar la versión, `interpretation.toolString` (sarta de
+ *   perfilaje, en cada pozo y snapshot). Ausente = modo datos sin nada apagado; se valida al abrir.
  */
 export const PROJECT_VERSION = 6;
 
@@ -310,11 +313,16 @@ export async function deserializeProject(text: string, opts: DeserializeOptions 
   const { project } = migrate(file);
   const warn = opts.onWarning ?? ((m: string) => console.warn(`Proyecto: ${m}`));
   /** Tendencias y decisiones sobre puntos validadas al abrir: lo inválido se descarta con aviso (como `display`). */
-  const cleanInterp = (i: Interpretation, where: string): Interpretation => ({
-    ...i,
-    trends: sanitizeTrends(i.trends, where, warn),
-    pointSets: sanitizePointSetDecisions(i.pointSets, where, warn),
-  });
+  const cleanInterp = (i: Interpretation, where: string): Interpretation => {
+    const { toolString: rawToolString, ...rest } = i;
+    const toolString = sanitizeToolString(rawToolString, where, warn);
+    return {
+      ...rest,
+      trends: sanitizeTrends(i.trends, where, warn),
+      pointSets: sanitizePointSetDecisions(i.pointSets, where, warn),
+      ...(toolString ? { toolString } : {}),
+    };
+  };
   const wells = await Promise.all(
     project.wells.map(async ({ well, interpretation, progress }) => {
       const depth = await decodeArray(well.depth.values);

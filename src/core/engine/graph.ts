@@ -3,10 +3,12 @@
  * y qué falta. No calcula nada: es puro y barato (se rehace en cada corrida).
  */
 import type { Interpretation, SourceRef } from '../interpretation';
-import { PORT_KIND_LABEL, portOf, type AnyModule } from '../module';
+import { describeInputGroup, PORT_KIND_LABEL, portOf, unmetInputGroup, type AnyModule } from '../module';
 import type { Registry } from '../registry';
 import type { RoleId } from '../roles';
-import { getUnit, type UnitId } from '../units';
+import { excludedCurveIds } from '../toolString';
+import type { UnitId } from '../units';
+import { validateExplicitSource } from './explicitSource';
 
 export interface Diagnostic {
   level: 'error' | 'warning' | 'info';
@@ -67,9 +69,14 @@ function moduleLabel(m: AnyModule | undefined, id: string): string {
   return m ? `'${m.name}'` : `'${id}'`;
 }
 
-export function planGraph(registry: Registry, curves: readonly CurveMeta[], interp: Interpretation): Plan {
+export function planGraph(registry: Registry, allCurves: readonly CurveMeta[], interp: Interpretation): Plan {
   const diagnostics: Diagnostic[] = [];
   const disabled = new Set(interp.disabled);
+
+  // 0. Sarta (docs/decisiones/0032): las curvas de una herramienta apagada o fuera de la sarta planificada no existen
+  //    para el cálculo. Es un filtro: los datos siguen en el pozo y vuelven al prender la herramienta.
+  const excluded = excludedCurveIds(allCurves, interp.toolString, registry.tools);
+  const curves = excluded.size ? allCurves.filter((c) => !excluded.has(c.id)) : allCurves;
 
   // 1. Candidatos por puerto: curvas medidas con ese rol (orden del pozo) y luego módulos (orden del registro).
   const candidates = new Map<string, SourceRef[]>();
@@ -92,6 +99,19 @@ export function planGraph(registry: Registry, curves: readonly CurveMeta[], inte
   const needDefault: string[] = [];
   for (const port of ports) {
     const explicit = interp.sources[port];
+    if (explicit?.kind === 'curve' && excluded.has(explicit.curveId)) {
+      // Elección del usuario que la sarta deja en suspenso: vuelve sola al prender la herramienta.
+      const c = allCurves.find((x) => x.id === explicit.curveId)!;
+      const tool = registry.tools.ownerOf(c);
+      diagnostics.push({
+        level: 'info',
+        code: 'invalid-source',
+        port,
+        message: `La curva '${c.mnemonic}' elegida para ${port} es de ${tool ? `«${tool.name}»` : 'una herramienta'}, que no está activa en la sarta. Se usa la fuente por defecto.`,
+      });
+      needDefault.push(port);
+      continue;
+    }
     if (explicit) {
       const problem = validateExplicitSource(registry, curvesById, disabled, port, explicit);
       if (!problem) {
@@ -118,8 +138,9 @@ export function planGraph(registry: Registry, curves: readonly CurveMeta[], inte
   }
 
   //    2b. Viabilidad estática: un módulo "puede correr" si cada entrada requerida tiene alguna candidata que pueda
-  //        correr y no sea él mismo. Menor punto fijo (un ciclo no se justifica a sí mismo); optimista respecto de
-  //        las fuentes elegidas. Sirve para elegir la fuente por defecto y para soltar entradas opcionales.
+  //        correr y no sea él mismo, y cada grupo «al menos N de» tiene N entradas así. Menor punto fijo (un ciclo no
+  //        se justifica a sí mismo); optimista respecto de las fuentes elegidas. Sirve para elegir la fuente por
+  //        defecto y para soltar entradas opcionales.
   const viable = new Set<string>();
   const notSelf = (ref: SourceRef, id: string) => !(ref.kind === 'module' && ref.moduleId === id);
   const isViable = (ref: SourceRef) => ref.kind === 'curve' || viable.has(ref.moduleId);
@@ -127,9 +148,10 @@ export function planGraph(registry: Registry, curves: readonly CurveMeta[], inte
     changed = false;
     for (const m of registry.modules) {
       if (disabled.has(m.id) || viable.has(m.id)) continue;
-      const ok = Object.values(m.inputs).every(
-        (spec) => spec.optional || (candidates.get(portOf(spec)) ?? []).some((c) => notSelf(c, m.id) && isViable(c)),
-      );
+      const canFeed = (spec: AnyModule['inputs'][string]) => (candidates.get(portOf(spec)) ?? []).some((c) => notSelf(c, m.id) && isViable(c));
+      const ok =
+        Object.values(m.inputs).every((spec) => spec.optional || canFeed(spec)) &&
+        !unmetInputGroup(m, (key) => !!m.inputs[key] && canFeed(m.inputs[key]!));
       if (ok) {
         viable.add(m.id);
         changed = true;
@@ -181,12 +203,15 @@ export function planGraph(registry: Registry, curves: readonly CurveMeta[], inte
     const inputs: Record<string, SourceRef | null> = {};
     const deps = new Set<string>();
     let status: NodeStatus = 'ready';
+    // Avisos de entradas opcionales soltadas: se publican solo si el módulo igual corre (si un grupo «al menos N de»
+    // queda sin cumplir, decir «se calcula sin …» sería contradictorio).
+    const dropped: Diagnostic[] = [];
     for (const [key, spec] of Object.entries(m.inputs)) {
       const port = portOf(spec);
       let src = sourceFor(port, id);
       if (src?.kind === 'module' && spec.optional && !isViable(src)) {
         // Entrada opcional cuya fuente no puede correr: el módulo corre sin ella (no se bloquea por algo opcional).
-        diagnostics.push({
+        dropped.push({
           level: 'info',
           code: 'missing-input',
           moduleId: id,
@@ -217,6 +242,18 @@ export function planGraph(registry: Registry, curves: readonly CurveMeta[], inte
               : `${moduleLabel(m, id)} necesita ${spec.kind === 'scalar' ? 'el valor' : `el dato (${PORT_KIND_LABEL[spec.kind]})`} ${port} (${what}) y ningún módulo activo lo calcula.`,
         });
       }
+    }
+    // Grupos «al menos N de» (0032): con las entradas opcionales que quedaron.
+    const unmet = unmetInputGroup(m, (key) => !!inputs[key]);
+    if (!unmet) diagnostics.push(...dropped);
+    if (status === 'ready' && unmet) {
+      status = 'missing-input';
+      diagnostics.push({
+        level: 'error',
+        code: 'missing-input',
+        moduleId: id,
+        message: `${moduleLabel(m, id)} necesita ${describeInputGroup(m, unmet)}, y no hay ninguna fuente que pueda calcularse.`,
+      });
     }
     nodes.set(id, { moduleId: id, reason: reasons.get(id)!, inputs, deps: [...deps], status });
   }
@@ -309,6 +346,20 @@ export function planGraph(registry: Registry, curves: readonly CurveMeta[], inte
           moduleId: id,
           message: `${moduleLabel(registry.get(id), id)} no se puede calcular porque ${moduleLabel(registry.get(bad), bad)} no se pudo calcular.`,
         });
+        continue;
+      }
+      // Soltar entradas opcionales puede dejar un grupo «al menos N de» sin cumplir.
+      const m = registry.get(id)!;
+      const unmet = unmetInputGroup(m, (key) => !!n.inputs[key]);
+      if (unmet) {
+        n.status = 'blocked';
+        changed = true;
+        diagnostics.push({
+          level: 'warning',
+          code: 'blocked',
+          moduleId: id,
+          message: `${moduleLabel(m, id)} no se puede calcular: necesita ${describeInputGroup(m, unmet)} y los módulos que las daban no se pudieron calcular.`,
+        });
       }
     }
   }
@@ -319,32 +370,6 @@ export function planGraph(registry: Registry, curves: readonly CurveMeta[], inte
 /** true si el módulo `dep` alimenta a `node` solo a través de entradas opcionales. */
 export function feedsOnlyOptional(m: AnyModule, node: PlanNode, dep: string): boolean {
   return Object.entries(node.inputs).every(([key, src]) => !(src?.kind === 'module' && src.moduleId === dep) || !!m.inputs[key]?.optional);
-}
-
-function validateExplicitSource(
-  registry: Registry,
-  curvesById: Map<string, CurveMeta>,
-  disabled: Set<string>,
-  port: string,
-  ref: SourceRef,
-): string | null {
-  if (ref.kind === 'curve') {
-    if (!registry.roles.has(port)) return `El puerto ${port} no es una curva: no puede tener como fuente una curva medida.`;
-    const c = curvesById.get(ref.curveId);
-    if (!c) return `La curva '${ref.curveId}' elegida para ${port} no existe en el pozo.`;
-    // Con otro rol se admite, pero tiene que ser la misma magnitud (no se puede usar una densidad como Rt).
-    const expected = getUnit(registry.roles.unitOf(port));
-    const actual = c.unit !== undefined ? getUnit(c.unit) : undefined;
-    if (c.role !== port && expected && actual && actual.dimension !== expected.dimension) {
-      return `La curva '${c.mnemonic}' (${actual.label}) no puede ser ${port}: se esperaba una magnitud en ${expected.label}.`;
-    }
-    return null;
-  }
-  const m = registry.get(ref.moduleId);
-  if (!m) return `El módulo '${ref.moduleId}' elegido para ${port} no existe.`;
-  if (disabled.has(ref.moduleId)) return `El módulo '${m.name}' elegido para ${port} está desactivado.`;
-  if (!Object.values(m.outputs).some((s) => portOf(s) === port)) return `El módulo '${m.name}' no produce ${port}.`;
-  return null;
 }
 
 /** Busca un ciclo que pase por `start` dentro de `allowed`. Devuelve los nodos del ciclo en orden. */

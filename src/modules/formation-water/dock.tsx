@@ -23,6 +23,7 @@ import type { DockPanelDef } from '../../ui/dockPanel';
 import tempGradient from '../temp-gradient';
 import { chooseTempProfile, manualRwWrite, rwDepthSeries, temperatureAt, TEMP_SOURCE_LABEL, zoneTopRows, type GradientParams, type ZoneRwRow } from './model';
 import './formation-water.css';
+import { visibleWell } from '../../app/plots/context';
 
 export const FORMATION_WATER_DOCK_ID = 'formation-water';
 
@@ -78,7 +79,8 @@ function FormationWaterDock() {
   const theme = useThemeTokens();
   const st = useWaterCalc();
 
-  const well = entry?.well ?? null;
+  // Pozo según la sarta (0032): con la herramienta de temperatura apagada no se usa la TEMP medida.
+  const well = entry ? visibleWell(entry.well, entry.interpretation) : null;
   const params = entry?.interpretation.params;
   const zones = entry?.interpretation.zones;
 

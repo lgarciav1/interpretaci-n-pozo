@@ -13,6 +13,7 @@
  */
 import type { ParamsSpec, ParamValues } from './params';
 import type { RoleDef, RoleId } from './roles';
+import type { ToolDef } from './tools';
 import type { UnitId } from './units';
 import type { CategoryId, WorkspaceId } from './workspaces';
 import type { ZoneSpan } from './well';
@@ -79,6 +80,41 @@ export const input = {
     return { kind: 'zoneScalar', port, ...opts, optional: true };
   },
 };
+
+/**
+ * Grupo de entradas opcionales de las que hacen falta al menos `min` (por defecto una): «al menos una de PHID, PHIN o
+ * PHIS». El motor no corre el módulo si el grupo no se cumple (queda `missing-input`, o `blocked` si las fuentes que
+ * lo cumplían fallaron) y la disponibilidad de la sarta lo trata igual, con un motivo propio.
+ */
+export interface InputGroupSpec<K extends string = string> {
+  /** Claves de `inputs` del módulo; todas tienen que ser opcionales. */
+  inputs: readonly K[];
+  /** Cuántas tienen que estar como mínimo (entero entre 1 y la cantidad de entradas del grupo). Por defecto 1. */
+  min?: number;
+  /**
+   * Qué falta, en español y en minúscula, para completar «Falta …» («una porosidad de densidad, neutrón o sónico»).
+   * Si no se da, el motivo enumera los puertos del grupo.
+   */
+  label?: string;
+}
+
+/** Mínimo efectivo de un grupo. */
+export function groupMin(g: InputGroupSpec): number {
+  return g.min ?? 1;
+}
+
+/** Primer grupo de entradas que no se cumple con las entradas presentes (`has(clave)`), o undefined. */
+export function unmetInputGroup(m: Pick<AnyModule, 'inputGroups'>, has: (key: string) => boolean): InputGroupSpec | undefined {
+  return m.inputGroups?.find((g) => g.inputs.filter(has).length < groupMin(g));
+}
+
+/** Descripción de un grupo para mensajes del motor («al menos una de estas entradas: PHID, PHIN o PHIS»). */
+export function describeInputGroup(m: Pick<AnyModule, 'inputs'>, g: InputGroupSpec): string {
+  const ports = g.inputs.map((k) => (m.inputs[k] ? portOf(m.inputs[k]!) : k));
+  const list = ports.length <= 1 ? ports.join('') : `${ports.slice(0, -1).join(', ')} o ${ports[ports.length - 1]}`;
+  const min = groupMin(g);
+  return `${min === 1 ? 'al menos una de estas entradas' : `al menos ${min} de estas entradas`}: ${list}${g.label ? ` (${g.label})` : ''}`;
+}
 
 /**
  * Curva de solo lectura. Es la vista que reciben los módulos de sus entradas, de la profundidad y del espesor:
@@ -309,7 +345,17 @@ export interface ModuleDefinition<
   workspace: WorkspaceId | readonly WorkspaceId[];
   /** Roles de curva nuevos que introduce este módulo. */
   roles?: readonly RoleDef[];
+  /**
+   * Herramientas de perfilaje nuevas que registran roles medidos (los propios o los del núcleo): aparecen en la sarta
+   * y en el catálogo de pistas sin tocar el núcleo (docs/decisiones/0032).
+   */
+  tools?: readonly ToolDef[];
   inputs: I;
+  /**
+   * Grupos «al menos N de» sobre entradas opcionales (p. ej. PHIT necesita alguna porosidad de densidad, neutrón o
+   * sónico). Sin grupos, un módulo con todas sus entradas opcionales corre siempre.
+   */
+  inputGroups?: readonly InputGroupSpec<Extract<keyof I, string>>[];
   params: P;
   outputs: O;
   /**

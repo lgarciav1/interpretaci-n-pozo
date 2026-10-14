@@ -140,12 +140,28 @@
 
 /* Centro: visor + dock */
 .shell-center { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; padding: var(--space-3); }
-.shell-center > .ui-resize--horizontal { height: var(--space-2-5); }
-.shell-center > .ui-resize--horizontal::before { inset: calc(4px * var(--ui-scale)) 46%; height: 2px; border-radius: 2px; background: transparent; }
-.shell-center > .ui-resize--horizontal:hover::before,
-.shell-center > .ui-resize--horizontal.is-dragging::before,
-.shell-center > .ui-resize--horizontal:focus-visible::before { inset: calc(4px * var(--ui-scale)) 42%; background: var(--color-accent); }
-.shell-center > .ui-resize--horizontal::after { inset: 0; }
+.shell-center__content > .ui-resize--horizontal { height: var(--space-2-5); }
+.shell-center__content > .ui-resize--horizontal::before { inset: calc(4px * var(--ui-scale)) 46%; height: 2px; border-radius: 2px; background: transparent; }
+.shell-center__content > .ui-resize--horizontal:hover::before,
+.shell-center__content > .ui-resize--horizontal.is-dragging::before,
+.shell-center__content > .ui-resize--horizontal:focus-visible::before { inset: calc(4px * var(--ui-scale)) 42%; background: var(--color-accent); }
+.shell-center__content > .ui-resize--horizontal::after { inset: 0; }
+
+/* La vista 3D de la sarta (0033) tapa el centro; visor y dock siguen montados debajo. */
+.shell-center { position: relative; }
+.shell-center__content { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
+.shell-center__content.is-covered { visibility: hidden; }
+.shell-stage__cover {
+  position: absolute;
+  inset: var(--space-3);
+  z-index: 1;
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+}
 
 .shell-viewer {
   position: relative;

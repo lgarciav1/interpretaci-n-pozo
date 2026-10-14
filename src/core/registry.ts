@@ -5,6 +5,7 @@
 import { PORT_KIND_LABEL, portOf, type AnyModule, type PortKind } from './module';
 import { paramStorageKey, sharedSpecDifferences, validateParamSpec, type ParamSpec, type ParamsSpec } from './params';
 import { BUILTIN_ROLES, RoleCatalog, validateRoleDef, type RoleDef } from './roles';
+import { BUILTIN_TOOLS, ToolCatalog, validateToolDef, type ToolDef } from './tools';
 import { getUnit } from './units';
 import { CATEGORIES, isWorkspaceId } from './workspaces';
 
@@ -20,6 +21,8 @@ export interface PortInfo {
 export interface Registry {
   readonly modules: readonly AnyModule[];
   readonly roles: RoleCatalog;
+  /** Herramientas de perfilaje: las incorporadas + las que declaran los módulos (sarta, docs/decisiones/0032). */
+  readonly tools: ToolCatalog;
   /** Puertos producidos por algún módulo (curvas, escalares y tablas). */
   readonly ports: ReadonlyMap<string, PortInfo>;
   /** Clave de almacenamiento → declaración (para parámetros compartidos, la primera). */
@@ -55,6 +58,8 @@ const REQUIRED_LABEL: Record<Exclude<PortKind, 'curve'>, string> = {
 export interface RegistryOptions {
   /** Roles base (por defecto, los incorporados). */
   baseRoles?: readonly RoleDef[];
+  /** Herramientas base (por defecto, las incorporadas). */
+  baseTools?: readonly ToolDef[];
   /**
    * Catálogo canónico de parámetros compartidos (clave → spec con `shared: true`). Si se da, todo parámetro
    * compartido de un módulo tiene que estar en el catálogo y ser idéntico. La app pasa `src/modules/sharedParams.ts`.
@@ -134,6 +139,23 @@ export function createRegistry(modules: readonly AnyModule[], options: RegistryO
   }
   const roles = new RoleCatalog([...roleDefs.values()].map((x) => x.def));
 
+  // 2b. Herramientas de perfilaje: base + declaradas por módulos (registran roles conocidos)
+  const toolDefs = new Map<string, { def: ToolDef; owner: string }>();
+  for (const t of options.baseTools ?? BUILTIN_TOOLS) {
+    for (const p of validateToolDef(t, (r) => roles.has(r))) problems.push(`Núcleo: ${p}`);
+    toolDefs.set(t.id, { def: t, owner: 'núcleo' });
+  }
+  for (const m of modules) {
+    if (!m || typeof m !== 'object') continue;
+    for (const t of m.tools ?? []) {
+      for (const p of validateToolDef(t, (r) => roles.has(r))) problems.push(`${where(m)}: ${p}`);
+      const prev = toolDefs.get(t.id);
+      if (prev) problems.push(`${where(m)}: la herramienta '${t.id}' ya la define ${prev.owner === 'núcleo' ? 'el núcleo' : `el módulo '${prev.owner}'`}.`);
+      else toolDefs.set(t.id, { def: t, owner: m.id });
+    }
+  }
+  const tools = new ToolCatalog([...toolDefs.values()].map((x) => x.def));
+
   // 3. Salidas → puertos
   const ports = new Map<string, PortInfo>();
   for (const m of modules) {
@@ -183,6 +205,24 @@ export function createRegistry(modules: readonly AnyModule[], options: RegistryO
       } else {
         problems.push(`${where(m)}: la entrada '${key}' tiene un tipo desconocido.`);
       }
+    }
+    // Grupos «al menos N de» (0032): sobre entradas opcionales existentes, sin repetir, con un mínimo alcanzable.
+    const groups = m.inputGroups ?? [];
+    if (!Array.isArray(groups)) problems.push(`${where(m)}: inputGroups debe ser una lista.`);
+    else {
+      groups.forEach((g, i) => {
+        const keys = Array.isArray(g?.inputs) ? g.inputs : [];
+        const label = `el grupo de entradas ${i + 1}`;
+        if (keys.length === 0) problems.push(`${where(m)}: ${label} no tiene entradas.`);
+        if (new Set(keys).size !== keys.length) problems.push(`${where(m)}: ${label} repite entradas.`);
+        for (const k of keys) {
+          const spec = m.inputs?.[k];
+          if (!spec) problems.push(`${where(m)}: ${label} nombra la entrada '${k}', que no existe.`);
+          else if (!spec.optional) problems.push(`${where(m)}: ${label} incluye '${k}', que es obligatoria (en un grupo van entradas opcionales).`);
+        }
+        const min = g?.min ?? 1;
+        if (!Number.isInteger(min) || min < 1 || min > Math.max(1, keys.length)) problems.push(`${where(m)}: ${label} pide un mínimo inválido (${String(g?.min)}).`);
+      });
     }
   }
 
@@ -240,6 +280,7 @@ export function createRegistry(modules: readonly AnyModule[], options: RegistryO
   return {
     modules,
     roles,
+    tools,
     ports,
     paramSpecs,
     categories,

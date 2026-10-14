@@ -19,6 +19,7 @@
 import { canonicalCurveData } from '../../core/canonical';
 import type { Interpretation } from '../../core/interpretation';
 import type { RoleCatalog } from '../../core/roles';
+import type { HiddenCurve } from '../../core/toolString';
 import type { SeriesRef } from '../../core/trends';
 import { unitLabel, type UnitId } from '../../core/units';
 import type { Well } from '../../core/well';
@@ -26,10 +27,16 @@ import type { ComputedCurve } from '../../viewer/resolve';
 
 /** Lo que un proveedor puede leer (SOLO LECTURA): pozo, interpretación y curvas calculadas activos, roles. */
 export interface SeriesContext {
+  /**
+   * Pozo tal como lo ve la sarta de perfilaje (docs/decisiones/0032): sin las curvas de herramientas apagadas o fuera
+   * de la sarta planificada. Las arma la app (`src/app/plots/context.ts`); los proveedores no filtran nada.
+   */
   well: Readonly<Well>;
   interpretation: Readonly<Interpretation>;
   computed: readonly ComputedCurve[];
   catalog: RoleCatalog;
+  /** Curvas medidas que la sarta oculta (por id), con su herramienta: para decir por qué no se ven. */
+  hidden?: ReadonlyMap<string, HiddenCurve>;
 }
 
 /** Opción para elegir en el panel. */

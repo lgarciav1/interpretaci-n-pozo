@@ -10,7 +10,8 @@ histograma y crossplot libre (0014), parámetros elegidos sobre los gráficos (0
 indicadores automáticos (0017), los modelos de Sw lado a lado, las fichas de zona y la paleta de comandos (0018), el
 módulo de RMN con su pista y su crossplot (0019, `0019-rmn.md`), capacidad de flujo, incertidumbre y lectura automática
 (0019, `0019-reservorio-e-incertidumbre.md`), el perfil radial de invasión (0020), los gráficos conectados al perfil
-con el Pickett interactivo (0021), el informe automático (0022) y la calibración con corona (0023).
+con el Pickett interactivo (0021), el informe automático (0022), la calibración con corona (0023) y la sarta de
+perfilaje (0032) con su configurador y vista 3D (0033).
 Este documento resume cómo encajan las piezas y cómo agregar un módulo.
 
 ## Ideas centrales
@@ -55,7 +56,7 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 
 | Carpeta | Qué hay | Puede importar React |
 |---|---|---|
-| `src/core/` | modelo (`well.ts`; conjuntos de puntos `pointSets.ts`), unidades, roles, parámetros, contrato de módulo, registro, motor (`engine/`), estado (`state/`: proyecto, snapshots, recetas de zonas `zones.ts`, de tendencias `trends.ts`, de conjuntos de puntos `pointSets.ts`, de gráficos `plots.ts` y de pistas y plantillas `tracks.ts`), configuración del visor que se guarda y su validación al abrir (`display.ts`, incluidas las pilas de la pista volumétrica), configuración del histograma y del crossplot (`plots.ts`), tendencias (`trends.ts`: `TrendSpec`, saneamiento), conversión a unidad canónica compartida (`canonical.ts`) | no |
+| `src/core/` | modelo (`well.ts`; conjuntos de puntos `pointSets.ts`), unidades, roles, herramientas de perfilaje (`tools.ts`, fichas en `toolSheets.ts`) y sarta (`toolString.ts`: filtro de curvas y disponibilidad de módulos), parámetros, contrato de módulo, registro, motor (`engine/`), estado (`state/`: proyecto, snapshots, recetas de zonas `zones.ts`, de tendencias `trends.ts`, de conjuntos de puntos `pointSets.ts`, de gráficos `plots.ts`, de pistas y plantillas `tracks.ts` y de la sarta `toolString.ts`), configuración del visor que se guarda y su validación al abrir (`display.ts`, incluidas las pilas de la pista volumétrica), configuración del histograma y del crossplot (`plots.ts`), tendencias (`trends.ts`: `TrendSpec`, saneamiento), conversión a unidad canónica compartida (`canonical.ts`) | no |
 | `src/petro/` | funciones de cálculo puras, testeadas | no |
 | `src/modules/<id>/index.ts` | definición pura del módulo | no |
 | `src/modules/<id>/<x>.worker-only.ts`, `<x>.main-thread.ts` | dependencia pesada que solo corre en el worker y su sustituto sin ella para el hilo principal (ver «Archivos solo-worker») | no |
@@ -66,13 +67,14 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 | `src/app/` | arranque, worker (`engine.worker.ts`), puente con el motor, stores (`store/viewer.ts`: cursor y tramo visible), descubrimiento de superposiciones (`viewerOverlays.ts`), pantallas | sí |
 | `src/app/shell/` | armazón: barra superior, flujo guiado, inspector, dock (`dockPanels.tsx`: una entrada por panel), `ViewerSlot` (conecta stores con el visor: edición de zonas, modo marcar zona, encabezado, «Armar pistas»), `viewerOverlayList.ts` (superposiciones del visor de la app), `CurveEditor` (editor de escalas), diálogos | sí |
 | `src/app/tracks/` | «Armar pistas» (0016): panel con el catálogo (`TrackBuilder.tsx`), plantillas y diálogos (`Templates.tsx`), arrastre con eventos de puntero (`dnd.ts`) y acciones que traducen gestos a recetas con `commit` (`actions.ts`) | sí |
+| `src/app/toolString/` | sarta en la interfaz (0032, 0033): curvas visibles y disponibilidad del pozo activo con caché (`select.ts`), lista de la columna izquierda (`ToolStringPanel.tsx`), vista 3D (`ToolStringView.tsx`) con la escena como descripción pura (`scene.ts`, sin three ni DOM, testeada), la columna litológica del pozo para la formación (`formation.ts`, pura) y su dibujo con three.js (`render3d.ts`), ficha (`ToolSheetCard.tsx`) y atajos en la paleta (`commands.ts`) | `scene.ts` no |
 | `src/app/flow/` | flujo guiado: definición de pasos y evaluación de estados (`flow.ts`, puro y testeado) | `flow.ts` no |
 | `src/ui/` | sistema de diseño: tokens, tema, paleta de curvas, componentes, `useCanvas`; contrato de panel. Guía en `src/ui/README.md`; muestra en `#ui` | sí |
 | `src/viewer/` | visor multipista: plantillas, resolución de pistas, viewport, ticks, reducción M4, rellenos, pilas (`stack.ts`), lectura, contrato de superposiciones (con elementos del teclado), gestos (`interaction.ts`), catálogo de herramientas y curvas para armar pistas (`catalog.ts`), dibujo en canvas (`*.ts`, puros o canvas) y los componentes `WellViewer.tsx`, `Minimap.tsx`, `WellHeader.tsx`, `layoutEdit.tsx` (modo «Armar pistas»: destinos y bordes de ancho). Guía en `src/viewer/README.md` | solo los `.tsx` |
 | `src/io/` | lectores Excel/LAS/CSV, mnemónicos, control de calidad, tablas de presiones (`pressures.ts`) (ver su README) | no |
 | `src/plots/xy/` | gráfico x–y base (ejes lineales o log, ticks, mapeo dato ↔ px puro en `axes.ts`, dibujo en `draw.ts` —barras, eje derecho, guías rotuladas, nube densa—, búsqueda por grilla `pick.ts`, componente `XYPlot.tsx` con guías arrastrables): lo usan el crossplot k–φ de la corona, el histograma y el crossplot libre. Guía en `src/plots/README.md` | solo `XYPlot.tsx` |
 | `src/plots/histogram/`, `src/plots/crossplot/`, `src/plots/*.ts` | histograma y crossplot libre (0014): lo puro en `.ts` (binning, estadísticos, plantillas, serie `crossplot`, curvas y zonas `data.ts`, cutoffs `cutoffs.ts`, parámetros sobre los gráficos `params.ts` y `crossplot/drag.ts` (0015), enlace con el visor `link.ts`) y los paneles de presentación en `.tsx` (sin stores) | solo los `.tsx` |
-| `src/app/plots/` | conexión de los gráficos del dock con los stores: contexto del pozo, configuración, `commit`, cutoff real y parámetros elegidos sobre los gráficos (agrupados por gesto), fuentes activas y «Usar …», montaje solo con la pestaña a la vista | sí |
+| `src/app/plots/` | conexión de los gráficos del dock con los stores: contexto del pozo según la sarta (`context.ts`: `plotContextOf`, `visibleWell`, `visibleQc`; único punto de filtrado de selectores, gráficos y listas, 0032 D9), configuración, `commit`, cutoff real y parámetros elegidos sobre los gráficos (agrupados por gesto), fuentes activas y «Usar …», montaje solo con la pestaña a la vista | sí |
 | `src/plots/trend/` | tendencias: contrato y registro de proveedores de series (`series.ts`, proveedor `curve`), ajuste sobre la serie (`compute.ts`), dibujo independiente de los ejes (`draw.ts`), textos (`format.ts`) y superposición del visor sin stores (`overlay.ts`). Guía en `src/plots/README.md` | no |
 | `src/app/trends/` | estado de interfaz de las tendencias (herramienta, selección), proveedores de los módulos (`providers.ts`), conexión con los stores (`actions.ts`) y panel «Tendencias» del dock | sí |
 | `src/modules/<id>/series.ts` | proveedores de series para tendencias (opcional, `seriesProviders: TrendSeriesProvider[]`): MDT, plugs de corona…; el worker no lo importa | no |
@@ -116,8 +118,11 @@ defineModule({
   category: 'shale',               // conocida (src/core/workspaces.ts) o nueva + categoryLabel: 'Mi categoría'
   workspace: 'petrophysics',       // o ['petrophysics', 'geology']
   roles?: [...],                   // roles de curva nuevos que introduce
+  tools?: [...],                   // herramientas de perfilaje nuevas (sarta, 0032) que registran roles medidos
   inputs:  { gr: input.curve('GR'), cal: input.optionalCurve('CALI'), k: input.scalar('K_REF'),
              t: input.table('ZONE_SUMMARY'), h: input.zoneScalar('HPHISH_PAY') },   // + optionalScalar/Table/ZoneScalar
+  inputGroups?: [{ inputs: ['phid', 'phin'], min: 1, label: 'una porosidad de densidad o neutrón' }],
+                                   // «al menos N de» sobre entradas opcionales (0032): el motor y la sarta lo respetan
   params:  { grClean: param.number({ label, tooltip, default, min, max, step, unit, scale, scope: 'zone', shared }) ,
              method: param.enum({ ... }), useX: param.boolean({ ... }) },
   outputs: { igr: output.curve('IGR'), total: output.scalar('X_TOTAL', {...}), byZone: output.table('X', {...}),
@@ -126,6 +131,16 @@ defineModule({
   docs: { summary, equations: [{ latex }], references: [...] },
 });
 ```
+
+**Entradas «al menos N de»** (`inputGroups`, 0032): un módulo cuyas entradas son todas opcionales pero necesita alguna
+(PHIT combina las porosidades que haya, pero sin ninguna no hay nada que combinar) lo declara con un grupo sobre esas
+claves (`min` por defecto 1; `label` completa el motivo «Falta …»). El registro valida que las claves existan, sean
+opcionales y que el mínimo sea alcanzable; las claves se verifican también en tiempo de compilación. Si el grupo no se
+cumple, el motor no corre el módulo (`missing-input`; `blocked` si las fuentes que lo cumplían no corrieron, en el plan
+o al calcular) y la disponibilidad de la sarta lo marca «no disponible» con lo que daría cada opción. Usan grupos `phit`
+(densidad, neutrón o sónico), `perm-coates` (porosidad RMN o efectiva), `sed-column` (GR, Vsh o inversión mineral) y,
+con mínimo 2, `lithology-facies`, `electrofacies` y `electrofacies-scan`. Un módulo sin entradas (como
+`temp-gradient`, que calcula la temperatura desde parámetros) corre siempre: es un modelo, no depende de la sarta.
 
 `compute` está tipada a partir de las declaraciones: `ctx.inputs.gr` es una curva, `ctx.inputs.cal` puede ser
 `undefined`, `ctx.inputs.t` es una tabla de solo lectura, `ctx.inputs.h` un `Readonly<Record<zoneId, number>>`,
@@ -267,7 +282,7 @@ agregó el progreso del flujo, v3 la configuración del visor, v4 las tendencias
 conjuntos de puntos del pozo y las decisiones sobre ellos, v6 la configuración del histograma y del crossplot en
 `display.plots`) y migraciones. La fase 7b agregó dos campos opcionales sin cambiar la versión: `display.trackTemplates`
 (plantillas de pistas propias) y `TrackSpec.hidden` (pistas de superposición quitadas); un proyecto anterior se abre
-sin ellos. Al abrir, `display` (con `plots` y las plantillas), las tendencias, los
+sin ellos. La fase 11a sumó del mismo modo `interpretation.toolString` (sarta de perfilaje, 0032), validada al abrir. Al abrir, `display` (con `plots` y las plantillas), las tendencias, los
 conjuntos de puntos y sus decisiones se validan: lo inválido se descarta con aviso. Los arrays van como Float64 little-endian comprimidos con `CompressionStream('deflate')` (con o sin
 "byte shuffle", lo que salga más chico) en base64: exactos bit a bit. Los perfiles del TP quedan en menos de la
 mitad del binario sin comprimir.
@@ -304,6 +319,37 @@ mitad del binario sin comprimir.
 | Rangos de ejes del crossplot editables a mano (hoy automáticos o de la plantilla) | cuando se pida | `xRange`/`yRange` ya se guardan; falta el editor (como el de escalas del visor). |
 | Corrección de φ perfil → corona aplicada a la cadena (hoy la calibración es diagnóstica; 0023) | cuando se pida | Módulo alternativo de `PHIE` con la recta RMA por zona que escribe el panel «Calibración». |
 | Puesta en profundidad de la corona en pozos desviados (hoy en MD) | cuando haya un pozo desviado | Igual que los gradientes MDT: variable independiente TVD con la pista ubicada por MD. |
+
+## Sarta de perfilaje (fases 11a–11c)
+
+Decisión: [`docs/decisiones/0032-sarta-de-perfilaje.md`](decisiones/0032-sarta-de-perfilaje.md).
+
+- **Herramientas** (`src/core/tools.ts`): la única tabla rol medido → herramienta (`ToolDef`: roles que registra,
+  familia, orden típico, prefijos de mnemónico para desempatar RT de inducción o de laterolog). Los módulos agregan las
+  suyas con `tools` en el contrato; el registro las expone en `registry.tools`. El catálogo de pistas del visor agrupa
+  las curvas medidas por herramienta. Fichas técnicas aparte (`toolSheets.ts`), con los valores de la investigación de
+  la 11b (un test los compara con su JSON; los no verificados van marcados).
+- **Estado** en `Interpretation.toolString` (opcional; ausente = modo datos sin nada apagado): modo `data` |
+  `planning`, apagadas de los datos, orden propio, sarta planificada y sus apagadas (`planOff`, aparte: planificar no
+  cambia la interpretación del modo datos). Recetas en `src/core/state/toolString.ts` (deshacer por
+  `commit`); entra en snapshots y en su comparación; campo opcional validado al abrir, sin cambio de versión.
+- **Filtro, no edición**: `planGraph` saca de las candidatas las curvas de herramientas apagadas (o, en planificación,
+  fuera de la sarta planificada); el visor, el catálogo de pistas y las figuras usan las mismas curvas visibles. Las
+  pistas armadas y los datos no cambian. `sameEngineInputs` incluye la sarta.
+- **Disponibilidad** (`moduleAvailability`): clausura sobre el registro con las mismas reglas que el motor, incluidas
+  las fuentes elegidas a mano y los módulos desactivados (`tests/tool-string-engine.test.ts` lo verifica módulo por
+  módulo contra el motor); por módulo, estado (`available`, `needs-data`, `unavailable`, `disabled`), entradas que faltan, datos de la base de
+  la cadena que faltan con las herramientas que los dan, y motivo en español. El panel de módulos lo muestra.
+- **Configurador y vista 3D** (fase 11c, [`0033`](decisiones/0033-vista-3d-de-la-sarta.md)): botón «Sarta» en la
+  barra del visor (o la paleta). La lista ocupa la columna izquierda (como «Armar pistas»; se excluyen) y es donde se
+  arma: modo, prender y apagar, reordenar (arrastre o Alt+↑/↓), agregar y quitar en planificación. La vista 3D tapa el
+  centro (visor y dock siguen montados debajo, inertes) y solo mira: pozo en corte, herramientas con su montaje y
+  cáscaras de profundidad de investigación por curva. Radios y DOI a escala real (1 unidad = 1 cm), largos comprimidos
+  5:1. `buildToolStringScene` (puro) → `ToolStringRenderer` (three.js, render a demanda, reutiliza mallas por clave,
+  libera todo al desmontar). Sin WebGL 2 la lista y la ficha siguen andando. Colores en `ThemeTokens.scene`. Pulido
+  visual (0033 D9): acero con ambiente procedural (`RoomEnvironment` + PMREM), sombras a demanda, ACES; formación de
+  contexto con las capas del pozo (litología sugerida o GR) en el tramo que mostraba el visor; cáscaras de vidrio con
+  jerarquía por selección; la DOI con su referencia por ficha (`ToolSheet.investigationFrom`).
 
 ## Petrofísica en módulos (fase 6a)
 

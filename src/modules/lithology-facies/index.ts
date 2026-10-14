@@ -53,6 +53,14 @@ export default defineModule({
     rt: input.optionalCurve('RT', { label: 'Resistividad profunda' }),
     // Sin caliper: ninguna de las dos variantes del modelo lo usa (decisión 0030); como entrada solo forzaría recálculos.
   },
+  // El modelo necesita al menos dos curvas (0032): con menos, el motor no lo corre y la sarta lo marca.
+  inputGroups: [
+    {
+      inputs: ['gr', 'rhob', 'nphi', 'pe', 'dt', 'rt'],
+      min: 2,
+      label: 'al menos dos curvas entre rayos gamma, densidad, neutrón, factor fotoeléctrico, sónico y resistividad profunda',
+    },
+  ],
   params: {
     peUsage: param.enum({
       label: 'Uso del PE',

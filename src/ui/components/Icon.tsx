@@ -303,6 +303,23 @@ const ICONS = {
   ),
   'fit-height': <path d="M12 3.5v17M8.5 7L12 3.5 15.5 7M8.5 17l3.5 3.5 3.5-3.5M5 12h3M16 12h3" />,
   dot: <circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none" />,
+  /** Sarta de perfilaje: cable y herramientas apiladas. */
+  'tool-string': (
+    <>
+      <path d="M12 2.5v3" />
+      <rect x="9.5" y="5.5" width="5" height="5" rx="1" />
+      <rect x="9.5" y="12" width="5" height="4" rx="1" />
+      <rect x="9.5" y="17.5" width="5" height="4" rx="1" />
+      <path d="M14.5 13.5l3 1.5" />
+    </>
+  ),
+  /** Vista inicial de una escena 3D: cubo con flecha de vuelta. */
+  'view-reset': (
+    <>
+      <path d="M12 4l7 4v8l-7 4-7-4V8z" />
+      <path d="M5 8l7 4 7-4M12 12v8" />
+    </>
+  ),
 } satisfies Record<string, ReactElement>;
 
 export type IconName = keyof typeof ICONS;

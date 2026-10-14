@@ -8,7 +8,9 @@
  */
 import type { Interpretation, SourceRef } from '../interpretation';
 import {
+  describeInputGroup,
   portOf,
+  unmetInputGroup,
   type AnyModule,
   type ComputeContext,
   type InputsSpec,
@@ -290,6 +292,18 @@ export class Engine {
       }
       if (inputError) {
         report.status = 'error';
+        continue;
+      }
+      // Grupos «al menos N de» (0032): si las fuentes opcionales que los cumplían fallaron, no corre.
+      const unmet = unmetInputGroup(m, (key) => inputs[key] !== undefined);
+      if (unmet) {
+        report.status = 'blocked';
+        diagnostics.push({
+          level: 'warning',
+          code: 'blocked',
+          moduleId: id,
+          message: `'${m.name}' no se puede calcular: necesita ${describeInputGroup(m, unmet)} y los módulos que las daban fallaron.`,
+        });
         continue;
       }
 

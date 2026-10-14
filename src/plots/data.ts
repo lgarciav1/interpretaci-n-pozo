@@ -4,6 +4,7 @@
  * profundidad de un conjunto de muestras (para marcarlos en el visor).
  */
 import type { SourceRef } from '../core/interpretation';
+import type { HiddenCurve } from '../core/toolString';
 import { unitLabel, type UnitId } from '../core/units';
 import { layoutZones, type Zone } from '../core/well';
 import { curveSeriesProvider, type SeriesContext } from './trend/series';
@@ -41,6 +42,22 @@ export function plotCurveOptions(ctx: SeriesContext): CurveOption[] {
 export function roleOfKey(ctx: Pick<SeriesContext, 'well'>, key: string): string | null {
   if (key.startsWith('r:')) return key.slice(2);
   if (key.startsWith('m:')) return ctx.well.curves.find((c) => c.id === key.slice(2))?.role ?? null;
+  return null;
+}
+
+/**
+ * Curva medida de una clave que la sarta oculta (docs/decisiones/0032), o null. Sirve para que un gráfico con esa curva
+ * elegida muestre por qué no se ve y cómo volver a verla, en vez de «ya no está en el pozo».
+ */
+export function hiddenCurveOfKey(ctx: Pick<SeriesContext, 'hidden'>, key: string | null): HiddenCurve | null {
+  if (!key || !key.startsWith('m:') || !ctx.hidden) return null;
+  return ctx.hidden.get(key.slice(2)) ?? null;
+}
+
+/** Curva medida con ese rol que la sarta oculta (la primera), o null: para explicar por qué una plantilla no se arma. */
+export function hiddenCurveOfRole(ctx: Pick<SeriesContext, 'hidden'>, role: string): HiddenCurve | null {
+  if (!ctx.hidden) return null;
+  for (const h of ctx.hidden.values()) if (h.role === role) return h;
   return null;
 }
 

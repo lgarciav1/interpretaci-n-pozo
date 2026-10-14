@@ -204,11 +204,54 @@ export interface ViewerColors {
   zoneAlpha: number;
 }
 
+/**
+ * Colores de la vista 3D de la sarta (docs/decisiones/0033, D8). Los lee la escena (WebGL), no el CSS: no generan
+ * variables. Las cáscaras de profundidad de investigación usan el color de la curva (`curveStyle`), no estos.
+ */
+export interface SceneColors {
+  /** Fondo de la vista. */
+  bg: string;
+  /** Formación: superficie exterior, caras del corte y estratos alternados. */
+  formation: string;
+  formationAlt: string;
+  formationCut: string;
+  /** Pared del pozo (cara interior de la formación). */
+  wall: string;
+  /** Lodo dentro del pozo (translúcido). */
+  mud: string;
+  /** Revoque contra la pared en las capas permeables y filtrado de la zona invadida (0033 D9). */
+  mudcake: string;
+  filtrate: string;
+  /** Metal de la cabeza, uniones, flejes y brazos. */
+  steel: string;
+  steelDark: string;
+  /** Acero del cuerpo de una herramienta prendida (el color de la familia va en sus anillos). */
+  toolBody: string;
+  cable: string;
+  /** Patín de las herramientas apoyadas contra la pared. */
+  pad: string;
+  /** Herramienta apagada (gris mate). */
+  off: string;
+  /** Aristas de una herramienta planificada sin datos en el pozo. */
+  outline: string;
+  /** Regla de escala radial y sus rótulos. */
+  ruler: string;
+  /** Anillos identificadores por familia de herramienta (y la lista). */
+  familyGamma: string;
+  familyNuclear: string;
+  familyResistivity: string;
+  familyAcoustic: string;
+  familyNmr: string;
+  familyBorehole: string;
+  familyOther: string;
+}
+
 export interface ThemeTokens {
   name: ThemeName;
   color: ThemeColors;
   shadow: ThemeShadows;
   viewer: ViewerColors;
+  scene: SceneColors;
 }
 
 const light: ThemeTokens = {
@@ -279,6 +322,31 @@ const light: ThemeTokens = {
     nullPattern: '#c3c8cf',
     zoneAlpha: 0.14,
   },
+  scene: {
+    bg: '#eef0f3',
+    formation: '#d6cdbf',
+    formationAlt: '#c9beac',
+    formationCut: '#ddd5c8',
+    wall: '#a8916f',
+    mud: '#7d8a99',
+    mudcake: '#6b5a45',
+    filtrate: '#6f9cc7',
+    steel: '#b4bcc6',
+    steelDark: '#6e7782',
+    toolBody: '#5a626c',
+    cable: '#2b3038',
+    pad: '#2f343b',
+    off: '#adb3ba',
+    outline: '#4f55d8',
+    ruler: '#2b3038',
+    familyGamma: '#5f9e6e',
+    familyNuclear: '#c0675c',
+    familyResistivity: '#5b7fc0',
+    familyAcoustic: '#8a6bbd',
+    familyNmr: '#3f9a9a',
+    familyBorehole: '#8d949c',
+    familyOther: '#9a8f7c',
+  },
 };
 
 const dark: ThemeTokens = {
@@ -348,6 +416,31 @@ const dark: ThemeTokens = {
     selection: 'rgba(128, 134, 255, 0.16)',
     nullPattern: '#3a3f47',
     zoneAlpha: 0.18,
+  },
+  scene: {
+    bg: '#0e1013',
+    formation: '#4a433a',
+    formationAlt: '#3f3931',
+    formationCut: '#544b40',
+    wall: '#3f352a',
+    mud: '#4a5a6c',
+    mudcake: '#2a231b',
+    filtrate: '#3a6487',
+    steel: '#b9c2cc',
+    steelDark: '#76808c',
+    toolBody: '#6b737e',
+    cable: '#c9ced5',
+    pad: '#2a2e35',
+    off: '#4b5058',
+    outline: '#8086ff',
+    ruler: '#d6dae0',
+    familyGamma: '#6fb37f',
+    familyNuclear: '#d27b70',
+    familyResistivity: '#6f93d6',
+    familyAcoustic: '#a084d2',
+    familyNmr: '#55b3b3',
+    familyBorehole: '#9aa1aa',
+    familyOther: '#a99e8b',
   },
 };
 

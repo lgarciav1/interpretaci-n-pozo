@@ -2,7 +2,7 @@
  * Sistema de diseño — punto de entrada. Importar desde acá: `import { Button, Slider, curveStyle } from '../ui'`.
  * Guía de uso: src/ui/README.md. Decisiones: docs/decisiones/0004-sistema-de-diseno.md.
  */
-export { BASE_TOKENS, THEMES, UI_SCALES, canvasFont, cssVarName, installTokens, scalePx, scaledTokens, tokensToCss, uiScaleFactor, type ThemeTokens, type ThemeColors, type UiScaleDef, type ViewerColors } from './tokens';
+export { BASE_TOKENS, THEMES, UI_SCALES, canvasFont, cssVarName, installTokens, scalePx, scaledTokens, tokensToCss, uiScaleFactor, type ThemeTokens, type ThemeColors, type SceneColors, type UiScaleDef, type ViewerColors } from './tokens';
 export { DEFAULT_UI_SCALE, getUiScale, getUiScaleFactor, initUiScale, resolveUiScale, scaledCss, setUiScale, subscribeUiScale, uiPx, useUiScale, useUiScaleFactor, type UiScale } from './uiScale';
 export {
   getResolvedTheme,
