@@ -51,7 +51,7 @@ export default defineModule({
     pe: input.optionalCurve('PEF'),
     dt: input.optionalCurve('DT'),
     rt: input.optionalCurve('RT', { label: 'Resistividad profunda' }),
-    cali: input.optionalCurve('CALI'),
+    // Sin caliper: ninguna de las dos variantes del modelo lo usa (decisión 0030); como entrada solo forzaría recálculos.
   },
   params: {
     peUsage: param.enum({
@@ -123,7 +123,6 @@ export default defineModule({
     if (inputs.pe) curves.PEF = inputs.pe;
     if (inputs.dt) curves.DTC = inputs.dt;
     if (inputs.rt) curves.RDEP = inputs.rt;
-    if (inputs.cali) curves.CALI = inputs.cali;
     if (Object.keys(curves).length < 2) {
       warn('Faltan curvas para sugerir litología: el modelo necesita al menos dos entre rayos gamma, densidad, neutrón, sónico y resistividad profunda.');
       return out;

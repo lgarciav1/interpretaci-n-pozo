@@ -63,7 +63,7 @@ export default defineModule({
     const bic = gmm.map((r) => r.bic ?? NaN);
     const inertia = km.map((r) => r.inertia ?? NaN);
     const sg = suggestK(K_VALUES, bic);
-    const sk = suggestK(K_VALUES, inertia);
+    const sk = suggestK(K_VALUES, inertia, { interiorMinimum: false });
     const rows: Record<string, TableCell>[] = K_VALUES.map((k, i) => ({
       k,
       bic: Number.isFinite(bic[i]!) ? bic[i]! : null,
@@ -75,7 +75,7 @@ export default defineModule({
   },
   docs: {
     summary:
-      'Para cada número de grupos k entre 2 y 8 ajusta la mezcla gaussiana (covarianza diagonal) y k-means sobre GR, densidad, neutrón, sónico y log10 de la resistividad profunda estandarizados de forma robusta. El k sugerido es el mínimo del BIC si es interior; si el BIC baja hasta el último k, el codo de la curva (punto más alejado por debajo de la cuerda entre los extremos, con los ejes normalizados). El barrido usa unas 2000 muestras equiespaciadas del pozo.',
+      'Para cada número de grupos k entre 2 y 8 ajusta la mezcla gaussiana (covarianza diagonal) y k-means sobre GR, densidad, neutrón, sónico y log10 de la resistividad profunda estandarizados de forma robusta. El k sugerido es el mínimo del BIC si es interior; si el BIC baja hasta el último k, el codo de la curva (punto más alejado por debajo de la cuerda entre los extremos, con los ejes normalizados). Con k-means, siempre el codo de la inercia. El barrido usa unas 2000 muestras equiespaciadas del pozo.',
     equations: [
       { latex: '\\mathrm{BIC} = -2\\ln \\hat L + p\\,\\ln n', description: 'Criterio de información bayesiano: log-verosimilitud penalizada por la cantidad de parámetros p.' },
       { latex: 'J = \\sum_i \\lVert z_i - \\mu_{c(i)} \\rVert^2', description: 'Inercia de k-means: suma de distancias al cuadrado al centro del grupo.' },

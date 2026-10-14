@@ -84,6 +84,22 @@ function lowerBound(depth: Float64Array, z: number): number {
   return lo;
 }
 
+/**
+ * Si la curva tiene al menos una clase. El módulo publica curvas todas NaN cuando no pudo sugerir (faltan curvas, o el
+ * motor corre en proceso sin el modelo, ver predict.main-thread.ts): la pista lo dice en vez de pintarse de «sin dato».
+ * Cacheado por identidad del array (el motor publica uno nuevo en cada cálculo).
+ */
+const anyClass = new WeakMap<Float64Array, boolean>();
+function hasAnyClass(cls: Float64Array): boolean {
+  let v = anyClass.get(cls);
+  if (v === undefined) {
+    v = false;
+    for (let i = 0; i < cls.length; i++) if (Number.isFinite(cls[i]!)) { v = true; break; }
+    anyClass.set(cls, v);
+  }
+  return v;
+}
+
 const pct = (p: number) => `${formatNumber(p * 100, { digits: 0 })} %`;
 
 export const overlays: ViewerOverlay[] = [
@@ -118,7 +134,7 @@ export const overlays: ViewerOverlay[] = [
       ctx.beginPath();
       ctx.rect(t.x, 0, t.width, vp.height);
       ctx.clip();
-      if (!st.cls || !st.conf) {
+      if (!st.cls || !st.conf || !hasAnyClass(st.cls)) {
         ctx.fillStyle = theme.viewer.axisText;
         ctx.font = `${BASE_TOKENS.weight.regular} ${scalePx(BASE_TOKENS.text.xs, u)}px ${BASE_TOKENS.font.sans}`;
         ctx.textAlign = 'center';

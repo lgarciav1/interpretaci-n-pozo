@@ -141,6 +141,9 @@ describe('Fase 10c-2: importancia y electrofacies', () => {
     expect(suggestK([2, 3, 4, 5, 6], [100, 90, 30, 25, 20])).toBe(4);
     expect(suggestK([2, 3], [1, 0])).toBeNull();
     expect(suggestK([2, 3, 4], [NaN, NaN, 1])).toBeNull();
+    // Inercia de k-means con un óptimo local en el último k: solo el codo, no el «mínimo interior».
+    expect(suggestK([2, 3, 4, 5, 6], [100, 40, 30, 20, 21])).toBe(5);
+    expect(suggestK([2, 3, 4, 5, 6], [100, 40, 30, 20, 21], { interiorMinimum: false })).toBe(3);
   });
 
   it('el barrido de k da BIC e inercia para 2…8 y marca un k sugerido por método', () => {

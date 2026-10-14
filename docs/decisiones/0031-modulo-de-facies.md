@@ -19,7 +19,7 @@ respaldo si el worker no arranca).
 
 ## D1. Módulos y categoría
 
-- `lithology-facies`: entradas por rol, todas opcionales (GR, RHOB, NPHI, PEF, DT, RT, CALI). Parámetros «Uso del PE»
+- `lithology-facies`: entradas por rol, todas opcionales (GR, RHOB, NPHI, PEF, DT, RT; sin caliper, que ninguna variante del modelo usa). Parámetros «Uso del PE»
   (automático / usar siempre / ignorar, misma regla que la inversión mineral) y «Probabilidad mínima». Salidas: clase
   ganadora como índice FORCE 0–11 (`LITH_ML`), su probabilidad (`LITH_ML_P`), la segunda y tercera clase con sus
   probabilidades (`LITH_ML_2`, `LITH_ML_P2`, `LITH_ML_3`, `LITH_ML_P3`), resumen por clase (`LITH_ML_SUMMARY`) e
@@ -41,7 +41,9 @@ rótulos sin conocer el modelo.
 El módulo importa `./predict.worker-only`. En el build, el plugin `workerOnlyFiles` de `vite.config.ts` reemplaza en el
 bundle del hilo principal todo `<x>.worker-only(.ts)` por `<x>.main-thread.ts` (misma API, sin el modelo). Los plugins
 de `plugins` no se aplican al bundle del worker (ese usa `worker.plugins`), así que el worker recibe el archivo real.
-En desarrollo y en Vitest se usa el archivo real en los dos lados.
+En desarrollo y en Vitest se usa el archivo real en los dos lados. El plugin compara el archivo resuelto (no el texto
+del import) y la convención, genérica para otros módulos, está en `docs/arquitectura.md` («Archivos solo-worker»);
+`tests/worker-only.test.ts` exige el par con la misma API y que el modelo solo se importe detrás de un `*.worker-only.ts`.
 
 Respaldo: si el worker no arranca y el motor corre en proceso, el sustituto devuelve `null`; el módulo avisa
 («recargá la página») y la pista muestra «Sin litología sugerida». La importancia sale del mismo par
@@ -104,8 +106,8 @@ botón bajo demanda si la cátedra aporta corona o interpretación del TP.
 - Agrupamiento sin etiquetas con GR, densidad, neutrón, sónico y log10 de la resistividad (sin PE, por baritina, ni
   caliper), semilla fija (resultado reproducible). Grupos numerados de menor a mayor GR del centro.
 - **k sugerido:** mínimo interior del BIC si existe; si no, el codo («kneedle»: punto más alejado por debajo de la cuerda
-  con los ejes normalizados). En el TP el BIC baja hasta k = 8 sin mínimo, por eso el codo. Con k-means se aplica el
-  mismo codo a la inercia.
+  con los ejes normalizados). En el TP el BIC baja hasta k = 8 sin mínimo, por eso el codo. Con k-means se aplica solo el
+  codo a la inercia (un mínimo interior sería un óptimo local de k-means, no una señal).
 - **Costo:** el barrido completo (GMM + k-means, 7 k cada uno) sobre 5810 muestras llevaba 1,7 + 0,5 s y demoraba el
   primer cálculo del pozo. Se ajusta sobre ~2000 muestras equiespaciadas (≈ 0,7 s); con todas, el codo del GMM se corre
   de 4 a 5 en el TP: el sugerido es orientativo.

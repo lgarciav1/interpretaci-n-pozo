@@ -16,7 +16,7 @@ function ElectrofaciesPanel({ module, result, interpretation, setParam }: Module
   const clusters = (result?.outputs.find((o) => o.moduleId === module.id && o.port === EF_CLUSTERS_TABLE)?.value as TableValue | undefined)?.rows ?? [];
   const { method, k: kParam } = efParams(interpretation.params);
   const scores = scan.map((r) => scoreOf(r, method));
-  const suggested = suggestK(scan.map((r) => r.k), scores);
+  const suggested = suggestK(scan.map((r) => r.k), scores, { interiorMinimum: method === 'gmm' });
   const current = clusters.length || null;
 
   // Gráfico de barras: alto = mejora respecto del peor k (BIC o inercia más alto), para que se lea «más alto, mejor ajuste».

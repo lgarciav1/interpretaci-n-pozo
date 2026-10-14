@@ -1,8 +1,8 @@
 /**
- * Predicción con el random forest embebido (~0,9 MB de texto, `src/ml/model/lithologyModels.ts`).
+ * Predicción con el random forest embebido (~1,4 MB de texto, `src/ml/model/lithologyModels.ts`).
  *
  * SOLO WORKER: en el build, el bundle del hilo principal reemplaza este archivo por `predict.main-thread.ts`
- * (plugin `workerOnlyFiles` de vite.config.ts), así el modelo viaja una sola vez, dentro del Web Worker del motor.
+ * (plugin `workerOnlyFiles` de vite.config.ts; convención en docs/arquitectura.md, «Archivos solo-worker»), así el modelo viaja una sola vez, dentro del Web Worker del motor.
  * En desarrollo y en los tests (Vitest) se usa este archivo en los dos lados. Ambos exportan la misma API.
  */
 import { getLithologyModel, predictLithologyEmbedded } from '../../ml/embedded';
