@@ -48,7 +48,10 @@ export interface ToolDef {
    * varias (LLD → laterolog y no inducción; SGR → espectral y no rayos gamma).
    */
   mnemonics?: readonly string[];
-  /** Posición típica en la sarta, de arriba (menor) hacia abajo. Orden aproximado de una combinación estándar. */
+  /**
+   * Posición típica en la sarta, de arriba (menor) hacia abajo. Orden aproximado de una triple combo (gamma, densidad
+   * con su calibre, neutrón, resistividad abajo; docs/investigacion/herramientas-de-perfilaje.md); varía por empresa.
+   */
   typicalOrder: number;
   /** Ficha técnica (opcional; las incorporadas están en `TOOL_SHEETS`). */
   sheet?: ToolSheet;
@@ -72,7 +75,7 @@ export const BUILTIN_TOOLS: readonly ToolDef[] = [
     typicalOrder: 20,
   },
   { id: 'sp', name: 'Potencial espontáneo', short: 'SP', family: 'resistivity', description: 'Diferencia de potencial natural entre el lodo y la formación.', roles: ['SP'], typicalOrder: 110 },
-  { id: 'caliper', name: 'Calibre', short: 'CAL', family: 'borehole', description: 'Diámetro del pozo.', roles: ['CALI'], typicalOrder: 50 },
+  { id: 'caliper', name: 'Calibre', short: 'CAL', family: 'borehole', description: 'Diámetro del pozo.', roles: ['CALI'], typicalOrder: 35 },
   { id: 'temperature', name: 'Temperatura', short: 'TEMP', family: 'borehole', description: 'Temperatura del lodo en el pozo.', roles: ['TEMP'], typicalOrder: 0 },
   {
     id: 'induction',
@@ -110,9 +113,9 @@ export const BUILTIN_TOOLS: readonly ToolDef[] = [
     family: 'nuclear',
     description: 'Densidad volumétrica y factor fotoeléctrico de la formación, con su corrección.',
     roles: ['RHOB', 'PEF', 'DRHO'],
-    typicalOrder: 40,
+    typicalOrder: 30,
   },
-  { id: 'neutron', name: 'Neutrón', short: 'NEU', family: 'nuclear', description: 'Índice de hidrógeno de la formación expresado como porosidad.', roles: ['NPHI'], typicalOrder: 30 },
+  { id: 'neutron', name: 'Neutrón', short: 'NEU', family: 'nuclear', description: 'Índice de hidrógeno de la formación expresado como porosidad.', roles: ['NPHI'], typicalOrder: 40 },
   { id: 'sonic', name: 'Sónico', short: 'SON', family: 'acoustic', description: 'Lentitud de las ondas compresional y de corte.', roles: ['DT', 'DTS'], typicalOrder: 80 },
   {
     id: 'nmr',

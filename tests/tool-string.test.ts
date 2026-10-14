@@ -59,6 +59,13 @@ describe('catálogo de herramientas', () => {
     expect(sheetOf(defaultToolCatalog.get('density')!)).toEqual({});
   });
 
+  it('la validación de fichas exige fuentes, rangos coherentes y unidades de longitud (también por curva)', () => {
+    const ok = { investigation: { typical: 90, min: 10, max: 90, unit: 'in' as const }, investigationByRole: { RA10: { typical: 10, unit: 'in' as const } }, sources: ['ref'] };
+    expect(validateToolSheet('induction', ok)).toEqual([]);
+    expect(validateToolSheet('x', { length: { typical: 7, unit: 'm' } })).toEqual(["Ficha 'x': tiene valores numéricos pero ninguna fuente."]);
+    expect(validateToolSheet('x', { ...ok, investigationByRole: { RT: { min: 9, max: 3, unit: 'ohm.m' } } })).toHaveLength(2);
+  });
+
   it('todo rol medido incorporado (salvo el trépano) lo registra alguna herramienta', () => {
     const measured = defaultRoleCatalog.all().filter((r) => r.origin === 'measured' && r.id !== 'BS');
     expect(measured.filter((r) => !defaultToolCatalog.toolsForRole(r.id).length).map((r) => r.id)).toEqual([]);
@@ -119,7 +126,7 @@ describe('catálogo de herramientas', () => {
 
 describe('sarta derivada de los datos', () => {
   it('el pozo de demo da sus herramientas en el orden típico de la sarta, con sus curvas', () => {
-    expect(derivedToolIds(demo.well.curves, registry.tools)).toEqual(['gr', 'neutron', 'density', 'caliper', 'sonic', 'induction', 'sp']);
+    expect(derivedToolIds(demo.well.curves, registry.tools)).toEqual(['gr', 'density', 'caliper', 'neutron', 'sonic', 'induction', 'sp']);
     const r = resolveToolString(demo.well.curves, undefined, registry.tools);
     expect(r.mode).toBe('data');
     const ind = r.entries.find((e) => e.tool.id === 'induction')!;
@@ -150,7 +157,7 @@ describe('sarta derivada de los datos', () => {
 
   it('un orden propio pone esas herramientas arriba y el resto sigue por orden típico', () => {
     const r = resolveToolString(demo.well.curves, state({ order: ['induction', 'gr'] }), registry.tools);
-    expect(r.entries.map((e) => e.tool.id)).toEqual(['induction', 'gr', 'neutron', 'density', 'caliper', 'sonic', 'sp']);
+    expect(r.entries.map((e) => e.tool.id)).toEqual(['induction', 'gr', 'density', 'caliper', 'neutron', 'sonic', 'sp']);
   });
 
   it('en planificación el motor y el visor ven solo los datos de las herramientas planificadas (más las curvas sin herramienta)', () => {
@@ -305,7 +312,7 @@ describe('recetas de la sarta', () => {
 
   it('planificar desde los datos o desde cero, agregar, quitar, mover y volver al modo datos sin perder el plan', () => {
     const fromData = startPlanning(setToolOn(demoProject(), W, 'sp', false), W, 'data', registry.tools);
-    expect(toolStringOf(interpOf(fromData))).toEqual(state({ mode: 'planning', off: ['sp'], plan: ['gr', 'neutron', 'density', 'caliper', 'sonic', 'induction', 'sp'] }));
+    expect(toolStringOf(interpOf(fromData))).toEqual(state({ mode: 'planning', off: ['sp'], plan: ['gr', 'density', 'caliper', 'neutron', 'sonic', 'induction', 'sp'] }));
     let p = startPlanning(demoProject(), W, 'empty', registry.tools);
     expect(toolStringOf(interpOf(p))).toEqual(state({ mode: 'planning' }));
     p = addPlannedTool(p, W, 'gr');

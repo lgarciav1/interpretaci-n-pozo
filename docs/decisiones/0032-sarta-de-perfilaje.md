@@ -46,10 +46,16 @@ el trépano (`BS`, sale del encabezado) lo registra alguna herramienta (test).
   lo registra (`TOOL_GROUP` herramienta → grupo, con la familia como respaldo para las de módulos). El orden dentro del
   grupo es el de las herramientas y sus roles (cambia levemente: RXO va después de RA10–RA30 y NPHI después de PEF y DRHO).
 - **Ficha técnica separada** (`src/core/toolSheets.ts`): `ToolSheet` con qué mide, principio, profundidad de
-  investigación, resolución vertical, longitud y diámetro (`SheetQuantity`: típico, mínimo, máximo, unidad de
-  longitud, nota), montaje (`pad` | `centralized` | `eccentered`), limitaciones y fuentes. `TOOL_SHEETS` tiene una
-  entrada **vacía** por herramienta incorporada; `validateToolSheet` exige rangos coherentes, unidades de longitud y al
-  menos una fuente si hay números. `sheetOf(tool)` da la ficha propia (módulos) o la de la tabla.
+  investigación (de la herramienta y por curva, `investigationByRole`: una cáscara por curva en el dibujo, p. ej. las
+  cinco de la inducción de arreglo), resolución vertical, longitud y diámetro (`SheetQuantity`: típico, mínimo, máximo,
+  unidad de longitud, nota), montaje (`pad` | `centralized` | `eccentralized`), limitaciones, fuentes y campos sin
+  verificar (`unverified`). `TOOL_SHEETS` tiene una entrada **vacía** por herramienta incorporada; `validateToolSheet`
+  exige rangos coherentes, unidades de longitud y al menos una fuente si hay números. `sheetOf(tool)` da la ficha propia
+  (módulos) o la de la tabla. La investigación de la 11b (`docs/investigacion/herramientas-de-perfilaje.md`) llegó en
+  paralelo: el tipo ya acepta sus campos y el encabezado de `toolSheets.ts` dice cómo se corresponden sus ids y campos
+  con los de la app; volcar los valores es un paso mecánico aparte.
+- **Orden típico** (`typicalOrder`): el de una triple combo según esa investigación (gamma arriba, densidad con su
+  calibre, neutrón, sónico, RMN, resistividad abajo, temperatura en la cabeza); varía por empresa y la usuaria lo cambia.
 
 Descartado:
 - Herramienta = grupo de pista del visor. Densidad y neutrón son herramientas distintas (se apagan por separado); el
@@ -186,5 +192,10 @@ izquierda y la superposición de calidad siguen mostrando todas las curvas del p
 - Reasignar a mano la herramienta de una curva (una RT con mnemónico ambiguo que en realidad es de laterolog): hoy no
   se puede; propuesta: `assign: Record<curveId, toolId>` en el estado si aparece el caso.
 - Herramientas que dan datos puntuales (probador de formación MDT, coronas laterales): no están en el catálogo porque no
-  registran curvas; la vista 3D podría sumarlas como herramientas de conjuntos de puntos.
+  registran curvas; la vista 3D podría sumarlas como herramientas de conjuntos de puntos. Lo mismo la cabeza de cable y
+  los centralizadores (piezas del dibujo, sin curvas).
+- El SP no es una herramienta propia (es un electrodo en otra herramienta, según la 11b): se mantiene como entrada
+  aparte para poder apagarlo; la vista puede dibujarlo como electrodo en la herramienta de resistividad.
+- Calibre: la 11b distingue el de patín (brazo de la densidad) del multibrazo; la app tiene un solo rol `CALI` y una sola
+  herramienta «Calibre». Si hace falta distinguirlos, un rol o un prefijo de mnemónico por variante.
 - Filtrar también histograma, crossplot y la lista de curvas (D6).
