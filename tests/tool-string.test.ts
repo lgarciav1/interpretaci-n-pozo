@@ -51,12 +51,13 @@ const statusOf = (s: ToolStringState | undefined, id: string, curves = demo.well
 // ── catálogo y fichas ───────────────────────────────────────────────────────────────────────────────────────────
 
 describe('catálogo de herramientas', () => {
-  it('las incorporadas son válidas, tienen ids únicos y su ficha está separada (vacía, sin números inventados)', () => {
+  it('las incorporadas son válidas, tienen ids únicos y su ficha está separada', () => {
     for (const t of BUILTIN_TOOLS) expect(validateToolDef(t, (r) => defaultRoleCatalog.has(r))).toEqual([]);
     expect(new Set(BUILTIN_TOOLS.map((t) => t.id)).size).toBe(BUILTIN_TOOLS.length);
     expect(Object.keys(TOOL_SHEETS).sort()).toEqual(BUILTIN_TOOLS.map((t) => t.id).sort());
     for (const [id, s] of Object.entries(TOOL_SHEETS)) expect(validateToolSheet(id, s)).toEqual([]);
-    expect(sheetOf(defaultToolCatalog.get('density')!)).toEqual({});
+    expect(sheetOf(defaultToolCatalog.get('density')!)).toBe(TOOL_SHEETS.density);
+    expect(sheetOf(defaultToolCatalog.get('temperature')!)).toEqual({});
   });
 
   it('la validación de fichas exige fuentes, rangos coherentes y unidades de longitud (también por curva)', () => {
