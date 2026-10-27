@@ -573,3 +573,37 @@ Una fase solo se marca implementada cuando:
 7. Documentación, manual y estado de los issues se actualizan sin cerrar requisitos pendientes.
 
 **Estado de ejecución al crear este documento: todas las fases P0–P8 están pendientes.** La inspección del código para redactar el plan no sustituye la línea base ejecutada de P0. Este PR es documental y no implementa #31 ni #32.
+
+
+## 17. Dirección visual del visor: claridad y separación de pistas
+
+Requisito incorporado a partir de la referencia fotográfica compartida por la usuaria: **un visor más vistoso y claro, con perfiles que no se empasten**. Seguimiento: [#34, rediseño del visor](https://github.com/lgarciav1/interpretaci-n-pozo/issues/34).
+
+La foto permite apreciar fondo claro, pistas delimitadas, encabezados propios y rellenos localizados. No permite inferir con certeza producto, escalas o controles. No se adjuntó la foto al repo; esta descripción conserva la intención observable.
+
+### Decisiones de presentación
+
+- Dar al perfil la mayor superficie útil, con inspector y dock colapsables y modo de lectura amplio.
+- Definir un ancho mínimo por tipo de pista. Cuando no entren, usar desplazamiento horizontal o un preset elegido; no comprimir todas las pistas indefinidamente.
+- Jerarquía visual: curva principal nítida, alternativas distinguibles por patrón/color, grilla secundaria tenue y rellenos con opacidad contenida.
+- Encabezados con nombre, unidades, escalas y límites sin colisiones; profundidad y encabezados accesibles al desplazarse.
+- Mantener las superposiciones que aportan interpretación (densidad–neutrón/cruce de gas, resistividades); dividir pistas cuando la mezcla no aporte lectura.
+- Original/preparada por alternancia o lado a lado. No superponer todas las versiones automáticamente.
+- Ofrecer vistas de lectura general, petrofísica, preparación/QC y geología. Cambiar vista afecta solo display, nunca parámetros, fuentes ni resultados.
+- Preservar picos, huecos, escala log y avisos fuera de escala. La claridad no se obtiene con suavizado científico implícito.
+- Mantener claro/oscuro, acceso por teclado y leyendas sin dependencia exclusiva del color.
+- Reutilizar renderer, tokens y contratos de pistas existentes; el rediseño no justifica un segundo visor con semántica distinta.
+
+### Entrega visual independiente
+
+| Paso | Resultado verificable |
+|---|---|
+| V0 | Capturas actuales del TP con rango, fuentes, escalas y tamaño fijados. |
+| V1 | Dos propuestas con los mismos datos: lectura amplia y trabajo con inspector; revisión visual antes de extender el estilo. |
+| V2 | Implementación de jerarquía, anchos/presets y comparación de versiones; capturas antes/después y exportación verificada. |
+
+Este frente puede comenzar sobre el visor actual sin esperar P6/P7. La comparación original/preparada se conecta a P3 cuando esté disponible. La implementación visual mantiene el planificador de fuentes y el contexto común de I11.
+
+Aceptación: capturas a 1366×768 y 1920×1080, DPR 1/2 y temas claro/oscuro; sin colisiones de encabezados ni pistas por debajo de su ancho mínimo; curvas densidad–neutrón y resistividades legibles; mismos valores y extremos; scroll y controles accesibles; figura exportada coherente. Comparar versiones con idéntico rango de profundidad para no atribuir a diseño una mejora causada solo por zoom.
+
+**Estado V0–V2: pendiente.** Este agregado documenta la dirección visual, no modifica la aplicación.
