@@ -1,5 +1,7 @@
 # Arquitectura
 
+> Propuesta para las próximas fases: [Masterplan de preparación de datos y calibración DRX](masterplan-preparacion-y-drx.md). Define contratos, migraciones, validación científica y etapas para los issues #31 y #32; todavía no está implementada.
+
 Webapp 100 % en el navegador (TypeScript + React + Vite) que se entrega como un único `dist/index.html`.
 Las decisiones con sus alternativas descartadas están en [`decisiones/`](decisiones/): núcleo y contrato de módulos
 (0001), lectura de datos (0002), control de calidad (0003), sistema de diseño, armazón y flujo guiado (0004), visor
