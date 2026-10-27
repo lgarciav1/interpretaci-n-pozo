@@ -607,3 +607,37 @@ Este frente puede comenzar sobre el visor actual sin esperar P6/P7. La comparaci
 Aceptación: capturas a 1366×768 y 1920×1080, DPR 1/2 y temas claro/oscuro; sin colisiones de encabezados ni pistas por debajo de su ancho mínimo; curvas densidad–neutrón y resistividades legibles; mismos valores y extremos; scroll y controles accesibles; figura exportada coherente. Comparar versiones con idéntico rango de profundidad para no atribuir a diseño una mejora causada solo por zoom.
 
 **Estado V0–V2: pendiente.** Este agregado documenta la dirección visual, no modifica la aplicación.
+
+
+## 18. Revisión visual ejecutada sobre la aplicación
+
+Revisión del 2026-10-27 sobre main 4f187f6a8d585475efc79b18ed89194b432a2116, pozo TP incluido (5.810 muestras), tamaño de interfaz Normal y presets de fábrica. Se reconstruyó el código desde GitHub, se ejecutó npm ci/npm run build y se abrió el build con Chromium/Playwright por HTTP local. El navegador administrado bloqueó file://; por ello no se verificó apertura por doble clic. No se modificó código funcional ni configuración científica.
+
+Se inspeccionaron capturas a 1920×1080 y 1366×768, temas claro/oscuro, paneles abiertos/colapsados, zoom y Geología. No se detectaron excepciones de página en esos recorridos; esto no sustituye tests de regresión ni una revisión de todas las funciones.
+
+### Hallazgos medidos
+
+| Prioridad | Evidencia | Acción de diseño |
+|---|---|---|
+| Alta | La pista Interpretación tiene 47 curvas asignadas: tres filas y un botón +44. Mezcla VSH/IGR con salidas como impedancia, TOC, tiempo, mineralogía y alternativas. Visualmente aparece como una franja casi opaca. | Sustituir el recolector automático como vista principal por pistas elegidas por tarea. Detectar nuevas salidas y ofrecerlas en catálogo; no dibujarlas todas automáticamente. |
+| Alta | A 1366×768, paneles abiertos: visor externo ≈653 px de ancho, ventana horizontal de curvas ≈604 px y dibujo de solo ≈184 px de alto. El canvas total es de 1250 px y se desplaza horizontalmente. | Modo de lectura accesible en una acción, dock contextual y jerarquía que priorice área útil de curvas. |
+| Alta | Con ambos laterales y dock colapsados, la ventana horizontal pasa a ≈1199 px y el dibujo a ≈348 px de alto, pero las pistas mantienen sus anchos mínimos y la franja de Interpretación sigue saturada. | Reorganizar contenido y definir anchos según complejidad; colapsar paneles por sí solo no resuelve el problema. |
+| Media | Se abre el intervalo completo 7633,3–8518,6 m: ≈885 m en 184 px de dibujo en notebook. Tras seis pasos de zoom, 7959,9–8191,9 m se distingue mejor, aunque persiste el solapamiento de Interpretación. | Separar vista panorámica y vista de trabajo por intervalo; conservar un minimapa de todo el pozo. No suavizar datos para simular claridad. |
+| Media | Títulos truncados (Densidad · ne…, Interpretac…, Permeabilid…) y leyendas largas de Banderas/Indicadores se aproximan o invaden pistas vecinas. | Encabezados compactos legibles, clipping por pista y leyendas extensas en panel controlado. |
+| Media | Densidad–neutrón incorpora PE/DRHO; Porosidad–Sw tiene curvas y relleno dominantes. | Preset simple con RHOB/NPHI y detalles PE/DRHO a demanda o en pista auxiliar; mantener significado del cruce de gas. Revisar opacidades y jerarquía de líneas. |
+
+### Corrección del diagnóstico preliminar
+
+Ya existen mínimo de ancho y scroll horizontal en src/viewer/layout.ts (MIN_TRACK_WIDTH = 104 en escala base), además de paneles colapsables y modos de tema. No corresponde implementarlos nuevamente como si faltaran. Con tamaño Normal, varias pistas quedan en ≈117 px y la de densidad–neutrón en ≈129 px. El problema comprobado es la selección automática excesiva de contenido, la jerarquía y el área útil inicial.
+
+La causa del recolector se localiza en src/viewer/templates.ts (collect: computed) y src/viewer/resolve.ts (agrega salidas no ubicadas en otras pistas). En Geología también se observó ese recolector y un conjunto mayor de pistas. La solución debe preservar descubrimiento de módulos nuevos mediante catálogo, sin convertir cada salida nueva en una superposición visible por defecto.
+
+### Ajuste de prioridades de V1/V2
+
+1. Diseñar un preset Petrofísica esencial con GR, profundidad, resistividades seleccionadas, RHOB/NPHI, Vsh, porosidad/Sw y resultados relevantes. Herramientas avanzadas y alternativas permanecen recuperables.
+2. Comparar contra fábrica con el MISMO intervalo, escala y fuentes; cualquier cambio de contenido queda listado.
+3. Separar vista general de interpretación detallada y ofrecer modo amplio en una acción.
+4. Corregir encabezados/leyendas y revisar trazos/rellenos.
+5. Verificar datos, interacciones y figura exportada antes de integrar.
+
+La revisión parcial de build y navegador aporta evidencia a V0, pero no completa P0 ni V0–V2: faltan la caracterización completa, DPR 2, verificación de exportación y las propuestas de rediseño. Los resultados científicos obtenidos con parámetros de fábrica no se consideran calibrados por esta revisión.
