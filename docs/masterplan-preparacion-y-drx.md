@@ -721,3 +721,14 @@ Recorrido Chromium: vista clásica del candidato con iguales encabezados/geometr
 Orden de integración: revisar/integrar #35 primero y luego retargetear #36 a main. **Ninguno fue mergeado por el agente.** Las correcciones ambientales, DRX y la migración v7 siguen sin implementar. El espacio vertical, modo amplio en una acción y panorama/detalle siguen pendientes de #34.
 
 Esto aporta evidencia a P0 y al primer tramo visual V0–V2; no declara completada toda P0 ni el masterplan.
+
+
+## 21. Lectura amplia preparada para revisión (2026-10-28)
+
+[PR #37](https://github.com/lgarciav1/interpretaci-n-pozo/pull/37), apilado sobre #36: botón de lectura amplia reversible y encabezados compactos limitados al modo. Conserva la disposición elegida sin escribir preferencias transitorias ni cambiar proyecto v6, historial, motor o datos. Abrir paneles/editores recupera la vista normal; recargar deja lectura desactivada.
+
+Con el mismo TP, preset e intervalo completo, a 1366×768 el alto útil pasa de 183,56 a 474,86 px (2,59×). La vista normal conserva exactamente la geometría medida del padre. LAS del padre frente a lectura y SVG normal frente a lectura resultaron idénticos byte a byte. Las preferencias normales y personalizadas se recuperan; las 47 curvas de fábrica siguen accesibles por su popup.
+
+Verificación final: **2.400 pruebas en 146 archivos**, sin fallos/omisiones; typecheck/build aprobados. Recorrido Chromium claro/oscuro, 1366×768 y 1920×1080, DPR 1/2, teclado, editores y Geología, sin excepciones de página. HTML +2.167 bytes, sin nuevas dependencias de producción. [Capturas, hashes, límites y script reproducible](https://github.com/lgarciav1/interpretaci-n-pozo/blob/codex/lectura-amplia/docs/validacion/2026-10-28-lectura-amplia.md). file:// continúa sin verificar por bloqueo del navegador administrado.
+
+Orden de integración: #35 → #36 → #37, revisando y retargeteando las ramas según se integren sus bases. Main permanece intacto; ninguno fue mergeado por el agente. Quedan panorama/detalle y refinamiento visual en #34, además de calibración DRX (#31), preparación/correcciones (#32) y la compatibilidad de los formatos futuros. Esta entrega no declara completo el masterplan.
