@@ -732,3 +732,14 @@ Con el mismo TP, preset e intervalo completo, a 1366×768 el alto útil pasa de 
 Verificación final: **2.400 pruebas en 146 archivos**, sin fallos/omisiones; typecheck/build aprobados. Recorrido Chromium claro/oscuro, 1366×768 y 1920×1080, DPR 1/2, teclado, editores y Geología, sin excepciones de página. HTML +2.167 bytes, sin nuevas dependencias de producción. [Capturas, hashes, límites y script reproducible](https://github.com/lgarciav1/interpretaci-n-pozo/blob/codex/lectura-amplia/docs/validacion/2026-10-28-lectura-amplia.md). file:// continúa sin verificar por bloqueo del navegador administrado.
 
 Orden de integración: #35 → #36 → #37, revisando y retargeteando las ramas según se integren sus bases. Main permanece intacto; ninguno fue mergeado por el agente. Quedan panorama/detalle y refinamiento visual en #34, además de calibración DRX (#31), preparación/correcciones (#32) y la compatibilidad de los formatos futuros. Esta entrega no declara completo el masterplan.
+
+
+## 22. Intervalos de profundidad sin integración (2026-10-28)
+
+[PR #38](https://github.com/lgarciav1/interpretaci-n-pozo/pull/38) se basa en la rama de #37, respetando el pedido explícito de continuar sin integrar ni mergear PRs. Convierte el indicador del rango visible en un selector de tope/base con ventanas de 50/100 m, recorrido anterior/siguiente con 10 % de contexto compartido y vuelta al pozo completo. Reutiliza el viewport y el minimapa ya existentes; no agrega otro renderer.
+
+El selector valida las entradas antes de aplicar, conserva precisión y solo modifica la vista temporal. Teclado, errores, bordes del pozo y sincronización del minimapa se comprobaron en Chromium, en Petrofísica y Geología, vista normal y lectura amplia. Las capturas muestran el mismo TP completo y el detalle 7800,5–7850,5 m.
+
+Validación: **2.418 pruebas en 147 archivos**, sin fallos/omisiones; typecheck/build aprobados. El recorrido de regresión de #37 mantiene la geometría normal y preferencias. Proyecto, LAS completo y SVG de todo el pozo son idénticos antes/después de navegar; el SVG del tramo visible respeta el intervalo elegido. Claro/oscuro, 1366×768/1920×1080 y DPR 1/2, sin excepciones de página. HTML +4.803 bytes, sin dependencias nuevas de producción. [Capturas y reproducción](https://github.com/lgarciav1/interpretaci-n-pozo/blob/codex/intervalos-detalle/docs/validacion/2026-10-28-intervalos-detalle.md).
+
+La selección explícita de detalle sobre el panorama existente queda preparada. Siguen pendientes refinamientos de presentación para otras combinaciones y la comparación original/preparada, además de DRX (#31), preparación/correcciones (#32) y formatos futuros. Estos PRs continúan abiertos; no se modifica main ni se declara terminado todo #34. Se puede seguir trabajando en ramas encadenadas. Su eventual integración tendrá que respetar las dependencias #35 → #36 → #37 → #38 y volver a validar contra la base elegida entonces.
