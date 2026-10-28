@@ -707,3 +707,17 @@ Un fallo nuevo de corrección numérica, pérdida de datos, fuente incorrecta, e
 Existe masterplan, revisión de contratos y revisión visual sobre main 4f187f6. El build revisado pasó y los recorridos de navegador descritos en sección 18 no registraron excepciones de página. **La suite completa de regresión y la compatibilidad v7 todavía no fueron ejecutadas/implementadas.**
 
 Por tanto, el siguiente paso de código es caracterizar y comprobar la base, seguido por un preset visual opcional. Este documento no afirma que las garantías de integración ya estén demostradas ni autoriza cerrar #31, #32 o #34 solo por completar documentación.
+
+
+## 20. Avance preparado para revisión (2026-10-28)
+
+Primera entrega de código, separada según sección 19:
+
+1. [PR #35: línea base de compatibilidad](https://github.com/lgarciav1/interpretaci-n-pozo/pull/35). Dos pruebas nuevas de caracterización, sin modificar la app. Base aislada: 2.373 pruebas en 144 archivos, sin fallos ni omisiones con un worker.
+2. [PR #36: Petrofísica esencial opcional](https://github.com/lgarciav1/interpretaci-n-pozo/pull/36), basado en la rama de #35. Cambia solo selección de pistas de display y su menú; conserva fábrica predeterminada, proyectos v6, curvas adicionales y renderer/motor existentes. Candidato: 2.386 pruebas en 145 archivos, typecheck y build aprobados.
+
+Recorrido Chromium: vista clásica del candidato con iguales encabezados/geometría/rango que el build base; LAS exportados por UI idénticos por SHA-256; undo/redo, guardar/abrir y SVG comprobados; claro/oscuro, 1366×768/1920×1080 y DPR 1/2 inspeccionados. Se incluyen capturas comparables y verificador reproducible en #36. file:// permanece sin verificar por bloqueo del navegador administrado.
+
+Orden de integración: revisar/integrar #35 primero y luego retargetear #36 a main. **Ninguno fue mergeado por el agente.** Las correcciones ambientales, DRX y la migración v7 siguen sin implementar. El espacio vertical, modo amplio en una acción y panorama/detalle siguen pendientes de #34.
+
+Esto aporta evidencia a P0 y al primer tramo visual V0–V2; no declara completada toda P0 ni el masterplan.
