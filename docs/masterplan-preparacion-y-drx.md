@@ -1,5 +1,7 @@
 # Masterplan: preparación de datos, correcciones y calibración con DRX
 
+> **Condición de avance (2026-10-28): preservar funcionalidad, proyectos y resultados existentes.** La nueva interfaz se incorpora primero como preset opcional; los cambios visuales y científicos se entregan en PR separados, con comparación contra una base fijada y criterios de regresión. Ver sección 19. Esta condición prevalece sobre cualquier sugerencia anterior de cambiar automáticamente los presets existentes.
+
 - Estado: propuesta de arquitectura y secuencia de implementación; **no describe funcionalidades ya disponibles**.
 - Fecha: 2026-10-27.
 - Base inspeccionada: main, commit 4f187f6a8d585475efc79b18ed89194b432a2116.
@@ -641,3 +643,67 @@ La causa del recolector se localiza en src/viewer/templates.ts (collect: compute
 5. Verificar datos, interacciones y figura exportada antes de integrar.
 
 La revisión parcial de build y navegador aporta evidencia a V0, pero no completa P0 ni V0–V2: faltan la caracterización completa, DPR 2, verificación de exportación y las propuestas de rediseño. Los resultados científicos obtenidos con parámetros de fábrica no se consideran calibrados por esta revisión.
+
+
+## 19. Condición de avance: compatibilidad y prevención de regresiones
+
+Incorporada el 2026-10-28 por pedido explícito de la usuaria: avanzar sin romper el software ni producir un retroceso. Es una condición de aceptación del trabajo, no una garantía imposible de cero defectos.
+
+Esta sección precisa y, en caso de conflicto, prevalece sobre las recomendaciones anteriores de reemplazar la selección automática o los presets de fábrica.
+
+### 19.1 Conservar lo existente y añadir una alternativa comprobable
+
+- El primer rediseño se entrega como preset opcional “Petrofísica esencial”, reutilizando el mismo renderer y motor.
+- Mantener el preset anterior como “Clásico” para comparar y volver en una acción. No mantener dos renderers con reglas científicas diferentes.
+- Abrir un proyecto existente conserva pistas, orden, anchos, colores, escalas, unidades, curvas visibles, fuentes y parámetros guardados. No aplicar el preset nuevo durante la migración.
+- Si un proyecto antiguo no tiene una configuración explícita de pistas, materializar la configuración efectiva de su versión al migrarlo; no interpretar “ausente” como permiso para sustituirla por el preset nuevo.
+- Todas las curvas, módulos, alternativas y herramientas siguen disponibles desde el catálogo y los controles existentes. Reducir curvas visibles en el preset opcional no elimina resultados ni módulos.
+- El recolector y el descubrimiento de módulos se revisan separando disponibilidad de presentación. El preset Clásico conserva la posibilidad de ver las salidas anteriores.
+- Paneles y dock permanecen accesibles. El modo amplio cambia solo disposición de UI; no toca el proyecto ni fuerza guardar otra vista.
+- Cambiar el preset por defecto para proyectos nuevos se trata como decisión de entrega posterior, sustentada por la comparación visual y las regresiones. Nunca modifica silenciosamente proyectos guardados.
+
+### 19.2 Separar entregas para atribuir cada cambio
+
+Orden de integración:
+1. PR de caracterización: fijar commit base, fixtures, resultados y capturas; identificar defectos previos.
+2. PR visual: preset opcional y distribución de espacio, sin nuevas fórmulas, limpieza automática, cambios de fuentes ni migraciones científicas.
+3. PR de correcciones de encabezados/leyendas y estilo, con mismas entradas y comparación.
+4. PR de infraestructura de preparación: revisiones, persistencia y protocolo, con preparación vacía equivalente al flujo anterior.
+5. PR de limpieza/alineación y luego DRX/correcciones según P3–P8, cada método con su validación.
+
+Los ajustes visuales pueden adelantarse a P1–P7 porque no dependen del nuevo formato; no deben arrastrar una migración de datos innecesaria. El orden P1–P8 sigue vigente para la infraestructura científica.
+
+Cada PR es pequeño, tiene una responsabilidad y puede revertirse aisladamente. Evitar mezclar refactor amplio, cambios de interfaz y ecuaciones en una misma entrega. Un cambio científico justificado se presenta como tal, con antes/después y fuente independiente; no se disfraza como ajuste visual.
+
+### 19.3 Puertas de integración
+
+| Área | Evidencia necesaria para aceptar |
+|---|---|
+| Cálculos | El PR visual produce los mismos arrays, nulos, flags, fuentes y sumarios para el mismo contexto. La preparación vacía también conserva los resultados anteriores. |
+| Funcionalidad | Carga CSV/LAS/xlsx; visor y pistas; QC; zonas; tendencias; MDT; corona; histograma/crossplot; módulos; sarta; snapshots; undo/redo; guardado/apertura y exportaciones siguen operativos en los recorridos afectados y el smoke test general. |
+| Proyectos | Fixtures de formatos anteriores abren con la configuración efectiva conservada. Guardar/abrir no pierde datos, decisiones, módulos ni referencias. |
+| Gráficos | Mismos valores, picos, huecos, escalas lineal/log y superposiciones interpretativas necesarias. El cambio de vista no dispara una modificación científica. |
+| Presentación | Comparación con igual pozo, rango, escalas y fuentes; cambios de curvas visibles listados. Capturas en notebook/pantalla amplia, claro/oscuro y DPR 1/2. |
+| Exportación | Las columnas y resultados numéricos son equivalentes. La figura respeta la vista elegida, con unidades y leyendas correctas. |
+| Robustez | Cambio de pozo, undo/redo, redimensionado y respuesta atrasada no mezclan estados. Probar recuperación del worker cuando lo modifique el PR. |
+| Rendimiento | Medición comparable contra base en el mismo entorno, con memoria/tamaño de build. La tolerancia admisible se fija en P0 antes del cambio, no después de ver un deterioro. |
+| Entrega | Typecheck, suite pertinente, regresión general acordada y build pasan, o los fallos anteriores están reproducidos en la base y claramente separados. No ajustar pruebas para ocultar una regresión nueva. |
+
+Que un test pase no demuestra por sí solo que una interfaz sea más clara. La aceptación visual incluye inspección de capturas y recorridos reales; la aceptación científica incluye casos independientes.
+
+Un fallo nuevo de corrección numérica, pérdida de datos, fuente incorrecta, exportación inconsistente o función inaccesible bloquea la integración. Un defecto previo se registra y no se atribuye a la nueva entrega; tampoco justifica añadir otro.
+
+### 19.4 Reversión y formatos
+
+- Mantener main sin cambios funcionales hasta que la entrega cumpla sus puertas; este PR de masterplan continúa siendo documental.
+- El preset Clásico permanece seleccionable para revertir la presentación sin perder decisiones.
+- Antes de una migración de archivo, conservar una copia del proyecto de entrada y verificar la nueva versión en fixtures. Nunca sobrescribir la única copia legible por la versión anterior.
+- Revertir el código no convierte mágicamente v7 en v6. Definir compatibilidad de archivo por entrega y conservar el build anterior y su archivo compatible como punto de recuperación.
+- No ofrecer “guardar como v6” si requiere descartar recetas, revisiones o evidencia sin representación. Rechazar la conversión o entregar una exportación explícitamente limitada; nunca llamarla copia íntegra.
+- Operaciones nuevas permanecen inactivas hasta elección del usuario. Abrir un panel o seleccionar una muestra no aplica una corrección.
+
+### 19.5 Estado verificable al incorporar esta condición
+
+Existe masterplan, revisión de contratos y revisión visual sobre main 4f187f6. El build revisado pasó y los recorridos de navegador descritos en sección 18 no registraron excepciones de página. **La suite completa de regresión y la compatibilidad v7 todavía no fueron ejecutadas/implementadas.**
+
+Por tanto, el siguiente paso de código es caracterizar y comprobar la base, seguido por un preset visual opcional. Este documento no afirma que las garantías de integración ya estén demostradas ni autoriza cerrar #31, #32 o #34 solo por completar documentación.
