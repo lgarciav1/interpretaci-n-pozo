@@ -15,6 +15,7 @@ import { currentFlow, openStep } from '../flow/useFlow';
 import { useTrendsUi } from '../trends/store';
 import { useProject } from '../store/project';
 import { useUi } from '../store/ui';
+import { useViewer } from '../store/viewer';
 import { DOCK_PANELS } from './dockPanels';
 import { IS_MAC, REDO_SHORTCUT, redoChange, undoChange } from './historyActions';
 import { pickProjectFile, saveProject } from './projectActions';
@@ -52,6 +53,15 @@ function dockCommands(): Command[] {
         run: () => open(p.id),
       }),
     ),
+    {
+      id: 'layout:reading',
+      title: useUi.getState().readingMode ? 'Volver a la disposición anterior' : 'Activar lectura amplia del perfil',
+      group: 'Vista',
+      keywords: ['lectura', 'amplia', 'ampliar', 'perfil', 'paneles', 'espacio'],
+      icon: 'expand-view',
+      enabled: () => hasWell() && !useUi.getState().trackBuilder && !useUi.getState().toolStringOpen && !useViewer.getState().dragging,
+      run: () => useUi.getState().toggleReadingMode(),
+    },
     {
       id: 'layout:dock',
       title: layout.dockCollapsed ? 'Mostrar los paneles de abajo' : 'Ocultar los paneles de abajo',
@@ -261,3 +271,4 @@ const documented = (): Command[] => [
 ];
 
 export const commands: CommandSource = () => [...flowCommands(), ...dockCommands(), ...historyCommands(), ...projectCommands(), ...zoneCommands(), ...viewCommands(), ...documented()];
+

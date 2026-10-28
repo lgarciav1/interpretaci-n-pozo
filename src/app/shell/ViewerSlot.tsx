@@ -85,7 +85,7 @@ export function ViewerSlot() {
   const workspace = useUi((s) => s.workspace);
   const editingZoneId = useUi((s) => s.editingZoneId);
   const marking = useUi((s) => s.zoneMarking);
-  const showHeader = useUi((s) => s.layout.wellHeader);
+  const showHeader = useUi((s) => !s.readingMode && s.layout.wellHeader);
   const setUi = useUi((s) => s.set);
   const setLayout = useUi((s) => s.setLayout);
   const trendTool = useTrendsUi((s) => s.tool);
@@ -531,3 +531,4 @@ export function ViewerSlot() {
 
   );
 }
+

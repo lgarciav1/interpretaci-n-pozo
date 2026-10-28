@@ -85,6 +85,8 @@ const ICONS = {
       <path d="M9 20h6M12 16.5V20" />
     </>
   ),
+  'expand-view': <path d="M8.5 3.5h-5v5M15.5 3.5h5v5M20.5 15.5v5h-5M8.5 20.5h-5v-5" />,
+  'restore-view': <path d="M3.5 8.5h5v-5M20.5 8.5h-5v-5M15.5 20.5v-5h5M8.5 20.5v-5h-5" />,
   info: (
     <>
       <circle cx="12" cy="12" r="9" />
@@ -369,3 +371,4 @@ export function BrandMark({ size = 22 }: { size?: number }) {
     </svg>
   );
 }
+

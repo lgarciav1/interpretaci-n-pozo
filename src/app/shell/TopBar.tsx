@@ -9,6 +9,7 @@ import { BrandMark, Button, Icon, IconButton, IS_MAC_PLATFORM, Menu, openCommand
 import { selectActiveEntry, useProject } from '../store/project';
 import { useResults } from '../store/results';
 import { useUi } from '../store/ui';
+import { useViewer } from '../store/viewer';
 import { IS_MAC, REDO_SHORTCUT, UNDO_SHORTCUT, redoChange, undoChange } from './historyActions';
 import { openProjectFile, saveProject } from './projectActions';
 import { openEquations } from '../ecuaciones/open';
@@ -69,6 +70,9 @@ function HistoryButtons() {
 
 export function TopBar() {
   const workspace = useUi((s) => s.workspace);
+  const readingMode = useUi((s) => s.readingMode);
+  const editingLayout = useUi((s) => s.trackBuilder || s.toolStringOpen);
+  const viewerDragging = useViewer((s) => s.dragging);
   const setUi = useUi((s) => s.set);
   const projectName = useProject((s) => s.project.name);
   const snapshotCount = useProject((s) => s.project.snapshots.filter((x) => x.wellId === s.project.activeWellId).length);
@@ -140,6 +144,15 @@ export function TopBar() {
       </div>
       <span className="shell-topbar__divider" aria-hidden="true" />
       <div className="shell-prefs">
+        <IconButton
+          icon={readingMode ? 'restore-view' : 'expand-view'}
+          label={readingMode ? 'Volver a la disposición anterior' : 'Activar lectura amplia'}
+          pressed={readingMode}
+          variant={readingMode ? 'primary' : 'ghost'}
+          disabled={!entry || editingLayout || viewerDragging}
+          onClick={() => useUi.getState().toggleReadingMode()}
+          data-testid="reading-mode-toggle"
+        />
         <IconButton icon="sigma" label="Ecuaciones de los métodos" onClick={() => openEquations()} data-testid="equations-open" />
         <IconButton icon="search" label="Paleta de comandos" hint={IS_MAC_PLATFORM ? '⌘K' : 'Ctrl+K'} aria-keyshortcuts={IS_MAC_PLATFORM ? 'Meta+K' : 'Control+K'} onClick={openCommandPalette} data-testid="command-open" />
         <UiScaleToggle />
@@ -148,3 +161,4 @@ export function TopBar() {
     </header>
   );
 }
+

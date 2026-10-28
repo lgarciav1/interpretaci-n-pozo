@@ -11,6 +11,10 @@
 }
 .shell-spacer { flex: 1; }
 
+/* Lectura temporal: se conserva la disposición guardada y se recupera al salir. */
+.shell.is-reading { grid-template-rows: var(--size-topbar) minmax(0, 1fr); }
+.shell.is-reading .shell-center { padding: var(--space-2); }
+
 /* Barra superior */
 .shell-topbar {
   display: flex;
@@ -286,4 +290,5 @@
 .param-reset { padding: 0; border: 0; background: none; color: var(--color-accent-text); font-size: var(--text-sm); cursor: pointer; }
 .param-reset:hover { text-decoration: underline; }
 .param-badge { display: inline-flex; border-radius: var(--radius-full); }
+
 

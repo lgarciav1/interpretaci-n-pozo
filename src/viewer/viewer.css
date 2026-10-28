@@ -103,6 +103,24 @@
 .wv-head__category-axis span { position: absolute; transform: translateX(-50%); }
 .wv-head--flags .ui-curve-legend__scale { display: none; }
 
+/* Encabezados compactos solo en lectura amplia; las figuras y la vista normal no cambian. */
+.shell.is-reading .wv-head { padding: var(--space-1) var(--space-1-5); overflow: hidden; }
+.shell.is-reading .wv-head--flags { padding-inline: var(--space-1); }
+.shell.is-reading .wv-head__title {
+  letter-spacing: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.shell.is-reading .wv-head__curves { justify-content: flex-start; }
+.shell.is-reading .wv-head .ui-curve-legend__mid { height: calc(17px * var(--ui-scale)); }
+.shell.is-reading .wv-head .ui-curve-legend__label { overflow: hidden; }
+.shell.is-reading .wv-head .ui-curve-legend__name { flex: 0 1 auto; min-width: 0; }
+.shell.is-reading .wv-head .ui-curve-legend__value { flex: none; }
+
 .wv-body {
   position: relative;
   flex: 1;
@@ -465,3 +483,4 @@
 /* Sin lugar de su lado: el rótulo pasa al otro, debajo del primero. */
 .wv-curtain[data-edge-left] .wv-curtain__label--before { right: auto; left: calc(50% + var(--space-2)); top: calc(var(--space-2) + 26px * var(--ui-scale)); }
 .wv-curtain[data-edge-right] .wv-curtain__label--after { left: auto; right: calc(50% + var(--space-2)); top: calc(var(--space-2) + 26px * var(--ui-scale)); }
+
