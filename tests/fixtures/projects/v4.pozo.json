@@ -1,0 +1,248 @@
+{
+  "format": "pozo-proyecto",
+  "version": 4,
+  "savedAt": "2026-10-01T00:00:00.000Z",
+  "project": {
+    "name": "Compatibilidad v4",
+    "activeWellId": "w1",
+    "wells": [
+      {
+        "well": {
+          "id": "w1",
+          "name": "Pozo de compatibilidad",
+          "header": {
+            "UWI": {
+              "value": "FIXTURE-001"
+            },
+            "KB": {
+              "value": 25.5,
+              "unit": "m"
+            }
+          },
+          "depth": {
+            "unit": "m",
+            "sourceUnit": "ft",
+            "values": {
+              "codec": "f64le-b64",
+              "length": 5,
+              "data": "AAAAAABAj0AAAAAAAESPQAAAAAAASI9AAAAAAABMj0AAAAAAAFCPQA=="
+            }
+          },
+          "curves": [
+            {
+              "id": "GR",
+              "mnemonic": "GR",
+              "description": "Medición sintética de compatibilidad",
+              "role": "GR",
+              "unit": "gAPI",
+              "origin": {
+                "kind": "measured",
+                "source": "compatibilidad.las"
+              },
+              "data": {
+                "codec": "f64le-b64",
+                "length": 5,
+                "data": "AAAAAAAANEAAAAAAAAD4fwAAAAAAAERAAAAAAACAW0AAAAAAAABOQA=="
+              }
+            },
+            {
+              "id": "VSH_imported",
+              "mnemonic": "VSH_imported",
+              "description": "Medición sintética de compatibilidad",
+              "role": "VSH",
+              "unit": "v/v",
+              "origin": {
+                "kind": "measured",
+                "source": "compatibilidad.las"
+              },
+              "data": {
+                "codec": "f64le-b64",
+                "length": 5,
+                "data": "mpmZmZmZqT8zMzMzMzPDPwAAAAAAAPh/zczMzMzM5D8AAAAAAADQPw=="
+              }
+            },
+            {
+              "id": "AUX",
+              "mnemonic": "AUX",
+              "description": "Medición sintética de compatibilidad",
+              "role": null,
+              "unit": "unitless",
+              "origin": {
+                "kind": "measured",
+                "source": "compatibilidad.las"
+              },
+              "data": {
+                "codec": "f64le-b64",
+                "length": 5,
+                "data": "AAAAAAAAAIAAAAAAAADwfwAAAAAAAPD/AAAAAAAA+H9Z8/jCH26lAQ=="
+              }
+            }
+          ]
+        },
+        "interpretation": {
+          "zones": [
+            {
+              "id": "a",
+              "name": "Arena A",
+              "top": 1000,
+              "base": 1002,
+              "kind": "formation",
+              "color": "#bbaa77"
+            }
+          ],
+          "params": {
+            "global": {
+              "grClean": 20,
+              "grShale": 120
+            },
+            "zones": {
+              "a": {
+                "grShale": 110
+              }
+            }
+          },
+          "sources": {
+            "VSH": {
+              "kind": "curve",
+              "curveId": "VSH_imported"
+            }
+          },
+          "compare": [
+            "vsh-larionov-old"
+          ],
+          "disabled": [],
+          "trends": [
+            {
+              "id": "trend-gr",
+              "name": "Tendencia GR",
+              "visible": true,
+              "series": {
+                "provider": "curve",
+                "key": "m:GR"
+              },
+              "model": "linear",
+              "mode": "fit",
+              "selection": {
+                "top": 1000,
+                "base": 1002,
+                "zoneId": "a",
+                "excluded": [
+                  "1000.5"
+                ]
+              },
+              "extend": false
+            }
+          ]
+        },
+        "progress": {
+          "marks": {
+            "qc": "done",
+            "porosity": "skipped"
+          }
+        }
+      }
+    ],
+    "snapshots": [
+      {
+        "id": "snap-base",
+        "name": "Base interpretativa",
+        "wellId": "w1",
+        "createdAt": "2026-10-01T00:00:00.000Z",
+        "interpretation": {
+          "zones": [
+            {
+              "id": "a",
+              "name": "Arena A",
+              "top": 1000,
+              "base": 1002,
+              "kind": "formation",
+              "color": "#bbaa77"
+            }
+          ],
+          "params": {
+            "global": {
+              "grClean": 10,
+              "grShale": 120
+            },
+            "zones": {
+              "a": {
+                "grShale": 110
+              }
+            }
+          },
+          "sources": {
+            "VSH": {
+              "kind": "curve",
+              "curveId": "VSH_imported"
+            }
+          },
+          "compare": [
+            "vsh-larionov-old"
+          ],
+          "disabled": [],
+          "trends": [
+            {
+              "id": "trend-gr",
+              "name": "Tendencia GR",
+              "visible": true,
+              "series": {
+                "provider": "curve",
+                "key": "m:GR"
+              },
+              "model": "linear",
+              "mode": "fit",
+              "selection": {
+                "top": 1000,
+                "base": 1002,
+                "zoneId": "a",
+                "excluded": [
+                  "1000.5"
+                ]
+              },
+              "extend": false
+            }
+          ]
+        }
+      }
+    ],
+    "display": {
+      "layouts": {
+        "petrophysics": [
+          {
+            "id": "gr-custom",
+            "title": "GR propio",
+            "kind": "curves",
+            "width": 1.5,
+            "curves": [
+              {
+                "select": {
+                  "role": "GR"
+                }
+              }
+            ]
+          },
+          {
+            "id": "depth",
+            "title": "Prof.",
+            "kind": "depth"
+          }
+        ]
+      },
+      "roles": {
+        "GR": {
+          "min": 0,
+          "max": 150,
+          "color": "#008844"
+        }
+      },
+      "curves": {
+        "w1": {
+          "GR": {
+            "line": "dashed",
+            "width": 1.25
+          }
+        }
+      }
+    }
+  }
+}

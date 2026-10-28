@@ -1,0 +1,165 @@
+{
+  "format": "pozo-proyecto",
+  "version": 2,
+  "savedAt": "2026-10-01T00:00:00.000Z",
+  "project": {
+    "name": "Compatibilidad v2",
+    "activeWellId": "w1",
+    "wells": [
+      {
+        "well": {
+          "id": "w1",
+          "name": "Pozo de compatibilidad",
+          "header": {
+            "UWI": {
+              "value": "FIXTURE-001"
+            },
+            "KB": {
+              "value": 25.5,
+              "unit": "m"
+            }
+          },
+          "depth": {
+            "unit": "m",
+            "sourceUnit": "ft",
+            "values": {
+              "codec": "f64le-deflate-b64",
+              "length": 5,
+              "data": "eJxjYAACh34HEMXgAqU9oLQPlA7odwAAYSYFdA=="
+            }
+          },
+          "curves": [
+            {
+              "id": "GR",
+              "mnemonic": "GR",
+              "description": "Medición sintética de compatibilidad",
+              "role": "GR",
+              "unit": "gAPI",
+              "origin": {
+                "kind": "measured",
+                "source": "compatibilidad.las"
+              },
+              "data": {
+                "codec": "f64le-deflate-b64",
+                "length": 5,
+                "data": "eJxjYAABEwcwxfCjHkK7QPgN0VBxPwcAShkEGQ=="
+              }
+            },
+            {
+              "id": "VSH_imported",
+              "mnemonic": "VSH_imported",
+              "description": "Medición sintética de compatibilidad",
+              "role": "VSH",
+              "unit": "v/v",
+              "origin": {
+                "kind": "measured",
+                "source": "compatibilidad.las"
+              },
+              "data": {
+                "codec": "f64le-deflate-b64",
+                "length": 5,
+                "data": "eJybNRMEVtobg8FhewYw+FF/9gwIPIHyL9gDAEoaDyY="
+              }
+            },
+            {
+              "id": "AUX",
+              "mnemonic": "AUX",
+              "description": "Medición sintética de compatibilidad",
+              "role": null,
+              "unit": "unitless",
+              "origin": {
+                "kind": "measured",
+                "source": "compatibilidad.las"
+              },
+              "data": {
+                "codec": "f64le-deflate-b64",
+                "length": 5,
+                "data": "eJxjYACDBgj1oR5K/4fQP+ojP/84JJ+3lBEAe30Jjw=="
+              }
+            }
+          ]
+        },
+        "interpretation": {
+          "zones": [
+            {
+              "id": "a",
+              "name": "Arena A",
+              "top": 1000,
+              "base": 1002,
+              "kind": "formation",
+              "color": "#bbaa77"
+            }
+          ],
+          "params": {
+            "global": {
+              "grClean": 20,
+              "grShale": 120
+            },
+            "zones": {
+              "a": {
+                "grShale": 110
+              }
+            }
+          },
+          "sources": {
+            "VSH": {
+              "kind": "curve",
+              "curveId": "VSH_imported"
+            }
+          },
+          "compare": [
+            "vsh-larionov-old"
+          ],
+          "disabled": []
+        },
+        "progress": {
+          "marks": {
+            "qc": "done",
+            "porosity": "skipped"
+          }
+        }
+      }
+    ],
+    "snapshots": [
+      {
+        "id": "snap-base",
+        "name": "Base interpretativa",
+        "wellId": "w1",
+        "createdAt": "2026-10-01T00:00:00.000Z",
+        "interpretation": {
+          "zones": [
+            {
+              "id": "a",
+              "name": "Arena A",
+              "top": 1000,
+              "base": 1002,
+              "kind": "formation",
+              "color": "#bbaa77"
+            }
+          ],
+          "params": {
+            "global": {
+              "grClean": 10,
+              "grShale": 120
+            },
+            "zones": {
+              "a": {
+                "grShale": 110
+              }
+            }
+          },
+          "sources": {
+            "VSH": {
+              "kind": "curve",
+              "curveId": "VSH_imported"
+            }
+          },
+          "compare": [
+            "vsh-larionov-old"
+          ],
+          "disabled": []
+        }
+      }
+    ]
+  }
+}

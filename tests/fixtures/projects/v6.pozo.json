@@ -1,0 +1,568 @@
+{
+  "format": "pozo-proyecto",
+  "version": 6,
+  "savedAt": "2026-10-01T00:00:00.000Z",
+  "project": {
+    "name": "Compatibilidad v6",
+    "activeWellId": "w1",
+    "wells": [
+      {
+        "well": {
+          "id": "w1",
+          "name": "Pozo de compatibilidad",
+          "header": {
+            "UWI": {
+              "value": "FIXTURE-001"
+            },
+            "KB": {
+              "value": 25.5,
+              "unit": "m"
+            }
+          },
+          "depth": {
+            "unit": "m",
+            "sourceUnit": "ft",
+            "values": {
+              "codec": "f64le-shuffle-deflate-b64",
+              "length": 5,
+              "data": "eJxjYMABHFw8fAL6QcABBAAsYAV0"
+            }
+          },
+          "curves": [
+            {
+              "id": "GR",
+              "mnemonic": "GR",
+              "description": "Medición sintética de compatibilidad",
+              "role": "GR",
+              "unit": "gAPI",
+              "origin": {
+                "kind": "measured",
+                "source": "compatibilidad.las"
+              },
+              "data": {
+                "codec": "f64le-shuffle-deflate-b64",
+                "length": 5,
+                "data": "eJxjYMANGhhMfrhE+znUOzg4AAAcFQQZ"
+              }
+            },
+            {
+              "id": "VSH_imported",
+              "mnemonic": "VSH_imported",
+              "description": "Medición sintética de compatibilidad",
+              "role": "VSH",
+              "unit": "v/v",
+              "origin": {
+                "kind": "measured",
+                "source": "compatibilidad.las"
+              },
+              "data": {
+                "codec": "f64le-shuffle-deflate-b64",
+                "length": 5,
+                "data": "eJybZcxwlmGmMcMZrMTKwz+eXLC3r7e3BwActA8m"
+              }
+            },
+            {
+              "id": "AUX",
+              "mnemonic": "AUX",
+              "description": "Medición sintética de compatibilidad",
+              "role": null,
+              "unit": "unitless",
+              "origin": {
+                "kind": "measured",
+                "source": "compatibilidad.las"
+              },
+              "data": {
+                "codec": "f64le-shuffle-deflate-b64",
+                "length": 5,
+                "data": "eJxjYGBgiARihs8g4geIOAQi5EFEHsOHDz+WNtT/r2cEAHzrCY8="
+              }
+            }
+          ],
+          "pointSets": [
+            {
+              "id": "mdt",
+              "kind": "pressure",
+              "name": "MDT sintético",
+              "synthetic": true,
+              "source": "mdt.csv",
+              "pointIds": [
+                "test-1",
+                "test-2"
+              ],
+              "depth": {
+                "codec": "f64le-shuffle-deflate-b64",
+                "length": 2,
+                "data": "eJxjYIABF5f+fgcHAAelAic="
+              },
+              "columns": {
+                "pressure": {
+                  "label": "Presión",
+                  "unit": "psi",
+                  "values": {
+                    "codec": "f64le-shuffle-deflate-b64",
+                    "length": 2,
+                    "data": "eJxjYIABh5D58x0cAAhNAlM="
+                  }
+                },
+                "fluid": {
+                  "label": "Fluido",
+                  "text": [
+                    "water",
+                    "oil"
+                  ]
+                }
+              }
+            },
+            {
+              "id": "core",
+              "kind": "core",
+              "name": "Corona sintética",
+              "synthetic": true,
+              "source": "core.csv",
+              "pointIds": [
+                "plug-1",
+                "plug-2"
+              ],
+              "depth": {
+                "codec": "f64le-shuffle-deflate-b64",
+                "length": 2,
+                "data": "eJxjYIABJ6/+fgcHAAe3Ais="
+              },
+              "columns": {
+                "phi": {
+                  "label": "Porosidad",
+                  "unit": "v/v",
+                  "values": {
+                    "codec": "f64le-shuffle-deflate-b64",
+                    "length": 2,
+                    "data": "eJzjYrjOsJihgMGWgYvh+A/7egAhmwS5"
+                  }
+                },
+                "run": {
+                  "label": "Corona",
+                  "text": [
+                    "C1",
+                    "C1"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "interpretation": {
+          "zones": [
+            {
+              "id": "a",
+              "name": "Arena A",
+              "top": 1000,
+              "base": 1002,
+              "kind": "formation",
+              "color": "#bbaa77"
+            }
+          ],
+          "params": {
+            "global": {
+              "grClean": 20,
+              "grShale": 120
+            },
+            "zones": {
+              "a": {
+                "grShale": 110
+              }
+            }
+          },
+          "sources": {
+            "VSH": {
+              "kind": "curve",
+              "curveId": "VSH_imported"
+            }
+          },
+          "compare": [
+            "vsh-larionov-old"
+          ],
+          "disabled": [],
+          "trends": [
+            {
+              "id": "trend-gr",
+              "name": "Tendencia GR",
+              "visible": true,
+              "series": {
+                "provider": "curve",
+                "key": "m:GR"
+              },
+              "model": "linear",
+              "mode": "fit",
+              "selection": {
+                "top": 1000,
+                "base": 1002,
+                "zoneId": "a",
+                "excluded": [
+                  "1000.5"
+                ]
+              },
+              "extend": false
+            }
+          ],
+          "pointSets": {
+            "mdt": {
+              "points": {
+                "test-2": {
+                  "status": "exclude",
+                  "tag": "oil"
+                }
+              }
+            },
+            "core": {
+              "points": {
+                "plug-2": {
+                  "status": "exclude"
+                }
+              },
+              "depthShift": 1.25,
+              "runShifts": {
+                "C1": -0.5
+              }
+            }
+          },
+          "toolString": {
+            "mode": "data",
+            "off": [
+              "sonic"
+            ],
+            "order": [
+              "gr",
+              "density"
+            ],
+            "plan": [
+              "gr",
+              "density"
+            ],
+            "planOff": []
+          }
+        },
+        "progress": {
+          "marks": {
+            "qc": "done",
+            "porosity": "skipped"
+          }
+        }
+      },
+      {
+        "well": {
+          "id": "w2",
+          "name": "Segundo pozo",
+          "header": {
+            "UWI": {
+              "value": "FIXTURE-001"
+            },
+            "KB": {
+              "value": 25.5,
+              "unit": "m"
+            }
+          },
+          "depth": {
+            "unit": "m",
+            "sourceUnit": "ft",
+            "values": {
+              "codec": "f64le-shuffle-deflate-b64",
+              "length": 5,
+              "data": "eJxjYMABHJxc3Dzmg4ADCAAALfAFsA=="
+            }
+          },
+          "curves": [
+            {
+              "id": "GR",
+              "mnemonic": "GR",
+              "description": "Medición sintética de compatibilidad",
+              "role": "GR",
+              "unit": "gAPI",
+              "origin": {
+                "kind": "measured",
+                "source": "compatibilidad.las"
+              },
+              "data": {
+                "codec": "f64le-shuffle-deflate-b64",
+                "length": 5,
+                "data": "eJxjYMADGuxcPP0CHUAAABSIAys="
+              }
+            },
+            {
+              "id": "VSH_imported",
+              "mnemonic": "VSH_imported",
+              "description": "Medición sintética de compatibilidad",
+              "role": "VSH",
+              "unit": "v/v",
+              "origin": {
+                "kind": "measured",
+                "source": "compatibilidad.las"
+              },
+              "data": {
+                "codec": "f64le-shuffle-deflate-b64",
+                "length": 5,
+                "data": "eJybNct4FsPMmcYzsRI7T16++cAeBABcaBFB"
+              }
+            },
+            {
+              "id": "AUX",
+              "mnemonic": "AUX",
+              "description": "Medición sintética de compatibilidad",
+              "role": null,
+              "unit": "unitless",
+              "origin": {
+                "kind": "measured",
+                "source": "compatibilidad.las"
+              },
+              "data": {
+                "codec": "f64le-shuffle-deflate-b64",
+                "length": 5,
+                "data": "eJxjYMALPjBwCDDYOzg4AAALrAII"
+              }
+            }
+          ],
+          "pointSets": []
+        },
+        "interpretation": {
+          "zones": [
+            {
+              "id": "a",
+              "name": "Arena A",
+              "top": 2000,
+              "base": 2002,
+              "kind": "formation",
+              "color": "#bbaa77"
+            }
+          ],
+          "params": {
+            "global": {
+              "grClean": 20,
+              "grShale": 120
+            },
+            "zones": {
+              "a": {
+                "grShale": 110
+              }
+            }
+          },
+          "sources": {
+            "VSH": {
+              "kind": "curve",
+              "curveId": "VSH_imported"
+            }
+          },
+          "compare": [
+            "vsh-larionov-old"
+          ],
+          "disabled": [],
+          "trends": [],
+          "pointSets": {},
+          "toolString": {
+            "mode": "data",
+            "off": [
+              "sonic"
+            ],
+            "order": [
+              "gr",
+              "density"
+            ],
+            "plan": [
+              "gr",
+              "density"
+            ],
+            "planOff": []
+          }
+        },
+        "progress": {
+          "marks": {
+            "qc": "done",
+            "porosity": "skipped"
+          }
+        }
+      }
+    ],
+    "snapshots": [
+      {
+        "id": "snap-base",
+        "name": "Base interpretativa",
+        "wellId": "w1",
+        "createdAt": "2026-10-01T00:00:00.000Z",
+        "interpretation": {
+          "zones": [
+            {
+              "id": "a",
+              "name": "Arena A",
+              "top": 1000,
+              "base": 1002,
+              "kind": "formation",
+              "color": "#bbaa77"
+            }
+          ],
+          "params": {
+            "global": {
+              "grClean": 10,
+              "grShale": 120
+            },
+            "zones": {
+              "a": {
+                "grShale": 110
+              }
+            }
+          },
+          "sources": {
+            "VSH": {
+              "kind": "curve",
+              "curveId": "VSH_imported"
+            }
+          },
+          "compare": [
+            "vsh-larionov-old"
+          ],
+          "disabled": [],
+          "trends": [
+            {
+              "id": "trend-gr",
+              "name": "Tendencia GR",
+              "visible": true,
+              "series": {
+                "provider": "curve",
+                "key": "m:GR"
+              },
+              "model": "linear",
+              "mode": "fit",
+              "selection": {
+                "top": 1000,
+                "base": 1002,
+                "zoneId": "a",
+                "excluded": [
+                  "1000.5"
+                ]
+              },
+              "extend": false
+            }
+          ],
+          "pointSets": {
+            "mdt": {
+              "points": {
+                "test-2": {
+                  "status": "exclude",
+                  "tag": "oil"
+                }
+              }
+            },
+            "core": {
+              "points": {
+                "plug-2": {
+                  "status": "exclude"
+                }
+              },
+              "depthShift": 1.25,
+              "runShifts": {
+                "C1": -0.5
+              }
+            }
+          },
+          "toolString": {
+            "mode": "data",
+            "off": [
+              "sonic"
+            ],
+            "order": [
+              "gr",
+              "density"
+            ],
+            "plan": [
+              "gr",
+              "density"
+            ],
+            "planOff": []
+          }
+        }
+      }
+    ],
+    "display": {
+      "layouts": {
+        "petrophysics": [
+          {
+            "id": "gr-custom",
+            "title": "GR propio",
+            "kind": "curves",
+            "width": 1.5,
+            "curves": [
+              {
+                "select": {
+                  "role": "GR"
+                }
+              }
+            ]
+          },
+          {
+            "id": "depth",
+            "title": "Prof.",
+            "kind": "depth"
+          }
+        ]
+      },
+      "roles": {
+        "GR": {
+          "min": 0,
+          "max": 150,
+          "color": "#008844"
+        }
+      },
+      "curves": {
+        "w1": {
+          "GR": {
+            "line": "dashed",
+            "width": 1.25
+          }
+        }
+      },
+      "plots": {
+        "w1": {
+          "histogram": {
+            "curve": "m:GR",
+            "scale": "linear",
+            "bins": 12,
+            "zones": [
+              "a"
+            ],
+            "byZone": true,
+            "normalize": false,
+            "cumulative": true,
+            "cutoffs": {
+              "r:VSH": true,
+              "m:GR": 75
+            }
+          }
+        }
+      },
+      "trackTemplates": [
+        {
+          "id": "custom-template",
+          "name": "Mis pistas",
+          "workspace": "petrophysics",
+          "tracks": [
+            {
+              "id": "gr-custom",
+              "title": "GR propio",
+              "kind": "curves",
+              "width": 1.5,
+              "curves": [
+                {
+                  "select": {
+                    "role": "GR"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "depth",
+              "title": "Prof.",
+              "kind": "depth"
+            }
+          ],
+          "savedAt": "2026-10-01T00:00:00.000Z"
+        }
+      ]
+    }
+  }
+}

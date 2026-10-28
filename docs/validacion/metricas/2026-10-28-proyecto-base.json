@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "measuredAt": "2026-10-28T14:46:04.802Z",
+  "scope": "Node/Vite SSR, TP, codec auto, 1 warmup + 5 samples; no browser or worker",
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logicalCpus": 3,
+    "hostMemoryBytes": 10452471808
+  },
+  "dataset": {
+    "samples": 5810,
+    "curves": 18,
+    "zones": 5,
+    "savedBytes": 290153,
+    "savedSHA256": "20d3a825fdd8a148c3ac33f0a7c1241bd47726ffbd1303dfd94671c6c5e5dc3a"
+  },
+  "timings": {
+    "serializeMs": {
+      "median": 52.46742200000017,
+      "maximum": 66.63725400000021,
+      "samples": [
+        52.46742200000017,
+        66.63725400000021,
+        51.110507000000325,
+        46.20233999999982,
+        54.49005799999941
+      ]
+    },
+    "deserializeMs": {
+      "median": 6.865116999999373,
+      "maximum": 16.413261000000148,
+      "samples": [
+        9.00079199999982,
+        16.413261000000148,
+        6.865116999999373,
+        4.790002000000641,
+        4.710252999999284
+      ]
+    },
+    "computeMs": {
+      "median": 905.6389829999998,
+      "maximum": 913.1865030000004,
+      "samples": [
+        906.4342539999998,
+        913.1865030000004,
+        888.918318,
+        905.6389829999998,
+        899.391611
+      ]
+    }
+  },
+  "sampledProcessMemory": {
+    "maximumRssBytes": 491274240,
+    "maximumArrayBuffersBytes": 43144934,
+    "samples": [
+      {
+        "rss": 475414528,
+        "heapTotal": 199106560,
+        "heapUsed": 81499496,
+        "external": 54027920,
+        "arrayBuffers": 36004418
+      },
+      {
+        "rss": 478400512,
+        "heapTotal": 195960832,
+        "heapUsed": 89710328,
+        "external": 53928750,
+        "arrayBuffers": 37885788
+      },
+      {
+        "rss": 483991552,
+        "heapTotal": 195960832,
+        "heapUsed": 81244272,
+        "external": 53956982,
+        "arrayBuffers": 39894600
+      },
+      {
+        "rss": 486735872,
+        "heapTotal": 195698688,
+        "heapUsed": 65380648,
+        "external": 55221467,
+        "arrayBuffers": 43144934
+      },
+      {
+        "rss": 491274240,
+        "heapTotal": 195698688,
+        "heapUsed": 57476736,
+        "external": 44647486,
+        "arrayBuffers": 34551533
+      }
+    ],
+    "caveat": "Muestras de todo el proceso con Vite/modelos cargados; no pico real ni memoria atribuible solo al proyecto. Sin GC forzado."
+  },
+  "hashes": {
+    "src/core/state/serialize.ts": "bba95d36ec7a4c4c4527725123beb9ef6a48d7086e41136ef5c3f4141e39c009",
+    "src/core/state/snapshots.ts": "cb056d826a2117a3dc402f7bf1b165cc130e91f3f55a01cca85e2e15512559df",
+    "src/core/state/project.ts": "7c4ce05932c93b19370ec59cdc173978b63e536aeeff479dc2c20b811dd0b1c4",
+    "datos/pozo_tp_perfiles.csv": "13cbbdce49f33082a1f4ab07babcb9f321f9b47acb2234204bfb189f55030b2e"
+  }
+}
