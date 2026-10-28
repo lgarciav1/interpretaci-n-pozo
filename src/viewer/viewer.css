@@ -30,6 +30,16 @@
 @container wvbar (max-width: 40em) { .wv-toolbar__scale { display: none; } }
 .wv-toolbar__end { display: flex; align-items: center; gap: var(--space-2-5); flex: none; }
 .wv-toolbar__range { color: var(--color-text); font-size: var(--text-sm); font-weight: var(--weight-medium); white-space: nowrap; }
+.wv-range-trigger { display: inline-flex; padding: 0; border: 0; background: transparent; font: inherit; cursor: pointer; border-radius: var(--radius-xs); }
+.wv-range-trigger:hover .wv-toolbar__range { text-decoration: underline; text-underline-offset: 3px; }
+.wv-range-trigger:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
+.wv-range { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-3); }
+.wv-range__head, .wv-range__actions { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.wv-range__head { justify-content: space-between; }
+.wv-range__fields { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); margin-bottom: var(--space-3); }
+.wv-range__fields .ui-input { min-width: 0; }
+.wv-range__hint { margin: 0; color: var(--color-text-muted); font-size: var(--text-xs); }
+.wv-range__error { color: var(--color-error-text); font-size: var(--text-sm); }
 .wv-toolbar__scale {
   padding: 1px var(--space-1-5);
   border-radius: var(--radius-xs);
