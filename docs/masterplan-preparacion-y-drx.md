@@ -754,3 +754,14 @@ Resultado: **2.451 pruebas en 148 archivos**, sin fallos/omisiones, typecheck y 
 Se documentó el límite actual: snapshots v1–v6 no conservan entradas históricas. La migración los asociará a los datos disponibles con inputBinding=legacy-current-inputs; snapshots nuevos fijarán su revisión. La corrección de ese límite aún requiere código P1, incluido runner aislado y pruebas tras cambiar laboratorio.
 
 Esta entrega aporta contratos, corpus y métricas a P0, sin declarar completadas todas sus puertas: faltan archivos históricos reales, datos de adquisición y medición en navegador/equipo objetivo. La falta de modelo/lodo/correcciones adquiridas impide admitir correcciones físicas, pero no avanzar con revisiones y preparación básica. Próxima entrega: P1 (revisiones + snapshots fijados + guardar/abrir/migración), separada de limpieza/DRX/correcciones. Main permanece intacto y se mantiene el pedido de no mergear.
+
+
+## 24. P1a: modelo aislado de revisiones (2026-10-29)
+
+[PR #40](https://github.com/lgarciav1/interpretaci-n-pozo/pull/40), basado en #39 sin integrar ninguno: agrega src/core/inputs con adquisición declarada, revisiones iniciales/hijas y referencia activa por pozo en un modelo independiente de Project. Copia entradas externas, comparte arrays sin cambios por sus bytes, congela metadatos/contenedores y entrega una copia explícita para editar. Un no-op conserva la referencia del estado. El modelo rechaza dimensiones/referencias inválidas, ciclos y dos raíces por pozo antes de publicar; no repara silenciosamente los datos.
+
+Verificación: **2.515 pruebas en 149 archivos**, sin fallos ni omisiones; incluye 64 pruebas nuevas, TP completo/demo y corpus v1–v6. Typecheck, build y diff check aprobados. Payloads NaN, ceros con signo, subarrays, buffers externos, adquisición, fuentes y serialización vigente comprobados. HTML idéntico byte a byte al de #39: 5.415.233 bytes, SHA-256 feff041b73ab6c9f06c233ba4545cac992a49fc546f78b75536e49ca035999ef. [Evidencia y límites](https://github.com/lgarciav1/interpretaci-n-pozo/blob/codex/modelo-revisiones-entradas/docs/validacion/2026-10-29-modelo-revisiones.md).
+
+P1a aún no se importa desde producción: no cambia Project, snapshots, motor, UI ni formato v6. Los Float64Array publicados son de lectura por contrato; no se promete impedir escrituras directas que eludan las APIs. Id/fecha se suministran explícitamente; solo se implementó el formateador de 16 bytes. La generación con fallback y la persistencia/integridad de blobs siguen pendientes.
+
+Próxima entrega P1b: integrar revisiones y alias de Well en Project, fijar/restaurar snapshots con sus datos y resolver su revisión en el runner aislado, con pruebas tras importar/reemplazar laboratorio. Persistencia/migración v7 se mantiene en una entrega posterior. DRX y preparación/correcciones aún no están habilitados. Main permanece intacto y ningún PR fue mergeado.
