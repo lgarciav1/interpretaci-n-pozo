@@ -1,0 +1,216 @@
+{
+  "parentRemoteCommit": "fb1db6f023ffb4bda840978d701b19f557ccbc01",
+  "parent": {
+    "schemaVersion": 1,
+    "measuredAt": "2026-10-29T22:42:38.456Z",
+    "scope": "Node/Vite SSR, TP, codec auto, 1 warmup + 5 samples; no browser or worker",
+    "environment": {
+      "node": "v24.19.0",
+      "platform": "linux",
+      "arch": "x64",
+      "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+      "logicalCpus": 3,
+      "hostMemoryBytes": 10452471808
+    },
+    "dataset": {
+      "samples": 5810,
+      "curves": 18,
+      "zones": 5,
+      "savedBytes": 290153,
+      "savedSHA256": "20d3a825fdd8a148c3ac33f0a7c1241bd47726ffbd1303dfd94671c6c5e5dc3a"
+    },
+    "timings": {
+      "serializeMs": {
+        "median": 37.03799899999967,
+        "maximum": 45.47233200000028,
+        "samples": [
+          33.29637099999991,
+          37.03799899999967,
+          45.47233200000028,
+          40.30363099999977,
+          33.38144800000009
+        ]
+      },
+      "deserializeMs": {
+        "median": 6.092583999999988,
+        "maximum": 10.25191199999972,
+        "samples": [
+          5.9198200000000725,
+          6.092583999999988,
+          7.677275999999438,
+          10.25191199999972,
+          5.036653999999544
+        ]
+      },
+      "computeMs": {
+        "median": 782.1393320000006,
+        "maximum": 843.106769,
+        "samples": [
+          843.106769,
+          815.365053,
+          782.1393320000006,
+          779.0232249999999,
+          759.8613779999996
+        ]
+      }
+    },
+    "sampledProcessMemory": {
+      "maximumRssBytes": 801947648,
+      "maximumArrayBuffersBytes": 72690509,
+      "samples": [
+        {
+          "rss": 751882240,
+          "heapTotal": 200556544,
+          "heapUsed": 124919464,
+          "external": 60190634,
+          "arrayBuffers": 42164157
+        },
+        {
+          "rss": 763523072,
+          "heapTotal": 206352384,
+          "heapUsed": 107474904,
+          "external": 65776146,
+          "arrayBuffers": 49730209
+        },
+        {
+          "rss": 777932800,
+          "heapTotal": 211099648,
+          "heapUsed": 96519368,
+          "external": 71361618,
+          "arrayBuffers": 57296261
+        },
+        {
+          "rss": 794333184,
+          "heapTotal": 216109056,
+          "heapUsed": 131492272,
+          "external": 77078162,
+          "arrayBuffers": 64993385
+        },
+        {
+          "rss": 801947648,
+          "heapTotal": 220594176,
+          "heapUsed": 104936536,
+          "external": 82794706,
+          "arrayBuffers": 72690509
+        }
+      ],
+      "caveat": "Muestras de todo el proceso con Vite/modelos cargados; no pico real ni memoria atribuible solo al proyecto. Sin GC forzado."
+    },
+    "hashes": {
+      "src/core/state/serialize.ts": "bba95d36ec7a4c4c4527725123beb9ef6a48d7086e41136ef5c3f4141e39c009",
+      "src/core/state/snapshots.ts": "cb056d826a2117a3dc402f7bf1b165cc130e91f3f55a01cca85e2e15512559df",
+      "src/core/state/project.ts": "7c4ce05932c93b19370ec59cdc173978b63e536aeeff479dc2c20b811dd0b1c4",
+      "datos/pozo_tp_perfiles.csv": "13cbbdce49f33082a1f4ab07babcb9f321f9b47acb2234204bfb189f55030b2e"
+    }
+  },
+  "candidate": {
+    "schemaVersion": 1,
+    "measuredAt": "2026-10-29T22:42:53.928Z",
+    "scope": "Node/Vite SSR, TP, codec auto, 1 warmup + 5 samples; no browser or worker",
+    "environment": {
+      "node": "v24.19.0",
+      "platform": "linux",
+      "arch": "x64",
+      "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+      "logicalCpus": 3,
+      "hostMemoryBytes": 10452471808
+    },
+    "dataset": {
+      "samples": 5810,
+      "curves": 18,
+      "zones": 5,
+      "savedBytes": 290153,
+      "savedSHA256": "20d3a825fdd8a148c3ac33f0a7c1241bd47726ffbd1303dfd94671c6c5e5dc3a"
+    },
+    "timings": {
+      "serializeMs": {
+        "median": 34.222961000000396,
+        "maximum": 37.64139400000022,
+        "samples": [
+          34.397677999999814,
+          37.64139400000022,
+          34.162569000000076,
+          30.049227999999857,
+          34.222961000000396
+        ]
+      },
+      "deserializeMs": {
+        "median": 7.373838999999862,
+        "maximum": 8.33359500000006,
+        "samples": [
+          7.405479999999898,
+          6.3397869999998875,
+          7.373838999999862,
+          6.700812999999471,
+          8.33359500000006
+        ]
+      },
+      "computeMs": {
+        "median": 782.1480819999997,
+        "maximum": 838.7150769999998,
+        "samples": [
+          838.7150769999998,
+          795.5695360000004,
+          781.1188400000001,
+          782.1480819999997,
+          780.776965
+        ]
+      }
+    },
+    "sampledProcessMemory": {
+      "maximumRssBytes": 831660032,
+      "maximumArrayBuffersBytes": 67559019,
+      "samples": [
+        {
+          "rss": 771600384,
+          "heapTotal": 204902400,
+          "heapUsed": 109026344,
+          "external": 55143736,
+          "arrayBuffers": 37117259
+        },
+        {
+          "rss": 785113088,
+          "heapTotal": 210698240,
+          "heapUsed": 96522152,
+          "external": 60794784,
+          "arrayBuffers": 44748847
+        },
+        {
+          "rss": 805298176,
+          "heapTotal": 215707648,
+          "heapUsed": 144588528,
+          "external": 66492272,
+          "arrayBuffers": 52426915
+        },
+        {
+          "rss": 811302912,
+          "heapTotal": 220192768,
+          "heapUsed": 115864480,
+          "external": 72077744,
+          "arrayBuffers": 59992967
+        },
+        {
+          "rss": 831660032,
+          "heapTotal": 224677888,
+          "heapUsed": 145701552,
+          "external": 77663216,
+          "arrayBuffers": 67559019
+        }
+      ],
+      "caveat": "Muestras de todo el proceso con Vite/modelos cargados; no pico real ni memoria atribuible solo al proyecto. Sin GC forzado."
+    },
+    "hashes": {
+      "src/core/state/serialize.ts": "c99e5d5f58cfa2c17489615bc8fdfc129a6fd37c3c037047a3d9a9d2b9d58669",
+      "src/core/state/snapshots.ts": "18cd0be1cc5ba31c25c1ccf64a7b7c3ccc7444d3467c2e6d671e376fa18966ca",
+      "src/core/state/project.ts": "27ec81cdc76531c98763e5b262aef3c430e7b2d399854e378710b293408abc74",
+      "datos/pozo_tp_perfiles.csv": "13cbbdce49f33082a1f4ab07babcb9f321f9b47acb2234204bfb189f55030b2e"
+    }
+  },
+  "medianRatios": {
+    "serializeMs": 0.9239959480532601,
+    "deserializeMs": 1.210297469842004,
+    "computeMs": 1.0000111872650321
+  },
+  "gate": 1.25,
+  "scope": "Legacy v6 only; Node/Vite SSR, not browser/worker or revision-mode persistence."
+}

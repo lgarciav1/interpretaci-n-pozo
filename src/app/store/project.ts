@@ -10,6 +10,7 @@
 import { create } from 'zustand';
 import { cancelGroup, emptyHistory, recordChange, redo, redoLabelOf, undo, undoLabelOf, type History } from '../../core/state/history';
 import { activeWellEntry, createProject, type Project, type WellEntry } from '../../core/state/project';
+import { projectInputState } from '../../core/state/inputRevisions';
 
 export interface ProjectStore {
   project: Project;
@@ -54,6 +55,7 @@ export const useProject = create<ProjectStore>()((set, get) => ({
     const { project: prev, history } = get();
     const next = recipe(prev);
     if (next === prev) return;
+    projectInputState(next);
     set({ project: next, lastChange: label, ...historyState(recordChange(history, prev, label, historyClock.now(), undefined, opts?.group)) });
   },
   cancelGroup(group) {
@@ -62,6 +64,7 @@ export const useProject = create<ProjectStore>()((set, get) => ({
     set({ project: step.project, lastChange: null, ...historyState(step.history) });
   },
   replace(project, label = 'Abrir proyecto') {
+    projectInputState(project);
     set({ project, lastChange: label, ...historyState(emptyHistory()) });
   },
   undo() {
@@ -83,3 +86,4 @@ export const useProject = create<ProjectStore>()((set, get) => ({
 export function selectActiveEntry(s: ProjectStore): WellEntry | null {
   return activeWellEntry(s.project);
 }
+

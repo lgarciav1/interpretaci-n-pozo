@@ -1,7 +1,8 @@
 /**
  * Snapshots con nombre del estado de interpretación y comparación entre dos estados.
  * Un snapshot guarda la interpretación completa de un pozo (zonas, parámetros, fuentes elegidas, comparaciones,
- * módulos desactivados, sarta de perfilaje); no guarda datos de curvas ni resultados (se recalculan).
+ * módulos desactivados, sarta de perfilaje). En modo legado no conserva datos históricos; en el modo optativo
+ * de revisiones fija inputRevisionId. Los resultados siempre se recalculan.
  */
 import { sourceRefEquals, type Interpretation, type SourceRef } from '../interpretation';
 import type { ParamValue } from '../params';
@@ -9,6 +10,7 @@ import type { Registry } from '../registry';
 import { toolStringOf, type ToolStringMode } from '../toolString';
 import type { Zone } from '../well';
 import { getWellEntry, makeId, updateInterpretation, type Project, type Snapshot } from './project';
+import { projectInputState, resolveSnapshotInputs } from './inputRevisions';
 
 function cloneInterpretation(i: Interpretation): Interpretation {
   return structuredClone(i);
@@ -21,13 +23,16 @@ export function createSnapshot(
   opts: { id?: string; createdAt?: string } = {},
 ): { project: Project; snapshot: Snapshot } {
   const entry = getWellEntry(project, wellId);
+  const inputs = projectInputState(project);
   const snapshot: Snapshot = {
     id: opts.id ?? makeId('snap'),
     name: name.trim() || `Snapshot ${project.snapshots.length + 1}`,
     wellId,
     createdAt: opts.createdAt ?? new Date().toISOString(),
     interpretation: cloneInterpretation(entry.interpretation),
+    ...(inputs ? { inputRevisionId: entry.inputRevisionId!, inputBinding: 'pinned' as const } : {}),
   };
+  if (inputs && project.snapshots.some((s) => s.id === snapshot.id)) throw new Error('El id del snapshot ya existe.');
   return { project: { ...project, snapshots: [...project.snapshots, snapshot] }, snapshot };
 }
 
@@ -35,10 +40,15 @@ export function listSnapshots(project: Project, wellId?: string): Snapshot[] {
   return project.snapshots.filter((s) => wellId === undefined || s.wellId === wellId);
 }
 
-/** Restaura la interpretación del pozo del snapshot (los snapshots existentes no se tocan). */
+/** Restaura interpretación y, si está fijada, su revisión de entradas; conserva progreso/display y snapshots. */
 export function restoreSnapshot(project: Project, snapshotId: string): Project {
   const snap = project.snapshots.find((s) => s.id === snapshotId);
   if (!snap) throw new Error(`No existe el snapshot '${snapshotId}'.`);
+  const inputs = resolveSnapshotInputs(project, snap);
+  if (inputs.inputRevisionId !== null) {
+    const wells = project.wells.map((e) => e.well.id === snap.wellId ? { ...e, well: inputs.well, inputRevisionId: inputs.inputRevisionId!, interpretation: cloneInterpretation(snap.interpretation) } : e);
+    return { ...project, wells };
+  }
   return updateInterpretation(project, snap.wellId, () => cloneInterpretation(snap.interpretation));
 }
 
@@ -161,3 +171,4 @@ export function describeDiff(entry: DiffEntry, ctx: { registry?: Registry; zones
       return `${ctx.registry?.tools.get(entry.toolId)?.name ?? entry.toolId} ${entry.change === 'added' ? 'se agrega a' : 'se quita de'} la sarta planificada`;
   }
 }
+

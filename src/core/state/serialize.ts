@@ -15,6 +15,7 @@ import { sanitizeToolString } from '../toolString';
 import { sanitizeTrends } from '../trends';
 import { createWell, type Curve, type Well } from '../well';
 import { emptyProgress, type FlowProgress, type Project, type Snapshot } from './project';
+import { containsInputRevisions } from './inputRevisions';
 
 export const PROJECT_FORMAT = 'pozo-proyecto';
 /**
@@ -174,6 +175,7 @@ function defaultCodec(): CodecChoice {
 // Proyecto
 
 export async function serializeProject(project: Project, opts: { codec?: CodecChoice; savedAt?: string } = {}): Promise<string> {
+  if (containsInputRevisions(project)) throw new Error('El formato v6 no puede conservar revisiones de entradas. Se requiere la persistencia de la próxima versión; no se guardó una copia incompleta.');
   const codec = opts.codec ?? defaultCodec();
   const wells = await Promise.all(
     project.wells.map(async ({ well, interpretation, progress }) => {
@@ -310,6 +312,7 @@ export async function deserializeProject(text: string, opts: DeserializeOptions 
   if (!file || file.format !== PROJECT_FORMAT || typeof file.version !== 'number' || !file.project) {
     throw new Error('El archivo no es un proyecto de esta app.');
   }
+  if (file.version <= PROJECT_VERSION && containsInputRevisions(file.project)) throw new Error('El archivo declara v6 o anterior pero contiene referencias a revisiones de entradas. No se pueden descartar esas referencias al abrirlo.');
   const { project } = migrate(file);
   const warn = opts.onWarning ?? ((m: string) => console.warn(`Proyecto: ${m}`));
   /** Tendencias y decisiones sobre puntos validadas al abrir: lo inválido se descarta con aviso (como `display`). */
@@ -359,3 +362,4 @@ export async function deserializeProject(text: string, opts: DeserializeOptions 
     display: sanitizeDisplay(project.display, warn),
   };
 }
+

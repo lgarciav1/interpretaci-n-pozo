@@ -13,9 +13,12 @@ import type { RoleId } from '../roles';
 import type { TrendSpec } from '../trends';
 import type { UnitId } from '../units';
 import type { Curve, Well, Zone } from '../well';
+import { copyInputWellForEdit, type InputRevision, type InputRevisionId } from '../inputs/revisions';
+import { attachAddedWellRevision, projectInputState, reviseProjectInputs, type RevisionStampFactory } from './inputRevisions';
 
 export interface WellEntry {
   well: Well;
+  inputRevisionId?: InputRevisionId;
   interpretation: Interpretation;
   /**
    * Marcas del usuario en el flujo guiado (paso → completo/saltado). Lo derivado del estado (pozo cargado, puertos
@@ -41,6 +44,8 @@ export interface Snapshot {
   /** ISO 8601. */
   createdAt: string;
   interpretation: Interpretation;
+  inputRevisionId?: InputRevisionId;
+  inputBinding?: 'pinned' | 'legacy-current-inputs';
 }
 
 export interface Project {
@@ -48,6 +53,8 @@ export interface Project {
   wells: WellEntry[];
   activeWellId: string | null;
   snapshots: Snapshot[];
+  /** Optativo hasta conectar la persistencia de revisiones; ausente conserva el modo v6. */
+  inputRevisions?: Readonly<Record<InputRevisionId, InputRevision>>;
   /**
    * Pistas propias y overrides de escala/color del visor (docs/decisiones/0005-visor-multipista.md, D3).
    * Fuera de `Interpretation`: no recalcula el motor ni entra en snapshots.
@@ -66,13 +73,15 @@ export function createProject(name = 'Proyecto sin nombre'): Project {
   return { name, wells: [], activeWellId: null, snapshots: [], display: emptyDisplay() };
 }
 
-export function addWell(project: Project, well: Well, zones: Zone[] = []): Project {
+export function addWell(project: Project, well: Well, zones: Zone[] = [], stamp?: RevisionStampFactory): Project {
+  const revisioned = projectInputState(project) !== null;
   if (project.wells.some((w) => w.well.id === well.id)) throw new Error(`Ya hay un pozo con el id '${well.id}'.`);
-  return {
+  const next = {
     ...project,
     wells: [...project.wells, { well, interpretation: emptyInterpretation(zones), progress: emptyProgress() }],
     activeWellId: project.activeWellId ?? well.id,
   };
+  return revisioned ? attachAddedWellRevision(project, next, well, stamp) : next;
 }
 
 export function getWellEntry(project: Project, wellId: string): WellEntry {
@@ -98,7 +107,12 @@ function mapWell(project: Project, wellId: string, fn: (e: WellEntry) => WellEnt
 }
 
 /** Aplica `fn` al pozo (datos) de una entrada. Si devuelve el mismo pozo, el proyecto no cambia. */
-export function updateWell(project: Project, wellId: string, fn: (w: Well) => Well): Project {
+export function updateWell(project: Project, wellId: string, fn: (w: Well) => Well, stamp?: RevisionStampFactory): Project {
+  const state = projectInputState(project);
+  if (state) {
+    const draft = copyInputWellForEdit(state, wellId);
+    return reviseProjectInputs(project, wellId, { well: fn(draft) }, stamp);
+  }
   return mapWell(project, wellId, (e) => {
     const well = fn(e.well);
     return well === e.well ? e : { ...e, well };
@@ -231,10 +245,10 @@ export function updateCurveMeta(
   curveId: string,
   patch: { role?: RoleId | null; unit?: UnitId; description?: string },
 ): Project {
-  return mapWell(project, wellId, (e) => {
-    if (!e.well.curves.some((c) => c.id === curveId)) throw new Error(`No existe la curva '${curveId}'.`);
-    const curves: Curve[] = e.well.curves.map((c) => (c.id === curveId ? { ...c, ...patch } : c));
-    return { ...e, well: { ...e.well, curves } };
+  return updateWell(project, wellId, (well) => {
+    if (!well.curves.some((c) => c.id === curveId)) throw new Error(`No existe la curva '${curveId}'.`);
+    const curves: Curve[] = well.curves.map((c) => (c.id === curveId ? { ...c, ...patch } : c));
+    return { ...well, curves };
   });
 }
 
@@ -305,3 +319,4 @@ export function setOverlaySetting(project: Project, overlayId: string, key: stri
   const { overlays: _old, ...rest } = project.display;
   return { ...project, display: Object.keys(overlays).length ? { ...rest, overlays } : rest };
 }
+
