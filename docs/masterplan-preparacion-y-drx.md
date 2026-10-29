@@ -765,3 +765,16 @@ Verificación: **2.515 pruebas en 149 archivos**, sin fallos ni omisiones; inclu
 P1a aún no se importa desde producción: no cambia Project, snapshots, motor, UI ni formato v6. Los Float64Array publicados son de lectura por contrato; no se promete impedir escrituras directas que eludan las APIs. Id/fecha se suministran explícitamente; solo se implementó el formateador de 16 bytes. La generación con fallback y la persistencia/integridad de blobs siguen pendientes.
 
 Próxima entrega P1b: integrar revisiones y alias de Well en Project, fijar/restaurar snapshots con sus datos y resolver su revisión en el runner aislado, con pruebas tras importar/reemplazar laboratorio. Persistencia/migración v7 se mantiene en una entrega posterior. DRX y preparación/correcciones aún no están habilitados. Main permanece intacto y ningún PR fue mergeado.
+
+
+## 25. P1b en borrador: Project y snapshots con revisiones (2026-10-29)
+
+[PR #41](https://github.com/lgarciav1/interpretaci-n-pozo/pull/41), encadenado sobre #40, **borrador con validación de navegador pendiente**. Conecta el mapa de revisiones con los aliases Well de Project, activa revisiones solo mediante API explícita y fija snapshots nuevos a sus entradas. Restaurar recupera Well, revisión e interpretación juntos; comparar resuelve las curvas y profundidad propias de cada estado. La cortina rechaza grillas/laboratorio incompatibles. Se incluyen generación de identidad con fallback y validación antes de publicar cambios.
+
+El formato vigente sigue en v6. Los proyectos normales no activan revisiones y conservan su guardado; las APIs experimentales rechazan guardar como v6 para impedir pérdida del historial. No existe activación desde la UI. El archivo/migración v7 sigue pendiente en P1c.
+
+Verificación aprobada: **2.557 pruebas en 150 archivos**, sin fallos/omisiones; 42 nuevas, typecheck, build y diff check. El recorrido parcial de navegador mantiene geometría inicial, comparación inicial y exportaciones LAS/SVG iguales al padre. Medición Node/Vite SSR en TP legado: medianas guardar/abrir/calcular 37,04/6,09/782,14 → 34,22/7,37/782,15 ms; cocientes 0,924/1,210/1,000, bajo 1,25. Archivo TP idéntico (290.153 bytes y mismo SHA-256). No demuestra rendimiento en navegador ni persistencia de revisiones. HTML +17.063 bytes (~0,32 %), sin dependencias nuevas.
+
+**Puerta no aprobada:** a 1366×768, después de restaurar por teclado y cerrar el diálogo, Chromium se bloqueó. Un control usando el build padre también como candidato reproduce el bloqueo; el encabezado de tabla además intercepta el clic en Restaurar a ese tamaño. No se declara resuelto el problema ni se atribuye al nuevo modelo. Restauración/undo/redo/cortina/exportaciones posteriores por UI y la matriz reading_viewer permanecen sin aprobación en esta entrega. Las operaciones de dominio sí están probadas. [Evidencia, métricas y reproducción](https://github.com/lgarciav1/interpretaci-n-pozo/blob/codex/snapshots-revisiones-proyecto/docs/validacion/2026-10-29-project-snapshots-revisiones.md).
+
+Próximo paso inmediato: aislar/resolver el bloqueo y completar los recorridos de navegador antes de marcar #41 listo. Después, P1c (persistencia/migración v7, integridad y recuperación tras cerrar/abrir). P2, preparación básica, DRX y correcciones continúan pendientes. Main permanece intacto; ningún PR fue integrado/mergeado.
