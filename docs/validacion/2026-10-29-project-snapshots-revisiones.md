@@ -1,6 +1,6 @@
 # P1b: conexión optativa de Project y snapshots a revisiones
 
-Estado: **borrador; validación de navegador incompleta**.
+Estado: **validación completada; preparado para revisión, sin mergear**.
 
 Fecha: 2026-10-29. Base: PR #40, fb1db6f023ffb4bda840978d701b19f557ccbc01. Continúa el ADR 0033 y el masterplan #33, sin integrar ni mergear PRs.
 
@@ -30,19 +30,27 @@ La persistencia vigente sigue siendo v6. serializeProject rechaza proyectos con 
 - Typecheck, build y diff check aprobados.
 - Pruebas de restauración de curvas, laboratorio y decisiones tras reemplazar o quitar entradas; aliases, multipozo, no-op, errores atómicos, commit/undo/redo, ramificación, caché por revisión y seis fixtures v1–v6.
 - Fallback sin crypto, crypto con fallo, colisiones y límites de reintento comprobados.
-- HTML: 5.415.233 → 5.432.296 bytes (+17.063; ≈0,32 %), sin dependencias nuevas de producción. La lógica está enlazada, pero su activación sigue optativa.
+- HTML final: 5.415.233 → 5.432.496 bytes (+17.263; ≈0,32 %), sin dependencias nuevas de producción. La lógica está enlazada, pero su activación sigue optativa.
 
-### Navegador: validación parcial, entrega en borrador
+### Navegador: bloqueo resuelto y recorridos aprobados
 
-En Chromium a 1366×768 se comprobó igualdad de geometría inicial, comparación sin diferencias, guardado v6 sin marcadores de revisiones y exportaciones iniciales LAS/SVG iguales por bytes entre padre y candidato. El proyecto abierto con GR limpio=50 conserva el snapshot anterior y muestra la diferencia esperada.
+La investigación del bloqueo reproducido en el padre detectó **21.939 animaciones CSS ui-flash activas**, sobre una página de aproximadamente 62.000 elementos. La geometría permanecía estable y los timers avanzaban, pero casi no llegaban frames. La tabla FLOW_UNITS del TP contiene 1.790 filas y 26.850 celdas; animar sus miles de cambios simultáneamente impedía que terminaran las acciones/capturas.
 
-El recorrido completo **no pasó**: después de restaurar por teclado y cerrar el diálogo, Chromium se bloquea; guardar y capturar pantalla agotan su tiempo. El mismo script usando parent.html también como candidato reproduce el bloqueo. Además, a ese tamaño el encabezado de tabla intercepta el clic en Restaurar. Son observaciones reproducidas en el padre; no se atribuyen a esta entrega ni se consideran resueltas. No se aprobó restauración/undo/redo/cortina/exportaciones posteriores por UI. Las pruebas de dominio sí cubren esas operaciones. La matriz completa reading_viewer no se ejecutó en esta entrega. Un intento posterior de verificación amplia no llegó a ejecutarse; no aporta evidencia.
+ResultsPanel limita los destellos a tablas de hasta 200 celdas numéricas. Las mayores siguen mostrando todas las filas, columnas, unidades y valores; conservan los mismos spans/estilos de disposición sin activar useFlash. Se mantiene el feedback en tablas pequeñas y valores escalares. No se altera cálculo, datos ni exportación. El DOM completo de la tabla todavía se monta; no es una implementación de virtualización.
 
-Hashes SHA-256 iniciales iguales: LAS ce05261de2da6624cc0d94f2611ec20fe0125b62d15cbb60aafd8808fcca6c2b; SVG faed7fe0052c14429515ff1564a87477fb0de9d804de3b5d5991b4d4e8a726f8.
+La lista de snapshots ahora tiene flex-shrink:0 dentro del diálogo. La comparación extensa desplaza el cuerpo sin comprimir las acciones debajo de la cabecera fija. El recorrido final utiliza clics reales en Restaurar y Cortina, sin force ni APIs internas.
+
+En el diagnóstico posterior a restaurar/cerrar por teclado se observaron cero animaciones activas y 59/120/181 frames acumulados en tres lecturas de aproximadamente un segundo; antes fueron 1/2/2 frames con los timers avanzando y 21.939 animaciones. La captura posterior ahora termina. Son observaciones del entorno, no una garantía universal de FPS.
+
+**project_snapshots.py pasó completo** a 1366×768: igualdad de geometría y comparación inicial, guardado/apertura v6 sin marcadores de revisiones, diferencia de GR limpio=50, restauración, guardar, undo/redo, cortina y exportaciones posteriores. Las 1.790 filas de FLOW_UNITS y su contenido completo coinciden por hash entre padre, candidato y estado restaurado. LAS/SVG anteriores y posteriores coinciden por bytes. Sin excepciones de página.
+
+**reading_viewer.py pasó completo**: geometría normal idéntica al padre; lectura amplia reversible, teclado, preferencias propias/recarga, paneles y editores, las 47 curvas de fábrica, Geología, claro/oscuro a 1366×768, captura clara a 1920×1080 y DPR 2 a 1366×768. El proyecto y las exportaciones permanecen iguales. Sin excepciones de página. file:// sigue fuera de este recorrido HTTP local.
+
+[Resultados completos y hashes de builds](metricas/2026-10-29-project-snapshots-navegador.json). Hashes SHA-256 de exportaciones iguales: LAS ce05261de2da6624cc0d94f2611ec20fe0125b62d15cbb60aafd8808fcca6c2b; SVG faed7fe0052c14429515ff1564a87477fb0de9d804de3b5d5991b4d4e8a726f8.
 
 ### Rendimiento legado en Node
 
-Una vuelta de calentamiento y cinco medidas consecutivas por build, sin navegador concurrente. Medianas padre → candidato: guardar 37,04 → 34,22 ms; abrir 6,09 → 7,37 ms; calcular 782,14 → 782,15 ms. Cocientes 0,924 / 1,210 / 1,000; ninguno supera 1,25. No prueban rendimiento en navegador/equipo objetivo ni guardado de revisiones. [Mediciones completas](metricas/2026-10-29-project-revisions.json).
+Una vuelta de calentamiento y cinco medidas consecutivas por build, sin navegador concurrente. La medición antecede al ajuste visual; ese ajuste no cambia las rutas Node/core medidas. Medianas padre → candidato: guardar 37,04 → 34,22 ms; abrir 6,09 → 7,37 ms; calcular 782,14 → 782,15 ms. Cocientes 0,924 / 1,210 / 1,000; ninguno supera 1,25. No prueban rendimiento en navegador/equipo objetivo ni guardado de revisiones. [Mediciones completas](metricas/2026-10-29-project-revisions.json).
 
 Archivo TP de 290.153 bytes idéntico, SHA-256 20d3a825fdd8a148c3ac33f0a7c1241bd47726ffbd1303dfd94671c6c5e5dc3a. Las mediciones tienen variación normal de entorno y no son una garantía universal.
 
@@ -61,7 +69,7 @@ python3 scripts/qa/project_snapshots.py --url http://127.0.0.1:4173/ --output /t
 python3 scripts/qa/reading_viewer.py --url http://127.0.0.1:4173/ --output /tmp/pozo-project-reading --chromium /usr/bin/chromium
 ~~~
 
-El verificador es un recorrido reproducible que permanece fallando en el punto documentado. Para el control con el padre, usar --candidate parent.html y otro --output. Admite --width/--height para investigar otros tamaños; no hay resultado aprobado de esa variante.
+Para reproducir el bloqueo del padre, usar --candidate parent.html --keyboard-actions y otro --output. El candidato corregido se validó con clics reales a 1366×768. El diagnóstico adicional de teclado también completó la captura. --width/--height permiten investigar otros tamaños; no se declara una matriz exhaustiva de tamaños para snapshots.
 
 El verificador de snapshots selecciona el pozo por activeWellId y opera por la UI, incluyendo guardar/abrir v6, comparación, restauración, undo/redo, cortina y exportaciones. No activa APIs internas de revisiones ni se incluye en producción. Las pruebas de dominio cubren el modo optativo que aún no se expone en la UI.
 

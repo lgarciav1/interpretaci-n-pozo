@@ -12,6 +12,7 @@ parser.add_argument('--output', type=Path, default=Path(tempfile.gettempdir())/'
 parser.add_argument('--chromium', default=shutil.which('chromium') or shutil.which('chromium-browser'))
 parser.add_argument('--width', type=int, default=1366)
 parser.add_argument('--height', type=int, default=768)
+parser.add_argument('--keyboard-actions', action='store_true', help='Restaurar/cortina por teclado para reproducir el bloqueo del padre')
 config = parser.parse_args()
 out = config.output
 out.mkdir(parents=True, exist_ok=True)
@@ -98,6 +99,10 @@ with sync_playwright() as p:
         page.on('pageerror',lambda e:errors.append(str(e)))
         load(page,filename)
         evidence[name+'Geometry']=measure(page)
+        table=page.get_by_test_id('table-FLOW_UNITS')
+        evidence[name+'FlowRows']=table.locator('tbody tr').count()
+        evidence[name+'FlowTable']=hashlib.sha256(table.inner_text().encode()).hexdigest()
+        assert evidence[name+'FlowRows'] > 1000, 'El TP debe ejercitar la tabla extensa'
         evidence[name+'Las']=exported(page,name+'-before.las')
         evidence[name+'Svg']=exported(page,name+'-before.svg',figure=True)
         page.get_by_title('Snapshots',exact=True).click()
@@ -132,11 +137,17 @@ with sync_playwright() as p:
         expect(page.get_by_test_id('snap-compare-table')).to_be_visible(timeout=60000)
         expect(page.get_by_test_id('snap-diff')).to_contain_text('GR de arena limpia')
         page.screenshot(path=str(out/'candidate-cambios.png'))
-        dialog.get_by_role('button',name='Restaurar',exact=True).focus()
-        page.keyboard.press('Enter')
+        restore=dialog.get_by_role('button',name='Restaurar',exact=True)
+        if config.keyboard_actions:
+            restore.focus()
+            page.keyboard.press('Enter')
+        else:
+            restore.click()
         expect(page.locator('.snap-diff-none')).to_be_visible(timeout=60000)
         page.keyboard.press('Escape')
         settle(page)
+        evidence['restoredFlowTable']=hashlib.sha256(page.get_by_test_id('table-FLOW_UNITS').inner_text().encode()).hexdigest()
+        assert evidence['restoredFlowTable']==evidence['candidateFlowTable']
         restored=project(page,'restored.pozo.json')
         expected=base['project']['snapshots'][0]['interpretation']
         assert active_entry(restored['project'])['interpretation']==expected
@@ -149,8 +160,12 @@ with sync_playwright() as p:
         redone=project(page,'redo.pozo.json')
         assert active_entry(redone['project'])['interpretation']==expected
         page.get_by_title('Snapshots',exact=True).click()
-        page.get_by_role('dialog',name='Snapshots',exact=True).get_by_role('button',name='Cortina',exact=True).focus()
-        page.keyboard.press('Enter')
+        curtain=page.get_by_role('dialog',name='Snapshots',exact=True).get_by_role('button',name='Cortina',exact=True)
+        if config.keyboard_actions:
+            curtain.focus()
+            page.keyboard.press('Enter')
+        else:
+            curtain.click()
         expect(page.locator('.wv-curtain')).to_be_visible(timeout=60000)
         page.keyboard.press('Escape')
         expect(page.locator('.wv-curtain')).to_have_count(0)
@@ -159,6 +174,8 @@ with sync_playwright() as p:
         assert evidence['restoredLas']==evidence['candidateLas']
         assert evidence['restoredSvg']==evidence['candidateSvg']
         ctx.close()
+    assert evidence['parentFlowRows']==evidence['candidateFlowRows']
+    assert evidence['parentFlowTable']==evidence['candidateFlowTable']
     assert evidence['parentGeometry']==evidence['candidateGeometry']
     assert tables['parent']==tables['candidate']
     assert evidence['parentLas']==evidence['candidateLas']

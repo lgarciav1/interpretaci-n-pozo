@@ -85,6 +85,10 @@ function ZoneScalarsTable({ outputs }: { outputs: readonly OutputRecord[] }) {
   );
 }
 
+// Una tabla por muestra puede tener decenas de miles de celdas. Animarlas juntas bloquea
+// los frames al restaurar/recalcular; las tablas grandes conservan todos sus valores sin destellos.
+const MAX_TABLE_FLASH_CELLS = 200;
+
 function ResultsPanel() {
   const result = useResults((s) => s.result);
   const tables = result?.outputs.filter((o) => o.kind === 'table' && !o.hidden) ?? [];
@@ -124,6 +128,7 @@ function ResultsPanel() {
         const spec = Object.values(registry.get(t.moduleId)!.outputs).find((s) => s.kind === 'table' && s.port === t.port);
         const columns = spec?.kind === 'table' ? spec.columns : [];
         const rows = (t.value as TableValue).rows;
+        const flashCells = rows.length * columns.filter((c) => c.kind !== 'text').length <= MAX_TABLE_FLASH_CELLS;
         const totalRow = (r: Record<string, unknown>) => ({ 'data-total': r[columns[0]?.key ?? ''] === 'Total' ? '' : undefined });
         return (
           <Section
@@ -155,7 +160,7 @@ function ResultsPanel() {
                 header: `${c.label}${unitSuffix(c.unit)}`,
                 align: c.kind === 'text' ? 'left' : 'num',
                 render: (r: Record<string, unknown>) =>
-                  c.kind === 'text' ? String(r[c.key] ?? '') : <Flash value={r[c.key]}>{num(r[c.key], displayFor(c.unit, []).digits)}</Flash>,
+                  c.kind === 'text' ? String(r[c.key] ?? '') : flashCells ? <Flash value={r[c.key]}>{num(r[c.key], displayFor(c.unit, []).digits)}</Flash> : <span className="dock-flash">{num(r[c.key], displayFor(c.unit, []).digits)}</span>,
               }))}
             />
           </Section>
@@ -273,3 +278,4 @@ const APP_PANELS: readonly DockPanelDef[] = [
 const ENGINE_PANEL: DockPanelDef = { id: 'engine', title: 'Motor', icon: 'cpu', component: EnginePanel };
 
 export const DOCK_PANELS: readonly DockPanelDef[] = [...APP_PANELS, ...collectDockPanels(found, [...APP_PANELS, ENGINE_PANEL].map((p) => p.id)), ENGINE_PANEL];
+
