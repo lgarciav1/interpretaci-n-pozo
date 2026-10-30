@@ -6,6 +6,7 @@
  * versión de cada entrada. Si la firma no cambió desde la corrida anterior, se reusa el resultado; si cambió, se recalcula y
  * sus salidas reciben una versión nueva, lo que cambia la firma de sus dependientes (y solo de ellos).
  */
+import type { CurveProvenance } from './context';
 import type { Interpretation, SourceRef } from '../interpretation';
 import {
   describeInputGroup,
@@ -29,6 +30,7 @@ import { feedsOnlyOptional, planGraph, type Diagnostic, type NodeReason, type Pl
 
 /** Curva tal como la ve el motor (subconjunto de `Curve`). */
 export interface EngineCurve {
+  provenance?: CurveProvenance;
   id: string;
   mnemonic: string;
   role: RoleId | null;
@@ -556,3 +558,4 @@ function assertUnchanged(guarded: GuardedCurve[], m: AnyModule): void {
   const changed = guarded.filter((g) => hashCurve(g.data) !== g.hash).map((g) => g.name);
   if (changed.length) throw new InputMutationError(m.id, changed, m.name);
 }
+

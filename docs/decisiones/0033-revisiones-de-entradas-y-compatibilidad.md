@@ -184,3 +184,10 @@ Se aplican 64 MiB UTF-8 de archivo, 512 MiB de datos decodificados y 128 MiB por
 La apertura normal es estricta. recoverProject es una API separada de recuperación explícita: devuelve project|null y issues con ubicación/motivo; conserva componentes independientes válidos y omite los dañados con diagnóstico. No reasigna referencias ni el pozo activo a otra revisión. Si no queda un pozo recuperable devuelve null. No se expone todavía una interfaz gráfica de recuperación; el archivo original permanece intacto. Los avisos visuales opcionales siguen el callback onWarning del lector.
 
 Validación y mediciones de P1c están en docs/validacion/2026-10-30-persistencia-v7.md. No se implementan preparación, DRX ni protocolo/contexto P2 en esta entrega.
+
+
+## Avance P2a: identidad, publicación y protocolo (2026-10-30)
+
+ADR 0034 concreta EngineContext, procedencia WireCurve, syncId, publicación atómica y resync completo seguido de un reinicio acotado. Los resultados atrasados no se usan para el estado actual. Se conserva la física y la proyección identidad; un cambio de laboratorio sin dependencia del motor puede volver a vincular las mismas salidas sin cálculo. Los archivos v6/v7 no cambian.
+
+Esta entrega no declara terminado todo D5/P2: planificador de proyección compartido, SourceRef preparada y calibrationKey de consumidores de laboratorio quedan en P2b, antes de conectar preparación/DRX. Evidencia en docs/validacion/2026-10-30-contexto-motor.md.

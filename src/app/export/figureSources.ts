@@ -3,6 +3,7 @@
  * superposiciones en modo figura) y el motor de raster del navegador (canvas fuera de pantalla). Conecta los stores con
  * `figureRender.ts`, que no los conoce. docs/decisiones/0012-exportacion-de-figuras.md.
  */
+import { entryEngineContext, sameContext } from '../../core/engine/context';
 import type { Well } from '../../core/well';
 import { rgbaToRgb } from '../../io/export/figures/pdf';
 import type { TextMeasure } from '../../io/export/figures/svg';
@@ -39,7 +40,9 @@ export function figureTracks(well: Well) {
   const { project } = useProject.getState();
   const display = project.display;
   const workspace = useUi.getState().workspace;
-  const computed = computedCurves(useResults.getState().result, well);
+  const entry=project.wells.find(e=>e.well===well);
+  const result=useResults.getState().result;
+  const computed = computedCurves(entry && result && sameContext(result.context,entryEngineContext(entry)) ? result : null, well);
   // Como en pantalla: sin las curvas de herramientas apagadas en la sarta (0032).
   const interpretation = project.wells.find((e) => e.well === well)?.interpretation;
   return resolveTracks(
@@ -54,7 +57,8 @@ export function viewerFigureContext(measure: TextMeasure): ViewerFigureContext |
   const entry = selectActiveEntry(useProject.getState());
   if (!entry) return null;
   const { well, interpretation } = entry;
-  const result = useResults.getState().result;
+  const candidate = useResults.getState().result;
+  const result = candidate && sameContext(candidate.context,entryEngineContext(entry)) ? candidate : null;
   const computed = computedCurves(result, well);
   const zones = interpretation.zones.map((z) => ({ id: z.id, name: z.name, top: z.top, base: z.base, color: z.color }));
   const stored = useQc.getState().entries[well.id];
@@ -121,3 +125,4 @@ export function createCanvasBackend(): RasterBackend {
 export function figureEnv(raster: RasterBackend = createCanvasBackend()): FigureEnv {
   return { viewer: viewerFigureContext(raster.measure), xy: listXYFigures(), raster, date: new Date() };
 }
+

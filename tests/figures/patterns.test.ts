@@ -1,3 +1,6 @@
+import { engineContext } from '../../src/core/engine/context';
+import { emptyInterpretation } from '../../src/core/interpretation';
+import { toEngineWell } from '../../src/core/engine/engine';
 import { describe, expect, it } from 'vitest';
 import { SvgContext2D } from '../../src/io/export/figures/svg';
 import { fillPatternRect, type TilePattern } from '../../src/viewer/fills';
@@ -25,10 +28,11 @@ describe('tramas vectoriales compartidas con el visor', () => {
   it('no mezcla tablas de pozos distintos y preserva la identidad de los datos de una corrida', () => {
     const { well } = syntheticWell(100);
     const value = { rows: [{ top: 5, base: 6 }] };
-    const result = { wellId: well.id, outputs: [{ kind: 'table', moduleId: 'example', port: 'LAYERS', active: true, value }] } as unknown as ClientResult;
+    const result = { context:engineContext(toEngineWell(well),emptyInterpretation()), wellId: well.id, outputs: [{ kind: 'table', moduleId: 'example', port: 'LAYERS', active: true, value }] } as unknown as ClientResult;
     expect(computedTables(result, { ...well, id: 'otro' })).toEqual([]);
     const tables = computedTables(result, well);
     expect(tables[0]!.value).toBe(value);
     expect(computedTables(result, well)).toBe(tables);
   });
 });
+

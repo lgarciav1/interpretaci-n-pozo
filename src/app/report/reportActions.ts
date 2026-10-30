@@ -1,3 +1,4 @@
+import { entryEngineContext, sameContext } from '../../core/engine/context';
 import { sameEngineInputs } from '../../core/interpretation';
 import { SvgContext2D } from '../../io/export/figures/svg';
 import { withSvgPath2D } from '../../io/export/figures/path';
@@ -86,7 +87,7 @@ export async function generateReport(options: ReportOptions): Promise<{ html: st
   const workspace = useUi.getState().workspace;
   const xy = listXYFigures();
   if (!entry) throw new Error('Cargá un pozo para generar el informe.');
-  if (state.busy || state.error || !state.result || state.result.wellId !== entry.well.id) throw new Error('Esperá a que termine el cálculo del pozo activo antes de generar el informe.');
+  if (state.busy || state.error || !state.result || !sameContext(state.result.context,entryEngineContext(entry))) throw new Error('Esperá a que termine el cálculo del pozo activo antes de generar el informe.');
   const model = buildReportModel(entry.well, entry.interpretation, state.result);
   const env = figureEnv();
   const html = await renderReport(options, model, env);
@@ -95,3 +96,4 @@ export async function generateReport(options: ReportOptions): Promise<{ html: st
   if (!latest || latest.well !== entry.well || !sameEngineInputs(latest.interpretation, entry.interpretation) || latest.interpretation !== entry.interpretation || useProject.getState().project.display !== project.display || results.result !== state.result || results.busy || results.error || workspace !== useUi.getState().workspace || (options.xyIds.length > 0 && xy !== listXYFigures())) throw new Error('El estado cambió mientras se generaba el informe. Generá una nueva copia.');
   return { html, name: `${safeFileName(entry.well.name, 'pozo')}_informe.html` };
 }
+

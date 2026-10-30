@@ -2,6 +2,7 @@
  * Protocolo entre el hilo principal (EngineClient) y el motor (serveEngine), sea un Web Worker o un canal en
  * proceso. Todos los mensajes son clonables (structured clone); los Float64Array viajan como transferibles.
  */
+import type { CurveProvenance, EngineContext } from './context';
 import type { Interpretation } from '../interpretation';
 import type { RoleId } from '../roles';
 import type { UnitId } from '../units';
@@ -15,7 +16,7 @@ export interface Endpoint {
   start?(): void;
 }
 
-export interface WireCurve {
+export interface WireCurve extends CurveProvenance {
   id: string;
   mnemonic: string;
   role: RoleId | null;
@@ -29,12 +30,14 @@ export type ToEngine =
       type: 'well';
       /** Generación de pozo: cambia cuando cambia el pozo o su profundidad (descarta resultados viejos). */
       gen: number;
+      syncId: number;
+      context: EngineContext;
       wellId: string;
       /** Presente solo en una generación nueva. */
       depth?: Float64Array;
       curves: WireCurve[];
     }
-  | { type: 'run'; seq: number; gen: number; interpretation: Interpretation };
+  | { type: 'run'; seq: number; gen: number; syncId: number; context: EngineContext; interpretation: Interpretation; full?: boolean };
 
 /** Salida en tránsito: `value` se omite si no cambió desde el último mensaje (el cliente ya la tiene). */
 export type WireOutput = Omit<OutputRecord, 'value'> & { value?: OutputRecord['value'] };
@@ -42,6 +45,8 @@ export type WireOutput = Omit<OutputRecord, 'value'> & { value?: OutputRecord['v
 export type WireResult = Omit<EngineRunResult, 'outputs'> & { outputs: WireOutput[] };
 
 export type FromEngine =
-  | { type: 'result'; seq: number; gen: number; result: WireResult }
+  | { type: 'result'; seq: number; gen: number; context: EngineContext; result: WireResult }
+  | { type: 'resync'; seq: number; gen: number; syncId: number; context: EngineContext; message: string }
   /** seq = -1: error al cargar el pozo. */
-  | { type: 'error'; seq: number; gen: number; message: string };
+  | { type: 'error'; seq: number; gen: number; syncId:number; context:EngineContext; message: string };
+

@@ -5,6 +5,7 @@
  * Cada tipo de exportación es una entrada de `EXPORT_KINDS` con su propia función de armado: `data` (este archivo) y
  * `figure` (`figureActions.ts`, fase 6c-2). El diálogo elige el tipo.
  */
+import { contextMatchesWell, entryEngineContext, sameContext, type EngineContext } from '../../core/engine/context';
 import type { ClientResult } from '../../core/engine/client';
 import type { Well, Zone } from '../../core/well';
 import {
@@ -44,8 +45,8 @@ export interface ExportSources {
 }
 
 /** Lo que se puede exportar del pozo activo con el resultado vigente (el resultado de otro pozo no se usa). */
-export function exportSources(well: Well, result: ClientResult | null, includeAlternatives: boolean): ExportSources {
-  const outputs = result && result.wellId === well.id ? result.outputs : null;
+export function exportSources(well: Well, result: ClientResult | null, includeAlternatives: boolean, context?:EngineContext): ExportSources {
+  const outputs = result && contextMatchesWell(result.context,{id:well.id,depth:well.depth.values,curves:well.curves}) && (!context || sameContext(result.context,context)) ? result.outputs : null;
   const moduleName = (id: string) => registry.get(id)?.name ?? id;
   return {
     columns: buildExportColumns(well, outputs, { includeAlternatives, moduleName }),
@@ -66,8 +67,9 @@ export interface DataExportRequest {
 }
 
 /** Archivo de la exportación pedida (sin descargarlo: lo usan el diálogo y los tests). */
-export function buildDataExport(well: Well, zones: readonly Zone[], result: ClientResult | null, req: DataExportRequest): { file: ExportFile; samples: number } {
-  const src = exportSources(well, result, req.includeAlternatives);
+export function buildDataExport(well: Well, zones: readonly Zone[], result: ClientResult | null, req: DataExportRequest, context?:EngineContext): { file: ExportFile; samples: number } {
+  const src = exportSources(well, result, req.includeAlternatives,context);
+  if(req.selection.some(id=>!src.columns.some(c=>c.id===id)))throw new Error('Las curvas seleccionadas ya no están disponibles para este contexto. Esperá al cálculo actual y revisá la selección.');
   const zone = req.zoneId ? zones.find((z) => z.id === req.zoneId) : undefined;
   if (req.zoneId && !zone) throw new Error('La zona elegida ya no existe.');
   const file = buildExportFile(req.format, zone ? `${well.name}_${zone.name}` : well.name, {
@@ -99,7 +101,7 @@ export function exportData(req: DataExportRequest): boolean {
   const entry = selectActiveEntry(useProject.getState());
   if (!entry) return false;
   try {
-    const { file, samples } = buildDataExport(entry.well, entry.interpretation.zones, useResults.getState().result, req);
+    const { file, samples } = buildDataExport(entry.well, entry.interpretation.zones, useResults.getState().result, req,entryEngineContext(entry));
     downloadFile(file);
     toast({ title: 'Datos exportados', description: `${file.name} · ${samples.toLocaleString('es-AR')} muestras · ${(file.bytes.length / 1024).toLocaleString('es-AR', { maximumFractionDigits: 0 })} kB`, tone: 'ok' });
     return true;
@@ -108,3 +110,4 @@ export function exportData(req: DataExportRequest): boolean {
     return false;
   }
 }
+

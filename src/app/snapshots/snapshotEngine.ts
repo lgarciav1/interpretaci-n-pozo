@@ -38,7 +38,7 @@ export function useSnapshotRun(snapshot: Snapshot | null, well: Well | null, pro
   const key = request?.key ?? null;
   useEffect(() => {
     if (!key || !request) return;
-    return snapshotRunner.acquire(key, request.engineWell, request.interpretation);
+    return snapshotRunner.acquire(key, request.engineWell, request.interpretation,request.context);
     // La clave resume snapshot, interpretación y curvas: no hace falta depender de los objetos.
   }, [key]);
   const entry = useSyncExternalStore(

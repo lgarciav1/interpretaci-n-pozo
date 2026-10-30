@@ -1,4 +1,5 @@
 /** Pedido aislado resuelto desde la revisión del snapshot, nunca desde un respaldo activo. */
+import { engineContext } from '../../core/engine/context';
 import { toEngineWell } from '../../core/engine/engine';
 import { resolveSnapshotInputs } from '../../core/state/inputRevisions';
 import type { Project, Snapshot } from '../../core/state/project';
@@ -7,10 +8,12 @@ import { runKey } from './runner';
 
 export function snapshotRunRequest(project: Project, snapshot: Snapshot) {
   const inputs = resolveSnapshotInputs(project, snapshot);
+  const context=engineContext(toEngineWell(inputs.well),inputs.interpretation,inputs.inputRevisionId);
   return {
     ...inputs,
-    key: runKey(snapshot.id, inputs.interpretation, { id: inputs.well.id, depth: inputs.well.depth.values, curves: inputs.well.curves }, inputs.inputRevisionId),
+    key: runKey(snapshot.id, inputs.interpretation, { id: inputs.well.id, depth: inputs.well.depth.values, curves: inputs.well.curves }, inputs.inputRevisionId,context),
     engineWell: toEngineWell(inputs.well),
+    context,
   };
 }
 

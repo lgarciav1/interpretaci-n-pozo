@@ -1,0 +1,572 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-30",
+  "parentRemoteCommit": "f58f473b25fea2c81baf891a7ab399ddb09a58f2",
+  "tests": {
+    "passed": 2657,
+    "files": 153,
+    "failed": 0,
+    "pending": 0
+  },
+  "builds": {
+    "parent": {
+      "bytes": 5507660,
+      "sha256": "5bdf0199b8ec69a53997d306a384b37035ab9b5ce239f63057cda76f10709e8b"
+    },
+    "candidate": {
+      "bytes": 5519941,
+      "sha256": "ec3a07da8d6ca2eb8ac50c44565ef33fe202d3ce8deaad2e2f6af01cd3d8cfcb"
+    }
+  },
+  "protocolTiming": {
+    "parent": {
+      "schemaVersion": 1,
+      "measuredAt": "2026-10-30T02:42:29.172Z",
+      "scope": "Node/Vite SSR, motor completo, MessageChannel real: 1 warmup + 5 cambios secuenciales de GR limpio; no navegador ni Worker",
+      "samples": 5810,
+      "curves": 18,
+      "roundTripMs": {
+        "samples": [
+          98.70349799999985,
+          65.66725200000019,
+          72.45688800000016,
+          58.53978999999981,
+          47.1044280000001
+        ],
+        "median": 65.66725200000019,
+        "maximum": 98.70349799999985
+      },
+      "scientificSHA256": "14b4e4a70e5065e7c76a827edb81e99c3558175b4ea9480b069ce226320506c3",
+      "inputBuffersIntact": true
+    },
+    "candidate": {
+      "schemaVersion": 1,
+      "measuredAt": "2026-10-30T02:44:17.202Z",
+      "scope": "Node/Vite SSR, motor completo, MessageChannel real: 1 warmup + 5 cambios secuenciales de GR limpio; no navegador ni Worker",
+      "samples": 5810,
+      "curves": 18,
+      "roundTripMs": {
+        "samples": [
+          89.55155000000013,
+          70.39982899999995,
+          67.80547099999967,
+          50.71847200000002,
+          48.139978000000156
+        ],
+        "median": 67.80547099999967,
+        "maximum": 89.55155000000013
+      },
+      "scientificSHA256": "14b4e4a70e5065e7c76a827edb81e99c3558175b4ea9480b069ce226320506c3",
+      "inputBuffersIntact": true
+    },
+    "ratio": 1.0325614204169755,
+    "gate": 1.25
+  },
+  "engine_context": {
+    "parentLas": "5cf7210613f856a48d2f74309b4aa5c1ccd108541e22aedcecb3b647705f04f3",
+    "parentSvg": "e9d09265528bfd374284d744d51bc5e0d5517660bbfddea9c2a38e7d63f4e1c7",
+    "fullResync": {
+      "bad": 1,
+      "created": 1,
+      "full": 1
+    },
+    "lateSameWellAndDepthRejected": {
+      "old": {
+        "wellId": "pozo-tp-perfiles",
+        "inputRevisionId": "input-eb5577fc617cc606116415b19ba0c09b",
+        "depthKey": "depth:33",
+        "preparationKey": "identity",
+        "engineKey": "[\"pozo-tp-perfiles\",\"depth:33\",[[\"BS\",\"BS\",\"BS\",\"in\",{\"origin\":\"original\",\"contentVersion\":\"array:34\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"CAL\",\"CAL\",\"CALI\",\"in\",{\"origin\":\"original\",\"contentVersion\":\"array:35\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"GR\",\"GR\",\"GR\",\"gAPI\",{\"origin\":\"original\",\"contentVersion\":\"array:36\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"SP\",\"SP\",\"SP\",\"mV\",{\"origin\":\"original\",\"contentVersion\":\"array:37\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"ZDEN\",\"ZDEN\",\"RHOB\",\"g/cm3\",{\"origin\":\"original\",\"contentVersion\":\"array:38\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"PE\",\"PE\",\"PEF\",\"b/e\",{\"origin\":\"original\",\"contentVersion\":\"array:39\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"DT\",\"DT\",\"DT\",\"us/ft\",{\"origin\":\"original\",\"contentVersion\":\"array:40\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"NPHI\",\"NPHI\",\"NPHI\",\"v/v\",{\"origin\":\"original\",\"contentVersion\":\"array:41\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"AT10\",\"AT10\",\"RA10\",\"ohm.m\",{\"origin\":\"original\",\"contentVersion\":\"array:42\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"AT30\",\"AT30\",\"RA30\",\"ohm.m\",{\"origin\":\"original\",\"contentVersion\":\"array:43\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"AT60\",\"AT60\",\"RM\",\"ohm.m\",{\"origin\":\"original\",\"contentVersion\":\"array:44\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"AT90\",\"AT90\",\"RT\",\"ohm.m\",{\"origin\":\"original\",\"contentVersion\":\"array:45\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"URAN\",\"URAN\",\"URAN\",\"ppm\",{\"origin\":\"original\",\"contentVersion\":\"array:46\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"THOR\",\"THOR\",\"THOR\",\"ppm\",{\"origin\":\"original\",\"contentVersion\":\"array:47\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"POTA\",\"POTA\",\"POTA\",\"wt%\",{\"origin\":\"original\",\"contentVersion\":\"array:48\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"PHI_BVI\",\"PHI_BVI\",\"BVI_NMR\",\"v/v\",{\"origin\":\"original\",\"contentVersion\":\"array:49\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"PHIE_CMR\",\"PHIE_CMR\",\"PHIE_NMR\",\"v/v\",{\"origin\":\"original\",\"contentVersion\":\"array:50\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"PHIT_CMR\",\"PHIT_CMR\",\"PHIT_NMR\",\"v/v\",{\"origin\":\"original\",\"contentVersion\":\"array:51\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}]]]|[[{\"base\":7724.394,\"color\":\"#e8c872\",\"id\":\"zone-a\",\"kind\":\"formation\",\"name\":\"A\",\"top\":7633.2588},{\"base\":7906.0548,\"color\":\"#9ec5e8\",\"id\":\"zone-b\",\"kind\":\"formation\",\"name\":\"B\",\"top\":7724.5464},{\"base\":7969.9104,\"color\":\"#f2a65a\",\"id\":\"zone-c\",\"kind\":\"formation\",\"name\":\"C\",\"top\":7906.2072},{\"base\":8246.9736,\"color\":\"#b8d98b\",\"id\":\"zone-d\",\"kind\":\"formation\",\"name\":\"D\",\"top\":7970.0628},{\"base\":8518.5504,\"color\":\"#c9a3d9\",\"id\":\"zone-e\",\"kind\":\"formation\",\"name\":\"E\",\"top\":8247.126}],{\"global\":{\"grClean\":50},\"zones\":{}},{},[],[],null]"
+      },
+      "oldGen": 3,
+      "last": {
+        "gen": 3,
+        "seq": 5,
+        "full": false,
+        "context": {
+          "wellId": "pozo-tp-perfiles",
+          "inputRevisionId": "input-b37dcdd71790d014e03c1330fbc3222f",
+          "depthKey": "depth:33",
+          "preparationKey": "identity",
+          "engineKey": "[\"pozo-tp-perfiles\",\"depth:33\",[[\"BS\",\"BS\",\"BS\",\"in\",{\"origin\":\"original\",\"contentVersion\":\"array:34\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"CAL\",\"CAL\",\"CALI\",\"in\",{\"origin\":\"original\",\"contentVersion\":\"array:35\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"GR\",\"GR\",\"GR\",\"gAPI\",{\"origin\":\"original\",\"contentVersion\":\"array:52\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"SP\",\"SP\",\"SP\",\"mV\",{\"origin\":\"original\",\"contentVersion\":\"array:37\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"ZDEN\",\"ZDEN\",\"RHOB\",\"g/cm3\",{\"origin\":\"original\",\"contentVersion\":\"array:38\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"PE\",\"PE\",\"PEF\",\"b/e\",{\"origin\":\"original\",\"contentVersion\":\"array:39\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"DT\",\"DT\",\"DT\",\"us/ft\",{\"origin\":\"original\",\"contentVersion\":\"array:40\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"NPHI\",\"NPHI\",\"NPHI\",\"v/v\",{\"origin\":\"original\",\"contentVersion\":\"array:41\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"AT10\",\"AT10\",\"RA10\",\"ohm.m\",{\"origin\":\"original\",\"contentVersion\":\"array:42\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"AT30\",\"AT30\",\"RA30\",\"ohm.m\",{\"origin\":\"original\",\"contentVersion\":\"array:43\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"AT60\",\"AT60\",\"RM\",\"ohm.m\",{\"origin\":\"original\",\"contentVersion\":\"array:44\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"AT90\",\"AT90\",\"RT\",\"ohm.m\",{\"origin\":\"original\",\"contentVersion\":\"array:45\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"URAN\",\"URAN\",\"URAN\",\"ppm\",{\"origin\":\"original\",\"contentVersion\":\"array:46\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"THOR\",\"THOR\",\"THOR\",\"ppm\",{\"origin\":\"original\",\"contentVersion\":\"array:47\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"POTA\",\"POTA\",\"POTA\",\"wt%\",{\"origin\":\"original\",\"contentVersion\":\"array:48\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"PHI_BVI\",\"PHI_BVI\",\"BVI_NMR\",\"v/v\",{\"origin\":\"original\",\"contentVersion\":\"array:49\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"PHIE_CMR\",\"PHIE_CMR\",\"PHIE_NMR\",\"v/v\",{\"origin\":\"original\",\"contentVersion\":\"array:50\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"PHIT_CMR\",\"PHIT_CMR\",\"PHIT_NMR\",\"v/v\",{\"origin\":\"original\",\"contentVersion\":\"array:51\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}]]]|[[{\"base\":7724.394,\"color\":\"#e8c872\",\"id\":\"zone-a\",\"kind\":\"formation\",\"name\":\"A\",\"top\":7633.2588},{\"base\":7906.0548,\"color\":\"#9ec5e8\",\"id\":\"zone-b\",\"kind\":\"formation\",\"name\":\"B\",\"top\":7724.5464},{\"base\":7969.9104,\"color\":\"#f2a65a\",\"id\":\"zone-c\",\"kind\":\"formation\",\"name\":\"C\",\"top\":7906.2072},{\"base\":8246.9736,\"color\":\"#b8d98b\",\"id\":\"zone-d\",\"kind\":\"formation\",\"name\":\"D\",\"top\":7970.0628},{\"base\":8518.5504,\"color\":\"#c9a3d9\",\"id\":\"zone-e\",\"kind\":\"formation\",\"name\":\"E\",\"top\":8247.126}],{\"global\":{\"grClean\":25},\"zones\":{}},{},[],[],null]"
+        }
+      },
+      "ready": [
+        {
+          "wellId": "pozo-tp-perfiles",
+          "inputRevisionId": "input-b37dcdd71790d014e03c1330fbc3222f",
+          "depthKey": "depth:33",
+          "preparationKey": "identity",
+          "engineKey": "[\"pozo-tp-perfiles\",\"depth:33\",[[\"BS\",\"BS\",\"BS\",\"in\",{\"origin\":\"original\",\"contentVersion\":\"array:34\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"CAL\",\"CAL\",\"CALI\",\"in\",{\"origin\":\"original\",\"contentVersion\":\"array:35\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"GR\",\"GR\",\"GR\",\"gAPI\",{\"origin\":\"original\",\"contentVersion\":\"array:52\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"SP\",\"SP\",\"SP\",\"mV\",{\"origin\":\"original\",\"contentVersion\":\"array:37\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"ZDEN\",\"ZDEN\",\"RHOB\",\"g/cm3\",{\"origin\":\"original\",\"contentVersion\":\"array:38\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"PE\",\"PE\",\"PEF\",\"b/e\",{\"origin\":\"original\",\"contentVersion\":\"array:39\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"DT\",\"DT\",\"DT\",\"us/ft\",{\"origin\":\"original\",\"contentVersion\":\"array:40\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"NPHI\",\"NPHI\",\"NPHI\",\"v/v\",{\"origin\":\"original\",\"contentVersion\":\"array:41\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"AT10\",\"AT10\",\"RA10\",\"ohm.m\",{\"origin\":\"original\",\"contentVersion\":\"array:42\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"AT30\",\"AT30\",\"RA30\",\"ohm.m\",{\"origin\":\"original\",\"contentVersion\":\"array:43\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"AT60\",\"AT60\",\"RM\",\"ohm.m\",{\"origin\":\"original\",\"contentVersion\":\"array:44\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"AT90\",\"AT90\",\"RT\",\"ohm.m\",{\"origin\":\"original\",\"contentVersion\":\"array:45\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"URAN\",\"URAN\",\"URAN\",\"ppm\",{\"origin\":\"original\",\"contentVersion\":\"array:46\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"THOR\",\"THOR\",\"THOR\",\"ppm\",{\"origin\":\"original\",\"contentVersion\":\"array:47\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"POTA\",\"POTA\",\"POTA\",\"wt%\",{\"origin\":\"original\",\"contentVersion\":\"array:48\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"PHI_BVI\",\"PHI_BVI\",\"BVI_NMR\",\"v/v\",{\"origin\":\"original\",\"contentVersion\":\"array:49\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"PHIE_CMR\",\"PHIE_CMR\",\"PHIE_NMR\",\"v/v\",{\"origin\":\"original\",\"contentVersion\":\"array:50\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}],[\"PHIT_CMR\",\"PHIT_CMR\",\"PHIT_NMR\",\"v/v\",{\"origin\":\"original\",\"contentVersion\":\"array:51\",\"depthKey\":\"depth:33\",\"ancestorToolIds\":[]}]]]|[[{\"base\":7724.394,\"color\":\"#e8c872\",\"id\":\"zone-a\",\"kind\":\"formation\",\"name\":\"A\",\"top\":7633.2588},{\"base\":7906.0548,\"color\":\"#9ec5e8\",\"id\":\"zone-b\",\"kind\":\"formation\",\"name\":\"B\",\"top\":7724.5464},{\"base\":7969.9104,\"color\":\"#f2a65a\",\"id\":\"zone-c\",\"kind\":\"formation\",\"name\":\"C\",\"top\":7906.2072},{\"base\":8246.9736,\"color\":\"#b8d98b\",\"id\":\"zone-d\",\"kind\":\"formation\",\"name\":\"D\",\"top\":7970.0628},{\"base\":8518.5504,\"color\":\"#c9a3d9\",\"id\":\"zone-e\",\"kind\":\"formation\",\"name\":\"E\",\"top\":8247.126}],{\"global\":{\"grClean\":25},\"zones\":{}},{},[],[],null]"
+        }
+      ]
+    },
+    "restoredLas": "5cf7210613f856a48d2f74309b4aa5c1ccd108541e22aedcecb3b647705f04f3",
+    "restoredSvg": "e9d09265528bfd374284d744d51bc5e0d5517660bbfddea9c2a38e7d63f4e1c7",
+    "boundedRestartAndVisibleError": {
+      "created": 2,
+      "runs": 8,
+      "terminated": 2
+    },
+    "newRequestRecovers": true,
+    "labMetadataDidNotRunEngine": true,
+    "pageErrors": []
+  },
+  "archive_v7": {
+    "parentLas": "5cf7210613f856a48d2f74309b4aa5c1ccd108541e22aedcecb3b647705f04f3",
+    "parentSvg": "e9d09265528bfd374284d744d51bc5e0d5517660bbfddea9c2a38e7d63f4e1c7",
+    "firstWorkers": {
+      "created": 2,
+      "terminated": 2,
+      "active": 0,
+      "maxActive": 1
+    },
+    "restoredLas": "5cf7210613f856a48d2f74309b4aa5c1ccd108541e22aedcecb3b647705f04f3",
+    "restoredSvg": "e9d09265528bfd374284d744d51bc5e0d5517660bbfddea9c2a38e7d63f4e1c7",
+    "workers": {
+      "created": 7,
+      "terminated": 7,
+      "active": 0,
+      "maxActive": 1
+    },
+    "restoredRevision": "input-b37dcdd71790d014e03c1330fbc3222f",
+    "activeRevision": "input-eb5577fc617cc606116415b19ba0c09b",
+    "strictErrorPreservedProject": true,
+    "offlineWithoutWorkerOrSubtleCrypto": true,
+    "pageErrors": []
+  },
+  "project_snapshots": {
+    "parentGeometry": {
+      "range": "7633,3 – 8518,6 m",
+      "body": {
+        "x": 333.828125,
+        "y": 343.40625,
+        "width": 1092,
+        "height": 183.5625,
+        "top": 343.40625,
+        "right": 1425.828125,
+        "bottom": 526.96875,
+        "left": 333.828125
+      },
+      "headerHeight": 132.90625,
+      "heads": [
+        {
+          "title": "GR",
+          "width": 117
+        },
+        {
+          "title": "Prof.",
+          "width": 86
+        },
+        {
+          "title": "Resistividad",
+          "width": 146
+        },
+        {
+          "title": "Dens. · neutrón",
+          "width": 176
+        },
+        {
+          "title": "Arcilla",
+          "width": 117
+        },
+        {
+          "title": "Porosidad",
+          "width": 117
+        },
+        {
+          "title": "Sw",
+          "width": 117
+        },
+        {
+          "title": "Permeabilidad",
+          "width": 117
+        },
+        {
+          "title": "Indicadores",
+          "width": 99
+        }
+      ],
+      "layout": null
+    },
+    "parentFlowRows": 1790,
+    "parentFlowTable": "29d1800990ffb410c97ff9610e9456f3f0b73c449238092e1ee898c32ee3c057",
+    "parentLas": "ce05261de2da6624cc0d94f2611ec20fe0125b62d15cbb60aafd8808fcca6c2b",
+    "parentSvg": "bff1297750e9f7501d33ca7a88551ddc3ca07b5b985cd89ea369ef06ef982e28",
+    "candidateGeometry": {
+      "range": "7633,3 – 8518,6 m",
+      "body": {
+        "x": 333.828125,
+        "y": 343.40625,
+        "width": 1092,
+        "height": 183.5625,
+        "top": 343.40625,
+        "right": 1425.828125,
+        "bottom": 526.96875,
+        "left": 333.828125
+      },
+      "headerHeight": 132.90625,
+      "heads": [
+        {
+          "title": "GR",
+          "width": 117
+        },
+        {
+          "title": "Prof.",
+          "width": 86
+        },
+        {
+          "title": "Resistividad",
+          "width": 146
+        },
+        {
+          "title": "Dens. · neutrón",
+          "width": 176
+        },
+        {
+          "title": "Arcilla",
+          "width": 117
+        },
+        {
+          "title": "Porosidad",
+          "width": 117
+        },
+        {
+          "title": "Sw",
+          "width": 117
+        },
+        {
+          "title": "Permeabilidad",
+          "width": 117
+        },
+        {
+          "title": "Indicadores",
+          "width": 99
+        }
+      ],
+      "layout": null
+    },
+    "candidateFlowRows": 1790,
+    "candidateFlowTable": "29d1800990ffb410c97ff9610e9456f3f0b73c449238092e1ee898c32ee3c057",
+    "candidateLas": "ce05261de2da6624cc0d94f2611ec20fe0125b62d15cbb60aafd8808fcca6c2b",
+    "candidateSvg": "bff1297750e9f7501d33ca7a88551ddc3ca07b5b985cd89ea369ef06ef982e28",
+    "restoredFlowTable": "29d1800990ffb410c97ff9610e9456f3f0b73c449238092e1ee898c32ee3c057",
+    "restoredLas": "ce05261de2da6624cc0d94f2611ec20fe0125b62d15cbb60aafd8808fcca6c2b",
+    "restoredSvg": "bff1297750e9f7501d33ca7a88551ddc3ca07b5b985cd89ea369ef06ef982e28",
+    "comparisonTableEqual": true,
+    "legacyRestoreUndoRedo": true,
+    "pageErrors": []
+  },
+  "reading_viewer": {
+    "parentNormal": {
+      "range": "7633,3 – 8518,6 m",
+      "body": {
+        "x": 333.828125,
+        "y": 343.40625,
+        "width": 1092,
+        "height": 183.5625,
+        "top": 343.40625,
+        "right": 1425.828125,
+        "bottom": 526.96875,
+        "left": 333.828125
+      },
+      "headerHeight": 132.90625,
+      "heads": [
+        {
+          "title": "GR",
+          "width": 117
+        },
+        {
+          "title": "Prof.",
+          "width": 86
+        },
+        {
+          "title": "Resistividad",
+          "width": 146
+        },
+        {
+          "title": "Dens. · neutrón",
+          "width": 176
+        },
+        {
+          "title": "Arcilla",
+          "width": 117
+        },
+        {
+          "title": "Porosidad",
+          "width": 117
+        },
+        {
+          "title": "Sw",
+          "width": 117
+        },
+        {
+          "title": "Permeabilidad",
+          "width": 117
+        },
+        {
+          "title": "Indicadores",
+          "width": 99
+        }
+      ],
+      "layout": null
+    },
+    "parentLas": "ce05261de2da6624cc0d94f2611ec20fe0125b62d15cbb60aafd8808fcca6c2b",
+    "candidateNormal": {
+      "range": "7633,3 – 8518,6 m",
+      "body": {
+        "x": 333.828125,
+        "y": 343.40625,
+        "width": 1092,
+        "height": 183.5625,
+        "top": 343.40625,
+        "right": 1425.828125,
+        "bottom": 526.96875,
+        "left": 333.828125
+      },
+      "headerHeight": 132.90625,
+      "heads": [
+        {
+          "title": "GR",
+          "width": 117
+        },
+        {
+          "title": "Prof.",
+          "width": 86
+        },
+        {
+          "title": "Resistividad",
+          "width": 146
+        },
+        {
+          "title": "Dens. · neutrón",
+          "width": 176
+        },
+        {
+          "title": "Arcilla",
+          "width": 117
+        },
+        {
+          "title": "Porosidad",
+          "width": 117
+        },
+        {
+          "title": "Sw",
+          "width": 117
+        },
+        {
+          "title": "Permeabilidad",
+          "width": 117
+        },
+        {
+          "title": "Indicadores",
+          "width": 99
+        }
+      ],
+      "layout": null
+    },
+    "reading1366": {
+      "range": "7633,3 – 8518,6 m",
+      "body": {
+        "x": 55,
+        "y": 236.390625,
+        "width": 1209,
+        "height": 474.859375,
+        "top": 236.390625,
+        "right": 1264,
+        "bottom": 711.25,
+        "left": 55
+      },
+      "headerHeight": 124.640625,
+      "heads": [
+        {
+          "title": "GR",
+          "width": 132
+        },
+        {
+          "title": "Prof.",
+          "width": 86
+        },
+        {
+          "title": "Resistividad",
+          "width": 165
+        },
+        {
+          "title": "Dens. · neutrón",
+          "width": 198
+        },
+        {
+          "title": "Arcilla",
+          "width": 133
+        },
+        {
+          "title": "Porosidad",
+          "width": 132
+        },
+        {
+          "title": "Sw",
+          "width": 132
+        },
+        {
+          "title": "Permeabilidad",
+          "width": 132
+        },
+        {
+          "title": "Indicadores",
+          "width": 99
+        }
+      ],
+      "layout": null
+    },
+    "readingLas": "ce05261de2da6624cc0d94f2611ec20fe0125b62d15cbb60aafd8808fcca6c2b",
+    "readingSvg": "bff1297750e9f7501d33ca7a88551ddc3ca07b5b985cd89ea369ef06ef982e28",
+    "geologyReading": {
+      "range": "7633,3 – 8518,6 m",
+      "body": {
+        "x": 55,
+        "y": 240.140625,
+        "width": 2422,
+        "height": 471.109375,
+        "top": 240.140625,
+        "right": 2477,
+        "bottom": 711.25,
+        "left": 55
+      },
+      "headerHeight": 128.390625,
+      "heads": [
+        {
+          "title": "GR espectral",
+          "width": 117
+        },
+        {
+          "title": "Electrosec.",
+          "width": 117
+        },
+        {
+          "title": "U alto",
+          "width": 117
+        },
+        {
+          "title": "Prof.",
+          "width": 86
+        },
+        {
+          "title": "Litología",
+          "width": 129
+        },
+        {
+          "title": "Mineralogía",
+          "width": 128
+        },
+        {
+          "title": "Impedancia acústica",
+          "width": 117
+        },
+        {
+          "title": "Reflectividad",
+          "width": 117
+        },
+        {
+          "title": "Sintético · 4 repeticiones",
+          "width": 141
+        },
+        {
+          "title": "Columna",
+          "width": 210
+        },
+        {
+          "title": "Litología (ML)",
+          "width": 141
+        },
+        {
+          "title": "Electrofacies",
+          "width": 117
+        },
+        {
+          "title": "Sónico",
+          "width": 117
+        },
+        {
+          "title": "Passey · ciclos",
+          "width": 129
+        },
+        {
+          "title": "TOC",
+          "width": 117
+        },
+        {
+          "title": "Generadora",
+          "width": 99
+        },
+        {
+          "title": "RMN",
+          "width": 128
+        },
+        {
+          "title": "Interpretación",
+          "width": 117
+        },
+        {
+          "title": "Banderas",
+          "width": 178
+        }
+      ],
+      "layout": "{\"leftWidth\":292,\"rightWidth\":368,\"leftCollapsed\":false,\"rightCollapsed\":false,\"dockHeight\":260,\"leftAuto\":true,\"rightAuto\":true,\"dockAuto\":true,\"dockCollapsed\":false,\"wellHeader\":true}"
+    },
+    "customLayoutRestored": true,
+    "dpr2": {
+      "range": "7633,3 – 8518,6 m",
+      "body": {
+        "x": 55,
+        "y": 236.390625,
+        "width": 1209,
+        "height": 474.859375,
+        "top": 236.390625,
+        "right": 1264,
+        "bottom": 711.25,
+        "left": 55
+      },
+      "headerHeight": 124.640625,
+      "heads": [
+        {
+          "title": "GR",
+          "width": 132
+        },
+        {
+          "title": "Prof.",
+          "width": 86
+        },
+        {
+          "title": "Resistividad",
+          "width": 165
+        },
+        {
+          "title": "Dens. · neutrón",
+          "width": 198
+        },
+        {
+          "title": "Arcilla",
+          "width": 133
+        },
+        {
+          "title": "Porosidad",
+          "width": 132
+        },
+        {
+          "title": "Sw",
+          "width": 132
+        },
+        {
+          "title": "Permeabilidad",
+          "width": 132
+        },
+        {
+          "title": "Indicadores",
+          "width": 99
+        }
+      ],
+      "layout": null
+    },
+    "pageErrors": []
+  }
+}

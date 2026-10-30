@@ -9,6 +9,7 @@
  * - Caché por clave (snapshot + revisión de su interpretación + revisión de las curvas del pozo). Un pedido en cola que
  *   ya nadie quiere (la selección cambió) se descarta antes de mandarlo; uno en vuelo termina y queda en caché.
  */
+import { engineContext, sameContext, type EngineContext } from '../../core/engine/context';
 import type { ClientResult } from '../../core/engine/client';
 import type { EngineWell } from '../../core/engine/engine';
 import type { SupervisorEvent } from '../../core/engine/supervisor';
@@ -18,12 +19,13 @@ export type RunEntry = { status: 'pending' } | { status: 'ready'; result: Client
 
 /** Lo que el corredor necesita del motor (lo cumple `EngineSupervisor`). */
 export interface RunnerEngine {
-  syncWell(well: EngineWell): void;
-  run(interpretation: Interpretation): void;
+  syncWell(well: EngineWell, context?:EngineContext): void;
+  run(interpretation: Interpretation, context?:EngineContext): void;
   subscribe(listener: (e: SupervisorEvent) => void): () => void;
 }
 
 interface Request {
+  context:EngineContext;
   key: string;
   well: EngineWell;
   interpretation: Interpretation;
@@ -39,12 +41,13 @@ export function revisionOf(o: object): number {
 }
 
 /** Clave de caché de una corrida: qué snapshot, qué revisión de su interpretación, sobre qué pozo y curvas. */
-export function runKey(snapshotId: string, interpretation: Interpretation, well: { id: string; depth: object; curves: object }, inputRevisionId?: string | null): string {
-  return `${snapshotId}@${revisionOf(interpretation)}|${well.id}#${revisionOf(well.depth)}.${revisionOf(well.curves)}${inputRevisionId ? `|input:${inputRevisionId}` : ''}`;
+export function runKey(snapshotId: string, interpretation: Interpretation, well: { id: string; depth: object; curves: object }, inputRevisionId?: string | null, context?:EngineContext): string {
+  return `${snapshotId}@${revisionOf(interpretation)}|${well.id}#${revisionOf(well.depth)}.${revisionOf(well.curves)}${inputRevisionId ? `|input:${inputRevisionId}` : ''}${context ? `|context:${JSON.stringify(context)}` : ''}`;
 }
 
 export class IsolatedRunner {
   private engine: RunnerEngine | null = null;
+  private readonly contexts = new Map<string,EngineContext>();
   private readonly entries = new Map<string, RunEntry>();
   private readonly wanted = new Map<string, number>();
   private queue: Request[] = [];
@@ -73,11 +76,14 @@ export class IsolatedRunner {
   }
 
   /** Pide (si no está en caché) la corrida y la marca como en uso; devuelve cómo soltarla. */
-  acquire(key: string, well: EngineWell, interpretation: Interpretation): () => void {
+  acquire(key: string, well: EngineWell, interpretation: Interpretation, context=engineContext(well,interpretation)): () => void {
+    const previous=this.contexts.get(key);
+    if(previous&&!sameContext(previous,context))throw new Error('La clave de caché refiere a otro contexto científico.');
+    this.contexts.set(key,context);
     this.wanted.set(key, (this.wanted.get(key) ?? 0) + 1);
     if (!this.entries.has(key)) {
       this.entries.set(key, { status: 'pending' });
-      this.queue.push({ key, well, interpretation });
+      this.queue.push({ key, well, interpretation, context });
       this.emit();
       this.pump();
     } else {
@@ -100,7 +106,7 @@ export class IsolatedRunner {
       const i = this.queue.findIndex((r) => r.key === key);
       if (i >= 0) {
         this.queue.splice(i, 1);
-        this.entries.delete(key);
+        this.entries.delete(key);this.contexts.delete(key);
         this.emit();
       }
       this.trim();
@@ -122,13 +128,13 @@ export class IsolatedRunner {
     this.got = {};
     this.sent++;
     const engine = this.ensureEngine();
-    engine.syncWell(req.well);
-    engine.run(req.interpretation);
+    engine.syncWell(req.well,req.context);
+    engine.run(req.interpretation,req.context);
   }
 
   private onEvent(e: SupervisorEvent): void {
     if (!this.inFlight) return;
-    if (e.type === 'result') this.got.result = e.result;
+    if (e.type === 'result') { if(sameContext(e.result.context,this.inFlight.context))this.got.result=e.result;else this.got.error='El resultado aislado pertenece a otro contexto.'; }
     else if (e.type === 'error') this.got.error ??= e.message;
     else if (e.type === 'busy' && !e.busy) {
       // Sin respuesta (el worker se cayó): el supervisor relanza el último pedido, que es este; se sigue esperando.
@@ -150,7 +156,7 @@ export class IsolatedRunner {
     if (this.entries.size <= this.maxEntries) return;
     for (const [key, e] of this.entries) {
       if (this.entries.size <= this.maxEntries) break;
-      if (e.status !== 'pending' && !this.wanted.has(key)) this.entries.delete(key);
+      if (e.status !== 'pending' && !this.wanted.has(key)) {this.entries.delete(key);this.contexts.delete(key);}
     }
   }
 

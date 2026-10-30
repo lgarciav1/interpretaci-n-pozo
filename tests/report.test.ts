@@ -1,3 +1,4 @@
+import { engineContext } from '../src/core/engine/context';
 import { describe, expect, it } from 'vitest';
 import { Engine, toEngineWell } from '../src/core/engine/engine';
 import type { ClientResult } from '../src/core/engine/client';
@@ -17,7 +18,7 @@ function example() {
   interpretation.params.zones[zones[0]!.id] = { m: 2.6 };
   const engine = new Engine(registry);
   engine.setWell(toEngineWell(well));
-  const result: ClientResult = { ...engine.run(interpretation), wellId: well.id, seq: 1, gen: 1, roundTripMs: 0, coalesced: 0 };
+  const result: ClientResult = { ...engine.run(interpretation), context:engineContext(toEngineWell(well),interpretation), wellId: well.id, seq: 1, gen: 1, roundTripMs: 0, coalesced: 0 };
   return { well, interpretation, result };
 }
 
@@ -126,3 +127,4 @@ describe('informe automático', () => {
     await expect(renderReport({ ...defaultReportOptions(), xyIds: ['inexistente'] }, model, { viewer: tpFigureContext(), xy: [], raster, date: new Date() })).rejects.toThrow(/ya no está disponible/);
   });
 });
+
