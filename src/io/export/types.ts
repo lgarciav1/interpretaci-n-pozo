@@ -14,7 +14,7 @@ export interface ExportColumn {
   description?: string;
   /** Alineada con la profundidad de la exportación. NaN = sin dato. */
   data: Float64Array;
-  origin: 'measured' | 'computed';
+  origin: 'measured' | 'prepared' | 'computed';
 }
 
 export interface ExportZone {
@@ -69,7 +69,7 @@ export interface PreparedColumn {
   name: string;
   unit: string;
   description: string;
-  origin: 'measured' | 'computed';
+  origin: 'measured' | 'prepared' | 'computed';
   values: Float64Array;
 }
 
@@ -90,3 +90,4 @@ export interface PreparedExport {
   base: number;
   generatedAt: Date;
 }
+

@@ -11,6 +11,7 @@
  *
  * Puro: sin React ni stores.
  */
+import type { CurveProvenance } from './engine/context';
 import type { RoleId } from './roles';
 import { TOOL_SHEETS, type ToolSheet } from './toolSheets';
 
@@ -130,6 +131,7 @@ export const BUILTIN_TOOLS: readonly ToolDef[] = [
 
 /** Lo mínimo que hace falta saber de una curva del pozo para atribuirla a una herramienta. */
 export interface ToolCurveRef {
+  provenance?: CurveProvenance;
   id: string;
   mnemonic: string;
   role: RoleId | null;
@@ -204,3 +206,11 @@ export function sheetOf(tool: ToolDef): ToolSheet {
 }
 
 export const defaultToolCatalog = new ToolCatalog(BUILTIN_TOOLS);
+
+
+/** La ascendencia preparada manda sobre el mnemónico/rol de la salida. */
+export function ancestorToolIds(curve: ToolCurveRef, tools: ToolCatalog): readonly string[] {
+  if (curve.provenance?.origin === 'prepared') return curve.provenance.ancestorToolIds;
+  const owner = tools.ownerOf(curve);
+  return owner ? [owner.id] : [];
+}

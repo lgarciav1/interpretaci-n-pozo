@@ -8,15 +8,19 @@
  *   El motor detecta cambios por identidad del array (no compara contenido).
  * - `unit` es la unidad en la que están los datos de la curva; el motor convierte a la unidad canónica del rol.
  */
+import type { CurveProvenance } from './engine/context';
 import type { PointSet } from './pointSets';
 import type { RoleId } from './roles';
 import type { UnitId } from './units';
 
 export type CurveOrigin =
   | { kind: 'measured'; source?: string }
+  | { kind: 'prepared' }
   | { kind: 'computed'; moduleId: string; port: string };
 
 export interface Curve {
+  /** Solo en la proyección derivada; nunca en entradas persistidas. */
+  provenance?: CurveProvenance;
   /** Único dentro del pozo. Para curvas medidas suele ser el mnemónico. */
   id: string;
   /** Mnemónico tal como vino en el archivo (ZDEN, AT90...). */
@@ -230,3 +234,4 @@ export function layoutZones(depth: ArrayLike<number>, zones: readonly Zone[]): Z
 export function zoneGeometryKey(zones: readonly Zone[]): string {
   return zones.map((z) => `${z.id}:${z.top}:${z.base}`).join('|');
 }
+

@@ -115,12 +115,12 @@ export function ViewerSlot() {
     if (!well) return [];
     return resolveTracks(
       layoutSpec,
-      { depth: well.depth.values, curves, computed, catalog: registry.roles },
+      { depth: well.depth.values, curves, computed, catalog: registry.roles, sources: interpretation?.sources },
       overrides,
       // Armando pistas se ven también las que se ocultan vacías (para moverlas o quitarlas).
       { keepEmpty: building },
     );
-  }, [well, curves, computed, layoutSpec, overrides, building]);
+  }, [well, curves, computed, layoutSpec, overrides, building, interpretation?.sources]);
 
   // Cortina antes/después: el snapshot se calcula una vez al elegirlo (caché compartida con el diálogo); arrastrar la
   // línea solo redibuja. Cada lado usa sus datos; una grilla/laboratorio incompatibles bloquean la cortina.
@@ -135,7 +135,7 @@ export function ViewerSlot() {
     if (!well || !curtainSnap || !curtainResult || !curtainWell || curtainIssue) return null;
     // El lado «antes» con la sarta del snapshot (sus curvas medidas son las que veía ese cálculo).
     const beforeCurves = visibleCurves(curtainWell, curtainSnap.interpretation);
-    const before = resolveTracks(layoutSpec, { depth: curtainWell.depth.values, curves: beforeCurves, computed: computedCurves(curtainResult, curtainWell), catalog: registry.roles }, overrides, { keepEmpty: true });
+    const before = resolveTracks(layoutSpec, { depth: curtainWell.depth.values, curves: beforeCurves, computed: computedCurves(curtainResult, curtainWell), catalog: registry.roles, sources: curtainSnap.interpretation.sources }, overrides, { keepEmpty: true });
     return { before: alignCurtainTracks(tracks, before), beforeLabel: `Antes: ${curtainSnap.name}`, afterLabel: 'Después: actual' };
   }, [well, curtainSnap, curtainResult, curtainWell, curtainIssue, layoutSpec, overrides, tracks]);
 

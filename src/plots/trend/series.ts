@@ -18,6 +18,7 @@
  */
 import { canonicalCurveData } from '../../core/canonical';
 import type { Interpretation } from '../../core/interpretation';
+import { isPreparedSource } from '../../core/preparation/source';
 import type { RoleCatalog } from '../../core/roles';
 import type { HiddenCurve } from '../../core/toolString';
 import type { SeriesRef } from '../../core/trends';
@@ -198,8 +199,8 @@ function depthIndexOf(depth: ArrayLike<number>, key: string): number {
 }
 
 /** Clave de serie de una curva del visor: medida → `m:<id>`; calculada → `r:<ROL>` (sigue al método elegido). */
-export function curveSeriesKey(c: { origin: 'measured' | 'computed'; curveId?: string; role: string | null }): string | null {
-  if (c.origin === 'measured') return c.curveId ? `m:${c.curveId}` : null;
+export function curveSeriesKey(c: { origin: 'measured' | 'prepared' | 'computed'; curveId?: string; role: string | null }): string | null {
+  if (c.origin !== 'computed') return c.curveId ? `m:${c.curveId}` : null;
   return c.role ? `r:${c.role}` : null;
 }
 
@@ -248,7 +249,7 @@ export const curveSeriesProvider: TrendSeriesProvider = {
     for (const c of ctx.well.curves) {
       if (isFlag(ctx.catalog, c.role)) continue;
       const role = c.role ? ctx.catalog.get(c.role) : undefined;
-      out.push({ key: `m:${c.id}`, label: role ? `${c.mnemonic} · ${role.label}` : c.mnemonic, group: 'Medidas', unit: unitLabel(canonicalCurveData(c, ctx.catalog).unit) });
+      out.push({ key: `m:${c.id}`, label: role ? `${c.mnemonic} · ${role.label}` : c.mnemonic, group: c.origin.kind === 'prepared' ? 'Preparadas' : 'Medidas', unit: unitLabel(canonicalCurveData(c, ctx.catalog).unit) });
     }
     const seen = new Set<string>();
     for (const c of ctx.computed) {
@@ -273,6 +274,13 @@ export const curveSeriesProvider: TrendSeriesProvider = {
       const role = key.slice(2);
       const def = ctx.catalog.get(role);
       const scale = def?.display?.scale ?? 'linear';
+      const selected = ctx.interpretation.sources[role];
+      if (isPreparedSource(selected) && selected?.kind === 'curve') {
+        const c = ctx.well.curves.find(c => c.id === selected.curveId);
+        if (!c) return null;
+        const { data, unit } = canonicalCurveData({ ...c, role }, ctx.catalog);
+        return depthSeries(ref, c.mnemonic, depth, data, unit, scale, role);
+      }
       const comp = ctx.computed.find((c) => c.active && c.port === role);
       if (comp && comp.data.length === depth.length) return depthSeries(ref, role, depth, comp.data, def?.unit ?? 'unitless', scale, role);
       const m = ctx.well.curves.find((c) => c.role === role);
@@ -283,3 +291,4 @@ export const curveSeriesProvider: TrendSeriesProvider = {
     return null;
   },
 };
+

@@ -41,11 +41,12 @@ export function wellInputKey(well: EngineWell): string {
   inputKeys.set(well.curves, { id: well.id, depth: well.depth, key });
   return key;
 }
+export const engineDecisionKey = (interpretation: Interpretation): string => canonical([interpretation.zones, interpretation.params, interpretation.sources, interpretation.compare, interpretation.disabled, interpretation.toolString ?? null]);
 export function engineContext(well: EngineWell, interpretation: Interpretation, inputRevisionId: string | null = null): EngineContext {
   if (well.curves.some(c => c.provenance?.origin === 'prepared'))
     throw new Error('La proyección preparada requiere un plan validado; no se puede usar como identidad.');
   return Object.freeze({ wellId: well.id, inputRevisionId, depthKey: `depth:${identityKey(well.depth)}`, preparationKey: 'identity',
-    engineKey: wellInputKey(well) + '|' + canonical([interpretation.zones, interpretation.params, interpretation.sources, interpretation.compare, interpretation.disabled, interpretation.toolString ?? null]) });
+    engineKey: wellInputKey(well) + '|' + engineDecisionKey(interpretation) });
 }
 export function validContext(value: unknown): value is EngineContext {
   if (!value || typeof value !== 'object')

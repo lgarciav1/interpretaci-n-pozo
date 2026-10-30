@@ -47,7 +47,7 @@ export function figureTracks(well: Well) {
   const interpretation = project.wells.find((e) => e.well === well)?.interpretation;
   return resolveTracks(
     withOverlayTracks(layoutFor(workspace, display.layouts), FIGURE_OVERLAYS, workspace, { well, ...(display.overlays ? { settings: display.overlays } : {}) }),
-    { depth: well.depth.values, curves: visibleCurves(well, interpretation), computed, catalog: registry.roles },
+    { depth: well.depth.values, curves: visibleCurves(well, interpretation), computed, catalog: registry.roles, sources: interpretation?.sources },
     { roles: display.roles, ...(display.curves[well.id] ? { curves: display.curves[well.id] } : {}) },
   );
 }

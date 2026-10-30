@@ -278,7 +278,7 @@ export function expandGroupEntry(tracks: readonly TrackSpec[], trackId: string, 
 }
 
 /** Índice de la entrada que puso una curva resuelta en su pista (-1 si la tomó un recolector). */
-export function entryIndexFor(t: TrackSpec, curve: { role: string | null; curveId?: string; origin: 'measured' | 'computed'; moduleId?: string }): number {
+export function entryIndexFor(t: TrackSpec, curve: { role: string | null; curveId?: string; origin: 'measured' | 'prepared' | 'computed'; moduleId?: string }): number {
   const list = t.curves ?? [];
   const byId = curve.curveId === undefined ? -1 : list.findIndex((e) => 'curveId' in e.select && e.select.curveId === curve.curveId);
   if (byId >= 0) return byId;
@@ -287,7 +287,7 @@ export function entryIndexFor(t: TrackSpec, curve: { role: string | null; curveI
   if (byModule >= 0) return byModule;
   const byRole = curve.role === null ? -1 : list.findIndex((e) => 'role' in e.select && e.select.role === curve.role && !e.select.module);
   if (byRole >= 0) return byRole;
-  return curve.origin === 'measured' && curve.role === null ? list.findIndex((e) => 'unassigned' in e.select) : -1;
+  return curve.origin !== 'computed' && curve.role === null ? list.findIndex((e) => 'unassigned' in e.select) : -1;
 }
 
 // ── proyecto ───────────────────────────────────────────────────────────────────────────────────────────────────
@@ -367,3 +367,4 @@ export function applyTrackTemplate(project: Project, id: string): Project {
 
 /** Vuelve a la plantilla de fábrica del espacio. */
 export const resetTrackLayout = (project: Project, workspace: string): Project => setTrackLayout(project, workspace, null);
+

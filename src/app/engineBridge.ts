@@ -8,7 +8,7 @@
  *   profundidad de otro. Además se ignora cualquier resultado cuyo pozo no sea el activo.
  */
 import { createInProcessClient } from '../core/engine/client';
-import { toEngineWell } from '../core/engine/engine';
+import { resolveDataContext } from '../core/preparation/projection';
 import { EngineSupervisor, type WorkerLike } from '../core/engine/supervisor';
 import { entryEngineContext, sameComputation, sameContext, type EngineContext } from '../core/engine/context';
 import type { Registry } from '../core/registry';
@@ -67,7 +67,8 @@ export function startEngineBridge(registry: Registry): EngineSupervisor {
   const sync = () => {
     const entry = selectActiveEntry(useProject.getState());
     if (!entry) { expected=null;lastWell=null;useResults.setState({result:null,error:null,busy:false});return; }
-    const context=entryEngineContext(entry);
+    const data = resolveDataContext(entry.well, entry.interpretation, registry, entry.inputRevisionId ?? null);
+    const context=data.context;
     if(sameContext(context,expected)){lastWell=entry.well;return;}
     const old=useResults.getState().result;
     // Laboratorio/adquisición sin consumidores del motor: mismo engineKey permite conservar todas
@@ -76,7 +77,7 @@ export function startEngineBridge(registry: Registry): EngineSupervisor {
     useResults.setState({result:rebound,error:null});
     const inputsChanged=!lastWell || entry.well.id!==lastWell.id || entry.well.depth!==lastWell.depth || entry.well.curves!==lastWell.curves || expected?.inputRevisionId!==context.inputRevisionId;
     expected=context;lastWell=entry.well;
-    if(inputsChanged)supervisor.syncWell(toEngineWell(entry.well),context);
+    if(inputsChanged)supervisor.syncWell(data.engineWell,context);
     if(!rebound)supervisor.run(entry.interpretation,context);
   };
   useProject.subscribe(sync);

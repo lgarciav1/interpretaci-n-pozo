@@ -6,7 +6,9 @@ import type { Interpretation, SourceRef } from '../interpretation';
 import { describeInputGroup, PORT_KIND_LABEL, portOf, unmetInputGroup, type AnyModule } from '../module';
 import type { Registry } from '../registry';
 import type { RoleId } from '../roles';
-import { excludedCurveIds } from '../toolString';
+import { selectDataCurves } from '../preparation/projection';
+import { isPreparedSource } from '../preparation/source';
+import type { CurveProvenance } from './context';
 import type { UnitId } from '../units';
 import { validateExplicitSource } from './explicitSource';
 
@@ -32,6 +34,7 @@ export interface Diagnostic {
 
 /** Lo mínimo que el planificador necesita saber de las curvas del pozo. */
 export interface CurveMeta {
+  provenance?: CurveProvenance;
   id: string;
   mnemonic: string;
   role: RoleId | null;
@@ -75,8 +78,7 @@ export function planGraph(registry: Registry, allCurves: readonly CurveMeta[], i
 
   // 0. Sarta (docs/decisiones/0032): las curvas de una herramienta apagada o fuera de la sarta planificada no existen
   //    para el cálculo. Es un filtro: los datos siguen en el pozo y vuelven al prender la herramienta.
-  const excluded = excludedCurveIds(allCurves, interp.toolString, registry.tools);
-  const curves = excluded.size ? allCurves.filter((c) => !excluded.has(c.id)) : allCurves;
+  const { excluded, eligible: curves } = selectDataCurves(allCurves, interp, registry.tools);
 
   // 1. Candidatos por puerto: curvas medidas con ese rol (orden del pozo) y luego módulos (orden del registro).
   const candidates = new Map<string, SourceRef[]>();
@@ -85,7 +87,7 @@ export function planGraph(registry: Registry, allCurves: readonly CurveMeta[], i
     if (list) list.push(ref);
     else candidates.set(port, [ref]);
   };
-  for (const c of curves) if (c.role) addCandidate(c.role, { kind: 'curve', curveId: c.id });
+  for (const c of curves) if (c.role && c.provenance?.origin !== 'prepared') addCandidate(c.role, { kind: 'curve', curveId: c.id });
   for (const m of registry.modules) {
     if (disabled.has(m.id)) continue;
     for (const spec of Object.values(m.outputs)) addCandidate(portOf(spec), { kind: 'module', moduleId: m.id });
@@ -97,8 +99,17 @@ export function planGraph(registry: Registry, allCurves: readonly CurveMeta[], i
   const sources = new Map<string, SourceRef>();
   const ports = new Set<string>([...candidates.keys(), ...Object.keys(interp.sources)]);
   const needDefault: string[] = [];
+  const blockedPorts = new Set<string>();
   for (const port of ports) {
     const explicit = interp.sources[port];
+    // Una preparación elegida nunca vuelve silenciosamente a original/módulo.
+    if (isPreparedSource(explicit) && (explicit?.kind === 'curve') &&
+      !allCurves.some(c => c.id === explicit.curveId && c.provenance?.origin !== 'prepared') &&
+      (excluded.has(explicit.curveId) || validateExplicitSource(registry, curvesById, disabled, port, explicit))) {
+      blockedPorts.add(port);
+      diagnostics.push({ level: 'warning', code: 'invalid-source', port, message: `La curva preparada '${explicit.curveId}' elegida para ${port} no está disponible. El puerto queda bloqueado; elegí otra fuente explícitamente.` });
+      continue;
+    }
     if (explicit?.kind === 'curve' && excluded.has(explicit.curveId)) {
       // Elección del usuario que la sarta deja en suspenso: vuelve sola al prender la herramienta.
       const c = allCurves.find((x) => x.id === explicit.curveId)!;
@@ -118,6 +129,7 @@ export function planGraph(registry: Registry, allCurves: readonly CurveMeta[], i
         sources.set(port, explicit);
         if (explicit.kind === 'curve') {
           const c = curvesById.get(explicit.curveId)!;
+          if (c.provenance?.origin === 'prepared' && c.role === port) addCandidate(port, explicit);
           if (c.role !== port) {
             // Intencional: el usuario puede usar una curva con otro rol (p. ej. AT60 como RT). Se informa y se
             // ofrece en el selector junto a las candidatas normales.
@@ -169,6 +181,7 @@ export function planGraph(registry: Registry, allCurves: readonly CurveMeta[], i
   // Para un consumidor dado: la fuente elegida, salvo que sea él mismo (entonces la siguiente candidata, preferentemente
   // una que pueda correr).
   const sourceFor = (port: string, consumer: string): SourceRef | null => {
+    if (blockedPorts.has(port)) return null;
     const chosen = sources.get(port);
     if (chosen && notSelf(chosen, consumer)) return chosen;
     const list = candidates.get(port) ?? [];
@@ -209,6 +222,10 @@ export function planGraph(registry: Registry, allCurves: readonly CurveMeta[], i
     for (const [key, spec] of Object.entries(m.inputs)) {
       const port = portOf(spec);
       let src = sourceFor(port, id);
+      if (blockedPorts.has(port) && spec.optional) {
+        status = 'blocked';
+        diagnostics.push({ level: 'warning', code: 'blocked', moduleId: id, port, message: `${moduleLabel(m, id)} está bloqueado por la fuente preparada de ${port}, aunque su entrada sea opcional.` });
+      }
       if (src?.kind === 'module' && spec.optional && !isViable(src)) {
         // Entrada opcional cuya fuente no puede correr: el módulo corre sin ella (no se bloquea por algo opcional).
         dropped.push({
@@ -394,3 +411,4 @@ function findCycle(start: string, nodes: Map<string, PlanNode>, allowed: Set<str
   // deps apuntan "hacia arriba": invertimos para leer en el sentido del flujo de datos.
   return cycle ? cycle.reverse() : null;
 }
+

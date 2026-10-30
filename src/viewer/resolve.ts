@@ -15,6 +15,8 @@ import type { RoleCatalog, RoleId } from '../core/roles';
 import { canonicalCurveData } from '../core/canonical';
 import { getUnit, unitLabel, type UnitId } from '../core/units';
 import type { Curve } from '../core/well';
+import type { SourceRef } from '../core/interpretation';
+import { isPreparedSource } from '../core/preparation/source';
 import { ensureContrast } from '../ui/color';
 import { curveStyle, dashPattern, FILL_PALETTE, type CurveStyle, type FillId } from '../ui/curves';
 import { THEMES, type ThemeName } from '../ui/tokens';
@@ -35,6 +37,7 @@ export interface ComputedCurve {
 }
 
 export interface ViewerSources {
+  sources?: Readonly<Record<string, SourceRef>>;
   depth: Float64Array;
   /** Curvas medidas del pozo. */
   curves: readonly Curve[];
@@ -57,7 +60,7 @@ export interface ResolvedCurve {
   /** Unidad de `data` (canónica del rol si se pudo convertir). */
   unit: UnitId;
   unitLabel: string;
-  origin: 'measured' | 'computed';
+  origin: 'measured' | 'prepared' | 'computed';
   /** Salida calculada que no alimenta la cadena (método en comparación). */
   alternative: boolean;
   moduleId?: string;
@@ -97,7 +100,7 @@ export interface HiddenCurve {
   name: string;
   role: RoleId | null;
   curveId?: string;
-  origin: 'measured' | 'computed';
+  origin: 'measured' | 'prepared' | 'computed';
 }
 
 /** Pila resuelta de una pista 'stack'. */
@@ -192,7 +195,7 @@ function merge(...layers: (CurveDisplayOverride | undefined)[]): CurveDisplayOve
 }
 
 function makeCurve(
-  base: { key: string; name: string; role: RoleId | null; unit: UnitId; origin: 'measured' | 'computed'; alternative: boolean; data: Float64Array; moduleId?: string; curveId?: string; title: string },
+  base: { key: string; name: string; role: RoleId | null; unit: UnitId; origin: 'measured' | 'prepared' | 'computed'; alternative: boolean; data: Float64Array; moduleId?: string; curveId?: string; title: string },
   catalog: RoleCatalog,
   track: TrackSpec,
   layers: CurveDisplayOverride,
@@ -273,18 +276,22 @@ export function resolveTracks(fullLayout: readonly TrackSpec[], src: ViewerSourc
     placed.add(h.key);
   };
 
-  const measuredCurve = (c: Curve, track: TrackSpec, tpl?: CurveDisplayOverride) => {
-    const { data, unit } = toCanonical(c, catalog);
-    const role = c.role;
+  const measuredCurve = (c: Curve, track: TrackSpec, tpl?: CurveDisplayOverride, selectedRole?: string) => {
+    const role = selectedRole ?? c.role;
+    const { data, unit } = toCanonical(role === c.role ? c : { ...c, role }, catalog);
     const layers = merge(tpl, role ? overrides.roles?.[role] : undefined, overrides.curves?.[c.id]);
     const roleLabel = role ? catalog.get(role)?.label : undefined;
     const key = `m:${c.id}`;
+    const origin = c.origin.kind === 'prepared' ? 'prepared' : 'measured';
+    const selected = role ? src.sources?.[role] : undefined;
+    const alternative = origin === 'prepared' ? selected?.kind !== 'curve' || selected.curveId !== c.id
+      : isPreparedSource(selected) && selected?.kind === 'curve' && selected.curveId !== c.id;
     if (layers.hidden) {
-      hide(track, { key, name: c.mnemonic, role, curveId: c.id, origin: 'measured' });
+      hide(track, { key, name: c.mnemonic, role, curveId: c.id, origin });
       return null;
     }
     return makeCurve(
-      { key, name: c.mnemonic, role, unit, origin: 'measured', alternative: false, data, curveId: c.id, title: roleLabel ? `${c.mnemonic} — ${roleLabel}` : c.mnemonic },
+      { key, name: c.mnemonic, role, unit, origin, alternative, data, curveId: c.id, title: (roleLabel ? `${c.mnemonic} — ${roleLabel}` : c.mnemonic) + (origin === 'prepared' ? ' · Preparada' : '') },
       catalog,
       track,
       layers,
@@ -337,6 +344,11 @@ export function resolveTracks(fullLayout: readonly TrackSpec[], src: ViewerSourc
       const sel = entry.select;
       if ('role' in sel) {
         if (sel.module === undefined) for (const c of measured) if (c.role === sel.role) add(measuredCurve(c, t, entry.style));
+        const selected = src.sources?.[sel.role];
+        if (sel.module === undefined && isPreparedSource(selected) && selected?.kind === 'curve') {
+          const c = measured.find(c => c.id === selected.curveId);
+          if (c && c.role !== sel.role) add(measuredCurve(c, t, entry.style, sel.role));
+        }
         for (const c of computed) if (c.port === sel.role && (sel.module === undefined || c.moduleId === sel.module)) add(computedCurve(c, t, entry.style, sel.module !== undefined));
       } else if ('curveId' in sel) {
         const c = measured.find((m) => m.id === sel.curveId);
@@ -517,3 +529,4 @@ function cachedStack(spec: StackSpec, n: number, source: (role: RoleId) => Float
   stackCache.set(spec, { n, inputs, value });
   return value;
 }
+

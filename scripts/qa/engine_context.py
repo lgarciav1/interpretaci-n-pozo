@@ -1,6 +1,7 @@
 """Fallos reales de protocolo mediante instrumentación de la API Worker; sin acceder a stores de la app."""
 # Comparte las acciones públicas de archivo/exportación con la regresión v7.
 from pathlib import Path
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 exec(Path(__file__).with_name('archive_v7.py').read_text().split('with sync_playwright() as p:')[0])
 
 instrument=r'''(()=>{
@@ -39,7 +40,11 @@ instrument=r'''(()=>{
 
 def dismiss(page):
  close=page.get_by_role('button',name='Cerrar aviso',exact=True)
- while close.count() and close.first.is_visible():close.first.click()
+ while close.count() and close.first.is_visible():
+  try:close.first.click(timeout=1500)
+  except PlaywrightTimeoutError:
+   # El aviso puede vencer entre is_visible y click. Solo se acepta si ya desapareció.
+   if close.count() and close.first.is_visible():raise
 
 with sync_playwright() as p:
  browser=p.chromium.launch(executable_path=config.chromium,headless=True,args=['--no-sandbox','--disable-dev-shm-usage'])

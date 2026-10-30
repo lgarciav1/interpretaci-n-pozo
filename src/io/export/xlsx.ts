@@ -94,7 +94,7 @@ export function writeXlsx(input: ExportInput): Uint8Array {
   info.push(['Muestras', p.depth.length, null, null]);
   info.push(['Valor para sin dato', p.nullValue, null, p.nullValue === null ? 'Celda vacía' : null]);
   info.push(['Generado', p.generatedAt.toISOString(), null, null], [], ['Columna', 'Origen', 'Unidad', 'Descripción']);
-  for (const c of p.columns) info.push([c.name, c.origin === 'computed' ? 'calculada' : 'medida', c.unit || null, c.description || null]);
+  for (const c of p.columns) info.push([c.name, c.origin === 'computed' ? 'calculada' : c.origin === 'prepared' ? 'preparada' : 'medida', c.unit || null, c.description || null]);
   sheets.push({ name: 'Encabezado', xml: sheetXml(info, [24, 28, 12, 50]) });
 
   const files: Record<string, Uint8Array> = {
@@ -121,3 +121,4 @@ export function writeXlsx(input: ExportInput): Uint8Array {
   sheets.forEach((s, i) => (files[`xl/worksheets/sheet${i + 1}.xml`] = strToU8(s.xml)));
   return zipSync(files, { level: 6 });
 }
+

@@ -31,6 +31,7 @@ export function serveEngine(endpoint: Endpoint, registry: Registry, options: Eng
     for (const c of msg.curves) {
       if (next.has(c.id) || typeof c.id !== 'string' || !c.id || typeof c.mnemonic !== 'string' || !c.mnemonic || typeof c.unit !== 'string' || !c.unit || !(c.role === null || typeof c.role === 'string') || (c.data !== undefined && !(c.data instanceof Float64Array)) || typeof c.contentVersion !== 'string' || !c.contentVersion || c.depthKey !== msg.context.depthKey || !['original','prepared'].includes(c.origin) || !Array.isArray(c.ancestorToolIds) || c.ancestorToolIds.some((id) => typeof id !== 'string' || !id) || (c.qualityKey !== undefined && typeof c.qualityKey !== 'string')) throw new InvalidDelta('Procedencia de curva inválida.');
       const prev = previous.get(c.id);
+      if (c.origin === 'prepared' && (msg.context.preparationKey === 'identity' || !/^prep:[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/.test(c.id) || !c.qualityKey || c.ancestorToolIds.some(id => !registry.tools.has(id)))) throw new InvalidDelta('Artefacto preparado sin identidad o ascendencia válida.');
       const data = c.data ?? (prev?.provenance?.contentVersion === c.contentVersion ? prev.data : undefined);
       if (!data) throw new InvalidDelta(`El motor no tiene datos de la versión solicitada para '${c.id}'.`);
       if (c.data && prev?.provenance?.contentVersion === c.contentVersion) {
