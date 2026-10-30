@@ -12,6 +12,13 @@ export function maskQualityCounts(quality: Uint16Array) {
 /** Conserva la API de conteo de máscaras; las estimaciones se cuentan aparte. */
 export function preparationQualityCounts(quality: Uint16Array) {
   let interpolated = 0;
-  for (const q of quality) if (q & Quality.Interpolated) interpolated++;
+  for (const q of quality) if ((q & Quality.Interpolated) && (q & Quality.OriginallyMissing)) interpolated++;
   return { ...maskQualityCounts(quality), interpolated };
+}
+
+/** Flag de interpolación de un contribuyente no implica faltante original del centro. */
+export function stageQualityCounts(quality: Uint16Array) {
+  let filtered = 0, estimatedInfluence = 0;
+  for (const q of quality) { if (q & Quality.Filtered) filtered++; if ((q & Quality.Interpolated) && !(q & Quality.OriginallyMissing)) estimatedInfluence++; }
+  return { ...preparationQualityCounts(quality), filtered, estimatedInfluence };
 }

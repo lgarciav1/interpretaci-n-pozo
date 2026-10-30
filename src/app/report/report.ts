@@ -2,7 +2,7 @@ import { effectiveWell } from '../preparation/data';
 import { contextMatchesWell, engineDecisionKey, sameContext, wellInputKey } from '../../core/engine/context';
 import { planPreparation } from '../../core/preparation/plan';
 import { toEngineWell } from '../../core/engine/engine';
-import { preparationQualityCounts } from '../../core/preparation/quality';
+import { stageQualityCounts } from '../../core/preparation/quality';
 import type { ClientResult } from '../../core/engine/client';
 import type { Interpretation } from '../../core/interpretation';
 import type { TableCell, TableColumn, TableValue } from '../../core/module';
@@ -58,8 +58,9 @@ export function buildReportModel(well: Well, interpretation: Interpretation, res
   const qc = runQc(originals, { roles: catalog.roles });
   for (const p of current?.preparation?.artifacts ?? []) {
     const a = current!.preparation!.plan.artifacts.find(a => a.id === p.id)!;
-    const counts = preparationQualityCounts(p.quality);
+    const counts = stageQualityCounts(p.quality);
     if (a.gapFill) warnings.push(`Interpolación lineal en MD · ${a.mnemonic}: ${counts.interpolated} muestras estimadas; tramo ${number(a.gapFill.top)}–${number(a.gapFill.base)} m; distancia máxima entre anclajes ${number(a.gapFill.maxGapM)} m. Calidad 9 = faltante original + interpolada. No extrapola, no cruza fronteras de zona ni rellena exclusiones; los valores estimados no son mediciones.`);
+    if (a.filter) warnings.push(`Mediana móvil en valores lineales · ${a.mnemonic}: ${counts.filtered} muestras filtradas; radio ${number(a.filter.radiusM)} m MD; tramo ${number(a.filter.top)}–${number(a.filter.base)} m; separación máxima ${number(a.filter.maxStepM)} m. Se aplica después de la interpolación si existe; ${counts.estimatedInfluence} centros medidos reciben influencia de estimaciones. Conserva bordes sin soporte completo, faltantes y exclusiones; no cruza zonas. QC 16=filtrada, 24=filtrada con contribuyentes interpolados, 25=faltante original interpolado y filtrado.`);
     const exclusions = a.ranges.length ? `Intervalos MD con extremos incluidos: ${a.ranges.map(r => `${number(r.top)}–${number(r.base)} m`).join(', ')}.` : 'Sin exclusiones por intervalo.';
     warnings.push(`Preparación · ${a.mnemonic}: ${counts.newlyExcluded} mediciones excluidas; ${counts.originallyMissing} faltantes originales. ${exclusions} Los originales se conservan; el control de calidad describe las mediciones originales.`);
   }
