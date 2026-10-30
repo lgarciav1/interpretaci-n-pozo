@@ -202,8 +202,8 @@ describe('snapshots fijados y restauración', () => {
 
 describe('frontera de persistencia', () => {
   it('rechaza guardar revisiones como v6 antes de descartar datos', async () => {
-    await expect(serializeProject(snapshot(versioned()).project)).rejects.toThrow(/copia incompleta/);
-    await expect(serializeProject(enableProjectInputRevisions(createProject()))).rejects.toThrow(/v6/);
+    await expect(serializeProject(snapshot(versioned()).project, { version: 6 })).rejects.toThrow(/copia incompleta/);
+    await expect(serializeProject(enableProjectInputRevisions(createProject()), { version: 6 })).rejects.toThrow(/v6/);
   });
   it.each(['root', 'well', 'snapshot'])('rechaza un archivo v6 con marcador de revisiones en %s', async (where) => {
     const p = snapshot(legacy()).project;
@@ -304,6 +304,6 @@ describe.each(Object.entries(files))('activación de corpus: %s', (_, text) => {
       expect(resolveSnapshotInputs(p, s).well).toBe(entry(p, s.wellId).well);
     }
     expect(projectInputState(old)).toBeNull();
-    await expect(serializeProject(p)).rejects.toThrow(/v6/);
+    expect(JSON.parse(await serializeProject(p)).version).toBe(7);
   });
 });

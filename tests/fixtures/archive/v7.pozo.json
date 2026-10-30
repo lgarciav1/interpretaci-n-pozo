@@ -1,0 +1,322 @@
+{
+  "format": "pozo-proyecto",
+  "version": 7,
+  "savedAt": "2026-10-29T00:00:00.000Z",
+  "project": {
+    "name": "Archivo v7 independiente",
+    "activeWellId": "w",
+    "display": {
+      "layouts": {},
+      "roles": {},
+      "curves": {}
+    },
+    "wells": [
+      {
+        "wellId": "w",
+        "inputRevisionId": "input-00000000000000000000000000000002",
+        "interpretation": {
+          "zones": [
+            {
+              "id": "a",
+              "name": "A",
+              "top": 100,
+              "base": 102,
+              "color": "#888888",
+              "kind": "formation"
+            }
+          ],
+          "params": {
+            "global": {
+              "grClean": 45
+            },
+            "zones": {}
+          },
+          "sources": {
+            "GR": {
+              "kind": "curve",
+              "curveId": "GR"
+            }
+          },
+          "compare": [],
+          "disabled": [],
+          "trends": [],
+          "pointSets": {
+            "core": {
+              "points": {
+                "p1": {
+                  "status": "exclude",
+                  "tag": "oil"
+                }
+              },
+              "depthShift": 0.5
+            }
+          }
+        },
+        "progress": {
+          "marks": {
+            "load": "done"
+          }
+        }
+      }
+    ],
+    "snapshots": [
+      {
+        "id": "before",
+        "name": "Original",
+        "wellId": "w",
+        "createdAt": "2026-10-29T00:00:00.000Z",
+        "inputRevisionId": "input-00000000000000000000000000000001",
+        "inputBinding": "pinned",
+        "interpretation": {
+          "zones": [
+            {
+              "id": "a",
+              "name": "A",
+              "top": 100,
+              "base": 102,
+              "color": "#888888",
+              "kind": "formation"
+            }
+          ],
+          "params": {
+            "global": {
+              "grClean": 25
+            },
+            "zones": {}
+          },
+          "sources": {
+            "GR": {
+              "kind": "curve",
+              "curveId": "GR"
+            }
+          },
+          "compare": [],
+          "disabled": [],
+          "trends": [],
+          "pointSets": {
+            "core": {
+              "points": {
+                "p1": {
+                  "status": "exclude",
+                  "tag": "oil"
+                }
+              },
+              "depthShift": 0.5
+            }
+          }
+        }
+      }
+    ],
+    "inputRevisions": {
+      "input-00000000000000000000000000000001": {
+        "id": "input-00000000000000000000000000000001",
+        "wellId": "w",
+        "schemaVersion": 1,
+        "createdAt": "2026-10-29T00:00:00.000Z",
+        "reason": "import",
+        "well": {
+          "id": "w",
+          "name": "Pozo fijo v7",
+          "header": {
+            "UWI": {
+              "value": "fixture-7"
+            }
+          },
+          "depth": {
+            "unit": "m",
+            "sourceUnit": "m",
+            "values": {
+              "blobId": "sha256:b62b53e9bb1d3fd4ad68da779770500891194d463545dcad1a39e1b99927b76f"
+            }
+          },
+          "curves": [
+            {
+              "id": "GR",
+              "mnemonic": "GR",
+              "role": "GR",
+              "unit": "gAPI",
+              "origin": {
+                "kind": "measured",
+                "source": "fixture.csv"
+              },
+              "data": {
+                "blobId": "sha256:dacc3e6fa04b58efcd61bef0393827d52873f4ccfd8b1742498c25ca421da2c0"
+              }
+            }
+          ],
+          "pointSets": [
+            {
+              "id": "core",
+              "kind": "core",
+              "name": "Corona",
+              "source": "core.csv",
+              "synthetic": true,
+              "depth": {
+                "blobId": "sha256:990276c80c074dade97c630e8ea6a6b41f55edce9f7d1df416206aa12d95299e"
+              },
+              "pointIds": [
+                "p1"
+              ],
+              "columns": {
+                "phi": {
+                  "label": "Porosidad",
+                  "unit": "v/v",
+                  "values": {
+                    "blobId": "sha256:272f78036db6721f7cf7444315e5f6360426d14c3d446d6ae8a89ef70d134002"
+                  }
+                },
+                "fluid": {
+                  "label": "Fluido",
+                  "values": [
+                    "oil"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "acquisition": {
+          "schemaVersion": 1,
+          "depth": {
+            "kind": "MD",
+            "datum": null
+          },
+          "runs": []
+        }
+      },
+      "input-00000000000000000000000000000002": {
+        "id": "input-00000000000000000000000000000002",
+        "wellId": "w",
+        "schemaVersion": 1,
+        "createdAt": "2026-10-29T00:00:00.000Z",
+        "reason": "edit-input",
+        "parentRevisionId": "input-00000000000000000000000000000001",
+        "well": {
+          "id": "w",
+          "name": "Pozo fijo v7",
+          "header": {
+            "UWI": {
+              "value": "fixture-7"
+            }
+          },
+          "depth": {
+            "unit": "m",
+            "sourceUnit": "m",
+            "values": {
+              "blobId": "sha256:b62b53e9bb1d3fd4ad68da779770500891194d463545dcad1a39e1b99927b76f"
+            }
+          },
+          "curves": [
+            {
+              "id": "GR",
+              "mnemonic": "GR",
+              "role": "GR",
+              "unit": "gAPI",
+              "origin": {
+                "kind": "measured",
+                "source": "fixture.csv"
+              },
+              "data": {
+                "blobId": "sha256:5ecec8277beac56affafe13eccbf0308273c3f2a26adadba55cd55b674dc8f42"
+              }
+            }
+          ],
+          "pointSets": [
+            {
+              "id": "core",
+              "kind": "core",
+              "name": "Corona",
+              "source": "core.csv",
+              "synthetic": true,
+              "depth": {
+                "blobId": "sha256:990276c80c074dade97c630e8ea6a6b41f55edce9f7d1df416206aa12d95299e"
+              },
+              "pointIds": [
+                "p1"
+              ],
+              "columns": {
+                "phi": {
+                  "label": "Porosidad",
+                  "unit": "v/v",
+                  "values": {
+                    "blobId": "sha256:76ac2cde7665454a2feeeb3ff8bf3c4b85272509b98228dbc1e8f7a8c979a647"
+                  }
+                },
+                "fluid": {
+                  "label": "Fluido",
+                  "values": [
+                    "oil"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "acquisition": {
+          "schemaVersion": 1,
+          "depth": {
+            "kind": "MD",
+            "datum": null
+          },
+          "runs": []
+        }
+      }
+    },
+    "blobs": {
+      "sha256:b62b53e9bb1d3fd4ad68da779770500891194d463545dcad1a39e1b99927b76f": {
+        "scalarType": "f64",
+        "endian": "little",
+        "length": 3,
+        "byteLength": 24,
+        "codec": "f64le-b64",
+        "sha256": "b62b53e9bb1d3fd4ad68da779770500891194d463545dcad1a39e1b99927b76f",
+        "data": "AAAAAAAAWUAAAAAAAEBZQAAAAAAAgFlA"
+      },
+      "sha256:dacc3e6fa04b58efcd61bef0393827d52873f4ccfd8b1742498c25ca421da2c0": {
+        "scalarType": "f64",
+        "endian": "little",
+        "length": 3,
+        "byteLength": 24,
+        "codec": "f64le-b64",
+        "sha256": "dacc3e6fa04b58efcd61bef0393827d52873f4ccfd8b1742498c25ca421da2c0",
+        "data": "AAAAAAAAJEAAAAAAAAA0QAAAAAAAAD5A"
+      },
+      "sha256:990276c80c074dade97c630e8ea6a6b41f55edce9f7d1df416206aa12d95299e": {
+        "scalarType": "f64",
+        "endian": "little",
+        "length": 1,
+        "byteLength": 8,
+        "codec": "f64le-b64",
+        "sha256": "990276c80c074dade97c630e8ea6a6b41f55edce9f7d1df416206aa12d95299e",
+        "data": "AAAAAAAgWUA="
+      },
+      "sha256:272f78036db6721f7cf7444315e5f6360426d14c3d446d6ae8a89ef70d134002": {
+        "scalarType": "f64",
+        "endian": "little",
+        "length": 1,
+        "byteLength": 8,
+        "codec": "f64le-b64",
+        "sha256": "272f78036db6721f7cf7444315e5f6360426d14c3d446d6ae8a89ef70d134002",
+        "data": "AAAAAAAA0D8="
+      },
+      "sha256:5ecec8277beac56affafe13eccbf0308273c3f2a26adadba55cd55b674dc8f42": {
+        "scalarType": "f64",
+        "endian": "little",
+        "length": 3,
+        "byteLength": 24,
+        "codec": "f64le-b64",
+        "sha256": "5ecec8277beac56affafe13eccbf0308273c3f2a26adadba55cd55b674dc8f42",
+        "data": "AAAAAADAWEAAAAAAAAA0QAAAAAAAAD5A"
+      },
+      "sha256:76ac2cde7665454a2feeeb3ff8bf3c4b85272509b98228dbc1e8f7a8c979a647": {
+        "scalarType": "f64",
+        "endian": "little",
+        "length": 1,
+        "byteLength": 8,
+        "codec": "f64le-b64",
+        "sha256": "76ac2cde7665454a2feeeb3ff8bf3c4b85272509b98228dbc1e8f7a8c979a647",
+        "data": "mpmZmZmZ2T8="
+      }
+    }
+  }
+}

@@ -1,0 +1,995 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-30",
+  "parentCommit": "9df898ef2050f44e9219fc609e7daecc35b89cce",
+  "browser": "Chromium 154.0.8037.57 Linux headless",
+  "tests": {
+    "passed": 2628,
+    "files": 152,
+    "failed": 0,
+    "skipped": 0
+  },
+  "builds": {
+    "parent": {
+      "bytes": 5432496,
+      "sha256": "56768b34613c70c2b28a39ecf34109d835149cb4737bb358d1af3279a9f886be"
+    },
+    "candidate": {
+      "bytes": 5507660,
+      "sha256": "5bdf0199b8ec69a53997d306a384b37035ab9b5ce239f63057cda76f10709e8b"
+    }
+  },
+  "v7": {
+    "parentLas": "5cf7210613f856a48d2f74309b4aa5c1ccd108541e22aedcecb3b647705f04f3",
+    "parentSvg": "e9d09265528bfd374284d744d51bc5e0d5517660bbfddea9c2a38e7d63f4e1c7",
+    "firstWorkers": {
+      "created": 2,
+      "terminated": 2,
+      "active": 0,
+      "maxActive": 1
+    },
+    "restoredLas": "5cf7210613f856a48d2f74309b4aa5c1ccd108541e22aedcecb3b647705f04f3",
+    "restoredSvg": "e9d09265528bfd374284d744d51bc5e0d5517660bbfddea9c2a38e7d63f4e1c7",
+    "workers": {
+      "created": 7,
+      "terminated": 7,
+      "active": 0,
+      "maxActive": 1
+    },
+    "restoredRevision": "input-b37dcdd71790d014e03c1330fbc3222f",
+    "activeRevision": "input-eb5577fc617cc606116415b19ba0c09b",
+    "strictErrorPreservedProject": true,
+    "offlineWithoutWorkerOrSubtleCrypto": true,
+    "pageErrors": []
+  },
+  "legacySnapshots": {
+    "parentGeometry": {
+      "range": "7633,3 – 8518,6 m",
+      "body": {
+        "x": 333.828125,
+        "y": 343.40625,
+        "width": 1092,
+        "height": 183.5625,
+        "top": 343.40625,
+        "right": 1425.828125,
+        "bottom": 526.96875,
+        "left": 333.828125
+      },
+      "headerHeight": 132.90625,
+      "heads": [
+        {
+          "title": "GR",
+          "width": 117
+        },
+        {
+          "title": "Prof.",
+          "width": 86
+        },
+        {
+          "title": "Resistividad",
+          "width": 146
+        },
+        {
+          "title": "Dens. · neutrón",
+          "width": 176
+        },
+        {
+          "title": "Arcilla",
+          "width": 117
+        },
+        {
+          "title": "Porosidad",
+          "width": 117
+        },
+        {
+          "title": "Sw",
+          "width": 117
+        },
+        {
+          "title": "Permeabilidad",
+          "width": 117
+        },
+        {
+          "title": "Indicadores",
+          "width": 99
+        }
+      ],
+      "layout": null
+    },
+    "parentFlowRows": 1790,
+    "parentFlowTable": "29d1800990ffb410c97ff9610e9456f3f0b73c449238092e1ee898c32ee3c057",
+    "parentLas": "ce05261de2da6624cc0d94f2611ec20fe0125b62d15cbb60aafd8808fcca6c2b",
+    "parentSvg": "bff1297750e9f7501d33ca7a88551ddc3ca07b5b985cd89ea369ef06ef982e28",
+    "candidateGeometry": {
+      "range": "7633,3 – 8518,6 m",
+      "body": {
+        "x": 333.828125,
+        "y": 343.40625,
+        "width": 1092,
+        "height": 183.5625,
+        "top": 343.40625,
+        "right": 1425.828125,
+        "bottom": 526.96875,
+        "left": 333.828125
+      },
+      "headerHeight": 132.90625,
+      "heads": [
+        {
+          "title": "GR",
+          "width": 117
+        },
+        {
+          "title": "Prof.",
+          "width": 86
+        },
+        {
+          "title": "Resistividad",
+          "width": 146
+        },
+        {
+          "title": "Dens. · neutrón",
+          "width": 176
+        },
+        {
+          "title": "Arcilla",
+          "width": 117
+        },
+        {
+          "title": "Porosidad",
+          "width": 117
+        },
+        {
+          "title": "Sw",
+          "width": 117
+        },
+        {
+          "title": "Permeabilidad",
+          "width": 117
+        },
+        {
+          "title": "Indicadores",
+          "width": 99
+        }
+      ],
+      "layout": null
+    },
+    "candidateFlowRows": 1790,
+    "candidateFlowTable": "29d1800990ffb410c97ff9610e9456f3f0b73c449238092e1ee898c32ee3c057",
+    "candidateLas": "ce05261de2da6624cc0d94f2611ec20fe0125b62d15cbb60aafd8808fcca6c2b",
+    "candidateSvg": "bff1297750e9f7501d33ca7a88551ddc3ca07b5b985cd89ea369ef06ef982e28",
+    "restoredFlowTable": "29d1800990ffb410c97ff9610e9456f3f0b73c449238092e1ee898c32ee3c057",
+    "restoredLas": "ce05261de2da6624cc0d94f2611ec20fe0125b62d15cbb60aafd8808fcca6c2b",
+    "restoredSvg": "bff1297750e9f7501d33ca7a88551ddc3ca07b5b985cd89ea369ef06ef982e28",
+    "comparisonTableEqual": true,
+    "legacyRestoreUndoRedo": true,
+    "pageErrors": []
+  },
+  "reading": {
+    "parentNormal": {
+      "range": "7633,3 – 8518,6 m",
+      "body": {
+        "x": 333.828125,
+        "y": 343.40625,
+        "width": 1092,
+        "height": 183.5625,
+        "top": 343.40625,
+        "right": 1425.828125,
+        "bottom": 526.96875,
+        "left": 333.828125
+      },
+      "headerHeight": 132.90625,
+      "heads": [
+        {
+          "title": "GR",
+          "width": 117
+        },
+        {
+          "title": "Prof.",
+          "width": 86
+        },
+        {
+          "title": "Resistividad",
+          "width": 146
+        },
+        {
+          "title": "Dens. · neutrón",
+          "width": 176
+        },
+        {
+          "title": "Arcilla",
+          "width": 117
+        },
+        {
+          "title": "Porosidad",
+          "width": 117
+        },
+        {
+          "title": "Sw",
+          "width": 117
+        },
+        {
+          "title": "Permeabilidad",
+          "width": 117
+        },
+        {
+          "title": "Indicadores",
+          "width": 99
+        }
+      ],
+      "layout": null
+    },
+    "parentLas": "ce05261de2da6624cc0d94f2611ec20fe0125b62d15cbb60aafd8808fcca6c2b",
+    "candidateNormal": {
+      "range": "7633,3 – 8518,6 m",
+      "body": {
+        "x": 333.828125,
+        "y": 343.40625,
+        "width": 1092,
+        "height": 183.5625,
+        "top": 343.40625,
+        "right": 1425.828125,
+        "bottom": 526.96875,
+        "left": 333.828125
+      },
+      "headerHeight": 132.90625,
+      "heads": [
+        {
+          "title": "GR",
+          "width": 117
+        },
+        {
+          "title": "Prof.",
+          "width": 86
+        },
+        {
+          "title": "Resistividad",
+          "width": 146
+        },
+        {
+          "title": "Dens. · neutrón",
+          "width": 176
+        },
+        {
+          "title": "Arcilla",
+          "width": 117
+        },
+        {
+          "title": "Porosidad",
+          "width": 117
+        },
+        {
+          "title": "Sw",
+          "width": 117
+        },
+        {
+          "title": "Permeabilidad",
+          "width": 117
+        },
+        {
+          "title": "Indicadores",
+          "width": 99
+        }
+      ],
+      "layout": null
+    },
+    "reading1366": {
+      "range": "7633,3 – 8518,6 m",
+      "body": {
+        "x": 55,
+        "y": 236.390625,
+        "width": 1209,
+        "height": 474.859375,
+        "top": 236.390625,
+        "right": 1264,
+        "bottom": 711.25,
+        "left": 55
+      },
+      "headerHeight": 124.640625,
+      "heads": [
+        {
+          "title": "GR",
+          "width": 132
+        },
+        {
+          "title": "Prof.",
+          "width": 86
+        },
+        {
+          "title": "Resistividad",
+          "width": 165
+        },
+        {
+          "title": "Dens. · neutrón",
+          "width": 198
+        },
+        {
+          "title": "Arcilla",
+          "width": 133
+        },
+        {
+          "title": "Porosidad",
+          "width": 132
+        },
+        {
+          "title": "Sw",
+          "width": 132
+        },
+        {
+          "title": "Permeabilidad",
+          "width": 132
+        },
+        {
+          "title": "Indicadores",
+          "width": 99
+        }
+      ],
+      "layout": null
+    },
+    "readingLas": "ce05261de2da6624cc0d94f2611ec20fe0125b62d15cbb60aafd8808fcca6c2b",
+    "readingSvg": "bff1297750e9f7501d33ca7a88551ddc3ca07b5b985cd89ea369ef06ef982e28",
+    "geologyReading": {
+      "range": "7633,3 – 8518,6 m",
+      "body": {
+        "x": 55,
+        "y": 240.140625,
+        "width": 2422,
+        "height": 471.109375,
+        "top": 240.140625,
+        "right": 2477,
+        "bottom": 711.25,
+        "left": 55
+      },
+      "headerHeight": 128.390625,
+      "heads": [
+        {
+          "title": "GR espectral",
+          "width": 117
+        },
+        {
+          "title": "Electrosec.",
+          "width": 117
+        },
+        {
+          "title": "U alto",
+          "width": 117
+        },
+        {
+          "title": "Prof.",
+          "width": 86
+        },
+        {
+          "title": "Litología",
+          "width": 129
+        },
+        {
+          "title": "Mineralogía",
+          "width": 128
+        },
+        {
+          "title": "Impedancia acústica",
+          "width": 117
+        },
+        {
+          "title": "Reflectividad",
+          "width": 117
+        },
+        {
+          "title": "Sintético · 4 repeticiones",
+          "width": 141
+        },
+        {
+          "title": "Columna",
+          "width": 210
+        },
+        {
+          "title": "Litología (ML)",
+          "width": 141
+        },
+        {
+          "title": "Electrofacies",
+          "width": 117
+        },
+        {
+          "title": "Sónico",
+          "width": 117
+        },
+        {
+          "title": "Passey · ciclos",
+          "width": 129
+        },
+        {
+          "title": "TOC",
+          "width": 117
+        },
+        {
+          "title": "Generadora",
+          "width": 99
+        },
+        {
+          "title": "RMN",
+          "width": 128
+        },
+        {
+          "title": "Interpretación",
+          "width": 117
+        },
+        {
+          "title": "Banderas",
+          "width": 178
+        }
+      ],
+      "layout": "{\"leftWidth\":292,\"rightWidth\":368,\"leftCollapsed\":false,\"rightCollapsed\":false,\"dockHeight\":260,\"leftAuto\":true,\"rightAuto\":true,\"dockAuto\":true,\"dockCollapsed\":false,\"wellHeader\":true}"
+    },
+    "customLayoutRestored": true,
+    "dpr2": {
+      "range": "7633,3 – 8518,6 m",
+      "body": {
+        "x": 55,
+        "y": 236.390625,
+        "width": 1209,
+        "height": 474.859375,
+        "top": 236.390625,
+        "right": 1264,
+        "bottom": 711.25,
+        "left": 55
+      },
+      "headerHeight": 124.640625,
+      "heads": [
+        {
+          "title": "GR",
+          "width": 132
+        },
+        {
+          "title": "Prof.",
+          "width": 86
+        },
+        {
+          "title": "Resistividad",
+          "width": 165
+        },
+        {
+          "title": "Dens. · neutrón",
+          "width": 198
+        },
+        {
+          "title": "Arcilla",
+          "width": 133
+        },
+        {
+          "title": "Porosidad",
+          "width": 132
+        },
+        {
+          "title": "Sw",
+          "width": 132
+        },
+        {
+          "title": "Permeabilidad",
+          "width": 132
+        },
+        {
+          "title": "Indicadores",
+          "width": 99
+        }
+      ],
+      "layout": null
+    },
+    "pageErrors": []
+  },
+  "nodeV7": {
+    "scope": "Node/Vite SSR; 1 warmup + 5 alternated legacy/v7 measurements; no browser/worker timing",
+    "parentRemoteCommit": "9df898ef2050f44e9219fc609e7daecc35b89cce",
+    "dataset": {
+      "samples": 5810,
+      "curves": 18,
+      "pointSets": 1
+    },
+    "seed": {
+      "file": "tp-v7.pozo.json",
+      "bytes": 329683,
+      "sha256": "aca55da8c3ef0790ffe0cf59371f717d9ec610f8d8a871da57b2c40a33930718",
+      "wellId": "pozo-tp-perfiles",
+      "rootRevision": "input-b37dcdd71790d014e03c1330fbc3222f",
+      "activeRevision": "input-eb5577fc617cc606116415b19ba0c09b",
+      "grCurve": "GR",
+      "originalGrFirst": 62.502,
+      "originalLabPhi": 0.2,
+      "currentLabPhi": 0.4
+    },
+    "timings": {
+      "legacy": {
+        "save": [
+          36.04710299999988,
+          29.892656999999872,
+          40.49072000000024,
+          57.955569000000196,
+          35.65370899999971
+        ],
+        "open": [
+          5.692771999999877,
+          6.883964000000105,
+          5.191457000000355,
+          4.893471000000318,
+          6.3414309999998295
+        ]
+      },
+      "v7": {
+        "save": [
+          30.382070000000112,
+          33.96966300000031,
+          29.935656000000108,
+          27.923381000000063,
+          51.5252730000002
+        ],
+        "open": [
+          7.908875999999964,
+          6.354311999999936,
+          8.621998000000076,
+          5.686605999999756,
+          5.682892000000265
+        ]
+      }
+    },
+    "medians": {
+      "legacy": {
+        "save": 36.04710299999988,
+        "open": 5.692771999999877
+      },
+      "v7": {
+        "save": 30.382070000000112,
+        "open": 6.354311999999936
+      }
+    },
+    "unchangedAcquisition": {
+      "beforeBlobs": 21,
+      "afterBlobs": 21,
+      "beforeBytes": 883136,
+      "afterBytes": 883136
+    },
+    "scientificOutputsEqualAfterRestore": true,
+    "ratios": {
+      "save": 0.8428435982775152,
+      "open": 1.1162070077635418
+    }
+  },
+  "legacyBaseline": {
+    "method": "Two rounds, parent/candidate then candidate/parent, each 1 warmup + 5 samples; pooled medians from 10 samples per build. No tests/browser concurrent. First opening ratio 1.25147 prompted the reverse-order repeat; both rounds are retained.",
+    "rounds": {
+      "parent": [
+        {
+          "schemaVersion": 1,
+          "measuredAt": "2026-10-30T01:43:06.526Z",
+          "scope": "Node/Vite SSR, TP, codec auto, 1 warmup + 5 samples; no browser or worker",
+          "environment": {
+            "node": "v24.19.0",
+            "platform": "linux",
+            "arch": "x64",
+            "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+            "logicalCpus": 3,
+            "hostMemoryBytes": 10452471808
+          },
+          "dataset": {
+            "samples": 5810,
+            "curves": 18,
+            "zones": 5,
+            "savedBytes": 290153,
+            "savedSHA256": "20d3a825fdd8a148c3ac33f0a7c1241bd47726ffbd1303dfd94671c6c5e5dc3a"
+          },
+          "timings": {
+            "serializeMs": {
+              "median": 37.6860200000001,
+              "maximum": 39.925178999999844,
+              "samples": [
+                37.6860200000001,
+                39.925178999999844,
+                35.27215100000012,
+                34.57587100000001,
+                37.88660299999992
+              ]
+            },
+            "deserializeMs": {
+              "median": 5.849611999999979,
+              "maximum": 8.432448999999906,
+              "samples": [
+                5.794029000000137,
+                8.432448999999906,
+                6.970017000000553,
+                4.86557300000004,
+                5.849611999999979
+              ]
+            },
+            "computeMs": {
+              "median": 796.9937580000005,
+              "maximum": 868.129782,
+              "samples": [
+                868.129782,
+                822.6616009999998,
+                788.583251,
+                796.9937580000005,
+                791.0131390000006
+              ]
+            }
+          },
+          "sampledProcessMemory": {
+            "maximumRssBytes": 811302912,
+            "maximumArrayBuffersBytes": 67624939,
+            "samples": [
+              {
+                "rss": 751529984,
+                "heapTotal": 204902400,
+                "heapUsed": 103292272,
+                "external": 55144837,
+                "arrayBuffers": 37117259
+              },
+              {
+                "rss": 776138752,
+                "heapTotal": 210698240,
+                "heapUsed": 79102456,
+                "external": 57250495,
+                "arrayBuffers": 41203457
+              },
+              {
+                "rss": 786153472,
+                "heapTotal": 215445504,
+                "heapUsed": 124375440,
+                "external": 66362685,
+                "arrayBuffers": 52296227
+              },
+              {
+                "rss": 793767936,
+                "heapTotal": 220454912,
+                "heapUsed": 109158968,
+                "external": 72013693,
+                "arrayBuffers": 59927815
+              },
+              {
+                "rss": 811302912,
+                "heapTotal": 224940032,
+                "heapUsed": 139402816,
+                "external": 77730237,
+                "arrayBuffers": 67624939
+              }
+            ],
+            "caveat": "Muestras de todo el proceso con Vite/modelos cargados; no pico real ni memoria atribuible solo al proyecto. Sin GC forzado."
+          },
+          "hashes": {
+            "src/core/state/serialize.ts": "c99e5d5f58cfa2c17489615bc8fdfc129a6fd37c3c037047a3d9a9d2b9d58669",
+            "src/core/state/snapshots.ts": "18cd0be1cc5ba31c25c1ccf64a7b7c3ccc7444d3467c2e6d671e376fa18966ca",
+            "src/core/state/project.ts": "27ec81cdc76531c98763e5b262aef3c430e7b2d399854e378710b293408abc74",
+            "datos/pozo_tp_perfiles.csv": "13cbbdce49f33082a1f4ab07babcb9f321f9b47acb2234204bfb189f55030b2e"
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "measuredAt": "2026-10-30T01:46:19.787Z",
+          "scope": "Node/Vite SSR, TP, codec auto, 1 warmup + 5 samples; no browser or worker",
+          "environment": {
+            "node": "v24.19.0",
+            "platform": "linux",
+            "arch": "x64",
+            "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+            "logicalCpus": 3,
+            "hostMemoryBytes": 10452471808
+          },
+          "dataset": {
+            "samples": 5810,
+            "curves": 18,
+            "zones": 5,
+            "savedBytes": 290153,
+            "savedSHA256": "20d3a825fdd8a148c3ac33f0a7c1241bd47726ffbd1303dfd94671c6c5e5dc3a"
+          },
+          "timings": {
+            "serializeMs": {
+              "median": 51.10814600000049,
+              "maximum": 65.44554199999993,
+              "samples": [
+                50.26840200000015,
+                65.44554199999993,
+                51.10814600000049,
+                47.218800999999985,
+                60.2980720000005
+              ]
+            },
+            "deserializeMs": {
+              "median": 6.910289000000375,
+              "maximum": 8.221223999999893,
+              "samples": [
+                8.221223999999893,
+                6.910289000000375,
+                7.625057999999626,
+                5.323167999999896,
+                5.29236900000069
+              ]
+            },
+            "computeMs": {
+              "median": 846.9762389999996,
+              "maximum": 932.4171510000001,
+              "samples": [
+                932.4171510000001,
+                866.0184530000001,
+                841.5372150000003,
+                846.9762389999996,
+                832.7093500000001
+              ]
+            }
+          },
+          "sampledProcessMemory": {
+            "maximumRssBytes": 778248192,
+            "maximumArrayBuffersBytes": 43720270,
+            "samples": [
+              {
+                "rss": 769019904,
+                "heapTotal": 210255872,
+                "heapUsed": 96956128,
+                "external": 55131404,
+                "arrayBuffers": 37103826
+              },
+              {
+                "rss": 765796352,
+                "heapTotal": 197410816,
+                "heapUsed": 81636040,
+                "external": 53545640,
+                "arrayBuffers": 37498602
+              },
+              {
+                "rss": 771629056,
+                "heapTotal": 197410816,
+                "heapUsed": 65871312,
+                "external": 53248244,
+                "arrayBuffers": 39181786
+              },
+              {
+                "rss": 772694016,
+                "heapTotal": 197935104,
+                "heapUsed": 69158104,
+                "external": 55210767,
+                "arrayBuffers": 43130158
+              },
+              {
+                "rss": 778248192,
+                "heapTotal": 197795840,
+                "heapUsed": 115835696,
+                "external": 53820299,
+                "arrayBuffers": 43720270
+              }
+            ],
+            "caveat": "Muestras de todo el proceso con Vite/modelos cargados; no pico real ni memoria atribuible solo al proyecto. Sin GC forzado."
+          },
+          "hashes": {
+            "src/core/state/serialize.ts": "c99e5d5f58cfa2c17489615bc8fdfc129a6fd37c3c037047a3d9a9d2b9d58669",
+            "src/core/state/snapshots.ts": "18cd0be1cc5ba31c25c1ccf64a7b7c3ccc7444d3467c2e6d671e376fa18966ca",
+            "src/core/state/project.ts": "27ec81cdc76531c98763e5b262aef3c430e7b2d399854e378710b293408abc74",
+            "datos/pozo_tp_perfiles.csv": "13cbbdce49f33082a1f4ab07babcb9f321f9b47acb2234204bfb189f55030b2e"
+          }
+        }
+      ],
+      "candidate": [
+        {
+          "schemaVersion": 1,
+          "measuredAt": "2026-10-30T01:44:00.019Z",
+          "scope": "Node/Vite SSR, TP, codec auto, 1 warmup + 5 samples; no browser or worker",
+          "environment": {
+            "node": "v24.19.0",
+            "platform": "linux",
+            "arch": "x64",
+            "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+            "logicalCpus": 3,
+            "hostMemoryBytes": 10452471808
+          },
+          "dataset": {
+            "samples": 5810,
+            "curves": 18,
+            "zones": 5,
+            "savedBytes": 290153,
+            "savedSHA256": "20d3a825fdd8a148c3ac33f0a7c1241bd47726ffbd1303dfd94671c6c5e5dc3a"
+          },
+          "timings": {
+            "serializeMs": {
+              "median": 36.41203399999995,
+              "maximum": 37.752542000000176,
+              "samples": [
+                36.41203399999995,
+                35.71776099999988,
+                37.49993499999982,
+                33.3173340000003,
+                37.752542000000176
+              ]
+            },
+            "deserializeMs": {
+              "median": 7.320611000000099,
+              "maximum": 8.481660000000375,
+              "samples": [
+                7.320611000000099,
+                7.797050000000127,
+                8.481660000000375,
+                6.172415000000001,
+                5.236171000000468
+              ]
+            },
+            "computeMs": {
+              "median": 812.0315049999999,
+              "maximum": 842.4526580000002,
+              "samples": [
+                842.4526580000002,
+                812.0315049999999,
+                793.1956559999999,
+                796.8104950000006,
+                813.630537
+              ]
+            }
+          },
+          "sampledProcessMemory": {
+            "maximumRssBytes": 798703616,
+            "maximumArrayBuffersBytes": 65396795,
+            "samples": [
+              {
+                "rss": 748826624,
+                "heapTotal": 200294400,
+                "heapUsed": 71026256,
+                "external": 54358869,
+                "arrayBuffers": 36331291
+              },
+              {
+                "rss": 766001152,
+                "heapTotal": 206352384,
+                "heapUsed": 113338432,
+                "external": 59616701,
+                "arrayBuffers": 43569663
+              },
+              {
+                "rss": 772853760,
+                "heapTotal": 210837504,
+                "heapUsed": 101789672,
+                "external": 64920973,
+                "arrayBuffers": 50854515
+              },
+              {
+                "rss": 791900160,
+                "heapTotal": 215846912,
+                "heapUsed": 139045496,
+                "external": 70178765,
+                "arrayBuffers": 58092887
+              },
+              {
+                "rss": 798703616,
+                "heapTotal": 220594176,
+                "heapUsed": 110906104,
+                "external": 75502093,
+                "arrayBuffers": 65396795
+              }
+            ],
+            "caveat": "Muestras de todo el proceso con Vite/modelos cargados; no pico real ni memoria atribuible solo al proyecto. Sin GC forzado."
+          },
+          "hashes": {
+            "src/core/state/serialize.ts": "b83b0cd0dd37fdbc58f56e4e716502e3ccf2eebada89662fbf0fa0dadf1e0e06",
+            "src/core/state/snapshots.ts": "18cd0be1cc5ba31c25c1ccf64a7b7c3ccc7444d3467c2e6d671e376fa18966ca",
+            "src/core/state/project.ts": "27ec81cdc76531c98763e5b262aef3c430e7b2d399854e378710b293408abc74",
+            "datos/pozo_tp_perfiles.csv": "13cbbdce49f33082a1f4ab07babcb9f321f9b47acb2234204bfb189f55030b2e"
+          }
+        },
+        {
+          "schemaVersion": 1,
+          "measuredAt": "2026-10-30T01:46:02.316Z",
+          "scope": "Node/Vite SSR, TP, codec auto, 1 warmup + 5 samples; no browser or worker",
+          "environment": {
+            "node": "v24.19.0",
+            "platform": "linux",
+            "arch": "x64",
+            "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+            "logicalCpus": 3,
+            "hostMemoryBytes": 10452471808
+          },
+          "dataset": {
+            "samples": 5810,
+            "curves": 18,
+            "zones": 5,
+            "savedBytes": 290153,
+            "savedSHA256": "20d3a825fdd8a148c3ac33f0a7c1241bd47726ffbd1303dfd94671c6c5e5dc3a"
+          },
+          "timings": {
+            "serializeMs": {
+              "median": 36.1327739999997,
+              "maximum": 80.14902799999982,
+              "samples": [
+                36.1327739999997,
+                36.940787,
+                35.40700199999992,
+                34.188028000000486,
+                80.14902799999982
+              ]
+            },
+            "deserializeMs": {
+              "median": 7.458497000000079,
+              "maximum": 9.481788000000051,
+              "samples": [
+                8.21233600000005,
+                9.481788000000051,
+                7.458497000000079,
+                6.244980999999825,
+                4.9182449999998425
+              ]
+            },
+            "computeMs": {
+              "median": 810.9649099999997,
+              "maximum": 865.7998239999997,
+              "samples": [
+                865.6742669999999,
+                809.7343860000001,
+                786.6035030000003,
+                810.9649099999997,
+                865.7998239999997
+              ]
+            }
+          },
+          "sampledProcessMemory": {
+            "maximumRssBytes": 531746816,
+            "maximumArrayBuffersBytes": 65331259,
+            "samples": [
+              {
+                "rss": 481472512,
+                "heapTotal": 201990144,
+                "heapUsed": 71295616,
+                "external": 53733355,
+                "arrayBuffers": 35709853
+              },
+              {
+                "rss": 494764032,
+                "heapTotal": 207785984,
+                "heapUsed": 113901776,
+                "external": 59481553,
+                "arrayBuffers": 43438591
+              },
+              {
+                "rss": 502878208,
+                "heapTotal": 213581824,
+                "heapUsed": 104535408,
+                "external": 64851361,
+                "arrayBuffers": 50788979
+              },
+              {
+                "rss": 523345920,
+                "heapTotal": 218591232,
+                "heapUsed": 144118336,
+                "external": 70109153,
+                "arrayBuffers": 58027351
+              },
+              {
+                "rss": 531746816,
+                "heapTotal": 224387072,
+                "heapUsed": 112649880,
+                "external": 75432481,
+                "arrayBuffers": 65331259
+              }
+            ],
+            "caveat": "Muestras de todo el proceso con Vite/modelos cargados; no pico real ni memoria atribuible solo al proyecto. Sin GC forzado."
+          },
+          "hashes": {
+            "src/core/state/serialize.ts": "b83b0cd0dd37fdbc58f56e4e716502e3ccf2eebada89662fbf0fa0dadf1e0e06",
+            "src/core/state/snapshots.ts": "18cd0be1cc5ba31c25c1ccf64a7b7c3ccc7444d3467c2e6d671e376fa18966ca",
+            "src/core/state/project.ts": "27ec81cdc76531c98763e5b262aef3c430e7b2d399854e378710b293408abc74",
+            "datos/pozo_tp_perfiles.csv": "13cbbdce49f33082a1f4ab07babcb9f321f9b47acb2234204bfb189f55030b2e"
+          }
+        }
+      ]
+    },
+    "pooledMedians": {
+      "parent": {
+        "serializeMs": 43.571989999999914,
+        "deserializeMs": 6.379950500000177,
+        "computeMs": 837.1232825000002
+      },
+      "candidate": {
+        "serializeMs": 36.272403999999824,
+        "deserializeMs": 7.389554000000089,
+        "computeMs": 811.4982074999998
+      }
+    },
+    "ratios": {
+      "serializeMs": 0.8324706766893111,
+      "deserializeMs": 1.1582462904688497,
+      "computeMs": 0.969389126385933
+    },
+    "gate": 1.25,
+    "sameSavedBytesAndSHA256": true
+  }
+}
