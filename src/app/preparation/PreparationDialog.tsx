@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
-import { addMaskInterval, entryPreparationPlan, restoreMaskInterval } from '../../core/state/preparation';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { addMaskInterval, addMaskIntervals, entryPreparationPlan, restoreMaskInterval } from '../../core/state/preparation';
 import { makeId, setSource, type Project } from '../../core/state/project';
 import { toEngineWell } from '../../core/engine/engine';
 import { sameContext } from '../../core/engine/context';
@@ -13,11 +13,12 @@ import { useViewer } from '../store/viewer';
 import { snapshotRunner } from '../snapshots/snapshotEngine';
 import { usePreparationUi } from './store';
 import './preparation.css';
+import { SuspectReview } from './SuspectReview';
 
 const subscribe = (cb: () => void) => snapshotRunner.subscribe(cb);
 const number = (s: string) => s.trim() ? Number(s.trim().replace(',', '.')) : NaN;
 const show = (n: number) => Number.isNaN(n) ? '—' : formatNumber(n, { digits: 4 });
-interface Proposal { base: Project; project: Project; key: string; draftKey: string; nodeId: string }
+interface Proposal { base: Project; project: Project; key: string; draftKey: string; nodeId: string; focus: number }
 export function PreparationDialog() {
   const wellId = usePreparationUi(s => s.wellId);
   return wellId ? <MaskEditor key={wellId} wellId={wellId} /> : null;
@@ -29,6 +30,7 @@ function MaskEditor({ wellId }: { wellId: string }) {
   const [curveId, setCurveId] = useState(() => entry?.well.curves.find(c => c.role === 'GR')?.id ?? entry?.well.curves[0]?.id ?? '');
   const [top, setTop] = useState(''), [base, setBase] = useState('');
   const [proposal, setProposal] = useState<Proposal | null>(null), [error, setError] = useState<string | null>(null);
+  const invalidatePreview = useCallback(() => setProposal(null), []);
   const visible = useViewer(s => s.visible);
   const compare = usePreparationUi(s => s.compareOriginals);
   const draftKey = JSON.stringify([curveId, top, base]);
@@ -59,13 +61,23 @@ function MaskEditor({ wellId }: { wellId: string }) {
       const e = next.wells.find(e => e.well.id === wellId)!;
       entryPreparationPlan(next, e, registry);
       const nodeId = e.interpretation.preparation!.nodes.find(n => n.input.curveId === curveId)!.id;
-      setError(null); setProposal({ base: project, project: next, key: `preparation-preview:${makeId('job')}`, draftKey, nodeId });
+      setError(null); setProposal({ base: project, project: next, key: `preparation-preview:${makeId('job')}`, draftKey, nodeId, focus: number(top) });
+    } catch (err) { setProposal(null); setError(err instanceof Error ? err.message : String(err)); }
+  };
+  const previewSamples = (depths: number[]) => {
+    try {
+      if (!activeTarget) throw new Error('El pozo activo cambió.');
+      const next = addMaskIntervals(project, wellId, curveId, depths.map(d => ({ id: makeId('excluded'), top: d, base: d })), makeId('mask'));
+      const e = next.wells.find(e => e.well.id === wellId)!;
+      entryPreparationPlan(next, e, registry);
+      const nodeId = e.interpretation.preparation!.nodes.find(n => n.input.curveId === curveId)!.id;
+      setError(null); setProposal({ base: project, project: next, key: `preparation-preview:${makeId('job')}`, draftKey, nodeId, focus: depths[0]! });
     } catch (err) { setProposal(null); setError(err instanceof Error ? err.message : String(err)); }
   };
   const apply = () => {
     try {
       if (!currentProposal || !ready || useProject.getState().project !== currentProposal.base) throw new Error('Cambió el proyecto o el tramo. Generá una nueva vista previa.');
-      commit(`Excluir tramo de ${selected?.mnemonic ?? curveId}`, p => p === currentProposal.base ? currentProposal.project : p, { group: currentProposal.key });
+      commit(`Excluir mediciones de ${selected?.mnemonic ?? curveId}`, p => p === currentProposal.base ? currentProposal.project : p, { group: currentProposal.key });
       close();
     } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
   };
@@ -78,10 +90,10 @@ function MaskEditor({ wellId }: { wellId: string }) {
     const w = request.entry.well, original = w.curves.find(c => c.id === curveId);
     if (!original) return [];
     let lo = 0, hi = w.depth.values.length;
-    while (lo < hi) { const mid = (lo + hi) >>> 1; if (w.depth.values[mid]! < number(top)) lo = mid + 1; else hi = mid; }
+    while (lo < hi) { const mid = (lo + hi) >>> 1; if (w.depth.values[mid]! < (currentProposal?.focus ?? number(top))) lo = mid + 1; else hi = mid; }
     const start = Math.max(0, lo - 2);
     return Array.from({ length: Math.min(14, w.depth.values.length - start) }, (_, k) => { const i = start + k; return { depth: w.depth.values[i]!, original: original.data[i]!, prepared: payload.data[i]!, excluded: !!(payload.quality[i]! & 2) }; });
-  }, [payload, request, curveId, top]);
+  }, [payload, request, curveId, top, currentProposal]);
   return <Dialog open onClose={close} title="Preparar datos" size="xl" description="Excluí mediciones por intervalo y conservá los originales. Las muestras excluidas se muestran como sin dato."
     footer={<><Button onClick={close}>Cerrar</Button><Button onClick={previewNow} disabled={!entry || !selected || !activeTarget}>Previsualizar exclusión</Button><Button variant="primary" onClick={apply} disabled={!ready}>{selected?.role ? `Aplicar y usar para ${selected.role}` : 'Aplicar exclusión'}</Button></>}>
     {!entry ? <Callout tone="warn">El pozo ya no está disponible.</Callout> : <div className="prep-editor">
@@ -93,6 +105,7 @@ function MaskEditor({ wellId }: { wellId: string }) {
         <Field label="Base (m MD)"><TextField aria-label="Base (m MD)" value={base} onChange={setBase} inputMode="decimal" block /></Field>
       </div>
       <div className="prep-editor__actions"><Button size="sm" onClick={() => { const d = entry.well.depth.values; setTop(String(Math.max(d[0]!, visible?.top ?? d[0]!))); setBase(String(Math.min(d.at(-1)!, visible?.base ?? d.at(-1)!))); }}>Usar tramo visible</Button><span>Se incluyen las muestras en ambos extremos. Las filas y la profundidad se conservan.</span></div>
+      <SuspectReview project={project} entry={entry} curveId={curveId} top={number(top)} base={number(base)} disabled={!activeTarget} onPreview={previewSamples} onInvalidate={invalidatePreview} />
       {error && <Callout tone="error">{error}</Callout>}
       {proposal && !currentProposal && <Callout tone="warn">Cambió el proyecto o el tramo. Generá una nueva vista previa antes de aplicar.</Callout>}
       {currentProposal && (!preview || preview.status === 'pending') && <p role="status">Calculando vista previa…</p>}
@@ -100,7 +113,7 @@ function MaskEditor({ wellId }: { wellId: string }) {
       {ready && counts && <section aria-label="Vista previa de exclusión">
         <p className="prep-editor__summary" role="status">{counts.newlyExcluded.toLocaleString('es-AR')} mediciones pasan a sin dato. {counts.originallyMissing.toLocaleString('es-AR')} muestras ya estaban sin dato en la curva.</p>
         <p>{selected?.role ? `Al aplicar, ${selected.role} usará «${selected.mnemonic} preparada». Se conservarán el original y el historial para deshacer.` : 'Se guardará una curva preparada para comparar y exportar, sin asignarla a un rol.'}</p>
-        <table className="prep-editor__table"><caption>Comparación alrededor del tope · hasta 14 muestras</caption><thead><tr><th>MD (m)</th><th>Original</th><th>Preparada</th><th>Estado</th></tr></thead><tbody>{rows.map(r => <tr key={r.depth}><td>{show(r.depth)}</td><td>{show(r.original)}</td><td>{show(r.prepared)}</td><td>{r.excluded ? 'Excluida' : Number.isNaN(r.original) ? 'Sin dato original' : 'Conservada'}</td></tr>)}</tbody></table>
+        <table className="prep-editor__table"><caption>Comparación local · hasta 14 muestras</caption><thead><tr><th>MD (m)</th><th>Original</th><th>Preparada</th><th>Estado</th></tr></thead><tbody>{rows.map(r => <tr key={r.depth}><td>{show(r.depth)}</td><td>{show(r.original)}</td><td>{show(r.prepared)}</td><td>{r.excluded ? 'Excluida' : Number.isNaN(r.original) ? 'Sin dato original' : 'Conservada'}</td></tr>)}</tbody></table>
       </section>}
       <section aria-label="Exclusiones guardadas"><h3>Exclusiones guardadas</h3>
         {!entry.interpretation.preparation?.nodes.length && <p>Todavía no hay exclusiones guardadas.</p>}

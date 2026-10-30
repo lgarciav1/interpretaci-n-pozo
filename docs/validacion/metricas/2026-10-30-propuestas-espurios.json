@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "7c1550d6fefa82b5719b17c614ff51a1b6e5445a",
+  "tests": {
+    "files": 157,
+    "passed": 2722,
+    "new": 6
+  },
+  "htmlBytes": 5573231,
+  "htmlSHA256": "629a22a647222a553d3f4e68130259ac415c8530ffdad704ff31a0e3732b1cda",
+  "browser": {
+    "candidates": 14,
+    "interval": {
+      "id": "excluded-mvvfwzje79lr3",
+      "top": 7805.3184,
+      "base": 7805.3184
+    },
+    "cancelUnchanged": true,
+    "previewDoesNotRunMain": true,
+    "undoRedo": true,
+    "reopened": true,
+    "restored": true,
+    "pageErrors": []
+  },
+  "identityParent": {
+    "schemaVersion": 1,
+    "measuredAt": "2026-10-30T20:42:02.730Z",
+    "mode": "identity",
+    "scope": "Node/Vite SSR, TP completo: plan/proyecci\u00f3n + motor/MessageChannel + reconstrucci\u00f3n de preparaci\u00f3n; 1 warmup + 7 cambios de GR limpio. No navegador ni Worker.",
+    "samples": 5810,
+    "curves": 18,
+    "elapsedMs": {
+      "warmup": 1225.2903190000002,
+      "samples": [
+        88.89515399999982,
+        60.98216000000002,
+        51.059619999999995,
+        51.62610700000005,
+        51.88704999999982,
+        56.07919200000015,
+        59.120556999999735
+      ],
+      "median": 56.07919200000015
+    },
+    "scientificSHA256": "e9cb7cbe45d6ba0144dd225d22ffd975524f34dda4442df5beccbbdb5ce456fa",
+    "originalBytesUnchanged": true,
+    "inputBuffersIntact": true
+  },
+  "identityCandidate": {
+    "schemaVersion": 1,
+    "measuredAt": "2026-10-30T20:42:18.499Z",
+    "mode": "identity",
+    "scope": "Node/Vite SSR, TP completo: plan/proyecci\u00f3n + motor/MessageChannel + reconstrucci\u00f3n de preparaci\u00f3n; 1 warmup + 7 cambios de GR limpio. No navegador ni Worker.",
+    "samples": 5810,
+    "curves": 18,
+    "elapsedMs": {
+      "warmup": 1206.2064839999998,
+      "samples": [
+        79.12967299999991,
+        61.48247900000024,
+        50.44084100000009,
+        51.75150699999995,
+        54.51884299999983,
+        60.08066000000008,
+        56.078124000000116
+      ],
+      "median": 56.078124000000116
+    },
+    "scientificSHA256": "e9cb7cbe45d6ba0144dd225d22ffd975524f34dda4442df5beccbbdb5ce456fa",
+    "originalBytesUnchanged": true,
+    "inputBuffersIntact": true
+  },
+  "identityRatio": 0.9999809555030673,
+  "regressionP3a": {
+    "baselineLas": "5cf7210613f856a48d2f74309b4aa5c1ccd108541e22aedcecb3b647705f04f3",
+    "previewDoesNotChangeProjectOrMainRuns": true,
+    "preparedLas": "7280b018d81a77ee0dc5a62e5957c6dedecf8a447a83a1a52d38c1e42ad1fc3e",
+    "preparedSvg": "c21127dd7146c849dbe93a9787c633480818c8eecc486d3e67f56285dfed2868",
+    "changedFiniteSamples": 65,
+    "undoLas": "5cf7210613f856a48d2f74309b4aa5c1ccd108541e22aedcecb3b647705f04f3",
+    "redoLas": "7280b018d81a77ee0dc5a62e5957c6dedecf8a447a83a1a52d38c1e42ad1fc3e",
+    "atomicFullRecovery": {
+      "mainRuns": 6,
+      "isolatedRuns": 2,
+      "full": 1,
+      "corrupt": false,
+      "bad": 1,
+      "prepared": 3
+    },
+    "reopenedLas": "7280b018d81a77ee0dc5a62e5957c6dedecf8a447a83a1a52d38c1e42ad1fc3e",
+    "unsupportedRecipePreservesProject": true,
+    "restoredLas": "5cf7210613f856a48d2f74309b4aa5c1ccd108541e22aedcecb3b647705f04f3",
+    "snapshotRestoredLas": "7280b018d81a77ee0dc5a62e5957c6dedecf8a447a83a1a52d38c1e42ad1fc3e",
+    "decisionsOnlyNoPreparedBlobs": true,
+    "offlineWithoutWorkerOrSubtleCrypto": true,
+    "pageErrors": []
+  }
+}
