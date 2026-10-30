@@ -2,6 +2,7 @@ import type { EngineWell } from '../engine/engine';
 import type { PreparationPlan, PreparedPayload } from './plan';
 import { PREPARATION_BUDGET } from './state';
 import { Quality } from './quality';
+import { fillLinearGaps } from './interpolation';
 
 export class PreparationCancelled extends Error {}
 /** Caché LRU por bytes reales; no conserva arrays del proyecto como resultados editados. */
@@ -42,6 +43,12 @@ export class MaskEvaluator {
         }
         if (end < data.length) await yieldTask();
       }
+      if (cancelled()) throw new PreparationCancelled();
+      if (a.gapFill) await fillLinearGaps(well.depth, data, quality, a.gapFill, a.boundaries!, async () => {
+        if (cancelled()) throw new PreparationCancelled();
+        await yieldTask();
+        if (cancelled()) throw new PreparationCancelled();
+      });
       if (cancelled()) throw new PreparationCancelled();
       const payload = { id: a.id, version, data, quality };
       this.cache.set(version, payload); this.bytes += bytes; result.push(payload);

@@ -63,7 +63,7 @@ export function exportSources(well: Well, result: ClientResult | null, includeAl
     let data = qualityColumns.get(p);
     if (!data) { data = Float64Array.from(p.quality); qualityColumns.set(p, data); }
     const a = result.preparation.plan.artifacts.find(a => a.id === p.id)!;
-    columns.push({ id: `q:${p.id}`, mnemonic: `${a.mnemonic}_QC`, unit: 'unitless', data, origin: 'prepared', description: 'Calidad de preparación: 0=conservada; 1=faltante original; 2=excluida; 3=faltante original y excluida' });
+    columns.push({ id: `q:${p.id}`, mnemonic: `${a.mnemonic}_QC`, unit: 'unitless', data, origin: 'prepared', description: 'Calidad de preparación: 0=conservada; 1=faltante original; 2=excluida; 3=faltante original y excluida' + (a.gapFill ? '; 9=faltante original e interpolada (estimación)' : '') });
   }
   return {
     columns,

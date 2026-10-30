@@ -8,7 +8,17 @@ export interface MaskNode {
   input: { kind: 'original'; inputRevisionId: string; curveId: string };
   intervals: MaskInterval[];
 }
-export interface PreparationState { schemaVersion: 1; nodes: MaskNode[] }
+export interface GapFill { top: number; base: number; maxGapM: number }
+/** Exclusiones primero, interpolación de faltantes originales después. */
+export interface InterpolationNode extends Omit<MaskNode, 'kind'> {
+  kind: 'linear-interpolation';
+  gapFill: GapFill;
+}
+export type PreparationNode = MaskNode | InterpolationNode;
+export interface PreparationState { schemaVersion: 1 | 2; nodes: PreparationNode[] }
+export function preparationState(nodes: PreparationNode[]): PreparationState {
+  return { schemaVersion: nodes.some(n => n.kind === 'linear-interpolation') ? 2 : 1, nodes };
+}
 export const PREPARATION_BUDGET = 128 * 1024 * 1024;
 export const MAX_MASK_NODES = 32;
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v) && !ArrayBuffer.isView(v);
@@ -18,23 +28,29 @@ function shape(v: unknown, keys: string[]): asserts v is Record<string, unknown>
 const text = (v: unknown): v is string => typeof v === 'string' && !!v.trim();
 export function validatePreparation(value: unknown): asserts value is PreparationState {
   shape(value, ['schemaVersion', 'nodes']);
-  if (value.schemaVersion !== 1 || !Array.isArray(value.nodes) || value.nodes.length > MAX_MASK_NODES) throw new Error('Versión o cantidad de operaciones de preparación no admitida.');
+  if (![1, 2].includes(value.schemaVersion as number) || !Array.isArray(value.nodes) || value.nodes.length > MAX_MASK_NODES) throw new Error('Versión o cantidad de operaciones de preparación no admitida.');
   const ids = new Set<string>(), curves = new Set<string>();
   for (const n of value.nodes) {
-    shape(n, ['id', 'kind', 'methodVersion', 'enabled', 'input', 'intervals']);
-    if (!text(n.id) || !/^[a-zA-Z0-9_-]+$/.test(n.id) || ids.has(n.id) || n.kind !== 'mask' || n.methodVersion !== 1 || typeof n.enabled !== 'boolean') throw new Error('Operación de preparación desconocida o repetida.');
+    shape(n, ['id', 'kind', 'methodVersion', 'enabled', 'input', 'intervals', ...(n?.kind === 'linear-interpolation' ? ['gapFill'] : [])]);
+    if (!text(n.id) || !/^[a-zA-Z0-9_-]+$/.test(n.id) || ids.has(n.id) || !['mask', 'linear-interpolation'].includes(n.kind as string) || n.methodVersion !== 1 || typeof n.enabled !== 'boolean') throw new Error('Operación de preparación desconocida o repetida.');
     ids.add(n.id);
     shape(n.input, ['kind', 'inputRevisionId', 'curveId']);
-    if (n.input.kind !== 'original' || !text(n.input.inputRevisionId) || !text(n.input.curveId) || curves.has(n.input.curveId)) throw new Error('Cada curva admite una máscara sobre un original con revisión explícita.');
+    if (n.input.kind !== 'original' || !text(n.input.inputRevisionId) || !text(n.input.curveId) || curves.has(n.input.curveId)) throw new Error('Cada curva admite una receta sobre un original con revisión explícita.');
     curves.add(n.input.curveId);
-    if (!Array.isArray(n.intervals) || !n.intervals.length || n.intervals.length > 256) throw new Error('Cantidad de intervalos de exclusión no admitida.');
+    if (!Array.isArray(n.intervals) || (n.kind === 'mask' && !n.intervals.length) || n.intervals.length > 256) throw new Error('Cantidad de intervalos de exclusión no admitida.');
     const intervals = new Set<string>();
     for (const r of n.intervals) {
       shape(r, ['id', 'top', 'base']);
       if (!text(r.id) || intervals.has(r.id) || typeof r.top !== 'number' || !Number.isFinite(r.top) || typeof r.base !== 'number' || !Number.isFinite(r.base) || r.base < r.top) throw new Error('Intervalo de exclusión inválido o repetido.');
       intervals.add(r.id);
     }
+    if (n.kind === 'linear-interpolation') validateGapFill(n.gapFill);
   }
+  if ((value.schemaVersion === 2) !== value.nodes.some(n => n.kind === 'linear-interpolation')) throw new Error('La versión de preparación no corresponde a sus métodos.');
+}
+export function validateGapFill(value: unknown): asserts value is GapFill {
+  shape(value, ['top', 'base', 'maxGapM']);
+  if (typeof value.top !== 'number' || typeof value.base !== 'number' || typeof value.maxGapM !== 'number' || ![value.top, value.base, value.maxGapM].every(Number.isFinite) || value.top > value.base || value.maxGapM <= 0) throw new Error('La interpolación requiere un tramo válido y una longitud máxima positiva.');
 }
 export function maskRanges(intervals: readonly MaskInterval[]): { top: number; base: number }[] {
   const sorted = intervals.map(({ top, base }) => ({ top, base })).sort((a, b) => a.top - b.top || a.base - b.base);
@@ -48,5 +64,5 @@ export function maskRanges(intervals: readonly MaskInterval[]): { top: number; b
 }
 /** No incluye ids de intervalos ni tiempos de UI; sí la referencia explícita al origen. */
 export function preparationStateKey(state: PreparationState | undefined): string {
-  return JSON.stringify(state?.nodes.map(n => [n.id, n.kind, n.methodVersion, n.enabled, n.input.kind, n.input.inputRevisionId, n.input.curveId, maskRanges(n.intervals)]) ?? []);
+  return JSON.stringify(state?.nodes.map(n => [n.id, n.kind, n.methodVersion, n.enabled, n.input.kind, n.input.inputRevisionId, n.input.curveId, maskRanges(n.intervals), ...(n.kind === 'linear-interpolation' ? [[n.gapFill.top, n.gapFill.base, n.gapFill.maxGapM]] : [])]) ?? []);
 }

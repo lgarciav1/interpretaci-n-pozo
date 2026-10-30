@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "adf1b9049ec7a0cd67ea5d0e606e3f1afc12580e",
+  "tests": {
+    "files": 158,
+    "passed": 2737,
+    "new": 15,
+    "durationSeconds": 163.15
+  },
+  "typecheck": true,
+  "build": true,
+  "htmlBytes": 5593228,
+  "htmlSHA256": "32c5e6466c95798c1643312ece1223d529f56e66f8d6cac386e2467fc29accab",
+  "browser": {
+    "filledSamples": [
+      1000,
+      1001
+    ],
+    "expectedValues": [
+      14,
+      18
+    ],
+    "originalsAnd5810RowsPreserved": true,
+    "qc9OnlyEstimated": true,
+    "longAndEdgeGapsRemainMissing": true,
+    "previewDoesNotRunMain": true,
+    "cancelUnchanged": true,
+    "zeroEligibleBlocksApply": true,
+    "undoRedo": true,
+    "reopenedAndSnapshotRestored": true,
+    "exclusionBlocksGap": true,
+    "zoneBoundaryBlocksGap": true,
+    "removeInterpolationPreservesMaskV1": true,
+    "futureSchemaRejectedAtomically": true,
+    "offlineWithoutWorkerOrSubtleCrypto": true,
+    "baselineLas": "692f7843aeee63fc4d37f295144c9e561b5829d0633f1df4e636d954565eb66a",
+    "preparedLas": "4d67eb6ede264e7593f45694b392a7dabe95ec72df9fcb7ad277b7ad96ffddce",
+    "pageErrors": []
+  },
+  "maskRegression": {
+    "baselineLas": "5cf7210613f856a48d2f74309b4aa5c1ccd108541e22aedcecb3b647705f04f3",
+    "previewDoesNotChangeProjectOrMainRuns": true,
+    "preparedLas": "7280b018d81a77ee0dc5a62e5957c6dedecf8a447a83a1a52d38c1e42ad1fc3e",
+    "preparedSvg": "c21127dd7146c849dbe93a9787c633480818c8eecc486d3e67f56285dfed2868",
+    "changedFiniteSamples": 65,
+    "undoLas": "5cf7210613f856a48d2f74309b4aa5c1ccd108541e22aedcecb3b647705f04f3",
+    "redoLas": "7280b018d81a77ee0dc5a62e5957c6dedecf8a447a83a1a52d38c1e42ad1fc3e",
+    "atomicFullRecovery": {
+      "mainRuns": 6,
+      "isolatedRuns": 2,
+      "full": 1,
+      "corrupt": false,
+      "bad": 1,
+      "prepared": 3
+    },
+    "reopenedLas": "7280b018d81a77ee0dc5a62e5957c6dedecf8a447a83a1a52d38c1e42ad1fc3e",
+    "unsupportedRecipePreservesProject": true,
+    "restoredLas": "5cf7210613f856a48d2f74309b4aa5c1ccd108541e22aedcecb3b647705f04f3",
+    "snapshotRestoredLas": "7280b018d81a77ee0dc5a62e5957c6dedecf8a447a83a1a52d38c1e42ad1fc3e",
+    "decisionsOnlyNoPreparedBlobs": true,
+    "offlineWithoutWorkerOrSubtleCrypto": true,
+    "pageErrors": []
+  },
+  "suspectsRegression": {
+    "candidates": 14,
+    "interval": {
+      "id": "excluded-mvvgkk9k78dz9",
+      "top": 7805.3184,
+      "base": 7805.3184
+    },
+    "cancelUnchanged": true,
+    "previewDoesNotRunMain": true,
+    "undoRedo": true,
+    "reopened": true,
+    "restored": true,
+    "pageErrors": []
+  },
+  "oldReader": {
+    "baseCommit": "adf1b9049ec7a0cd67ea5d0e606e3f1afc12580e",
+    "rejectedNewPreparationSchema": true,
+    "message": "No se abrió el proyecto v7: Entrada de pozo: Versión o cantidad de operaciones de preparación no admitida. Se conserva el archivo original; la recuperación independiente debe pedirse explícitamente."
+  },
+  "identityParent": {
+    "schemaVersion": 1,
+    "measuredAt": "2026-10-30T21:04:00.940Z",
+    "mode": "identity",
+    "scope": "Node/Vite SSR, TP completo: plan/proyección + motor/MessageChannel + reconstrucción de preparación; 1 warmup + 7 cambios de GR limpio. No navegador ni Worker.",
+    "samples": 5810,
+    "curves": 18,
+    "elapsedMs": {
+      "warmup": 1148.4996699999997,
+      "samples": [
+        82.92192899999964,
+        58.22312899999997,
+        59.66312400000015,
+        52.12645100000009,
+        59.68653899999981,
+        53.722381999999925,
+        70.20781899999974
+      ],
+      "median": 59.66312400000015
+    },
+    "scientificSHA256": "e9cb7cbe45d6ba0144dd225d22ffd975524f34dda4442df5beccbbdb5ce456fa",
+    "originalBytesUnchanged": true,
+    "inputBuffersIntact": true
+  },
+  "identityCandidate": {
+    "schemaVersion": 1,
+    "measuredAt": "2026-10-30T21:04:42.055Z",
+    "mode": "identity",
+    "scope": "Node/Vite SSR, TP completo: plan/proyección + motor/MessageChannel + reconstrucción de preparación; 1 warmup + 7 cambios de GR limpio. No navegador ni Worker.",
+    "samples": 5810,
+    "curves": 18,
+    "elapsedMs": {
+      "warmup": 1098.0201119999997,
+      "samples": [
+        69.53646799999979,
+        58.64041100000031,
+        52.85269900000003,
+        52.286825000000135,
+        51.71708400000034,
+        53.02427799999987,
+        51.74847099999988
+      ],
+      "median": 52.85269900000003
+    },
+    "scientificSHA256": "e9cb7cbe45d6ba0144dd225d22ffd975524f34dda4442df5beccbbdb5ce456fa",
+    "originalBytesUnchanged": true,
+    "inputBuffersIntact": true
+  },
+  "identityRatio": 0.8858520214261643
+}
