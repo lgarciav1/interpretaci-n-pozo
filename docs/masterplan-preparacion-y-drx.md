@@ -791,3 +791,20 @@ Recorridos completos aprobados: project_snapshots a 1366×768 con clics reales (
 Verificación final: **2.557 pruebas en 150 archivos**, sin fallos ni omisiones; typecheck, build y diff check aprobados. HTML final 5.432.496 bytes (+17.263 frente a #40, ~0,32 %), sin dependencias nuevas. [Evidencia y límites](https://github.com/lgarciav1/interpretaci-n-pozo/blob/codex/snapshots-revisiones-proyecto/docs/validacion/2026-10-29-project-snapshots-revisiones.md). file:// continúa fuera del recorrido HTTP local.
 
 P1b queda preparado en memoria con activación de dominio explícita. No se activa desde la UI y la persistencia normal sigue siendo v6. **Próximo paso: P1c**, archivo/migración v7, integridad/límites, y recuperar un snapshot con sus curvas/laboratorio tras guardar, cerrar y abrir; conservar compatibilidad v1–v6 y su marca legacy-current-inputs. Después continúan P2, preparación reversible y calibración DRX. Main permanece intacto.
+
+
+## 27. P1c: archivo v7 y recuperación tras cerrar/abrir (2026-10-30)
+
+[PR #42](https://github.com/lgarciav1/interpretaci-n-pozo/pull/42), encadenado sobre #41, commit f58f473b25fea2c81baf891a7ab399ddb09a58f2. Guarda referencias activas, todas las revisiones/adquisición y blobs f64 LE deduplicados por SHA-256. Al reabrir reconstruye aliases exactos y los snapshots restauran curvas, laboratorio e interpretación originales. No cambia fórmulas ni protocolo del motor.
+
+La transición es explícita: los proyectos legados conservan escritura v6; upgradeInputs:true migra v1–v6 después de sus saneamientos vigentes. Snapshots antiguos quedan marcados legacy-current-inputs, con aviso al abrir/comparar; no se inventan entradas históricas. v7 se escribe cuando existen revisiones. Forzar v6 con ellas se rechaza. No hay botón de activación de preparación en esta entrega.
+
+La apertura normal valida hashes, esquema, referencias, dimensiones y grafo antes de publicar. recoverProject ofrece recuperación independiente mediante API, con diagnóstico, sin reasignar referencias ni el pozo activo; no se agrega interfaz gráfica de recuperación. Se conservan los límites de archivo/total/array 64/512/128 MiB y descompresión incremental limitada. La UI usa un worker independiente con una tarea activa y hasta ocho blobs simultáneos; conserva los buffers activos y tiene alternativa sin Worker y hash offline.
+
+Validación: **2.628 pruebas en 152 archivos**, sin fallos/omisiones; 71 nuevas, typecheck, build y diff check aprobados. Fixture v7 independiente del serializer y corpus sintético fijo v1–v6. TP completo: resultados científicos tras reabrir/restaurar iguales, y cambiar solo adquisición mantiene 21 blobs / 883.136 bytes únicos. Corrupción, referencias, ciclos, metadatos futuros y límites reales comprobados.
+
+Navegador: guardar/reabrir en contexto nuevo, restaurar, undo/redo, cortina, corrupción sin cambiar el proyecto activo, avisos de migración, workers terminados y offline sin Worker/SubtleCrypto. Regresiones completas de snapshots legados y lectura amplia; geometría, preferencias, tabla completa y exportaciones conservadas. LAS/SVG restaurados idénticos al padre. Sin excepciones de página. file:// sigue fuera del recorrido HTTP local.
+
+Medición Node alternada legado/v7: cocientes guardar/abrir 0,843/1,116. Frente al padre en modo legado, dos rondas en orden inverso dieron medianas agregadas guardar/abrir/calcular 0,832/1,158/0,969. Todas bajo 1,25; se conservan muestras y variación. Son mediciones del entorno, no garantía de hardware ni tiempos de UI. HTML final 5.507.660 bytes (+75.164, ~1,38 %), sin dependencias nuevas. [Evidencia y reproducción](https://github.com/lgarciav1/interpretaci-n-pozo/blob/codex/persistencia-revisiones-v7/docs/validacion/2026-10-30-persistencia-v7.md).
+
+P1c queda preparado para revisión. Próximo paso: P2, contexto científico y protocolo de invalidación/resync antes de conectar preparación reversible; después calibración DRX y correcciones según sus datos disponibles. No se declara cerrado todo P0 ni los issues #31/#32/#34. Ningún PR fue integrado/mergeado; main permanece intacto.
