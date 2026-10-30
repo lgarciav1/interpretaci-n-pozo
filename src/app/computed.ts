@@ -1,3 +1,4 @@
+import { effectiveWell } from './preparation/data';
 /**
  * Curvas calculadas del último resultado del motor, como las ve el visor (activas y alternativas). Una lista por
  * resultado (caché por identidad): el visor y el panel de tendencias comparten la misma.
@@ -17,6 +18,7 @@ const NO_TABLES: ViewerTable[] = [];
 
 /** La identidad del resultado y del pozo protege también las tablas al cambiar de pozo. */
 export function computedTables(result: ClientResult | null, well: Well | null): ViewerTable[] {
+  if (well) well = effectiveWell(well, result);
   if (!result || !well || !contextMatchesWell(result.context,{id:well.id,depth:well.depth.values,curves:well.curves})) return NO_TABLES;
   let tables = tableCache.get(result);
   if (!tables) {
@@ -27,6 +29,7 @@ export function computedTables(result: ClientResult | null, well: Well | null): 
 }
 
 export function computedCurves(result: ClientResult | null, well: Well | null): ComputedCurve[] {
+  if (well) well = effectiveWell(well, result);
   if (!result || !well || !contextMatchesWell(result.context,{id:well.id,depth:well.depth.values,curves:well.curves})) return NONE;
   let out = cache.get(result);
   if (!out) {

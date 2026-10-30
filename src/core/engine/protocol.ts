@@ -7,6 +7,7 @@ import type { Interpretation } from '../interpretation';
 import type { RoleId } from '../roles';
 import type { UnitId } from '../units';
 import type { EngineRunResult, OutputRecord } from './engine';
+import type { PreparationPlan, PreparedPayload } from '../preparation/plan';
 
 /** Extremo de un canal de mensajes: lo cumplen `Worker`, el `self` de un worker y `MessagePort`. */
 export interface Endpoint {
@@ -37,7 +38,8 @@ export type ToEngine =
       depth?: Float64Array;
       curves: WireCurve[];
     }
-  | { type: 'run'; seq: number; gen: number; syncId: number; context: EngineContext; interpretation: Interpretation; full?: boolean };
+  | { type: 'run'; seq: number; gen: number; syncId: number; context: EngineContext; interpretation: Interpretation; preparation?: PreparationPlan; full?: boolean }
+  | { type: 'cancel'; seq: number; gen: number };
 
 /** Salida en tránsito: `value` se omite si no cambió desde el último mensaje (el cliente ya la tiene). */
 export type WireOutput = Omit<OutputRecord, 'value'> & { value?: OutputRecord['value'] };
@@ -45,7 +47,8 @@ export type WireOutput = Omit<OutputRecord, 'value'> & { value?: OutputRecord['v
 export type WireResult = Omit<EngineRunResult, 'outputs'> & { outputs: WireOutput[] };
 
 export type FromEngine =
-  | { type: 'result'; seq: number; gen: number; context: EngineContext; result: WireResult }
+  | { type: 'result'; seq: number; gen: number; context: EngineContext; result: WireResult; prepared?: PreparedPayload[] }
+  | { type: 'cancelled'; seq: number; gen: number; context: EngineContext }
   | { type: 'resync'; seq: number; gen: number; syncId: number; context: EngineContext; message: string }
   /** seq = -1: error al cargar el pozo. */
   | { type: 'error'; seq: number; gen: number; syncId:number; context:EngineContext; message: string };

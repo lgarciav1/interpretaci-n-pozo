@@ -252,6 +252,11 @@ export const curveSeriesProvider: TrendSeriesProvider = {
       out.push({ key: `m:${c.id}`, label: role ? `${c.mnemonic} · ${role.label}` : c.mnemonic, group: c.origin.kind === 'prepared' ? 'Preparadas' : 'Medidas', unit: unitLabel(canonicalCurveData(c, ctx.catalog).unit) });
     }
     const seen = new Set<string>();
+    for (const [port, source] of Object.entries(ctx.interpretation.sources)) {
+      if (!isPreparedSource(source) || source.kind !== 'curve' || !ctx.well.curves.some(c => c.id === source.curveId) || isFlag(ctx.catalog, port)) continue;
+      seen.add(port);
+      out.push({ key: `r:${port}`, label: `${port} · Fuente de interpretación`, group: 'Interpretación', ...(ctx.catalog.has(port) ? { unit: unitLabel(ctx.catalog.unitOf(port)) } : {}) });
+    }
     for (const c of ctx.computed) {
       if (!c.active || seen.has(c.port) || isFlag(ctx.catalog, c.port)) continue;
       seen.add(c.port);

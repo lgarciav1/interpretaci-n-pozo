@@ -24,6 +24,7 @@ export interface PreparedArtifact {
   quality: Uint16Array;
 }
 export interface DataContext {
+  preparationStateKey?: string;
   /** Originales y alternativas preparadas, sin filtrado destructivo. Nunca se guarda en Project. */
   well: Well;
   engineWell: EngineWell;

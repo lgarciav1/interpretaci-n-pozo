@@ -64,6 +64,7 @@ export function renameSnapshot(project: Project, snapshotId: string, name: strin
 // Diferencias
 
 export type DiffEntry =
+  | { kind: 'preparation' }
   | { kind: 'param'; key: string; zoneId: string | null; before: ParamValue | undefined; after: ParamValue | undefined }
   | { kind: 'source'; port: string; before: SourceRef | undefined; after: SourceRef | undefined }
   | { kind: 'zone'; zoneId: string; change: 'added' | 'removed' | 'modified'; fields: (keyof Zone)[]; before?: Zone; after?: Zone }
@@ -78,6 +79,7 @@ export type DiffEntry =
  */
 export function diffInterpretations(a: Interpretation, b: Interpretation, registry?: Registry): DiffEntry[] {
   const out: DiffEntry[] = [];
+  if (JSON.stringify(a.preparation ?? null) !== JSON.stringify(b.preparation ?? null)) out.push({ kind: 'preparation' });
   const defaultOf = (key: string): ParamValue | undefined => registry?.paramSpecs.get(key)?.spec.default;
 
   // Parámetros globales
@@ -145,6 +147,7 @@ export function describeDiff(entry: DiffEntry, ctx: { registry?: Registry; zones
   const src = (s: SourceRef | undefined) =>
     !s ? 'por defecto' : s.kind === 'curve' ? `curva ${s.curveId}` : ctx.registry?.get(s.moduleId)?.name ?? s.moduleId;
   switch (entry.kind) {
+    case 'preparation': return 'Cambió la preparación de datos (exclusiones o restauraciones).';
     case 'param': {
       const label = ctx.registry?.paramSpecs.get(entry.key)?.spec.label ?? entry.key;
       return `${label} (${zoneName(entry.zoneId)}): ${fmt(entry.before)} → ${fmt(entry.after)}`;

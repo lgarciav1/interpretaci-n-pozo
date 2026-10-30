@@ -3,9 +3,12 @@ import { emptyInterpretation, type Interpretation } from '../interpretation';
 import type { Registry } from '../registry';
 import type { EngineOptions, EngineRunResult, EngineWell, OutputRecord } from './engine';
 import type { Endpoint, FromEngine, ToEngine, WireCurve } from './protocol';
-import { contextMatchesWell, curveProvenance, engineContext, engineDecisionKey, wellInputKey, sameContext, validContext, type EngineContext } from './context';
+import { contextMatchesWell, curveInputKey, curveProvenance, engineContext, engineDecisionKey, wellInputKey, sameContext, validContext, type EngineContext } from './context';
+import { validatePreparedPayloads, type PreparationPlan, type PreparedPackage } from '../preparation/plan';
+import { preparationStateKey } from '../preparation/state';
 import { serveEngine } from './serve';
 export interface ClientResult extends EngineRunResult {
+  preparation?: PreparedPackage;
   context: EngineContext;
   seq: number;
   wellId: string;
@@ -25,13 +28,17 @@ export type ClientEvent = {
 } | {
   type: 'protocol-error';
   message: string;
+} | {
+  type: 'cancelled';
 };
 let lastGen = 0;
 interface Request {
+  preparation?: PreparationPlan;
   interpretation: Interpretation;
   context: EngineContext;
 }
 interface Flight extends Request {
+  cancelled?: boolean;
   seq: number;
   gen: number;
   samples: number;
@@ -90,17 +97,25 @@ export class EngineClient {
     }
     return { gen: this.gen, isNew };
   }
-  run(interpretation: Interpretation, context?: EngineContext): void {
+  run(interpretation: Interpretation, context?: EngineContext, preparation?: PreparationPlan): void {
     if (!this.well) {
+      if (interpretation.preparation?.nodes.length) throw new Error('Primero sincronizá los originales de la preparación.');
       if (this.beforeWell)
         this.coalesced++;
       this.beforeWell = interpretation;
       return;
     }
-    const request = { interpretation, context: context ?? (this.well ? engineContext(this.well, interpretation, this.desired?.inputRevisionId ?? null) : null) };
+    const request = { interpretation, preparation, context: context ?? (this.well ? engineContext(this.well, interpretation, this.desired?.inputRevisionId ?? null) : null) };
     if (!request.context)
       throw new Error('Primero se debe sincronizar un pozo.');
     this.checkContext(request.context);
+    if (!!interpretation.preparation?.nodes.length !== !!preparation) throw new Error('La receta de preparación requiere su plan validado.');
+    if (preparation) {
+      const depthKey = request.context.depthKey;
+      const originals = this.well.curves.map(c => ({ ...c, provenance: curveProvenance(c, depthKey) }));
+      const key = curveInputKey(this.well.id, depthKey, [...originals, ...preparation.artifacts]) + '|' + engineDecisionKey(interpretation);
+      if (preparation.stateKey !== preparationStateKey(interpretation.preparation) || preparation.originalKey !== wellInputKey(this.well) || !sameContext(preparation.context, request.context) || key !== request.context.engineKey) throw new Error('El plan preparado no coincide con las entradas o decisiones vigentes.');
+    }
     if (this.well.curves.some(c => c.provenance?.origin === 'prepared') && request.context.engineKey !== wellInputKey(this.well) + '|' + engineDecisionKey(interpretation)) throw new Error('El cálculo preparado no coincide con su contexto.');
     const next = request as Request;
     this.latest = next;
@@ -114,6 +129,10 @@ export class EngineClient {
     this.send(next);
   }
   dispose(): void { this.stopped = true; this.endpoint.removeEventListener('message', this.onMessage); this.listeners.clear(); this.cleanup(); }
+  cancel(): void {
+    this.pending = null;
+    if (this.inFlight) { this.inFlight.cancelled = true; this.post({ type: 'cancel', gen: this.inFlight.gen, seq: this.inFlight.seq }); }
+  }
   private checkContext(context: EngineContext): void { if (!validContext(context) || context.wellId !== this.well?.id)
     throw new Error('Contexto científico inválido.');
     if (this.well?.curves.some(c => c.provenance?.origin === 'prepared') && (context.preparationKey === 'identity' || !contextMatchesWell(context, this.well))) throw new Error('La proyección preparada no coincide con su contexto validado.'); }
@@ -131,7 +150,7 @@ export class EngineClient {
   private send(request: Request, full = false): void {
     this.inFlight = { ...request, seq: ++this.seq, gen: this.gen, samples: this.well!.depth.length, sentAt: now(), coalesced: this.coalesced };
     this.coalesced = 0;
-    this.post({ type: 'run', seq: this.seq, gen: this.gen, syncId: this.syncId, context: request.context, interpretation: request.interpretation, ...(full ? { full: true } : {}) });
+    this.post({ type: 'run', seq: this.seq, gen: this.gen, syncId: this.syncId, context: request.context, interpretation: request.interpretation, ...(request.preparation ? { preparation: request.preparation } : {}), ...(full ? { full: true } : {}) });
     this.emit({ type: 'busy', busy: true });
   }
   private post(msg: ToEngine): void { this.endpoint.postMessage(msg); }
@@ -160,7 +179,7 @@ export class EngineClient {
       this.emit({ type: 'busy', busy: false });
   }
   private handle(msg: FromEngine): void {
-    if (this.stopped || !msg || typeof msg !== 'object' || !['result', 'error', 'resync'].includes(msg.type))
+    if (this.stopped || !msg || typeof msg !== 'object' || !['result', 'error', 'resync', 'cancelled'].includes(msg.type))
       return;
     if (msg.type === 'resync') {
       if (msg.gen === this.gen && msg.syncId === this.syncId)
@@ -181,6 +200,8 @@ export class EngineClient {
     }
     if (msg.type === 'result' && msg.gen === this.gen) {
       try {
+        if (flight.preparation) validatePreparedPayloads(flight.preparation, msg.prepared, flight.samples);
+        else if (msg.prepared !== undefined) throw new Error('El motor devolvió una preparación no solicitada.');
         if (!Array.isArray(msg.result.outputs) || msg.result.stats.samples !== flight.samples)
           throw new Error('Dimensiones de resultado inconsistentes.');
         const merged = new Map<string, OutputRecord>();
@@ -202,9 +223,9 @@ export class EngineClient {
         // Solo actualizar la caché si el conjunto entero es válido. Un resultado atrasado puede alimentar
         // deltas por versión, pero nunca se publica como el contexto que el usuario está viendo.
         this.outputs = merged;
-        if (sameContext(msg.context, this.desired)) {
+        if (!flight.cancelled && sameContext(msg.context, this.desired)) {
           this.fullAttempted = false;
-          this.emit({ type: 'result', result: { ...msg.result, outputs: [...merged.values()], context: Object.freeze({ ...msg.context }), seq: msg.seq, wellId: msg.context.wellId, gen: msg.gen, roundTripMs: now() - flight.sentAt, coalesced: flight.coalesced } });
+          this.emit({ type: 'result', result: { ...msg.result, ...(flight.preparation ? { preparation: { plan: flight.preparation, artifacts: msg.prepared! } } : {}), outputs: [...merged.values()], context: Object.freeze({ ...msg.context }), seq: msg.seq, wellId: msg.context.wellId, gen: msg.gen, roundTripMs: now() - flight.sentAt, coalesced: flight.coalesced } });
         }
       }
       catch (err) {
@@ -212,8 +233,9 @@ export class EngineClient {
         return;
       }
     }
-    else if (msg.type === 'error' && msg.gen === this.gen && sameContext(flight.context, this.desired))
+    else if (msg.type === 'error' && !flight.cancelled && msg.gen === this.gen && sameContext(flight.context, this.desired))
       this.emit({ type: 'error', message: msg.message });
+    if (msg.type === 'cancelled' || flight.cancelled) this.emit({ type: 'cancelled' });
     this.inFlight = null;
     if (this.pending) {
       const next = this.pending;

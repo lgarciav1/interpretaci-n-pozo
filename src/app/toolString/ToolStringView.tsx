@@ -1,3 +1,4 @@
+import { effectiveWell } from '../preparation/data';
 /**
  * Vista 3D de la sarta (docs/decisiones/0033): ocupa el centro en lugar del visor mientras la pantalla de la sarta está
  * abierta. Se gira, se mueve y se acerca; pasar el puntero resalta y dice el nombre; clic selecciona y abre la ficha.
@@ -57,7 +58,7 @@ export function ToolStringView() {
   const curves = entry?.well.curves;
   const borehole = useMemo(() => boreholeDiameter(curves ?? []), [curves]);
   const result = useResults((s) => s.result);
-  const well = entry?.well;
+  const well = entry ? effectiveWell(entry.well, result) : undefined;
   const column = useMemo(() => wellColumn(well, result), [well, result]);
   // El tramo que mostraba el visor (sigue montado debajo); sin visor, la mitad del pozo.
   const visible = useViewer((s) => s.visible);
@@ -309,3 +310,4 @@ export function ToolStringView() {
     </section>
   );
 }
+

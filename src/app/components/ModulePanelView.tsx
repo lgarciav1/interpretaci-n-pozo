@@ -1,3 +1,4 @@
+import { effectiveWell } from '../preparation/data';
 /**
  * Panel del módulo activo: estado, método elegido por puerto, "calcular para comparar", zona en edición y
  * controles generados desde el esquema (o el panel a medida del módulo).
@@ -35,7 +36,8 @@ export function ModulePanelView({ module }: { module: AnyModule }) {
 
   const curvePorts = useMemo(() => Object.values(module.outputs).map(portOf), [module]);
   if (!entry) return null;
-  const { interpretation, well } = entry;
+  const { interpretation } = entry;
+  const well = effectiveWell(entry.well, result);
   const wellId = well.id;
   const zone = zoneId ? (interpretation.zones.find((z) => z.id === zoneId) ?? null) : null;
 
@@ -210,3 +212,4 @@ export function ModulePanelView({ module }: { module: AnyModule }) {
     </div>
   );
 }
+

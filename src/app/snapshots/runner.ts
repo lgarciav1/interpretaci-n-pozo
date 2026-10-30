@@ -14,17 +14,20 @@ import type { ClientResult } from '../../core/engine/client';
 import type { EngineWell } from '../../core/engine/engine';
 import type { SupervisorEvent } from '../../core/engine/supervisor';
 import type { Interpretation } from '../../core/interpretation';
+import type { PreparationPlan } from '../../core/preparation/plan';
 
 export type RunEntry = { status: 'pending' } | { status: 'ready'; result: ClientResult } | { status: 'error'; message: string };
 
 /** Lo que el corredor necesita del motor (lo cumple `EngineSupervisor`). */
 export interface RunnerEngine {
   syncWell(well: EngineWell, context?:EngineContext): void;
-  run(interpretation: Interpretation, context?:EngineContext): void;
+  run(interpretation: Interpretation, context?:EngineContext, preparation?:PreparationPlan): void;
+  cancel?(): void;
   subscribe(listener: (e: SupervisorEvent) => void): () => void;
 }
 
 interface Request {
+  preparation?: PreparationPlan;
   context:EngineContext;
   key: string;
   well: EngineWell;
@@ -52,13 +55,14 @@ export class IsolatedRunner {
   private readonly wanted = new Map<string, number>();
   private queue: Request[] = [];
   private inFlight: Request | null = null;
-  private got: { result?: ClientResult; error?: string } = {};
+  private got: { result?: ClientResult; error?: string; cancelled?: boolean } = {};
   private readonly listeners = new Set<() => void>();
   private sent = 0;
 
   constructor(
     private readonly createEngine: () => RunnerEngine,
     private readonly maxEntries = 6,
+    private readonly maxBytes = 128 * 1024 * 1024,
   ) {}
 
   /** Corridas mandadas al motor desde que se creó (para verificar que nada recalcula de más). */
@@ -76,14 +80,15 @@ export class IsolatedRunner {
   }
 
   /** Pide (si no está en caché) la corrida y la marca como en uso; devuelve cómo soltarla. */
-  acquire(key: string, well: EngineWell, interpretation: Interpretation, context=engineContext(well,interpretation)): () => void {
+  acquire(key: string, well: EngineWell, interpretation: Interpretation, context=engineContext(well,interpretation), preparation?:PreparationPlan): () => void {
     const previous=this.contexts.get(key);
     if(previous&&!sameContext(previous,context))throw new Error('La clave de caché refiere a otro contexto científico.');
     this.contexts.set(key,context);
     this.wanted.set(key, (this.wanted.get(key) ?? 0) + 1);
     if (!this.entries.has(key)) {
       this.entries.set(key, { status: 'pending' });
-      this.queue.push({ key, well, interpretation, context });
+      const request = { key, well, interpretation, context, preparation };
+      if (key.startsWith('preparation-preview:')) this.queue.unshift(request); else this.queue.push(request);
       this.emit();
       this.pump();
     } else {
@@ -102,6 +107,7 @@ export class IsolatedRunner {
         return;
       }
       this.wanted.delete(key);
+      if (this.inFlight?.key === key && preparation) this.engine?.cancel?.();
       // Nadie la quiere y todavía no salió: se cancela (no se calcula algo que ya no se va a mostrar).
       const i = this.queue.findIndex((r) => r.key === key);
       if (i >= 0) {
@@ -129,19 +135,20 @@ export class IsolatedRunner {
     this.sent++;
     const engine = this.ensureEngine();
     engine.syncWell(req.well,req.context);
-    engine.run(req.interpretation,req.context);
+    engine.run(req.interpretation,req.context,req.preparation);
   }
 
   private onEvent(e: SupervisorEvent): void {
     if (!this.inFlight) return;
     if (e.type === 'result') { if(sameContext(e.result.context,this.inFlight.context))this.got.result=e.result;else this.got.error='El resultado aislado pertenece a otro contexto.'; }
     else if (e.type === 'error') this.got.error ??= e.message;
+    else if (e.type === 'cancelled') this.got.cancelled = true;
     else if (e.type === 'busy' && !e.busy) {
       // Sin respuesta (el worker se cayó): el supervisor relanza el último pedido, que es este; se sigue esperando.
-      if (!this.got.result && this.got.error === undefined) return;
+      if (!this.got.result && this.got.error === undefined && !this.got.cancelled) return;
       const req = this.inFlight;
       this.inFlight = null;
-      const entry: RunEntry = this.got.result ? { status: 'ready', result: this.got.result } : { status: 'error', message: this.got.error! };
+      const entry: RunEntry = this.got.result ? { status: 'ready', result: this.got.result } : { status: 'error', message: this.got.error ?? 'Previsualización cancelada.' };
       this.got = {};
       this.entries.delete(req.key);
       this.entries.set(req.key, entry);
@@ -153,10 +160,11 @@ export class IsolatedRunner {
 
   /** Mantiene la caché acotada: quita las corridas listas más viejas que nadie usa. */
   private trim(): void {
-    if (this.entries.size <= this.maxEntries) return;
+    let bytes = [...this.entries.values()].reduce((sum, e) => sum + entryBytes(e), 0);
+    if (this.entries.size <= this.maxEntries && bytes <= this.maxBytes) return;
     for (const [key, e] of this.entries) {
-      if (this.entries.size <= this.maxEntries) break;
-      if (e.status !== 'pending' && !this.wanted.has(key)) {this.entries.delete(key);this.contexts.delete(key);}
+      if (this.entries.size <= this.maxEntries && bytes <= this.maxBytes) break;
+      if (e.status !== 'pending' && !this.wanted.has(key)) {this.entries.delete(key);this.contexts.delete(key);bytes -= entryBytes(e);}
     }
   }
 
@@ -165,3 +173,10 @@ export class IsolatedRunner {
   }
 }
 
+
+/** Cuenta arrays transferidos; los resultados en uso quedan fijados hasta soltar su lease. */
+function entryBytes(entry: RunEntry): number {
+  if (entry.status !== 'ready') return 0;
+  return entry.result.outputs.reduce((sum, o) => sum + (o.value instanceof Float64Array ? o.value.byteLength : 0), 0)
+    + (entry.result.preparation?.artifacts.reduce((sum, a) => sum + a.data.byteLength + a.quality.byteLength, 0) ?? 0);
+}

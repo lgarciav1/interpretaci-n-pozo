@@ -1,3 +1,4 @@
+import { effectiveWell } from '../preparation/data';
 /**
  * Conexión de los gráficos del dock (histograma, crossplot libre; docs/decisiones/0014) con los stores: contexto del
  * pozo activo, configuración guardada en el proyecto, recetas por `commit` y el cutoff real hacia los parámetros. Los
@@ -31,7 +32,7 @@ export function usePlotContext(): SeriesContext | null {
   const result = useResults((s) => s.result);
   return useMemo(() => {
     if (!entry) return null;
-    return plotContextOf(entry.well, entry.interpretation, computedCurves(result, entry.well));
+    return plotContextOf(effectiveWell(entry.well, result), entry.interpretation, computedCurves(result, entry.well));
   }, [entry, result]);
 }
 
@@ -129,3 +130,4 @@ export function PlotDockGate({ id, icon, children }: { id: string; icon: 'histog
   if (!ctx) return <EmptyState size="sm" icon={icon} title="Sin pozo" description="Cargá un pozo para graficar sus curvas." />;
   return <>{children(ctx)}</>;
 }
+

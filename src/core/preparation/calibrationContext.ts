@@ -2,6 +2,7 @@
 import { engineDecisionKey, identityKey, wellInputKey } from '../engine/context';
 import type { Interpretation } from '../interpretation';
 import type { DataContext } from './projection';
+import { preparationStateKey } from './state';
 
 export interface CalibrationRequest {
   pointSetIds: readonly string[];
@@ -11,6 +12,7 @@ export interface CalibrationRequest {
   configuration: Readonly<Record<string, number | string | boolean | null>>;
 }
 export function calibrationKey(data: DataContext, interpretation: Interpretation, request: CalibrationRequest): string {
+  if ((data.preparationStateKey !== undefined || interpretation.preparation?.nodes.length) && data.preparationStateKey !== preparationStateKey(interpretation.preparation)) throw new Error('El contexto de preparación de la calibración está obsoleto.');
   if (data.context.engineKey !== wellInputKey(data.engineWell) + '|' + engineDecisionKey(interpretation)) throw new Error('El contexto de calibración está obsoleto.');
   const { pairing } = request;
   if (!request.methodVersion.trim() || pairing.datum !== 'MD' || !['mean', 'median'].includes(pairing.aggregation) ||

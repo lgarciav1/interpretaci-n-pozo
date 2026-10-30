@@ -7,11 +7,13 @@ import type { PointSetDecisions } from './pointSets';
 import type { ToolStringState } from './toolString';
 import type { TrendSpec } from './trends';
 import type { Zone } from './well';
+import type { PreparationState } from './preparation/state';
 
 /** Fuente elegida para un puerto: una curva medida del pozo o un módulo. */
 export type SourceRef = { kind: 'curve'; curveId: string } | { kind: 'module'; moduleId: string };
 
 export interface Interpretation {
+  preparation?: PreparationState;
   zones: Zone[];
   params: ParamState;
   /**
@@ -59,7 +61,7 @@ export function sameEngineInputs(a: Interpretation, b: Interpretation): boolean 
     a.sources === b.sources &&
     a.compare === b.compare &&
     a.disabled === b.disabled &&
-    a.toolString === b.toolString
+    a.toolString === b.toolString && a.preparation === b.preparation
   );
 }
 
@@ -69,3 +71,4 @@ export function sourceRefEquals(a: SourceRef | undefined, b: SourceRef | undefin
   if (a.kind === 'module' && b.kind === 'module') return a.moduleId === b.moduleId;
   return false;
 }
+

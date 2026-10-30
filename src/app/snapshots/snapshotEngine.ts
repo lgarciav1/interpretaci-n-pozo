@@ -11,6 +11,7 @@ import { registry } from '../../modules';
 import { createEngineSupervisor } from '../engineBridge';
 import { IsolatedRunner, type RunEntry } from './runner';
 import { snapshotRunRequest } from './request';
+import { effectiveWell } from '../preparation/data';
 
 const PENDING: RunEntry = { status: 'pending' };
 
@@ -38,7 +39,7 @@ export function useSnapshotRun(snapshot: Snapshot | null, well: Well | null, pro
   const key = request?.key ?? null;
   useEffect(() => {
     if (!key || !request) return;
-    return snapshotRunner.acquire(key, request.engineWell, request.interpretation,request.context);
+    return snapshotRunner.acquire(key, request.engineWell, request.interpretation,request.context,request.preparation);
     // La clave resume snapshot, interpretación y curvas: no hace falta depender de los objetos.
   }, [key]);
   const entry = useSyncExternalStore(
@@ -46,7 +47,7 @@ export function useSnapshotRun(snapshot: Snapshot | null, well: Well | null, pro
     () => (key ? (snapshotRunner.get(key) ?? PENDING) : null),
   );
   if (selection.error) return { status: 'error', message: selection.error };
-  if (entry?.status === 'ready') return request ? { ...entry, well: request.well, inputRevisionId: request.inputRevisionId } : null;
+  if (entry?.status === 'ready') return request ? { ...entry, well: effectiveWell(request.well, entry.result), inputRevisionId: request.inputRevisionId } : null;
   return entry;
 }
 

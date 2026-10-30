@@ -1,4 +1,5 @@
-import { entryEngineContext, sameContext } from '../../core/engine/context';
+import { entryContext } from '../preparation/data';
+import { sameContext } from '../../core/engine/context';
 import { sameEngineInputs } from '../../core/interpretation';
 import { SvgContext2D } from '../../io/export/figures/svg';
 import { withSvgPath2D } from '../../io/export/figures/path';
@@ -87,7 +88,7 @@ export async function generateReport(options: ReportOptions): Promise<{ html: st
   const workspace = useUi.getState().workspace;
   const xy = listXYFigures();
   if (!entry) throw new Error('Cargá un pozo para generar el informe.');
-  if (state.busy || state.error || !state.result || !sameContext(state.result.context,entryEngineContext(entry))) throw new Error('Esperá a que termine el cálculo del pozo activo antes de generar el informe.');
+  if (state.busy || state.error || !state.result || !sameContext(state.result.context,entryContext(entry))) throw new Error('Esperá a que termine el cálculo del pozo activo antes de generar el informe.');
   const model = buildReportModel(entry.well, entry.interpretation, state.result);
   const env = figureEnv();
   const html = await renderReport(options, model, env);
