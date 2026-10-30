@@ -2,7 +2,7 @@ import { effectiveWell } from '../preparation/data';
 import { contextMatchesWell, engineDecisionKey, sameContext, wellInputKey } from '../../core/engine/context';
 import { planPreparation } from '../../core/preparation/plan';
 import { toEngineWell } from '../../core/engine/engine';
-import { stageQualityCounts } from '../../core/preparation/quality';
+import { stageQualityCounts, alignmentQualityCounts } from '../../core/preparation/quality';
 import type { ClientResult } from '../../core/engine/client';
 import type { Interpretation } from '../../core/interpretation';
 import type { TableCell, TableColumn, TableValue } from '../../core/module';
@@ -59,6 +59,14 @@ export function buildReportModel(well: Well, interpretation: Interpretation, res
   for (const p of current?.preparation?.artifacts ?? []) {
     const a = current!.preparation!.plan.artifacts.find(a => a.id === p.id)!;
     const counts = stageQualityCounts(p.quality);
+    if (a.shift) {
+      const shifted = alignmentQualityCounts(p.data, p.quality);
+      warnings.push(`Alineación manual constante · ${a.mnemonic}: ${a.shift.offsetM > 0 ? '+' : ''}${number(a.shift.offsetM)} m; referencia MD ${a.shift.referenceId}, datum declarado ${a.shift.datum}; hueco máximo ${number(a.shift.maxGapM)} m. ${shifted.finite} salidas finitas, ${shifted.unsupported} sin soporte, ${shifted.missing} faltantes trasladados; ${shifted.estimatedSupport} salidas con soporte estimado. Remuestreo lineal sin extrapolación, después de las etapas previas. Bits 32=alineada, 128=sin soporte; los demás flags proceden del soporte de origen. Antes de alinear: ${p.sourceCounts!.interpolated} muestras interpoladas y ${p.sourceCounts!.filtered} filtradas. No mueve otras curvas ni laboratorio, no convierte datum/MD/TVD y no valida la correlación geológica. Los originales se conservan.`);
+      if (a.ranges.length) warnings.push(`Antes de alinear · exclusiones en MD de origen: ${a.ranges.map(r => `${number(r.top)}–${number(r.base)} m`).join(', ')}.`);
+      if (a.gapFill) warnings.push(`Antes de alinear · interpolación lineal: tramo ${number(a.gapFill.top)}–${number(a.gapFill.base)} m MD de origen; máximo entre anclajes ${number(a.gapFill.maxGapM)} m.`);
+      if (a.filter) warnings.push(`Antes de alinear · mediana física: tramo ${number(a.filter.top)}–${number(a.filter.base)} m MD de origen; radio ${number(a.filter.radiusM)} m; separación máxima ${number(a.filter.maxStepM)} m.`);
+      continue;
+    }
     if (a.gapFill) warnings.push(`Interpolación lineal en MD · ${a.mnemonic}: ${counts.interpolated} muestras estimadas; tramo ${number(a.gapFill.top)}–${number(a.gapFill.base)} m; distancia máxima entre anclajes ${number(a.gapFill.maxGapM)} m. Calidad 9 = faltante original + interpolada. No extrapola, no cruza fronteras de zona ni rellena exclusiones; los valores estimados no son mediciones.`);
     if (a.filter) warnings.push(`Mediana móvil en valores lineales · ${a.mnemonic}: ${counts.filtered} muestras filtradas; radio ${number(a.filter.radiusM)} m MD; tramo ${number(a.filter.top)}–${number(a.filter.base)} m; separación máxima ${number(a.filter.maxStepM)} m. Se aplica después de la interpolación si existe; ${counts.estimatedInfluence} centros medidos reciben influencia de estimaciones. Conserva bordes sin soporte completo, faltantes y exclusiones; no cruza zonas. QC 16=filtrada, 24=filtrada con contribuyentes interpolados, 25=faltante original interpolado y filtrado.`);
     const exclusions = a.ranges.length ? `Intervalos MD con extremos incluidos: ${a.ranges.map(r => `${number(r.top)}–${number(r.base)} m`).join(', ')}.` : 'Sin exclusiones por intervalo.';

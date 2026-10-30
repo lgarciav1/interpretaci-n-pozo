@@ -22,3 +22,12 @@ export function stageQualityCounts(quality: Uint16Array) {
   for (const q of quality) { if (q & Quality.Filtered) filtered++; if ((q & Quality.Interpolated) && !(q & Quality.OriginallyMissing)) estimatedInfluence++; }
   return { ...preparationQualityCounts(quality), filtered, estimatedInfluence };
 }
+
+export function alignmentQualityCounts(data: Float64Array, quality: Uint16Array) {
+  let finite = 0, estimatedSupport = 0, unsupported = 0, missing = 0;
+  for (let k = 0; k < data.length; k++) {
+    if (Number.isFinite(data[k]!)) { finite++; if (quality[k]! & Quality.Interpolated) estimatedSupport++; }
+    else if (quality[k]! & Quality.OutOfDomain) unsupported++; else missing++;
+  }
+  return { finite, estimatedSupport, unsupported, missing };
+}
