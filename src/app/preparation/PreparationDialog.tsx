@@ -15,6 +15,8 @@ import { snapshotRunner } from '../snapshots/snapshotEngine';
 import { usePreparationUi } from './store';
 import './preparation.css';
 import { SuspectReview } from './SuspectReview';
+import { RunEditor, CorrelationReview } from './RunEditor';
+import { setRunDepthShift } from '../../core/state/runs';
 import { ShiftEditor } from './ShiftEditor';
 import { FilterEditor } from './FilterEditor';
 import { nodeGapFill, nodeFilter, nodeShift } from '../../core/preparation/state';
@@ -23,7 +25,7 @@ import { InterpolationEditor } from './InterpolationEditor';
 const subscribe = (cb: () => void) => snapshotRunner.subscribe(cb);
 const number = (s: string) => s.trim() ? Number(s.trim().replace(',', '.')) : NaN;
 const show = (n: number) => Number.isNaN(n) ? '—' : formatNumber(n, { digits: 4 });
-interface Proposal { base: Project; project: Project; key: string; draftKey: string; nodeId: string; focus: number; operation: 'exclude' | 'interpolate' | 'filter' | 'shift' }
+interface Proposal { base: Project; project: Project; key: string; draftKey: string; nodeId: string; nodeIds?: string[]; focus: number; operation: 'exclude' | 'interpolate' | 'filter' | 'shift' }
 export function PreparationDialog() {
   const wellId = usePreparationUi(s => s.wellId);
   return wellId ? <MaskEditor key={wellId} wellId={wellId} /> : null;
@@ -33,12 +35,13 @@ function MaskEditor({ wellId }: { wellId: string }) {
   const currentResult = useResults(s => s.result);
   const entry = project.wells.find(e => e.well.id === wellId);
   const [curveId, setCurveId] = useState(() => entry?.well.curves.find(c => c.role === 'GR')?.id ?? entry?.well.curves[0]?.id ?? '');
+  const [runId, setRunId] = useState('');
   const [top, setTop] = useState(''), [base, setBase] = useState('');
   const [proposal, setProposal] = useState<Proposal | null>(null), [error, setError] = useState<string | null>(null);
   const invalidatePreview = useCallback(() => setProposal(null), []);
   const visible = useViewer(s => s.visible);
   const compare = usePreparationUi(s => s.compareOriginals);
-  const draftKey = JSON.stringify([curveId, top, base]);
+  const draftKey = JSON.stringify([curveId, top, base, runId]);
   const activeTarget = project.activeWellId === wellId;
   const selected = entry?.well.curves.find(c => c.id === curveId);
   const selectedNode = entry?.interpretation.preparation?.nodes.find(n => n.input.curveId === curveId);
@@ -106,19 +109,21 @@ function MaskEditor({ wellId }: { wellId: string }) {
   const previewShift = (offsetM: number, maxGapM: number, datum: string) => {
     try {
       if (!activeTarget || !entry) throw new Error('El pozo activo cambió.');
-      const next = setDepthShift(project, wellId, curveId, { offsetM, maxGapM, datum, referenceId: wellId, depthKind: 'MD' }, makeId('shift'));
+      const config = { offsetM, maxGapM, datum, referenceId: wellId, depthKind: 'MD' as const };
+      const next = runId ? setRunDepthShift(project, wellId, runId, config, () => makeId('shift')) : setDepthShift(project, wellId, curveId, config, makeId('shift'));
       const e = next.wells.find(e => e.well.id === wellId)!;
       entryPreparationPlan(next, e, registry);
       const nodeId = e.interpretation.preparation!.nodes.find(n => n.input.curveId === curveId)!.id;
       const focus = Number.isFinite(number(top)) ? number(top) : e.well.depth.values[0]!;
-      setError(null); setProposal({ base: project, project: next, key: `preparation-preview:${makeId('job')}`, draftKey, nodeId, focus, operation: 'shift' });
+      setError(null); setProposal({ base: project, project: next, key: `preparation-preview:${makeId('job')}`, draftKey, nodeId, nodeIds: runId ? e.interpretation.preparation!.nodes.filter(n => project.inputRevisions?.[entry.inputRevisionId ?? '']?.acquisition.runs.find(r => r.id === runId)?.curveIds.includes(n.input.curveId)).map(n => n.id) : [nodeId], focus, operation: 'shift' });
     } catch (err) { setProposal(null); setError(err instanceof Error ? err.message : String(err)); }
   };
-  const canApply = ready && (currentProposal?.operation !== 'interpolate' || (payload?.sourceCounts?.interpolated ?? counts?.interpolated ?? 0) > 0) && (currentProposal?.operation !== 'filter' || (payload?.sourceCounts?.filtered ?? counts?.filtered ?? 0) > 0) && (currentProposal?.operation !== 'shift' || (alignedCounts?.finite ?? 0) > 0);
+  const batchReady = !currentProposal?.nodeIds || currentProposal.nodeIds.every(id => result?.preparation?.artifacts.some(a => a.id === preparedCurveId(id, 'masked') && a.data.some(Number.isFinite)));
+  const canApply = ready && batchReady && (currentProposal?.operation !== 'interpolate' || (payload?.sourceCounts?.interpolated ?? counts?.interpolated ?? 0) > 0) && (currentProposal?.operation !== 'filter' || (payload?.sourceCounts?.filtered ?? counts?.filtered ?? 0) > 0) && (currentProposal?.operation !== 'shift' || (alignedCounts?.finite ?? 0) > 0);
   const apply = () => {
     try {
       if (!currentProposal || !canApply || useProject.getState().project !== currentProposal.base) throw new Error('Cambió el proyecto o el tramo. Generá una nueva vista previa.');
-      commit(`${currentProposal.operation === 'shift' ? 'Alinear curva' : currentProposal.operation === 'filter' ? 'Filtrar con mediana' : currentProposal.operation === 'interpolate' ? 'Interpolar faltantes de' : 'Excluir mediciones de'} ${selected?.mnemonic ?? curveId}`, p => p === currentProposal.base ? currentProposal.project : p, { group: currentProposal.key });
+      commit(`${currentProposal.operation === 'shift' ? (runId ? 'Alinear corrida' : 'Alinear curva') : currentProposal.operation === 'filter' ? 'Filtrar con mediana' : currentProposal.operation === 'interpolate' ? 'Interpolar faltantes de' : 'Excluir mediciones de'} ${selected?.mnemonic ?? curveId}`, p => p === currentProposal.base ? currentProposal.project : p, { group: currentProposal.key });
       close();
     } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
   };
@@ -144,7 +149,7 @@ function MaskEditor({ wellId }: { wellId: string }) {
       {!activeTarget && <Callout tone="warn">El pozo activo cambió. Cerrá esta herramienta y abrila desde el pozo que querés preparar.</Callout>}
       {currentShift && <Callout tone="warn">Esta curva ya está alineada. Los tramos de exclusión, interpolación y filtro usan MD de origen, antes del desplazamiento. El tramo visible del visor usa el índice destino: no se convierte automáticamente.</Callout>}
       <div className="prep-editor__fields">
-        <Field label="Curva original"><Select aria-label="Curva original" value={curveId} onChange={v => { setCurveId(v); setProposal(null); }} options={entry.well.curves.map(c => ({ value: c.id, label: `${c.mnemonic}${c.role ? ` · ${registry.roles.get(c.role)?.label ?? c.role}` : ''}` }))} block /></Field>
+        <Field label="Curva original"><Select aria-label="Curva original" value={curveId} onChange={v => { setCurveId(v); setRunId(''); setProposal(null); }} options={entry.well.curves.map(c => ({ value: c.id, label: `${c.mnemonic}${c.role ? ` · ${registry.roles.get(c.role)?.label ?? c.role}` : ''}` }))} block /></Field>
         <Field label="Tope (m MD)"><TextField aria-label="Tope (m MD)" value={top} onChange={setTop} inputMode="decimal" block /></Field>
         <Field label="Base (m MD)"><TextField aria-label="Base (m MD)" value={base} onChange={setBase} inputMode="decimal" block /></Field>
       </div>
@@ -152,6 +157,9 @@ function MaskEditor({ wellId }: { wellId: string }) {
       <SuspectReview project={project} entry={entry} curveId={curveId} top={number(top)} base={number(base)} disabled={!activeTarget} onPreview={previewSamples} onInvalidate={invalidatePreview} />
       <InterpolationEditor problem={selected ? interpolationSourceProblem(selected) : null} disabled={!entry || !selected || !activeTarget} onPreview={previewInterpolation} onInvalidate={invalidatePreview} />
       <FilterEditor problem={selected ? interpolationSourceProblem(selected, 'El filtro') : null} disabled={!entry || !selected || !activeTarget} onPreview={previewFilter} onInvalidate={invalidatePreview} />
+      <RunEditor runId={runId} project={project} entry={entry} curveId={curveId} onChange={id => {setRunId(id);setProposal(null);}} />
+      {runId && <Callout tone="warn">Se alineará toda la corrida {runId}. Aplicar exige cobertura finita en cada curva; todas sus fuentes se activan juntas.</Callout>}
+      <CorrelationReview key={`${curveId}:${entry.inputRevisionId}`} entry={entry} curveId={curveId} top={number(top)} base={number(base)} />
       <ShiftEditor knownDatum={project.inputRevisions?.[entry.inputRevisionId ?? '']?.acquisition.depth.datum ?? null} problem={selected ? interpolationSourceProblem(selected, 'La alineación') : null} disabled={!entry || !selected || !activeTarget} onPreview={previewShift} onInvalidate={invalidatePreview} />
       {error && <Callout tone="error">{error}</Callout>}
       {proposal && !currentProposal && <Callout tone="warn">Cambió el proyecto o el tramo. Generá una nueva vista previa antes de aplicar.</Callout>}
@@ -162,6 +170,7 @@ function MaskEditor({ wellId }: { wellId: string }) {
         {!!request?.plan.artifacts.find(a => a.id === artifactId)?.gapFill && <p role="status">{(payload?.sourceCounts?.interpolated ?? counts.interpolated).toLocaleString('es-AR')} muestras estimadas por interpolación lineal{shiftedArtifact ? ' antes de alinear' : ''}; QC 9 = faltante original + interpolada. Son estimaciones, no mediciones. {!counts.interpolated && 'No hay huecos que cumplan los límites. Ajustá el tramo o la distancia máxima.'}</p>}
         {!!request?.plan.artifacts.find(a => a.id === artifactId)?.filter && <p role="status">{(payload?.sourceCounts?.filtered ?? counts.filtered).toLocaleString('es-AR')} muestras filtradas con mediana móvil{shiftedArtifact ? ' antes de alinear' : ''}. {counts.estimatedInfluence.toLocaleString('es-AR')} centros medidos reciben influencia de interpolación. {!counts.filtered && 'No hay ventanas con soporte completo. Revisá radio, separación, tramo y barreras.'}</p>}
         {shiftedArtifact && alignedCounts && <p role="status">{alignedCounts.finite.toLocaleString('es-AR')} salidas alineadas finitas; {alignedCounts.unsupported.toLocaleString('es-AR')} sin soporte y {alignedCounts.missing.toLocaleString('es-AR')} faltantes trasladados. {alignedCounts.estimatedSupport.toLocaleString('es-AR')} salidas usan soporte estimado. Bits QC 32=alineada y 128=sin soporte. Los otros bits se heredan del origen, no del índice destino. {!alignedCounts.finite && 'No queda cobertura finita: ajustá el desplazamiento o el hueco máximo.'}</p>}
+        {currentProposal?.nodeIds && <table><caption>Cobertura del lote completo</caption><thead><tr><th>Curva</th><th>Salidas finitas</th></tr></thead><tbody>{currentProposal.nodeIds.map(id => { const n = request?.entry.interpretation.preparation?.nodes.find(n => n.id === id); const a = result?.preparation?.artifacts.find(a => a.id === preparedCurveId(id, 'masked')); return <tr key={id}><td>{request?.entry.well.curves.find(c => c.id === n?.input.curveId)?.mnemonic}</td><td>{a ? alignmentQualityCounts(a.data,a.quality).finite : 'Sin resultado'}</td></tr>; })}</tbody></table>}
         <p>{selected?.role ? `Al aplicar, ${selected.role} usará «${selected.mnemonic} preparada». Se conservarán el original y el historial para deshacer.` : 'Se guardará una curva preparada para comparar y exportar, sin asignarla a un rol.'}</p>
         <table className="prep-editor__table"><caption>Comparación local · hasta 14 muestras</caption><thead><tr><th>MD (m)</th><th>Original</th><th>Preparada</th><th>Estado</th></tr></thead><tbody>{rows.map(r => <tr key={r.depth}><td>{show(r.depth)}</td><td>{show(r.original)}</td><td>{show(r.prepared)}</td><td>{r.shifted ? (r.unsupported ? 'Alineada · sin soporte' : Number.isNaN(r.prepared) ? 'Alineada · faltante de origen' : r.interpolated ? 'Alineada · soporte estimado' : 'Alineada · dato de origen') : r.excluded ? 'Excluida' : r.filtered ? (r.interpolated ? (Number.isNaN(r.original) ? 'Estimada · interpolada y filtrada' : 'Filtrada · con estimaciones') : 'Filtrada') : r.interpolated ? 'Estimada · interpolada' : Number.isNaN(r.original) ? 'Sin dato original' : 'Conservada'}</td></tr>)}</tbody></table>
       </section>}
