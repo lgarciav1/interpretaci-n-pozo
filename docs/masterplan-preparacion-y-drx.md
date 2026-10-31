@@ -6,6 +6,9 @@
 
 - **Avance actual (2026-10-31): P5 implementada y validada en la cadena de revisión hasta [PR #54](https://github.com/lgarciav1/interpretaci-n-pozo/pull/54), sin integrar main.** GR y cutoffs tienen aceptación/evidencia separadas. La sección 39 precisa el cierre y corrige la caracterización de extensiones como bloqueantes en las secciones 37–38; campaña real sigue en la puerta P8.
 
+
+- **P6 en curso:** [PR #55](https://github.com/lgarciav1/interpretaci-n-pozo/pull/55) agrega catálogo de relevamiento y declaraciones reversibles de adquisición. Ningún método numérico admitido todavía; la puerta P6 permanece abierta. Ver sección 40.
+
 - Fecha: 2026-10-27.
 - Base inspeccionada: main, commit 4f187f6a8d585475efc79b18ed89194b432a2116.
 - Requisitos: [#31, calibración DRX](https://github.com/lgarciav1/interpretaci-n-pozo/issues/31) y [#32, preparación de curvas](https://github.com/lgarciav1/interpretaci-n-pozo/issues/32).
@@ -994,3 +997,18 @@ Validación: **2.850 pruebas en 167 archivos**, sin fallos/omisiones; typecheck/
 **Precisión de alcance respecto a secciones 37–38:** esos avances llamaron pendientes de P5 a propagación estadística, calibración conjunta entre zonas y campaña real, ampliando la puerta original sin contrato científico. Propagación estadística y ajuste conjunto quedan como extensiones posteriores fuera de esta puerta; requieren semántica/covarianzas de incertidumbre y modelo compartido/identificabilidad explícitos. No se afirma haberlos implementado. El contraste con campaña DRX real/referencias externas verificables corresponde a la puerta **P8**, que exige flujo completo real y sintético: sigue pendiente y no hay certificación de campo. Se cierra el software P5, no la entrega completa ni #31/#32/#34.
 
 No se repite toda la matriz visual/DPR/temas ni benchmark. Offline se prueba por HTTP local tras cortar la red; file:// conserva su limitación de política. PR #54 queda abierto para revisión; ningún PR mergeado y main permanece en `4f187f6`.
+
+
+## 40. P6a: catálogo ambiental y declaraciones de adquisición (2026-10-31)
+
+[PR #55](https://github.com/lgarciav1/interpretaci-n-pozo/pull/55), apilado sobre #54, commit `25f9dd2`. En Preparar datos, la curva seleccionada permite relevar seis familias ambientales con magnitudes/unidades, datos a buscar, referencias descriptivas y límites. Distingue atribución por rol/mnemónico de instrumento/modelo confirmado. Informa falta de corrida/modelo, origen/unidad/familia incompatibles, procesado desconocido, efecto ya aplicado o no reconocido y admisión científica pendiente. Todas las candidatas son no ejecutables; no hay evaluador ambiental ni fórmula genérica ni botón de aplicar.
+
+La corrida registrada admite declarar herramienta, fabricante/modelo y efectos adquiridos con método, versión opcional y referencia. Confirmación explícita para todas sus curvas, reiniciada al editar. Actualizar exige el mismo Project/contexto, valida adquisición y rechaza efectos duplicados/contradictorios o sin referencia. Preserva ids/efectos desconocidos importados, otras corridas y datos de lodo existentes. Crea una revisión y una entrada de historial, sin cambiar Well/arrays, fuentes, parámetros, recetas o calidad preparada; no-op por contenido no agrega revisión. Archivo/snapshots recuperan la adquisición fijada. Mismos Project v7/adquisición 1/preparación 4.
+
+Verificación: **2.860 pruebas en 168 archivos**, sin fallos/omisiones; typecheck/build/diff check aprobados. Diez pruebas nuevas cubren catálogo siempre bloqueado aun con declaraciones, físicas diferentes con RT, DRHO ausente, unidades/origen/herramienta incompatibles, estados desconocidos/vacíos/previos, preservación de ids/efectos/lodo, contexto obsoleto, revisión/no-op/historial/archivo/snapshot y máscara previa con valores/calidad idénticos. Chromium del HTML final: borrador intacto, confirmación reiniciada, revisión sin cambiar blobs/interpretación/otra corrida, undo/redo exactos, nuevo navegador con referencias, snapshot tras cambiar modelo/quitar efecto y offline sin Worker/SubtleCrypto. Sin excepciones de página. HTML 5.726.030 bytes (+0,241 % sobre #54), sin dependencias nuevas.
+
+[Contrato ADR 0048](https://github.com/lgarciav1/interpretaci-n-pozo/blob/codex/catalogo-ambiental-p6a/docs/decisiones/0048-catalogo-ambiental-y-adquisicion.md) y [evidencia/capturas/reproducción](https://github.com/lgarciav1/interpretaci-n-pozo/blob/codex/catalogo-ambiental-p6a/docs/validacion/2026-10-31-catalogo-ambiental.md).
+
+**P6 sigue abierta.** El CSV del TP no incluye DRHO y no confirma modelos, lodo ni estado de procesado. Las referencias primarias descriptivas de SLB se consultan sin redistribuir cartas; explican que DRHO corresponde a una compensación aplicada, no autorizan sumarla a RHOB ni reemplazan una admisión numérica. Falta elegir herramienta/modelo y método concretos con referencia/edición/página, dominio, interpolación/fuera de dominio, condiciones, efectos/incompatibilidades, incertidumbre o limitación publicada, permiso de redistribución y casos independientes; luego evaluador puro y ledger/preview/aceptación. Ampliar propiedades del lodo (tipo/composición, base de concentración, Rmf/Rmc, temperaturas y procedencia) requiere su contrato versionado: los campos antiguos se muestran sin convertir ni equiparar a Rw.
+
+No se repiten toda la matriz visual/DPR/temas ni benchmark. Offline se recorre por HTTP local y corte de red; no se prueba file://. No se cierra #32 ni se declara admisión ambiental o avance numérico de P7. PR #55 abierto, sin mergear la cadena; main permanece en `4f187f6`.
