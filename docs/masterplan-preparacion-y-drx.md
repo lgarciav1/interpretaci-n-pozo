@@ -931,3 +931,16 @@ Validación: **2.781 pruebas, 162 archivos**, sin fallos/omisiones. Tras ajustes
 [Contratos, capturas, evidencia y reproducción](https://github.com/lgarciav1/interpretaci-n-pozo/blob/codex/cierre-p3-inicio-p4/docs/validacion/2026-10-31-corridas-drx.md).
 
 **P4 completa continúa abierta:** incertidumbre y límites de detección numéricos, bases heterogéneas por fila, procedencia/densidades y configuración/evidencia de pares persistentes, exportación específica y DRX real. P5 debe satisfacer sus puertas de identificabilidad/calibración y mantener cutoffs separados. El cierre es funcional para los métodos P3 admitidos, no habilita correcciones ambientales ni implica integración. #50 abierto para revisión; ningún PR mergeado y main intacto. No se cierran #31/#32/#34.
+
+
+## 36. P4b: configuración/evidencia persistente y exportación DRX (2026-10-31)
+
+[PR #51](https://github.com/lgarciav1/interpretaci-n-pozo/pull/51), apilado sobre #50, commits `f39fb83` y `fbab980`. Guarda configuración y evidencia de comparación en ajustes versionados de PointSetDecisions, con una receta de undo/redo y snapshots, sin persistir arrays derivados ni alterar parámetros/cutoffs. Las densidades exigen referencia, admiten incertidumbre declarada y edición textual con punto/coma decimal; no se propaga incertidumbre estadística.
+
+Huella SHA-256 de entradas/configuración y resultados independiente de identidades en memoria: datos/revisión, fuente/calidad, laboratorio/contrato, preparación, sarta, zonas y decisiones. El registro no participa de su propia huella. Reabrir/restaurar exige recalcular para verificar; no presenta una tabla histórica como vigente. Cambiar contexto/borrador invalida aceptación/exportación. Versiones futuras se informan y conservan sin migración silenciosa. CSV de toda la tabla con configuración/procedencia, descriptor/unidad de fuente, profundidades originales/corregidas, composición/estados originales, soporte y exclusiones. Se bloquean resultados no finitos y arcilla nativa >1 sin recortar o renormalizar.
+
+Validación: **2.792 pruebas, 163 archivos**, sin fallos/omisiones; once pruebas nuevas. Tras ajustes finales se repitieron 21 pruebas DRX y typecheck/build. Chromium: guardado/historial/exportación, reapertura en contexto nuevo, recuperación de parámetros, huellas verificadas, invalidez por cambio, versión futura preservada y decimales/incertidumbre declarada, sin excepciones. HTML final 5.661.745 bytes (+0,188 % sobre #50), sin dependencias nuevas; se mantienen v7 y preparación esquema 4. No se repitieron toda la matriz visual/benchmark ni doble clic, cuya limitación de política sigue documentada.
+
+[Contrato, captura, evidencia y reproducción](https://github.com/lgarciav1/interpretaci-n-pozo/blob/codex/evidencia-drx-p4b/docs/validacion/2026-10-31-evidencia-drx.md).
+
+**P4 completa sigue abierta:** incertidumbres/límites de detección numéricos importados por muestra/mineral y validación con DRX real. Bases distintas siguen en conjuntos homogéneos separados. No habilita calibración GR ni equivalencia arcilla–Vsh; P5 conserva sus puertas. #51 abierto para revisión, ningún PR mergeado y main intacto. No se cierran #31/#32/#34.
