@@ -65,8 +65,9 @@ with sync_playwright() as p:
   dialog.get_by_role('textbox',name='Máximo entre anclajes DRX (m)',exact=True).fill('.2')
   dialog.get_by_role('combobox',name='Cantidad DRX de comparación',exact=True).select_option('solid-volume')
   for mineral,value in [('Q','3'),('C','2')]:
-   dialog.get_by_role('textbox',name=f'Densidad {mineral} (g/cm³)',exact=True).fill(value)
+   text=value+('.00' if mineral=='Q' else ',00');field=dialog.get_by_role('textbox',name=f'Densidad {mineral} (g/cm³)',exact=True);field.fill('');field.press_sequentially(text);expect(field).to_have_value(text)
    dialog.get_by_role('textbox',name=f'Referencia de densidad {mineral}',exact=True).fill(f'Ensayo QA {mineral}')
+  dialog.get_by_role('textbox',name='Incertidumbre de densidad Q (g/cm³, opcional)',exact=True).fill('0,1')
   dialog.get_by_role('button',name='Comparar con soporte declarado',exact=True).click()
   table=dialog.get_by_role('table',name='Pares DRX',exact=False);expect(table).to_contain_text('0.5000',timeout=60000)
   dialog.get_by_role('button',name='Guardar configuración y evidencia DRX',exact=True).click()
@@ -74,7 +75,7 @@ with sync_playwright() as p:
   with page.expect_download() as download:dialog.get_by_role('button',name='Exportar comparación DRX (CSV)',exact=True).click()
   csvpath=args.output/'comparison.csv';download.value.save_as(csvpath);csvtext=csvpath.read_text(encoding='utf-8-sig');assert 'Ensayo QA Q' in csvtext and 'No equivale a Vsh' in csvtext and 'fila-4' in csvtext
   table.screenshot(path=str(args.output/'evidence.png'))
-  dialog.get_by_role('button',name='Cerrar',exact=True).last.click();saved=save('evidence.pozo.json');key='xrd:comparison';record=json.loads(saved['project']['wells'][0]['interpretation']['pointSets'][x['id']]['settings'][key]);assert record['config']['target']=='solid-volume' and record['config']['densities']['m1']['reference']=='Ensayo QA Q' and record['evidence']['rows']==3 and record['evidence']['usable']==2
+  dialog.get_by_role('button',name='Cerrar',exact=True).last.click();saved=save('evidence.pozo.json');key='xrd:comparison';record=json.loads(saved['project']['wells'][0]['interpretation']['pointSets'][x['id']]['settings'][key]);assert record['config']['densities']['m1']['uncertainty']==.1;assert record['config']['target']=='solid-volume' and record['config']['densities']['m1']['reference']=='Ensayo QA Q' and record['evidence']['rows']==3 and record['evidence']['usable']==2
   page.keyboard.press('Control+z');expect(page.get_by_test_id('engine-status')).to_contain_text('Listo',timeout=60000)
   undone=save('evidence-undo.pozo.json');assert key not in undone['project']['wells'][0]['interpretation']['pointSets'].get(x['id'],{}).get('settings',{})
   page.keyboard.press('Control+Shift+z');expect(page.get_by_test_id('engine-status')).to_contain_text('Listo',timeout=60000)
@@ -91,7 +92,7 @@ with sync_playwright() as p:
   page.locator('.shell-topbar input[type=file]').set_input_files(str(future_path));expect(page.get_by_test_id('engine-status')).to_contain_text('Listo',timeout=60000)
   dialog=reopen_drx();expect(dialog.get_by_text('Versión futura o desconocida de comparación DRX.',exact=False)).to_be_visible()
   dialog.get_by_role('button',name='Cerrar',exact=True).last.click();preserved=save('future-preserved.pozo.json');assert json.loads(preserved['project']['wells'][0]['interpretation']['pointSets'][x['id']]['settings'][key])['version']==2
-  (args.output/'evidence-result.json').write_text(json.dumps({'errors':errors,'rows':3,'usable':2,'checks':['density provenance','save evidence','undo redo','CSV export','fresh browser re-open','content verification','stale invalidation','future version preserved']},indent=2))
+  (args.output/'evidence-result.json').write_text(json.dumps({'errors':errors,'rows':3,'usable':2,'checks':['density provenance','typed dot/comma decimals','declared density uncertainty','save evidence','undo redo','CSV export','fresh browser re-open','content verification','stale invalidation','future version preserved']},indent=2))
  assert not errors,errors
  (args.output/'result.json').write_text(json.dumps({'errors':errors,'runCurves':2,'xrdRows':3,'checks':['preview','atomic apply','undo','redo','import states','prepared pairs','v7 save']},indent=2))
  browser.close()

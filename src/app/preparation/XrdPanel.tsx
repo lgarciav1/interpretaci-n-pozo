@@ -28,6 +28,9 @@ import { useResults } from "../store/results";
 import { useProject } from "../store/project";
 import { Button, Callout, Checkbox, Field, Select, TextField } from "../../ui";
 
+const decimal = (value: string) =>
+  value.trim() ? Number(value.trim().replace(",", ".")) : NaN;
+
 export function XrdPanel({
   project,
   entry,
@@ -66,7 +69,7 @@ export function XrdPanel({
     [coverage, setCoverage] = useState("0.8"),
     [shift, setShift] = useState("0"),
     [target, setTarget] = useState<"native" | "solid-volume">("native"),
-    [densities, setDensities] = useState<Record<string, number>>({});
+    [densities, setDensities] = useState<Record<string, string>>({});
   const [densityReferences, setDensityReferences] = useState<
     Record<string, string>
   >({});
@@ -152,7 +155,7 @@ export function XrdPanel({
     setTarget(c.target);
     setDensities(
       Object.fromEntries(
-        Object.entries(c.densities).map(([id, d]) => [id, d.value]),
+        Object.entries(c.densities).map(([id, d]) => [id, String(d.value)]),
       ),
     );
     setDensityReferences(
@@ -557,7 +560,7 @@ export function XrdPanel({
                               : String(densities[m.id])
                           }
                           onChange={(v) =>
-                            setDensities((d) => ({ ...d, [m.id]: Number(v) }))
+                            setDensities((d) => ({ ...d, [m.id]: v }))
                           }
                         />
                       </Field>
@@ -574,6 +577,7 @@ export function XrdPanel({
                         label={`Incertidumbre de densidad ${m.name} (g/cm³, opcional)`}
                       >
                         <TextField
+                          aria-label={`Incertidumbre de densidad ${m.name} (g/cm³, opcional)`}
                           value={densityUncertainties[m.id] ?? ""}
                           onChange={(v) =>
                             setDensityUncertainties((d) => ({
@@ -613,22 +617,20 @@ export function XrdPanel({
                   const config = {
                     curveId,
                     target,
-                    maxGapM: Number(gap),
-                    minCoverage: Number(coverage),
-                    shiftM: Number(shift),
+                    maxGapM: decimal(gap),
+                    minCoverage: decimal(coverage),
+                    shiftM: decimal(shift),
                     densities:
                       target === "solid-volume" && labContract.basis === "mass"
                         ? Object.fromEntries(
                             labContract.minerals.map((m) => [
                               m.id,
                               {
-                                value: densities[m.id] ?? NaN,
+                                value: decimal(densities[m.id] ?? ""),
                                 reference: densityReferences[m.id] ?? "",
                                 ...(densityUncertainties[m.id]?.trim()
                                   ? {
-                                      uncertainty: Number(
-                                        densityUncertainties[m.id],
-                                      ),
+                                      uncertainty: decimal(densityUncertainties[m.id]!),
                                     }
                                   : {}),
                               },

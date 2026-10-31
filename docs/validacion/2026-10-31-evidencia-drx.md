@@ -14,7 +14,7 @@ Pruebas nuevas: una receta/no-op y conservación de originales/parámetros; undo
 
 Chromium por HTTP local, 1366×768, TP con evento/laboratorio sintéticos explícitos. Se ejecutó `scripts/qa/runs-xrd.py --evidence`, que primero repite registro/preview/aceptación de corrida y carga/pares de P4a. Extensión P4b:
 
-- Convierte masa a volumen con densidades declaradas Q=3 y C=2 y referencias «Ensayo QA Q/C». Dos filas utilizables, resultados 0,5 y 0,6; fila ND/BLD sin contenido total.
+- Convierte masa a volumen con densidades declaradas Q=3 y C=2 y referencias «Ensayo QA Q/C». Se verifica escritura carácter por carácter de densidades con punto/coma decimal y la persistencia de incertidumbre declarada 0,1 g/cm³. Dos filas utilizables, resultados 0,5 y 0,6; fila ND/BLD sin contenido total.
 - Guarda evidencia; verifica CSV descargado, referencias y tabla completa; guardar proyecto; undo elimina el ajuste, redo lo recupera.
 - Cierra la página y abre el proyecto en un contexto de navegador nuevo, sin reutilizar caches. La evidencia aparece sin verificar; recupera configuración/referencias y vuelve a comparar. Ambas huellas coinciden y la UI indica verificación.
 - Cambiar offset oculta la exportación de la tabla anterior; recalcular advierte que la evidencia guardada no corresponde a la configuración actual.
@@ -22,7 +22,7 @@ Chromium por HTTP local, 1366×768, TP con evento/laboratorio sintéticos explí
 
 Sin excepciones de página. [Resultado](2026-10-31-evidencia-drx/navegador.json), [captura de la comparación revisada](2026-10-31-evidencia-drx/comparacion.png). El CSV y proyectos de QA se regeneran, no se versionan datos de usuario.
 
-HTML final: **5.661.628 bytes**, SHA-256 `89dd9d86065d984403f0d303f107074c74afe3262efa62884d3f58535d723894` (+10.479 bytes, ~0,185 % frente a #50). Sin nuevas dependencias de producción. Se mantienen v7 y preparación esquema 4; ajustes JSON versionados en el mecanismo existente de PointSetDecisions.
+HTML final: **5.661.745 bytes**, SHA-256 `8a107dd78e5da178e5e85a377ae0feacb89ea1e0889e2bc25e2d3cd74a5b482d` (+10.596 bytes, ~0,188 % frente a #50). Sin nuevas dependencias de producción. Se mantienen v7 y preparación esquema 4; ajustes JSON versionados en el mecanismo existente de PointSetDecisions.
 
 ## Reproducción
 
