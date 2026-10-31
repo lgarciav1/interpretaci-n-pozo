@@ -944,3 +944,20 @@ Validación: **2.792 pruebas, 163 archivos**, sin fallos/omisiones; once pruebas
 [Contrato, captura, evidencia y reproducción](https://github.com/lgarciav1/interpretaci-n-pozo/blob/codex/evidencia-drx-p4b/docs/validacion/2026-10-31-evidencia-drx.md).
 
 **P4 completa sigue abierta:** incertidumbres/límites de detección numéricos importados por muestra/mineral y validación con DRX real. Bases distintas siguen en conjuntos homogéneos separados. No habilita calibración GR ni equivalencia arcilla–Vsh; P5 conserva sus puertas. #51 abierto para revisión, ningún PR mergeado y main intacto. No se cierran #31/#32/#34.
+
+
+## 37. P4c → P5a: propuestas GR con evidencia DRX y aceptación zonal (2026-10-31)
+
+[PR #52](https://github.com/lgarciav1/interpretaci-n-pozo/pull/52), apilado sobre #51, commits `e87408c` y `2e487cb`. P4c incorpora incertidumbre absoluta/nota, límites numéricos y censura `<valor`, con auxiliares revisables, validados, persistidos y exportados. No convierte censura en mediciones ni propaga una incertidumbre estadística no definida.
+
+**Se alcanza P5 con una primera entrega funcional de calibración GR.** Propuestas zonales para lineal, Larionov terciario/antiguo, Clavier y Steiber usando funciones canónicas, parámetros de esquema y proxy volumétrico/independencia del ensayo declarados. Agrupa réplicas y soportes próximos; exige rango/asociación, soporte de extremos, bloques de profundidad separados, estabilidad y residuo/sesgo. Conserva parámetros sin redondear/aplicables y recalcula métricas. Fuentes calculadas/inactivas, masa nativa, fracción arcilla, soluciones no identificables o en cotas quedan bloqueadas.
+
+Preview petrofísico aislado, sin modificar Project/motor principal. Aplicación de grClean/grShale y vsh.method solo en la zona elegida, con evidencia/hipótesis/política y parámetros previos en una receta de historial. Otras zonas, fuentes, originales y cutoffs conservados. Guardar/abrir, undo/redo y snapshots recuperan evidencia/parámetros; no se ejecutan propuestas históricas automáticamente. Las ecuaciones se documentan en Ecuaciones/ADR, fuera del flujo operativo.
+
+Validación final: **2.814 pruebas en 165 archivos**, sin fallos/omisiones; typecheck/build/diff check aprobados. Fixture Python independiente recupera extremos para los cinco métodos. Chromium: auxiliares, 20 filas → 18 localizaciones, réplica/censura, recuperación 25/135 desde 50/160, preview Vsh 0,2720 → 0,4682 sin pedidos al motor principal, invalidación, Project intacto antes de aceptar, aplicación zonal y cutoffs/blobs/fuentes/otras zonas intactos, historial, otro contexto de navegador y snapshots. Extensión verifica restauración tras cambiar parámetros/eliminar evidencia y calibración completa offline sin Worker/SubtleCrypto. Sin excepciones finales.
+
+El primer navegador detectó plan vacío en contexto identidad: se corrigió siguiendo el contrato de snapshots, se añadió prueba con cliente/motor reales (original/preparado) y se repitió la suite completa y el recorrido. No se relajó el protocolo. HTML 5.690.760 bytes (+0,512 % sobre #51), sin dependencias nuevas, mismo v7/preparación 4.
+
+[Contratos, captura y reproducción](https://github.com/lgarciav1/interpretaci-n-pozo/blob/codex/calibracion-gr-drx-p5/docs/validacion/2026-10-31-calibracion-gr-drx.md).
+
+P5 no se declara completa: quedan extremo externo fijo, propagación estadística y calibración conjunta entre zonas. Los cutoffs siguen siendo una decisión separada con herramientas existentes. La campaña DRX real y su relación constitutiva siguen pendientes: los fixtures sintéticos no se presentan como laboratorio real ni certifican equivalencia universal arcilla–Vsh. No se repitió toda la matriz visual/benchmark ni doble clic, cuya limitación de política permanece. PR #52 abierto para revisión; ningún PR mergeado y main intacto. No se cierran #31/#32/#34.
