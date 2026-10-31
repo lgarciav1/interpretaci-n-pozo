@@ -7,10 +7,10 @@
 - **Avance actual (2026-10-31): P5 implementada y validada en la cadena de revisión hasta [PR #54](https://github.com/lgarciav1/interpretaci-n-pozo/pull/54), sin integrar main.** GR y cutoffs tienen aceptación/evidencia separadas. La sección 39 precisa el cierre y corrige la caracterización de extensiones como bloqueantes en las secciones 37–38; campaña real sigue en la puerta P8.
 
 
-- **P6 en curso:** [PR #55](https://github.com/lgarciav1/interpretaci-n-pozo/pull/55) agrega catálogo de relevamiento y declaraciones reversibles de adquisición. Ningún método numérico admitido todavía; la puerta P6 permanece abierta. Ver sección 40.
+- **P6 implementada para revisión:** [PR #57](https://github.com/lgarciav1/interpretaci-n-pozo/pull/57) entrega el primer método ambiental concreto (LDEO MGT, GR total), referencias primarias, casos independientes, preview/aceptación y trazabilidad. La puerta original se conserva; las otras familias siguen bloqueadas. Ver sección 42.
 
 
-- **Bloqueo actual de P6:** [PR #56](https://github.com/lgarciav1/interpretaci-n-pozo/pull/56) documenta la evaluación de admisión y la evidencia faltante del primer método; no hay evaluador numérico admitido. Ver sección 41.
+- **Alcance de validación:** P6 verifica el modelo publicado y su implementación con casos matemáticos independientes. El TP requiere confirmar herramienta/condiciones; no se declara validación de campo ni integración a main.
 
 - Fecha: 2026-10-27.
 - Base inspeccionada: main, commit 4f187f6a8d585475efc79b18ed89194b432a2116.
@@ -1019,6 +1019,8 @@ No se repiten toda la matriz visual/DPR/temas ni benchmark. Offline se recorre p
 
 ## 41. P6: evaluación de admisión y bloqueo científico (2026-10-31)
 
+> Registro histórico: el bloqueo de esta evaluación queda resuelto por el método específico y la evidencia de la sección 42. Se conserva el texto para trazabilidad; no describe el estado actual de P6.
+
 [PR #56](https://github.com/lgarciav1/interpretaci-n-pozo/pull/56), apilado sobre #55, commit `13f026a`. [ADR 0049](https://github.com/lgarciav1/interpretaci-n-pozo/blob/codex/admision-cientifica-p6/docs/decisiones/0049-admision-cientifica-p6-pendiente.md) registra candidatas, fuentes, brechas y material requerido. **P6 no está terminada: sigue sin primer método numérico admitido.**
 
 Se evaluaron MGT/ODP (publicación completa accesible, evidencia de dominio/caso ambiental por completar) y Comprobe/USGS 78-515 (resumen disponible; informe con algoritmo devuelve HTTP 403). No se extrapolan fórmulas genéricas ni se usa Arps de fluidos para sustituir la puerta de una herramienta. La falta de modelo del TP limita aplicar al TP; no impediría implementar un método de otra herramienta si tuviera su contrato y casos verificables. La validación real de P8 sigue separada.
@@ -1026,3 +1028,18 @@ Se evaluaron MGT/ODP (publicación completa accesible, evidencia de dominio/caso
 Para desbloquear hace falta una fuente accesible que permita fijar herramienta/modelo, unidades/condiciones, dominio, política fuera de dominio, efectos/estado previo, incertidumbre o limitación, tratamiento de redistribución y caso independiente de entrada/salida con tolerancia. Puede ser material adicional MGT, el informe completo Comprobe u otra herramienta con evidencia equivalente. Después faltan evaluador puro, ledger y preview/aceptación/persistencia del método. Ninguna declaración de adquisición ni cálculo sintético de una fórmula sin contrato suple esa admisión.
 
 Entrega solo documental: diff check aprobado; sin cambios en src/datos/dependencias/formatos o catálogo ejecutable. No se repite la suite ni se atribuye un nuevo build: se conserva la evidencia de P6a (2.860 pruebas/168 archivos, navegador/offline). No se reproducen cartas/datasets/PDF de terceros. PR #56 abierto; ningún PR mergeado, main en `4f187f6`, #32 permanece abierto.
+
+
+## 42. Cierre de P6: primer método ambiental LDEO MGT (2026-10-31)
+
+[PR #57](https://github.com/lgarciav1/interpretaci-n-pozo/pull/57), apilado sobre #56, commit `b8be8a1fa572e6ca0c564a119b4551dc553fcd06`. [ADR 0050](https://github.com/lgarciav1/interpretaci-n-pozo/blob/codex/metodo-mgt-p6/docs/decisiones/0050-primer-metodo-ambiental-mgt.md) fija el contrato y [cierre/evidencia P6](https://github.com/lgarciav1/interpretaci-n-pozo/blob/codex/metodo-mgt-p6/docs/validacion/2026-10-31-cierre-p6.md) documenta matriz, reproducción, capturas, proyectos sintéticos y exportación.
+
+**P6 implementada para revisión con su puerta original:** catálogo ambiental y una herramienta concreta con referencia y casos independientes. No se modifica la definición de terminado de las secciones 8/13. Se leyeron el artículo completo de Goldberg et al. (2004), ecuaciones 2–4, y la ficha original LDEO MGT (11/2001); se implementa el modelo publicado de corrección de pozo para GR total calibrado. Diez valores literales de dos posiciones y cinco diámetros se calculan con Python Decimal(50), independiente del código de producción. Son casos matemáticos sintéticos, no ensayos de campo ni certificación empírica de un rango. La incertidumbre no publicada se declara como limitación. No se redistribuyen cartas, PDF ni datasets de terceros.
+
+La admisión exige modelo LDEO MGT confirmado, GR y caliper originales, pozo abierto con agua de mar, posición conocida, datum, condiciones ambientales y referencias revisadas. La ficha original limita a 10000 psi y el artículo menciona 20000: se adopta el menor. Guardas numéricas y condiciones quedan explícitas, sin extrapolación ni fallback. Adquisición desconocida, efectos ambientales previos o preparación incompatible bloquean; las demás familias continúan no ejecutables. El editor permite registrar datum global con confirmación específica, sin transformar profundidad.
+
+El evaluador puro se integra en el coordinador compartido con cache, memoria acotada y cancelación. Preview aislado, QC64/128, comparación original/corregida e impacto Vsh/PHIE/Sw y netos; aceptación explícita con fuentes y revisión verificadas. Ledger versionado, invalidación de entradas/linaje, undo/redo, snapshots, desactivar/reactivar/retirar, archivos, exportación de datos/QC/manifiesto e informe preservan procedencia. Preparación esquema 5 solo para MGT; proyecto v7 y adquisición 1 se conservan. El lector real P6a acepta archivos anteriores y rechaza la nueva preparación explícitamente; no se pierde silenciosamente la receta. Sin dependencias nuevas.
+
+Validación: **2877 pruebas / 169 archivos** en la suite completa; tras el último endurecimiento de adquisición, **27 pruebas / 2 archivos**, typecheck y build aprobados. Chromium verifica alta desde adquisición/datum desconocidos, 46 muestras corregidas/4 no admitidas/1 faltante, preview sin motor principal ni mutación, aceptación/undo/redo, condiciones persistidas en otro navegador, snapshot, exportación LAS con manifiesto/QC y offline sin Worker/SubtleCrypto. Regenerar los fixtures no cambia sus bytes. HTML: **5760024 bytes**, SHA-256 `bc0fcd71a73af473b3213d6c8f08a7a6e8776964627fa186a29680ceaef9f344`.
+
+El TP permanece sin corrección ambiental automática hasta confirmar herramienta y condiciones. Métodos adicionales y validación real de entrega siguen en P7/P8. #57 abierto para revisión, ningún PR integrado, main conserva `4f187f6a8d585475efc79b18ed89194b432a2116`; #32 permanece abierto.
