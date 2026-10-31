@@ -9,6 +9,9 @@
 
 - **P6 en curso:** [PR #55](https://github.com/lgarciav1/interpretaci-n-pozo/pull/55) agrega catálogo de relevamiento y declaraciones reversibles de adquisición. Ningún método numérico admitido todavía; la puerta P6 permanece abierta. Ver sección 40.
 
+
+- **Bloqueo actual de P6:** [PR #56](https://github.com/lgarciav1/interpretaci-n-pozo/pull/56) documenta la evaluación de admisión y la evidencia faltante del primer método; no hay evaluador numérico admitido. Ver sección 41.
+
 - Fecha: 2026-10-27.
 - Base inspeccionada: main, commit 4f187f6a8d585475efc79b18ed89194b432a2116.
 - Requisitos: [#31, calibración DRX](https://github.com/lgarciav1/interpretaci-n-pozo/issues/31) y [#32, preparación de curvas](https://github.com/lgarciav1/interpretaci-n-pozo/issues/32).
@@ -1012,3 +1015,14 @@ Verificación: **2.860 pruebas en 168 archivos**, sin fallos/omisiones; typechec
 **P6 sigue abierta.** El CSV del TP no incluye DRHO y no confirma modelos, lodo ni estado de procesado. Las referencias primarias descriptivas de SLB se consultan sin redistribuir cartas; explican que DRHO corresponde a una compensación aplicada, no autorizan sumarla a RHOB ni reemplazan una admisión numérica. Falta elegir herramienta/modelo y método concretos con referencia/edición/página, dominio, interpolación/fuera de dominio, condiciones, efectos/incompatibilidades, incertidumbre o limitación publicada, permiso de redistribución y casos independientes; luego evaluador puro y ledger/preview/aceptación. Ampliar propiedades del lodo (tipo/composición, base de concentración, Rmf/Rmc, temperaturas y procedencia) requiere su contrato versionado: los campos antiguos se muestran sin convertir ni equiparar a Rw.
 
 No se repiten toda la matriz visual/DPR/temas ni benchmark. Offline se recorre por HTTP local y corte de red; no se prueba file://. No se cierra #32 ni se declara admisión ambiental o avance numérico de P7. PR #55 abierto, sin mergear la cadena; main permanece en `4f187f6`.
+
+
+## 41. P6: evaluación de admisión y bloqueo científico (2026-10-31)
+
+[PR #56](https://github.com/lgarciav1/interpretaci-n-pozo/pull/56), apilado sobre #55, commit `13f026a`. [ADR 0049](https://github.com/lgarciav1/interpretaci-n-pozo/blob/codex/admision-cientifica-p6/docs/decisiones/0049-admision-cientifica-p6-pendiente.md) registra candidatas, fuentes, brechas y material requerido. **P6 no está terminada: sigue sin primer método numérico admitido.**
+
+Se evaluaron MGT/ODP (publicación completa accesible, evidencia de dominio/caso ambiental por completar) y Comprobe/USGS 78-515 (resumen disponible; informe con algoritmo devuelve HTTP 403). No se extrapolan fórmulas genéricas ni se usa Arps de fluidos para sustituir la puerta de una herramienta. La falta de modelo del TP limita aplicar al TP; no impediría implementar un método de otra herramienta si tuviera su contrato y casos verificables. La validación real de P8 sigue separada.
+
+Para desbloquear hace falta una fuente accesible que permita fijar herramienta/modelo, unidades/condiciones, dominio, política fuera de dominio, efectos/estado previo, incertidumbre o limitación, tratamiento de redistribución y caso independiente de entrada/salida con tolerancia. Puede ser material adicional MGT, el informe completo Comprobe u otra herramienta con evidencia equivalente. Después faltan evaluador puro, ledger y preview/aceptación/persistencia del método. Ninguna declaración de adquisición ni cálculo sintético de una fórmula sin contrato suple esa admisión.
+
+Entrega solo documental: diff check aprobado; sin cambios en src/datos/dependencias/formatos o catálogo ejecutable. No se repite la suite ni se atribuye un nuevo build: se conserva la evidencia de P6a (2.860 pruebas/168 archivos, navegador/offline). No se reproducen cartas/datasets/PDF de terceros. PR #56 abierto; ningún PR mergeado, main en `4f187f6`, #32 permanece abierto.
