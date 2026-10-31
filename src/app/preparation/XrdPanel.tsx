@@ -1,4 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import {
+  XrdCalibrationPanel,
+  XrdCalibrationHistory,
+} from "./XrdCalibrationPanel";
 import { XrdLaboratory } from "./XrdLaboratory";
 import { parseTable, type RawTable } from "../../io";
 import { buildXrdSet, type XrdMapping } from "../../io/xrd";
@@ -540,6 +544,7 @@ export function XrdPanel({
             {set && (
               <>
                 <XrdLaboratory set={set} />
+                <XrdCalibrationHistory entry={entry} set={set} />
               </>
             )}
             {savedError && (
@@ -840,7 +845,15 @@ export function XrdPanel({
                     sin propagación a intervalos de confianza. Guardar no aplica
                     calibración ni cambia cutoffs.
                   </p>
-                  
+                  {data && set && (
+                    <XrdCalibrationPanel
+                      project={project}
+                      entry={entry}
+                      set={set}
+                      data={data}
+                      comparison={comparison.record}
+                    />
+                  )}
                   <table className="prep-editor__table">
                     <caption>
                       Pares DRX · {comparison.rows.length} muestras (vista de
