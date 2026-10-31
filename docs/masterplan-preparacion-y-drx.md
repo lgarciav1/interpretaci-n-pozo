@@ -961,3 +961,18 @@ El primer navegador detectó plan vacío en contexto identidad: se corrigió sig
 [Contratos, captura y reproducción](https://github.com/lgarciav1/interpretaci-n-pozo/blob/codex/calibracion-gr-drx-p5/docs/validacion/2026-10-31-calibracion-gr-drx.md).
 
 P5 no se declara completa: quedan extremo externo fijo, propagación estadística y calibración conjunta entre zonas. Los cutoffs siguen siendo una decisión separada con herramientas existentes. La campaña DRX real y su relación constitutiva siguen pendientes: los fixtures sintéticos no se presentan como laboratorio real ni certifican equivalencia universal arcilla–Vsh. No se repitió toda la matriz visual/benchmark ni doble clic, cuya limitación de política permanece. PR #52 abierto para revisión; ningún PR mergeado y main intacto. No se cierran #31/#32/#34.
+
+
+## 38. P5b: un extremo GR externo fijo y ajuste del extremo libre (2026-10-31)
+
+[PR #53](https://github.com/lgarciav1/interpretaci-n-pozo/pull/53), apilado sobre #52, commit `61538da`. Permite declarar limpio o lutítico desde referencia externa aplicable a la zona y estimar solo el otro con los cinco métodos Vsh. El externo no se redondea/recorta: se rechaza fuera de rango/paso y se conserva exactamente en raw, aplicable y todos los folds. Se registran declaración, referencia e incertidumbre/nota opcionales; variación cero se explica como condición del modelo, no incertidumbre cero.
+
+Se mantienen fuente activa, agrupado, soporte del extremo libre, rango/asociación, bloques separados, métricas y estabilidad. La política condicionada registra rango proxy 0,3/GR 10 gAPI; no cambia los umbrales 0,6/20 del modo de dos extremos. Incertidumbre externa que supera el umbral en gAPI bloquea aplicar. Preview aislado, invalidación por valor/referencia/controles, aceptación zonal en una receta, historial y snapshots; originales, fuentes, otras zonas y cutoffs conservados.
+
+Compatibilidad explícita: modo de dos extremos predeterminado v1/xrd-gr-v1; solo la evidencia restringida usa v2/xrd-gr-fixed-v1, mismo Project v7/preparación 4. Lector nuevo acepta recibo v1 congelado del recorrido de #52. El lector original real de #52 acepta v1 y rechaza explícitamente v2: no se promete que una app vieja audite restricciones nuevas, aunque preserve ajustes y parámetros conocidos.
+
+Validación: **2.832 pruebas en 166 archivos**, sin fallos/omisiones; typecheck/build/diff check aprobados. Diez combinaciones método × extremo con fixture Python independiente. Chromium: limpio/lutítico fijo y Clavier, bloqueo del ajuste libre sin soporte, fuera de paso y sin declaración, entrada decimal, exactitud de la restricción, preview sin motor principal, invalidación, aplicación/undo/redo/reapertura/snapshot y versión futura preservada; blobs/cutoffs/fuentes/otras zonas intactos. Regresión completa P5a también aprobada, sin excepciones. HTML 5.697.525 bytes (+0,119 % sobre #52), sin dependencias nuevas.
+
+[Contrato, capturas y reproducción](https://github.com/lgarciav1/interpretaci-n-pozo/blob/codex/extremo-externo-gr-p5b/docs/validacion/2026-10-31-extremo-externo-gr.md).
+
+P5 continúa pendiente de propagación estadística, calibración conjunta entre zonas y contraste con una campaña DRX real/referencias externas verificables. Los datos sintéticos no se presentan como laboratorio real. Cutoffs siguen como decisión separada. No se repitió toda la matriz visual/benchmark/fallback offline; file:// conserva su limitación de política. #53 abierto para revisión, sin mergear ningún PR y main intacto. No se cierran #31/#32/#34.
