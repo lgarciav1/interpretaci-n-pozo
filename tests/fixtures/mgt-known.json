@@ -1,0 +1,40 @@
+{
+  "source": "Goldberg et al. 2004, p.10 equations 2\u20134; independent Python Decimal(50). Synthetic mathematical cases, not experimental field validation.",
+  "rows": [
+    {
+      "diameterIn": 3.5,
+      "centered": 0.825064601620745,
+      "eccentered": 0.8391416392660885,
+      "gr100Centered": 82.5064601620745,
+      "gr100Eccentered": 83.91416392660885
+    },
+    {
+      "diameterIn": 8.5,
+      "centered": 1.045318829245327,
+      "eccentered": 1.0038402758812837,
+      "gr100Centered": 104.53188292453271,
+      "gr100Eccentered": 100.38402758812836
+    },
+    {
+      "diameterIn": 9.0,
+      "centered": 1.0787128366513754,
+      "eccentered": 1.0202870031935796,
+      "gr100Centered": 107.87128366513754,
+      "gr100Eccentered": 102.02870031935795
+    },
+    {
+      "diameterIn": 12.0,
+      "centered": 1.3007825372964563,
+      "eccentered": 1.1172069842470567,
+      "gr100Centered": 130.07825372964564,
+      "gr100Eccentered": 111.72069842470566
+    },
+    {
+      "diameterIn": 16.0,
+      "centered": 1.6406986502679661,
+      "eccentered": 1.2378050502116364,
+      "gr100Centered": 164.0698650267966,
+      "gr100Eccentered": 123.78050502116365
+    }
+  ]
+}

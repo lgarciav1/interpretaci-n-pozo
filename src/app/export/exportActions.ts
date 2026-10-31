@@ -28,6 +28,7 @@ import type { PreparedPayload } from '../../core/preparation/plan';
 import { toast } from '../../ui';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useResults } from '../store/results';
+import { zipSync, unzipSync, strToU8 } from 'fflate';
 
 export const EXPORT_KINDS = [
   { id: 'data', label: 'Datos del pozo' },
@@ -63,6 +64,12 @@ export function exportSources(well: Well, result: ClientResult | null, includeAl
     let data = qualityColumns.get(p);
     if (!data) { data = Float64Array.from(p.quality); qualityColumns.set(p, data); }
     const a = result.preparation.plan.artifacts.find(a => a.id === p.id)!;
+    if (a.mgt) {
+      const corrected = columns.find(c => c.id === `m:${p.id}`);
+      if (corrected) corrected.description = `MGT: ${JSON.stringify(a.correctionLedger)}; QC 1=faltante GR; 64=corregida; 128=fuera de dominio o sin caliper. No incertidumbre cuantificada.`;
+      columns.push({ id: `q:${p.id}`, mnemonic: `${a.mnemonic}_QC`, unit: 'unitless', data, origin: 'prepared', description: 'Calidad MGT: 1=faltante GR original; 64=corregida; 128=fuera de dominio o sin caliper. Sin extrapolación ni fallback original.' });
+      continue;
+    }
     columns.push({ id: `q:${p.id}`, mnemonic: `${a.mnemonic}_QC`, unit: 'unitless', data, origin: 'prepared', description: a.shift ? `Alineación MD ${a.shift.offsetM} m; referencia ${a.shift.referenceId}; datum declarado ${a.shift.datum}; hueco máximo ${a.shift.maxGapM} m. Bits QC: 1=soporte sin medición original; 2=exclusión de origen; 8=soporte estimado; 16=filtrada; 32=alineada; 128=sin soporte. Flags heredados del origen, no del índice destino. Sin extrapolación.` : 'Calidad de preparación: 0=conservada; 1=faltante original; 2=excluida; 3=faltante original y excluida' + (a.gapFill ? '; 9=faltante original e interpolada (estimación)' : '') + (a.filter ? '; 16=filtrada; 24=filtrada con influencia interpolada; 25=faltante original interpolada y filtrada' : '') });
   }
   return {
@@ -102,6 +109,13 @@ export function buildDataExport(well: Well, zones: readonly Zone[], result: Clie
     nullValue: req.nullValue,
   });
   const samples = zone ? well.depth.values.filter((d) => d >= zone.top && d <= zone.base).length : well.depth.values.length;
+  const methods = result?.preparation?.plan.artifacts.filter(a => a.mgt && src.columns.some(c => c.id === `m:${a.id}`)) ?? [];
+  if (methods.length) {
+    const manifest = { version: 1, kind: 'environmental-preparation', inputRevisionId: result!.context.inputRevisionId, selection: req.selection, range: zone ? { top: zone.top, base: zone.base } : null, columns: src.columns.filter(c => req.selection.includes(c.id)).map(c => ({ id: c.id, mnemonic: c.mnemonic, unit: c.unit, origin: c.origin })), methods: methods.map(a => ({ curveId: a.id, sourceCurveId: a.sourceCurveId, ledger: a.correctionLedger })), quality: { 1: 'faltante GR original', 64: 'corregida', 128: 'fuera de dominio o sin caliper' } };
+    const entries = file.mime === 'application/zip' ? unzipSync(file.bytes) : { [file.name]: file.bytes };
+    entries['preparacion-ambiental.json'] = strToU8(JSON.stringify(manifest, null, 2));
+    return { file: { name: file.name.replace(/\.[^.]+$/, '') + '_con_procedencia.zip', mime: 'application/zip', bytes: zipSync(entries) }, samples };
+  }
   return { file, samples };
 }
 

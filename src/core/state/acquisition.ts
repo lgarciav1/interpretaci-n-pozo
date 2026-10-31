@@ -12,6 +12,7 @@ export function updateRunAcquisition(
   runId: string,
   declaration: Pick<AcquisitionRun, "tool" | "corrections">,
   tools: ToolCatalog,
+  datum?: string | null,
 ): Project {
   if (project !== expected)
     throw new Error(
@@ -28,8 +29,26 @@ export function updateRunAcquisition(
     !tools.has(declaration.tool.catalogId)
   )
     throw new Error("Herramienta fuera del catálogo.");
+  const nextDatum =
+    datum === undefined
+      ? revision.acquisition.depth.datum
+      : datum === null
+        ? null
+        : datum.trim();
+  if (
+    nextDatum !== revision.acquisition.depth.datum &&
+    nextDatum !== null &&
+    (!nextDatum || nextDatum.length > 128)
+  )
+    throw new Error(
+      "El datum MD requiere entre 1 y 128 caracteres; no convierte profundidades.",
+    );
   const next = {
     ...revision.acquisition,
+    depth:
+      nextDatum === revision.acquisition.depth.datum
+        ? revision.acquisition.depth
+        : { ...revision.acquisition.depth, datum: nextDatum },
     runs: revision.acquisition.runs.map((r) =>
       r.id === runId
         ? { ...r, tool: declaration.tool, corrections: declaration.corrections }

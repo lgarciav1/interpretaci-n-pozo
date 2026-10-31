@@ -58,6 +58,7 @@ export function buildReportModel(well: Well, interpretation: Interpretation, res
   const qc = runQc(originals, { roles: catalog.roles });
   for (const p of current?.preparation?.artifacts ?? []) {
     const a = current!.preparation!.plan.artifacts.find(a => a.id === p.id)!;
+    if (a.mgt) { warnings.push(`Corrección ambiental MGT: ${JSON.stringify(a.correctionLedger)}. ${p.quality.reduce((n,q) => n + (q === 64 ? 1 : 0),0)} muestras corregidas; ${p.quality.reduce((n,q) => n + (q === 128 ? 1 : 0),0)} fuera de dominio o sin caliper. No certifica resultados del TP ni equivalencia con otra herramienta.`); continue; }
     const counts = stageQualityCounts(p.quality);
     if (a.shift) {
       const shifted = alignmentQualityCounts(p.data, p.quality);
