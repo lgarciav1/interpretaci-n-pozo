@@ -3,6 +3,9 @@
 > **Condición de avance (2026-10-28): preservar funcionalidad, proyectos y resultados existentes.** La nueva interfaz se incorpora primero como preset opcional; los cambios visuales y científicos se entregan en PR separados, con comparación contra una base fijada y criterios de regresión. Ver sección 19. Esta condición prevalece sobre cualquier sugerencia anterior de cambiar automáticamente los presets existentes.
 
 - Estado: arquitectura y secuencia de implementación, con avances en ramas de revisión detallados al final. **No implica que las funciones nuevas estén disponibles en main; ningún PR de esta secuencia fue integrado.**
+
+- **Avance actual (2026-10-31): P5 implementada y validada en la cadena de revisión hasta [PR #54](https://github.com/lgarciav1/interpretaci-n-pozo/pull/54), sin integrar main.** GR y cutoffs tienen aceptación/evidencia separadas. La sección 39 precisa el cierre y corrige la caracterización de extensiones como bloqueantes en las secciones 37–38; campaña real sigue en la puerta P8.
+
 - Fecha: 2026-10-27.
 - Base inspeccionada: main, commit 4f187f6a8d585475efc79b18ed89194b432a2116.
 - Requisitos: [#31, calibración DRX](https://github.com/lgarciav1/interpretaci-n-pozo/issues/31) y [#32, preparación de curvas](https://github.com/lgarciav1/interpretaci-n-pozo/issues/32).
@@ -976,3 +979,18 @@ Validación: **2.832 pruebas en 166 archivos**, sin fallos/omisiones; typecheck/
 [Contrato, capturas y reproducción](https://github.com/lgarciav1/interpretaci-n-pozo/blob/codex/extremo-externo-gr-p5b/docs/validacion/2026-10-31-extremo-externo-gr.md).
 
 P5 continúa pendiente de propagación estadística, calibración conjunta entre zonas y contraste con una campaña DRX real/referencias externas verificables. Los datos sintéticos no se presentan como laboratorio real. Cutoffs siguen como decisión separada. No se repitió toda la matriz visual/benchmark/fallback offline; file:// conserva su limitación de política. #53 abierto para revisión, sin mergear ningún PR y main intacto. No se cierran #31/#32/#34.
+
+
+## 39. P5 cerrada en revisión: cutoff Vsh con evidencia separada (2026-10-31)
+
+[PR #54](https://github.com/lgarciav1/interpretaci-n-pozo/pull/54), apilado sobre #53, commit `3f4cb7d`. Completa el entregable de software de las secciones 9.4–9.6 y la puerta original P5 de la sección 13. GR ya recupera extremos conocidos con los cinco métodos, bloquea ajustes no identificables, invalida propuestas obsoletas, ofrece extremo externo fijo y aplica por zona sin tocar cutoffs. Ahora la decisión de cutoff tiene panel, evidencia y aceptación propios.
+
+Permite elegir Vsh máxima zonal, declarar proxy físico/justificación/referencia/limitaciones y contrastar muestras con la fuente VSH activa del contexto vigente. Conserva réplicas como muestras, sin llamarlas validación independiente; censura, huecos, exclusiones y fronteras tienen motivo. Usa soporte DRX existente y fila exacta de sensibilidad del motor para reservorio/pay, reservorio sin Sw y volúmenes disponibles. Faltantes quedan desconocidos. Preview aislado sin modificar Project ni correr el motor principal; aplicación del cutoff y recibo v1 en una entrada de historial, preservando GR/método, φ/Sw cutoffs, fuentes, otras zonas y originales. Guardar/abrir y snapshots recuperan parámetros/evidencia; versiones futuras se preservan sin ejecutar.
+
+Validación: **2.850 pruebas en 167 archivos**, sin fallos/omisiones; typecheck/build/diff check aprobados. Dieciocho pruebas nuevas con cliente/motor real y Vsh medido/calculado/preparado. Chromium: diez muestras sintéticas, cinco válidas/cinco excluidas; corte inclusivo 0,4→0,5, reservorio 10→20 m, pay 10→19 m, 1 m nuevo sin Sw. Se verificaron declaración, paso/decimal, invalidación, preview intacto, aplicación zonal, undo/redo, nuevo navegador, snapshot tras modificar umbral/borrar recibo y futuro preservado. Offline sin Worker/SubtleCrypto aplica criterio manual con impacto null cuando faltan PHIE/Sw. Regresiones completas GR dos extremos y extremo fijo sobre el mismo HTML aprobadas, sin excepciones de página. HTML 5.712.235 bytes (+0,258 % sobre #53), sin dependencias nuevas, mismo Project v7/preparación 4.
+
+[ADR 0047](https://github.com/lgarciav1/interpretaci-n-pozo/blob/codex/cierre-p5-cutoffs-evidencia/docs/decisiones/0047-cierre-p5-cutoffs-con-evidencia.md) y [matriz, capturas y reproducción](https://github.com/lgarciav1/interpretaci-n-pozo/blob/codex/cierre-p5-cutoffs-evidencia/docs/validacion/2026-10-31-cierre-p5.md).
+
+**Precisión de alcance respecto a secciones 37–38:** esos avances llamaron pendientes de P5 a propagación estadística, calibración conjunta entre zonas y campaña real, ampliando la puerta original sin contrato científico. Propagación estadística y ajuste conjunto quedan como extensiones posteriores fuera de esta puerta; requieren semántica/covarianzas de incertidumbre y modelo compartido/identificabilidad explícitos. No se afirma haberlos implementado. El contraste con campaña DRX real/referencias externas verificables corresponde a la puerta **P8**, que exige flujo completo real y sintético: sigue pendiente y no hay certificación de campo. Se cierra el software P5, no la entrega completa ni #31/#32/#34.
+
+No se repite toda la matriz visual/DPR/temas ni benchmark. Offline se prueba por HTTP local tras cortar la red; file:// conserva su limitación de política. PR #54 queda abierto para revisión; ningún PR mergeado y main permanece en `4f187f6`.
