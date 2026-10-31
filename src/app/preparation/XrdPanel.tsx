@@ -4,6 +4,7 @@ import {
   XrdCalibrationHistory,
 } from "./XrdCalibrationPanel";
 import { XrdLaboratory } from "./XrdLaboratory";
+import { XrdCutoffPanel, XrdCutoffHistory } from "./XrdCutoffPanel";
 import { parseTable, type RawTable } from "../../io";
 import { buildXrdSet, type XrdMapping } from "../../io/xrd";
 import {
@@ -545,6 +546,7 @@ export function XrdPanel({
               <>
                 <XrdLaboratory set={set} />
                 <XrdCalibrationHistory entry={entry} set={set} />
+                <XrdCutoffHistory entry={entry} set={set} />
               </>
             )}
             {savedError && (
@@ -845,6 +847,16 @@ export function XrdPanel({
                     sin propagación a intervalos de confianza. Guardar no aplica
                     calibración ni cambia cutoffs.
                   </p>
+                  {data && set && (
+                    <XrdCutoffPanel
+                      key={set.id}
+                      project={project}
+                      entry={entry}
+                      set={set}
+                      data={data}
+                      comparison={comparison.record}
+                    />
+                  )}
                   {data && set && (
                     <XrdCalibrationPanel
                       project={project}
