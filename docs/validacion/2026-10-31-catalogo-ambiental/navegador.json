@@ -1,0 +1,18 @@
+{
+  "errors": [],
+  "admittedMethods": 0,
+  "checks": [
+    "unknown run stays unknown",
+    "catalogue never executable",
+    "DRHO absence and no implicit addition",
+    "confirmation resets on edit",
+    "draft leaves Project unchanged",
+    "new acquisition revision only",
+    "original blobs and interpretation unchanged",
+    "other run preserved",
+    "one undo redo",
+    "new browser reopens references",
+    "changed snapshot restores acquisition",
+    "offline without Worker/SubtleCrypto"
+  ]
+}
