@@ -1,0 +1,610 @@
+import { useEffect, useRef, useState } from "react";
+import { parseTable, type RawTable } from "../../io";
+import { buildXrdSet, type XrdMapping } from "../../io/xrd";
+import {
+  pairXrd,
+  xrdComposition,
+  xrdContract,
+  type XrdContract,
+  type XrdPair,
+} from "../../core/preparation/xrd";
+import { addPointSet } from "../../core/state/pointSets";
+import { enableProjectInputRevisions } from "../../core/state/inputRevisions";
+import { entryPreparationPlan } from "../../core/state/preparation";
+import { makeId, type Project, type WellEntry } from "../../core/state/project";
+import { sameContext } from "../../core/engine/context";
+import { resolveDataContext } from "../../core/preparation/projection";
+import { registry } from "../../modules";
+import { preparedData } from "./data";
+import { useResults } from "../store/results";
+import { useProject } from "../store/project";
+import { Button, Callout, Checkbox, Field, Select, TextField } from "../../ui";
+
+export function XrdPanel({
+  project,
+  entry,
+}: {
+  project: Project;
+  entry: WellEntry;
+}) {
+  const [table, setTable] = useState<RawTable | null>(null),
+    [mapping, setMapping] = useState<XrdMapping>({
+      depth: 0,
+      base: null,
+      sampleId: null,
+      run: null,
+      minerals: {},
+      depthUnit: "m",
+    });
+  const [contract, setContract] = useState<XrdContract>({
+    version: 1,
+    basis: "mass",
+    scope: "whole-rock",
+    scale: "percent",
+    closureTolerance: 0.02,
+    report: "",
+    referenceId: entry.well.id,
+    datum: "",
+    minerals: [],
+  });
+  const [confirmed, setConfirmed] = useState(false),
+    [error, setError] = useState(""),
+    [preview, setPreview] = useState<ReturnType<typeof buildXrdSet> | null>(
+      null,
+    ),
+    [setId, setSetId] = useState(""),
+    [curveId, setCurveId] = useState("");
+  const [gap, setGap] = useState(""),
+    [coverage, setCoverage] = useState("0.8"),
+    [shift, setShift] = useState("0"),
+    [target, setTarget] = useState<"native" | "solid-volume">("native"),
+    [densities, setDensities] = useState<Record<string, number>>({});
+  const [comparison, setComparison] = useState<{
+      base: Project;
+      key: string;
+      rows: { pair: XrdPair; composition: ReturnType<typeof xrdComposition> }[];
+    } | null>(null),
+    [busy, setBusy] = useState(false);
+  const previewBase = useRef<Project | null>(null);
+  const task = useRef(0),
+    result = useResults((s) => s.result);
+  useEffect(
+    () => () => {
+      task.current++;
+    },
+    [],
+  );
+  const sets = entry.well.pointSets.filter((s) => s.kind === "xrd"),
+    set = sets.find((s) => s.id === setId);
+  const comparisonKey = JSON.stringify([
+    setId,
+    curveId,
+    gap,
+    coverage,
+    shift,
+    target,
+    densities,
+  ]);
+  let data: ReturnType<typeof resolveDataContext> | null = null,
+    problem = "";
+  try {
+    const plan = entryPreparationPlan(project, entry, registry);
+    if (entry.interpretation.preparation?.nodes.length) {
+      if (!result || !sameContext(result.context, plan.context))
+        throw new Error("Esperá resultados vigentes de preparación.");
+      data = preparedData(entry.well, result);
+      if (!data) throw new Error("Falta preparación publicada.");
+    } else
+      data = resolveDataContext(
+        entry.well,
+        entry.interpretation,
+        registry,
+        entry.inputRevisionId ?? null,
+      );
+  } catch (e) {
+    problem = String(e);
+  }
+  const options = [
+    { value: "", label: "Sin asignar" },
+    ...(table?.columns.map((c, i) => ({ value: String(i), label: c.name })) ??
+      []),
+  ];
+  const change = () => {
+    setPreview(null);
+  };
+  return (
+    <details>
+      <summary>DRX · carga y comparación diagnóstica</summary>
+      <section aria-label="Diagnóstico DRX">
+        <p>
+          DRX mide minerales: contenido de arcillas y Vsh son magnitudes
+          diferentes. Esta etapa no calibra GR ni modifica cutoffs. Archivos
+          homogéneos por ensayo; separá bases distintas. Profundidad MD y datum
+          compartidos deben estar confirmados antes de comparar.
+        </p>
+        <input
+          aria-label="Archivo DRX CSV o Excel"
+          type="file"
+          accept=".csv,.tsv,.xlsx"
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            if (!f) return;
+            try {
+              const t = parseTable(await f.arrayBuffer(), f.name, {
+                requireDepth: false,
+                preserveRawCells: true,
+              });
+              setTable(t);
+              setMapping({
+                depth: Math.max(0, t.depthColumn),
+                base: null,
+                sampleId: null,
+                run: null,
+                minerals: {},
+                depthUnit: "m",
+              });
+              setContract((c) => ({ ...c, minerals: [] }));
+              setPreview(null);
+              setError("");
+            } catch (err) {
+              setError(String(err));
+            }
+          }}
+        />
+        {table && (
+          <>
+            {(["depth", "base", "sampleId", "run"] as const).map((k) => (
+              <Field
+                key={k}
+                label={
+                  {
+                    depth: "Profundidad/tope DRX",
+                    base: "Base DRX (solo intervalos)",
+                    sampleId: "Identificador de muestra",
+                    run: "Corrida/corona de muestra",
+                  }[k]
+                }
+              >
+                <Select
+                  aria-label={`DRX ${k}`}
+                  value={mapping[k] === null ? "" : String(mapping[k])}
+                  onChange={(v) => {
+                    change();
+                    setMapping((m) => ({
+                      ...m,
+                      [k]: v === "" ? null : Number(v),
+                    }));
+                  }}
+                  options={k === "depth" ? options.slice(1) : options}
+                />
+              </Field>
+            ))}
+            <Field label="Unidad de profundidad DRX">
+              <Select
+                value={mapping.depthUnit}
+                onChange={(v) => {
+                  change();
+                  setMapping((m) => ({ ...m, depthUnit: v as "m" | "ft" }));
+                }}
+                options={[
+                  { value: "m", label: "m MD" },
+                  { value: "ft", label: "ft MD" },
+                ]}
+              />
+            </Field>
+            <Field label="Base composicional">
+              <Select
+                value={contract.basis}
+                onChange={(v) => {
+                  change();
+                  setContract((c) => ({
+                    ...c,
+                    basis: v as XrdContract["basis"],
+                  }));
+                }}
+                options={[
+                  { value: "mass", label: "Masa" },
+                  { value: "volume", label: "Volumen de sólidos" },
+                ]}
+              />
+            </Field>
+            <Field label="Alcance de composición">
+              <Select
+                value={contract.scope}
+                onChange={(v) => {
+                  change();
+                  setContract((c) => ({
+                    ...c,
+                    scope: v as XrdContract["scope"],
+                  }));
+                }}
+                options={[
+                  { value: "whole-rock", label: "Roca completa" },
+                  { value: "clay-fraction", label: "Solo fracción arcilla" },
+                ]}
+              />
+            </Field>
+            <Field label="Escala de laboratorio">
+              <Select
+                value={contract.scale}
+                onChange={(v) => {
+                  change();
+                  setContract((c) => ({
+                    ...c,
+                    scale: v as XrdContract["scale"],
+                  }));
+                }}
+                options={[
+                  { value: "percent", label: "Porcentaje (0–100)" },
+                  { value: "fraction", label: "Fracción (0–1)" },
+                ]}
+              />
+            </Field>
+            <Field label="Tolerancia de cierre (fracción)">
+              <TextField
+                aria-label="Tolerancia de cierre (fracción)"
+                value={String(contract.closureTolerance)}
+                onChange={(v) => {
+                  change();
+                  setContract((c) => ({ ...c, closureTolerance: Number(v) }));
+                }}
+              />
+            </Field>
+            <Field label="Referencia del informe DRX">
+              <TextField
+                aria-label="Referencia del informe DRX"
+                value={contract.report}
+                onChange={(v) => {
+                  change();
+                  setContract((c) => ({ ...c, report: v }));
+                }}
+              />
+            </Field>
+            <Field label="Datum MD de laboratorio y perfiles">
+              <TextField
+                aria-label="Datum MD de laboratorio y perfiles"
+                value={contract.datum}
+                onChange={(v) => {
+                  change();
+                  setConfirmed(false);
+                  setContract((c) => ({ ...c, datum: v }));
+                }}
+              />
+            </Field>
+            <Checkbox
+              checked={confirmed}
+              onChange={(v) => {
+                change();
+                setConfirmed(v);
+              }}
+              label="Confirmo referencia MD del mismo pozo y datum compartido para DRX"
+            />
+            <p>
+              Elegí las columnas minerales y clasificá explícitamente cuáles son
+              arcillas. Vacío = no medido; ND = no detectado; BLD/LD = bajo
+              detección. Otros textos se rechazan.
+            </p>
+            {table.columns.map((col, i) => {
+              const id = `m${i}`,
+                m = contract.minerals.find((m) => m.id === id);
+              return (
+                <div key={id}>
+                  <Checkbox
+                    label={`Mineral: ${col.name}`}
+                    checked={!!m}
+                    onChange={(v) => {
+                      change();
+                      setContract((c) => ({
+                        ...c,
+                        minerals: v
+                          ? [...c.minerals, { id, name: col.name, clay: false }]
+                          : c.minerals.filter((m) => m.id !== id),
+                      }));
+                      setMapping((old) => {
+                        const minerals = { ...old.minerals };
+                        if (v) minerals[id] = i;
+                        else delete minerals[id];
+                        return { ...old, minerals };
+                      });
+                    }}
+                  />
+                  {m && (
+                    <Checkbox
+                      label={`${col.name} es mineral arcilloso`}
+                      checked={m.clay}
+                      onChange={(v) => {
+                        change();
+                        setContract((c) => ({
+                          ...c,
+                          minerals: c.minerals.map((m) =>
+                            m.id === id ? { ...m, clay: v } : m,
+                          ),
+                        }));
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            })}
+            <Button
+              onClick={() => {
+                try {
+                  const known =
+                    project.inputRevisions?.[entry.inputRevisionId ?? ""]
+                      ?.acquisition.depth.datum;
+                  if (!confirmed || (known && known !== contract.datum))
+                    throw new Error(
+                      "Confirmá referencia MD/datum compatible con el pozo.",
+                    );
+                  setPreview(
+                    buildXrdSet(table, mapping, contract, makeId("xrd")),
+                  );
+                  previewBase.current = project;
+                  setError("");
+                } catch (e) {
+                  setPreview(null);
+                  setError(String(e));
+                }
+              }}
+            >
+              Revisar DRX
+            </Button>
+            {preview && (
+              <>
+                <p role="status">
+                  {preview.depth.length} muestras. Se conservan duplicados de
+                  profundidad y valores originales. El cierre se evalúa por
+                  muestra.
+                </p>
+                <ul>
+                  {preview.pointIds.slice(0, 20).map((id, i) => {
+                    const c = xrdComposition(preview, i, "native");
+                    return (
+                      <li key={id}>
+                        {id}: cierre {c.sum.toFixed(4)};{" "}
+                        {c.reason ??
+                          `${c.quantity}: ${c.clayFraction?.toFixed(4)}`}
+                      </li>
+                    );
+                  })}
+                </ul>
+                <Button
+                  onClick={() => {
+                    try {
+                      useProject.getState().commit("Importar DRX", (p) => {
+                        if (p !== previewBase.current)
+                          throw new Error(
+                            "Cambió el proyecto. Revisá nuevamente la importación.",
+                          );
+                        return addPointSet(
+                          enableProjectInputRevisions(p),
+                          entry.well.id,
+                          preview,
+                        );
+                      });
+                      setSetId(preview.id);
+                      setPreview(null);
+                      setTable(null);
+                      setError("");
+                    } catch (e) {
+                      setError(String(e));
+                    }
+                  }}
+                >
+                  Importar muestras revisadas
+                </Button>
+              </>
+            )}
+          </>
+        )}
+        {sets.length > 0 && (
+          <>
+            <Field label="Conjunto DRX">
+              <Select
+                aria-label="Conjunto DRX"
+                value={setId}
+                onChange={setSetId}
+                options={[
+                  { value: "", label: "Elegir ensayo" },
+                  ...sets.map((s) => ({ value: s.id, label: s.name })),
+                ]}
+              />
+            </Field>
+            <Field label="Curva para comparar con DRX">
+              <Select
+                aria-label="Curva para comparar con DRX"
+                value={curveId}
+                onChange={setCurveId}
+                options={[
+                  { value: "", label: "Elegir original o preparada" },
+                  ...(data?.eligible.map((c) => ({
+                    value: c.id,
+                    label: c.mnemonic,
+                  })) ?? []),
+                ]}
+              />
+            </Field>
+            {problem && <Callout tone="warn">{problem}</Callout>}
+            {(
+              [
+                ["Máximo entre anclajes DRX (m)", gap, setGap],
+                ["Cobertura mínima DRX (0–1)", coverage, setCoverage],
+                ["Desplazamiento de muestras DRX (m)", shift, setShift],
+              ] as const
+            ).map(([label, value, set]) => (
+              <Field key={label} label={label}>
+                <TextField
+                  aria-label={label}
+                  value={value}
+                  onChange={set}
+                  inputMode="decimal"
+                />
+              </Field>
+            ))}
+            <Field label="Cantidad DRX de comparación">
+              <Select
+                value={target}
+                onChange={(v) => setTarget(v as typeof target)}
+                options={[
+                  {
+                    value: "native",
+                    label: "Contenido de arcillas en base nativa",
+                  },
+                  {
+                    value: "solid-volume",
+                    label: "Contenido de arcillas en volumen de sólidos",
+                  },
+                ]}
+              />
+            </Field>
+            {set &&
+              target === "solid-volume" &&
+              (() => {
+                try {
+                  return xrdContract(set).minerals.map((m) => (
+                    <Field key={m.id} label={`Densidad ${m.name} (g/cm³)`}>
+                      <TextField
+                        value={
+                          densities[m.id] === undefined
+                            ? ""
+                            : String(densities[m.id])
+                        }
+                        onChange={(v) =>
+                          setDensities((d) => ({ ...d, [m.id]: Number(v) }))
+                        }
+                      />
+                    </Field>
+                  ));
+                } catch {
+                  return <p>Contrato DRX no reconocido.</p>;
+                }
+              })()}
+            <Button
+              disabled={busy || !set || !data || !curveId}
+              onClick={async () => {
+                const token = ++task.current;
+                setBusy(true);
+                setError("");
+                setComparison(null);
+                try {
+                  const labContract = xrdContract(set!);
+                  const known =
+                    project.inputRevisions?.[entry.inputRevisionId ?? ""]
+                      ?.acquisition.depth.datum;
+                  if (
+                    labContract.referenceId !== entry.well.id ||
+                    (known && known !== labContract.datum)
+                  )
+                    throw new Error(
+                      "Referencia MD/datum del laboratorio incompatible.",
+                    );
+                  const curve = data!.eligible.find((c) => c.id === curveId);
+                  if (!curve) throw new Error("Fuente no disponible.");
+                  const rows = await pairXrd(
+                    set!,
+                    entry.well.depth.values,
+                    curve.data,
+                    data!.quality.get(curveId),
+                    {
+                      maxGapM: Number(gap),
+                      minCoverage: Number(coverage),
+                      shiftM: Number(shift),
+                      boundaries: entry.interpretation.zones.flatMap((z) => [
+                        z.top,
+                        z.base,
+                      ]),
+                      decisions: entry.interpretation.pointSets[set!.id],
+                    },
+                    async () => {
+                      await new Promise((r) => setTimeout(r, 0));
+                      if (
+                        token !== task.current ||
+                        useProject.getState().project !== project
+                      )
+                        throw new Error("Comparación cancelada u obsoleta.");
+                    },
+                  );
+                  setComparison({
+                    base: project,
+                    key: comparisonKey,
+                    rows: rows.map((pair, i) => ({
+                      pair,
+                      composition: xrdComposition(set!, i, target, densities),
+                    })),
+                  });
+                } catch (e) {
+                  setError(String(e));
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              Comparar con soporte declarado
+            </Button>
+            {busy && (
+              <Button
+                onClick={() => {
+                  task.current++;
+                }}
+              >
+                Cancelar comparación
+              </Button>
+            )}
+            {comparison?.base === project &&
+              comparison.key === comparisonKey && (
+                <>
+                  <p>
+                    Comparación diagnóstica. Réplicas a igual profundidad no
+                    constituyen localizaciones independientes. Cruces de zona
+                    sirven para comparación global; quedan fuera de un futuro
+                    ajuste zonal. No se ajustan parámetros.
+                  </p>
+                  <table className="prep-editor__table">
+                    <caption>
+                      Pares DRX · {comparison.rows.length} muestras (vista de
+                      primeras 200)
+                    </caption>
+                    <thead>
+                      <tr>
+                        <th>Muestra</th>
+                        <th>Arcillas</th>
+                        <th>Perfil</th>
+                        <th>Cobertura</th>
+                        <th>Dispersión</th>
+                        <th>QC soporte</th>
+                        <th>Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {comparison.rows
+                        .slice(0, 200)
+                        .map(({ pair, composition }) => (
+                          <tr key={pair.id}>
+                            <td>{pair.id}</td>
+                            <td>
+                              {composition.clayFraction?.toFixed(4) ?? "—"}
+                            </td>
+                            <td>{pair.value?.toFixed(4) ?? "—"}</td>
+                            <td>{(pair.coverage * 100).toFixed(1)} %</td>
+                            <td>{pair.dispersion?.toFixed(4) ?? "—"}</td>
+                            <td>{pair.quality}</td>
+                            <td>
+                              {composition.reason ??
+                                pair.reason ??
+                                (pair.crossesZone
+                                  ? "Cruza zona · solo global"
+                                  : composition.quantity)}
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </>
+              )}
+          </>
+        )}
+        {error && <Callout tone="error">{error}</Callout>}
+      </section>
+    </details>
+  );
+}

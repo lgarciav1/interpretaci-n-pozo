@@ -245,7 +245,7 @@ export function CorrelationReview({
             {result.validation?.pairs ?? 0}, cobertura=
             {((result.validation?.coverage ?? 0) * 100).toFixed(1)} %.
           </p>
-          <table>
+          <table className="prep-editor__table">
             <caption>Búsqueda · originales · Pearson</caption>
             <thead>
               <tr>

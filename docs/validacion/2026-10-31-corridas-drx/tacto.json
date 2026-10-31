@@ -1,0 +1,14 @@
+{
+  "errors": [],
+  "runCurves": 2,
+  "xrdRows": 3,
+  "checks": [
+    "preview",
+    "atomic apply",
+    "undo",
+    "redo",
+    "import states",
+    "prepared pairs",
+    "v7 save"
+  ]
+}
