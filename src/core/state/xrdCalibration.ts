@@ -5,6 +5,7 @@ import {
   XRD_CALIBRATION_SETTING,
   type GrCalibrationProposal,
 } from "../preparation/xrdCalibration";
+import { validateFixedGrEndpoint } from "../../petro/xrdCalibration";
 import { setParam, type Project } from "./project";
 import { setPointSetSetting } from "./pointSets";
 /** Preview y aplicación construyen el mismo Project; aceptar es una sola unidad de historial. */
@@ -43,6 +44,8 @@ export function applyGrCalibration(
     ) > 1e-8
   )
     throw new Error("Datos, zona o parámetros aplicables inválidos.");
+  if (proposal.config.fixed)
+    validateFixedGrEndpoint(proposal.config.fixed, bounds);
   let next = setParam(
     project,
     wellId,

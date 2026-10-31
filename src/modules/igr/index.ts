@@ -69,6 +69,11 @@ export default defineModule({
         description:
           "Métodos no lineales: búsqueda acotada con la función real de Vsh y el IGR recortado del motor. Se aplican dominio/step del esquema y se recalculan métricas tras redondear. No cambia cutoffs.",
       },
+      {
+        latex: "GR_k = c + (s-c)\\,C_k",
+        description:
+          "Con extremo limpio c externo fijo, el lineal estima solo s por mínimos cuadrados con intercepto fijado; con s externo, estima solo c. La referencia externa se conserva exactamente y no se confunde con un extremo identificado por el ensayo. Para métodos no lineales se restringe la búsqueda a un solo parámetro con la función real de Vsh (ADR 0046).",
+      },
     ],
     references: [
       "Asquith, G. y Krygowski, D. (2004). Basic Well Log Analysis, 2.ª ed. AAPG Methods in Exploration 16.",

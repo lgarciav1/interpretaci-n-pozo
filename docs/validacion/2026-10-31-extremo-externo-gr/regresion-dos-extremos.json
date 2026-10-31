@@ -1,0 +1,24 @@
+{
+  "errors": [],
+  "locations": 18,
+  "rawLabRows": 20,
+  "knownGR": [
+    25,
+    135
+  ],
+  "checks": [
+    "auxiliary laboratory values",
+    "censored samples excluded",
+    "replicas grouped",
+    "blocked without independent declaration",
+    "isolated preview no main run",
+    "control invalidation",
+    "preview leaves Project unchanged",
+    "atomic zonal application",
+    "cutoffs sources other zones unchanged",
+    "original blobs unchanged",
+    "undo redo",
+    "new browser context",
+    "snapshot evidence restored"
+  ]
+}

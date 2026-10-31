@@ -49,6 +49,12 @@ export const DEFAULT_GR_POLICY: Readonly<CalibrationPolicy> = Object.freeze({
   maxRelativeDensityUncertainty: 0.1,
   allowEstimatedGR: false,
 });
+export interface FixedGrEndpoint {
+  end: "clean" | "shale";
+  value: number;
+}
+export const DEFAULT_FIXED_GR_POLICY: Readonly<CalibrationPolicy> =
+  Object.freeze({ ...DEFAULT_GR_POLICY, minRange: 0.3, minGrRange: 10 });
 export interface GrEndpoints {
   clean: number;
   shale: number;
@@ -59,6 +65,7 @@ export interface FitMetrics {
   grRMSE: number;
 }
 export interface CalibrationFit {
+  fixed?: FixedGrEndpoint;
   method: VshMethod;
   raw: GrEndpoints;
   applied: GrEndpoints;
@@ -87,7 +94,24 @@ function inverse(target: number, method: VshMethod) {
 function regression(
   points: readonly CalibrationPoint[],
   method: VshMethod,
+  fixed?: FixedGrEndpoint,
 ): GrEndpoints {
+  if (fixed) {
+    let numerator = 0,
+      denominator = 0;
+    for (const p of points) {
+      const igr = method === "linear" ? p.target : inverse(p.target, method);
+      if (!Number.isFinite(igr)) return { clean: NaN, shale: NaN };
+      const x = fixed.end === "clean" ? igr : 1 - igr;
+      const y = fixed.end === "clean" ? p.gr - fixed.value : fixed.value - p.gr;
+      numerator += x * y;
+      denominator += x * x;
+    }
+    const span = numerator / denominator;
+    return fixed.end === "clean"
+      ? { clean: fixed.value, shale: fixed.value + span }
+      : { clean: fixed.value - span, shale: fixed.value };
+  }
   let n = 0,
     mx = 0,
     my = 0,
@@ -119,14 +143,22 @@ function inside(p: GrEndpoints, b: GrBounds) {
     p.shale > p.clean
   );
 }
-function rounded(p: GrEndpoints, b: GrBounds): GrEndpoints {
+function rounded(
+  p: GrEndpoints,
+  b: GrBounds,
+  fixed?: FixedGrEndpoint,
+): GrEndpoints {
   return {
     clean:
-      b.clean.min +
-      Math.round((p.clean - b.clean.min) / b.clean.step) * b.clean.step,
+      fixed?.end === "clean"
+        ? fixed.value
+        : b.clean.min +
+          Math.round((p.clean - b.clean.min) / b.clean.step) * b.clean.step,
     shale:
-      b.shale.min +
-      Math.round((p.shale - b.shale.min) / b.shale.step) * b.shale.step,
+      fixed?.end === "shale"
+        ? fixed.value
+        : b.shale.min +
+          Math.round((p.shale - b.shale.min) / b.shale.step) * b.shale.step,
   };
 }
 function loss(
@@ -169,9 +201,39 @@ async function optimize(
   method: VshMethod,
   b: GrBounds,
   checkpoint: () => Promise<void>,
+  fixed?: FixedGrEndpoint,
 ): Promise<GrEndpoints> {
-  const initial = regression(points, method);
+  const initial = regression(points, method, fixed);
   if (method === "linear") return initial;
+  if (fixed) {
+    const free = fixed.end === "clean" ? "shale" : "clean";
+    const box = b[free];
+    const endpoint = (v: number): GrEndpoints =>
+      fixed.end === "clean"
+        ? { clean: fixed.value, shale: v }
+        : { clean: v, shale: fixed.value };
+    let best = inside(initial, b) ? initial : null;
+    let bestLoss = best ? loss(points, best, method) : Infinity;
+    let low = box.min,
+      high = box.max;
+    for (let level = 0; level < 6; level++) {
+      await checkpoint();
+      const step = (high - low) / 80;
+      for (let k = 0; k <= 80; k++) {
+        const p = endpoint(low + k * step);
+        if (!inside(p, b)) continue;
+        const current = loss(points, p, method);
+        if (current < bestLoss) {
+          best = p;
+          bestLoss = current;
+        }
+      }
+      if (!best) break;
+      low = Math.max(box.min, best[free] - step);
+      high = Math.min(box.max, best[free] + step);
+    }
+    return best ?? endpoint(NaN);
+  }
   // Toda la caja primero; cinco refinamientos, sin abandonar la caja ni cruzar extremos.
   let best = inside(initial, b)
     ? initial
@@ -241,6 +303,29 @@ export function validateGrPolicy(p: CalibrationPolicy) {
   )
     throw new Error("Umbrales de admisión GR inválidos.");
 }
+export function validateFixedGrEndpoint(
+  fixed: FixedGrEndpoint,
+  bounds: GrBounds,
+) {
+  if (
+    !fixed ||
+    !["clean", "shale"].includes(fixed.end) ||
+    !Number.isFinite(fixed.value)
+  )
+    throw new Error("Extremo externo inválido.");
+  const b = bounds[fixed.end];
+  if (
+    fixed.value < b.min ||
+    fixed.value > b.max ||
+    Math.abs(
+      (fixed.value - b.min) / b.step -
+        Math.round((fixed.value - b.min) / b.step),
+    ) > 1e-8
+  )
+    throw new Error(
+      "El extremo externo debe estar dentro del dominio y en el paso canónico; no se redondea ni recorta.",
+    );
+}
 export async function fitGrCalibration(
   points: readonly CalibrationPoint[],
   method: VshMethod,
@@ -248,6 +333,7 @@ export async function fitGrCalibration(
   policy: CalibrationPolicy,
   guardM: number,
   checkpoint: () => Promise<void> = async () => {},
+  fixed?: FixedGrEndpoint,
 ): Promise<CalibrationFit> {
   validateGrPolicy(policy);
   if (
@@ -270,6 +356,7 @@ export async function fitGrCalibration(
       b.step <= 0
     )
       throw new Error("Límites canónicos de parámetros inválidos.");
+  if (fixed) validateFixedGrEndpoint(fixed, bounds);
   const sorted = [...points].sort((a, b) => a.depth - b.depth),
     targets = points.map((p) => p.target),
     range: [number, number] = [Math.min(...targets), Math.max(...targets)];
@@ -300,27 +387,29 @@ export async function fitGrCalibration(
     reasons.push("Pocas localizaciones independientes.");
   if (
     range[1] - range[0] < policy.minRange ||
-    range[0] > policy.cleanSupportMax ||
-    range[1] < policy.shaleSupportMin
+    (fixed?.end !== "clean" && range[0] > policy.cleanSupportMax) ||
+    (fixed?.end !== "shale" && range[1] < policy.shaleSupportMin)
   )
     reasons.push("Falta rango o soporte de ambos extremos.");
   if (points.some((p) => !Number.isFinite(inverse(p.target, method))))
     reasons.push("Objetivo fuera del dominio del método Vsh.");
-  const association = regression(points, method);
+  const association = regression(points, method, fixed);
   if (
     !Number.isFinite(association.clean) ||
     !(association.shale > association.clean)
   )
     reasons.push("Relación no identificable o sin pendiente positiva.");
-  const raw = await optimize(points, method, bounds, checkpoint),
-    applied = rounded(raw, bounds);
+  const raw = await optimize(points, method, bounds, checkpoint, fixed),
+    applied = rounded(raw, bounds, fixed);
   if (!inside(raw, bounds) || !inside(applied, bounds))
     reasons.push("Extremos fuera de límites o pendiente no positiva.");
   if (
-    raw.clean <= bounds.clean.min + bounds.clean.step ||
-    raw.clean >= bounds.clean.max - bounds.clean.step ||
-    raw.shale <= bounds.shale.min + bounds.shale.step ||
-    raw.shale >= bounds.shale.max - bounds.shale.step
+    (fixed?.end !== "clean" &&
+      (raw.clean <= bounds.clean.min + bounds.clean.step ||
+        raw.clean >= bounds.clean.max - bounds.clean.step)) ||
+    (fixed?.end !== "shale" &&
+      (raw.shale <= bounds.shale.min + bounds.shale.step ||
+        raw.shale >= bounds.shale.max - bounds.shale.step))
   )
     reasons.push("Solución en el borde del dominio.");
   const resultMetrics = metrics(points, applied, method);
@@ -353,9 +442,9 @@ export async function fitGrCalibration(
       Math.max(...training.map((p) => p.target)) -
       Math.min(...training.map((p) => p.target));
     if (trainRange < policy.minRange) continue;
-    const fitted = await optimize(training, method, bounds, checkpoint);
+    const fitted = await optimize(training, method, bounds, checkpoint, fixed);
     if (!inside(fitted, bounds)) continue;
-    const roundedFit = rounded(fitted, bounds);
+    const roundedFit = rounded(fitted, bounds, fixed);
     endpoints.push(fitted);
     folds.push({
       training: training.length,
@@ -414,6 +503,7 @@ export async function fitGrCalibration(
   await checkpoint();
   return {
     method,
+    ...(fixed ? { fixed: { end: fixed.end, value: fixed.value } } : {}),
     raw,
     applied,
     metrics: resultMetrics,
