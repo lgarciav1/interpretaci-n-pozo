@@ -2,12 +2,20 @@ import { useEffect, useRef, useState } from "react";
 import { parseTable, type RawTable } from "../../io";
 import { buildXrdSet, type XrdMapping } from "../../io/xrd";
 import {
-  pairXrd,
   xrdComposition,
   xrdContract,
   type XrdContract,
-  type XrdPair,
 } from "../../core/preparation/xrd";
+import { acceptXrdComparison } from "../../core/state/xrd";
+import {
+  evaluateXrdComparison,
+  xrdInputDigest,
+  exportXrdComparisonCsv,
+  readXrdRecord,
+  XRD_COMPARISON_SETTING,
+  type XrdComparisonRecord,
+  type XrdComparisonRow,
+} from "../../core/preparation/xrdEvidence";
 import { addPointSet } from "../../core/state/pointSets";
 import { enableProjectInputRevisions } from "../../core/state/inputRevisions";
 import { entryPreparationPlan } from "../../core/state/preparation";
@@ -59,10 +67,18 @@ export function XrdPanel({
     [shift, setShift] = useState("0"),
     [target, setTarget] = useState<"native" | "solid-volume">("native"),
     [densities, setDensities] = useState<Record<string, number>>({});
+  const [densityReferences, setDensityReferences] = useState<
+    Record<string, string>
+  >({});
+  const [densityUncertainties, setDensityUncertainties] = useState<
+    Record<string, string>
+  >({});
   const [comparison, setComparison] = useState<{
       base: Project;
       key: string;
-      rows: { pair: XrdPair; composition: ReturnType<typeof xrdComposition> }[];
+      rows: XrdComparisonRow[];
+      record: XrdComparisonRecord;
+      verification: string;
     } | null>(null),
     [busy, setBusy] = useState(false);
   const previewBase = useRef<Project | null>(null);
@@ -84,7 +100,20 @@ export function XrdPanel({
     shift,
     target,
     densities,
+    densityReferences,
+    densityUncertainties,
   ]);
+  const currentDraft = useRef(comparisonKey);
+  currentDraft.current = comparisonKey;
+  const selectSet = (id: string) => {
+    setSetId(id);
+    setDensities({});
+    setDensityReferences({});
+    setDensityUncertainties({});
+    setTarget("native");
+    setComparison(null);
+    setError("");
+  };
   let data: ReturnType<typeof resolveDataContext> | null = null,
     problem = "";
   try {
@@ -104,6 +133,43 @@ export function XrdPanel({
   } catch (e) {
     problem = String(e);
   }
+  let savedRecord: XrdComparisonRecord | null = null,
+    savedError = "";
+  try {
+    savedRecord = readXrdRecord(
+      entry.interpretation.pointSets[setId]?.settings?.[XRD_COMPARISON_SETTING],
+    );
+  } catch (e) {
+    savedError = String(e);
+  }
+  const restoreSaved = () => {
+    if (!savedRecord) return;
+    const c = savedRecord.config;
+    setCurveId(c.curveId);
+    setGap(String(c.maxGapM));
+    setCoverage(String(c.minCoverage));
+    setShift(String(c.shiftM));
+    setTarget(c.target);
+    setDensities(
+      Object.fromEntries(
+        Object.entries(c.densities).map(([id, d]) => [id, d.value]),
+      ),
+    );
+    setDensityReferences(
+      Object.fromEntries(
+        Object.entries(c.densities).map(([id, d]) => [id, d.reference]),
+      ),
+    );
+    setDensityUncertainties(
+      Object.fromEntries(
+        Object.entries(c.densities).map(([id, d]) => [
+          id,
+          d.uncertainty === undefined ? "" : String(d.uncertainty),
+        ]),
+      ),
+    );
+    setComparison(null);
+  };
   const options = [
     { value: "", label: "Sin asignar" },
     ...(table?.columns.map((c, i) => ({ value: String(i), label: c.name })) ??
@@ -382,7 +448,7 @@ export function XrdPanel({
                           preview,
                         );
                       });
-                      setSetId(preview.id);
+                      selectSet(preview.id);
                       setPreview(null);
                       setTable(null);
                       setError("");
@@ -403,13 +469,31 @@ export function XrdPanel({
               <Select
                 aria-label="Conjunto DRX"
                 value={setId}
-                onChange={setSetId}
+                onChange={selectSet}
                 options={[
                   { value: "", label: "Elegir ensayo" },
                   ...sets.map((s) => ({ value: s.id, label: s.name })),
                 ]}
               />
             </Field>
+            {savedError && (
+              <Callout tone="error">
+                {savedError} Se conserva el registro sin modificarlo.
+              </Callout>
+            )}
+            {savedRecord && (
+              <>
+                <p role="status">
+                  Comparación guardada: {savedRecord.evidence.usable}/
+                  {savedRecord.evidence.rows} pares utilizables. Evidencia sin
+                  verificar en esta sesión; recuperá la configuración y volvé a
+                  comparar.
+                </p>
+                <Button onClick={restoreSaved}>
+                  Recuperar configuración DRX guardada
+                </Button>
+              </>
+            )}
             <Field label="Curva para comparar con DRX">
               <Select
                 aria-label="Curva para comparar con DRX"
@@ -419,7 +503,7 @@ export function XrdPanel({
                   { value: "", label: "Elegir original o preparada" },
                   ...(data?.eligible.map((c) => ({
                     value: c.id,
-                    label: c.mnemonic,
+                    label: `${c.mnemonic} (${c.unit})`,
                   })) ?? []),
                 ]}
               />
@@ -443,6 +527,7 @@ export function XrdPanel({
             ))}
             <Field label="Cantidad DRX de comparación">
               <Select
+                aria-label="Cantidad DRX de comparación"
                 value={target}
                 onChange={(v) => setTarget(v as typeof target)}
                 options={[
@@ -462,18 +547,43 @@ export function XrdPanel({
               (() => {
                 try {
                   return xrdContract(set).minerals.map((m) => (
-                    <Field key={m.id} label={`Densidad ${m.name} (g/cm³)`}>
-                      <TextField
-                        value={
-                          densities[m.id] === undefined
-                            ? ""
-                            : String(densities[m.id])
-                        }
-                        onChange={(v) =>
-                          setDensities((d) => ({ ...d, [m.id]: Number(v) }))
-                        }
-                      />
-                    </Field>
+                    <div key={m.id}>
+                      <Field label={`Densidad ${m.name} (g/cm³)`}>
+                        <TextField
+                          aria-label={`Densidad ${m.name} (g/cm³)`}
+                          value={
+                            densities[m.id] === undefined
+                              ? ""
+                              : String(densities[m.id])
+                          }
+                          onChange={(v) =>
+                            setDensities((d) => ({ ...d, [m.id]: Number(v) }))
+                          }
+                        />
+                      </Field>
+                      <Field label={`Referencia de densidad ${m.name}`}>
+                        <TextField
+                          aria-label={`Referencia de densidad ${m.name}`}
+                          value={densityReferences[m.id] ?? ""}
+                          onChange={(v) =>
+                            setDensityReferences((d) => ({ ...d, [m.id]: v }))
+                          }
+                        />
+                      </Field>
+                      <Field
+                        label={`Incertidumbre de densidad ${m.name} (g/cm³, opcional)`}
+                      >
+                        <TextField
+                          value={densityUncertainties[m.id] ?? ""}
+                          onChange={(v) =>
+                            setDensityUncertainties((d) => ({
+                              ...d,
+                              [m.id]: v,
+                            }))
+                          }
+                        />
+                      </Field>
+                    </div>
                   ));
                 } catch {
                   return <p>Contrato DRX no reconocido.</p>;
@@ -500,21 +610,42 @@ export function XrdPanel({
                     );
                   const curve = data!.eligible.find((c) => c.id === curveId);
                   if (!curve) throw new Error("Fuente no disponible.");
-                  const rows = await pairXrd(
+                  const config = {
+                    curveId,
+                    target,
+                    maxGapM: Number(gap),
+                    minCoverage: Number(coverage),
+                    shiftM: Number(shift),
+                    densities:
+                      target === "solid-volume" && labContract.basis === "mass"
+                        ? Object.fromEntries(
+                            labContract.minerals.map((m) => [
+                              m.id,
+                              {
+                                value: densities[m.id] ?? NaN,
+                                reference: densityReferences[m.id] ?? "",
+                                ...(densityUncertainties[m.id]?.trim()
+                                  ? {
+                                      uncertainty: Number(
+                                        densityUncertainties[m.id],
+                                      ),
+                                    }
+                                  : {}),
+                              },
+                            ]),
+                          )
+                        : {},
+                  };
+                  if (!entry.inputRevisionId)
+                    throw new Error(
+                      "La evidencia DRX requiere una revisión de entradas.",
+                    );
+                  const evaluated = await evaluateXrdComparison(
+                    data!,
+                    entry.interpretation,
                     set!,
-                    entry.well.depth.values,
-                    curve.data,
-                    data!.quality.get(curveId),
-                    {
-                      maxGapM: Number(gap),
-                      minCoverage: Number(coverage),
-                      shiftM: Number(shift),
-                      boundaries: entry.interpretation.zones.flatMap((z) => [
-                        z.top,
-                        z.base,
-                      ]),
-                      decisions: entry.interpretation.pointSets[set!.id],
-                    },
+                    config,
+                    entry.inputRevisionId,
                     async () => {
                       await new Promise((r) => setTimeout(r, 0));
                       if (
@@ -524,13 +655,25 @@ export function XrdPanel({
                         throw new Error("Comparación cancelada u obsoleta.");
                     },
                   );
+                  if (
+                    token !== task.current ||
+                    useProject.getState().project !== project
+                  )
+                    throw new Error("Comparación obsoleta.");
+                  const verification = !savedRecord
+                    ? "Comparación nueva, aún sin guardar."
+                    : savedRecord.evidence.inputDigest ===
+                          evaluated.record.evidence.inputDigest &&
+                        savedRecord.evidence.resultDigest ===
+                          evaluated.record.evidence.resultDigest
+                      ? "Evidencia guardada verificada: mismas entradas y resultados."
+                      : "La evidencia guardada no corresponde a estas entradas, configuración o resultados. Esta tabla fue recalculada.";
                   setComparison({
                     base: project,
                     key: comparisonKey,
-                    rows: rows.map((pair, i) => ({
-                      pair,
-                      composition: xrdComposition(set!, i, target, densities),
-                    })),
+                    rows: evaluated.rows,
+                    record: evaluated.record,
+                    verification,
                   });
                 } catch (e) {
                   setError(String(e));
@@ -558,6 +701,77 @@ export function XrdPanel({
                     constituyen localizaciones independientes. Cruces de zona
                     sirven para comparación global; quedan fuera de un futuro
                     ajuste zonal. No se ajustan parámetros.
+                  </p>
+                  <p role="status">{comparison.verification}</p>
+                  <Button
+                    onClick={() => {
+                      try {
+                        useProject
+                          .getState()
+                          .commit("Guardar comparación DRX", (p) =>
+                            acceptXrdComparison(
+                              p,
+                              comparison.base,
+                              entry.well.id,
+                              setId,
+                              comparison.record,
+                            ),
+                          );
+                        setComparison({
+                          ...comparison,
+                          base: useProject.getState().project,
+                          verification: "Configuración y evidencia guardadas.",
+                        });
+                        setError("");
+                      } catch (e) {
+                        setError(String(e));
+                      }
+                    }}
+                  >
+                    Guardar configuración y evidencia DRX
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      try {
+                        const captured = comparison;
+                        const csv = await exportXrdComparisonCsv(
+                          captured.record,
+                          captured.rows,
+                          set!,
+                          await xrdInputDigest(
+                            data!,
+                            entry.interpretation,
+                            set!,
+                            captured.record.config,
+                            entry.inputRevisionId!,
+                          ),
+                        );
+                        if (
+                          useProject.getState().project !== captured.base ||
+                          currentDraft.current !== captured.key
+                        )
+                          throw new Error(
+                            "La comparación cambió; recalculá antes de exportar.",
+                          );
+                        const url = URL.createObjectURL(
+                          new Blob([csv], { type: "text/csv;charset=utf-8" }),
+                        );
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = "comparacion-drx.csv";
+                        a.click();
+                        setTimeout(() => URL.revokeObjectURL(url), 1000);
+                      } catch (e) {
+                        setError(String(e));
+                      }
+                    }}
+                  >
+                    Exportar comparación DRX (CSV)
+                  </Button>
+                  <p>
+                    La incertidumbre de densidad se conserva como declaración,
+                    sin propagación a intervalos de confianza. Guardar no aplica
+                    calibración ni cambia cutoffs.
                   </p>
                   <table className="prep-editor__table">
                     <caption>

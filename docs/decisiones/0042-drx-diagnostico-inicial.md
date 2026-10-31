@@ -30,4 +30,6 @@ Las réplicas se conservan; no se realiza un ajuste ni se cuentan como localizac
 
 ## Pendiente de P4
 
+Actualización P4b: la configuración/evidencia persistente, procedencia de densidades y exportación se implementan en [ADR 0043](0043-evidencia-persistente-drx.md). El inventario siguiente describe lo pendiente al entregar P4a.
+
 Límites de detección e incertidumbres numéricas, bases heterogéneas por fila, densidades con procedencia e incertidumbre persistidas, configuración/evidencia de emparejado persistente, exportación específica de la tabla y campañas reales de laboratorio. La clasificación arcillosa y las densidades deben venir del ensayo o una referencia explícita del usuario. No se declara validación con DRX real ni calibración científica de GR. P5 conserva sus puertas de identificabilidad, evidencia, ajuste por zona y cutoffs separados.
