@@ -7,7 +7,7 @@
  * destinos se expresan como «antes de la pista X».
  */
 import type { TrackSpec } from '../../core/display';
-import { makeId, type Project } from '../../core/state/project';
+import { makeId, setTrackLayout, type Project } from '../../core/state/project';
 import {
   addCurveToTrack,
   addTrack,
@@ -41,6 +41,7 @@ import type { LayoutDropTarget } from '../../viewer/layoutEdit';
 import type { ViewerOverlay } from '../../viewer/overlay';
 import type { ResolvedCurve, ResolvedTrack } from '../../viewer/resolve';
 import { BUILTIN_LAYOUTS, layoutFor, withOverlayTracks } from '../../viewer/templates';
+import { essentialPetrophysicsLayout } from '../../viewer/essential';
 import { useProject } from '../store/project';
 import type { DragPayload } from './dnd';
 
@@ -73,13 +74,14 @@ export function materializedLayout(project: Project, workspace: WorkspaceId, ove
 }
 
 /** Qué plantilla está aplicada: la de fábrica, una propia o ninguna (pistas tocadas a mano). */
-export type CurrentTemplate = { kind: 'factory' } | { kind: 'template'; id: string; name: string } | { kind: 'custom' };
+export type CurrentTemplate = { kind: 'factory' } | { kind: 'essential' } | { kind: 'template'; id: string; name: string } | { kind: 'custom' };
 
 export function currentTemplate(project: Project, workspace: WorkspaceId, overlays: readonly ViewerOverlay[]): CurrentTemplate {
   const custom = project.display.layouts[workspace];
   if (!custom) return { kind: 'factory' };
   const now = materializedLayout(project, workspace, overlays);
   for (const t of trackTemplatesFor(project, workspace)) if (layoutsEqual(now, withOverlayTracks(t.tracks, overlays, workspace))) return { kind: 'template', id: t.id, name: t.name };
+  if (workspace === 'petrophysics' && layoutsEqual(now, withOverlayTracks(essentialPetrophysicsLayout(), overlays, workspace))) return { kind: 'essential' };
   if (layoutsEqual(now, withOverlayTracks(BUILTIN_LAYOUTS[workspace], overlays, workspace))) return { kind: 'factory' };
   return { kind: 'custom' };
 }
@@ -373,6 +375,16 @@ export function applyTemplate(id: string, name: string): void {
 export function resetToFactory(workspace: WorkspaceId): void {
   if (!safeCommit('Restablecer pistas de fábrica', (p) => resetTrackLayout(p, workspace))) return;
   announce('Pistas de fábrica restablecidas');
+}
+
+/** Solo cambia display: los datos, fuentes, parámetros y plantillas propias se conservan. */
+export function applyEssentialTemplate(): void {
+  if (!safeCommit('Aplicar Petrofísica esencial', (p) => {
+    const tracks = essentialPetrophysicsLayout();
+    const current = p.display.layouts.petrophysics;
+    return current && layoutsEqual(current, tracks) ? p : setTrackLayout(p, 'petrophysics', tracks);
+  })) return;
+  announce('Petrofísica esencial aplicada. Las demás curvas siguen disponibles en Armar pistas.');
 }
 
 export function deleteTemplate(id: string, name: string): void {

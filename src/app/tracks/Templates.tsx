@@ -7,13 +7,14 @@ import { findTrackTemplate, trackTemplatesFor } from '../../core/state/tracks';
 import type { WorkspaceId } from '../../core/workspaces';
 import { Button, Dialog, Field, Icon, Menu, TextField, type MenuEntry } from '../../ui';
 import type { ViewerOverlay } from '../../viewer/overlay';
+import { ESSENTIAL_NAME } from '../../viewer/essential';
 import { useProject } from '../store/project';
 import { useUi } from '../store/ui';
-import { applyTemplate, currentTemplate, renameTemplate, resetToFactory, saveTemplate, type CurrentTemplate, type LayoutEditor } from './actions';
+import { applyEssentialTemplate, applyTemplate, currentTemplate, renameTemplate, resetToFactory, saveTemplate, type CurrentTemplate, type LayoutEditor } from './actions';
 import { useTrackUi } from './store';
 
 export function templateName(c: CurrentTemplate): string {
-  return c.kind === 'factory' ? 'De fábrica' : c.kind === 'template' ? c.name : 'Personalizadas';
+  return c.kind === 'factory' ? 'De fábrica' : c.kind === 'essential' ? ESSENTIAL_NAME : c.kind === 'template' ? c.name : 'Personalizadas';
 }
 
 /** Plantilla aplicada ahora (se recalcula cuando cambian las pistas del proyecto). */
@@ -27,7 +28,8 @@ export function templateMenuItems(workspace: WorkspaceId, current: CurrentTempla
   const mine = trackTemplatesFor(useProject.getState().project, workspace);
   const check = (on: boolean) => (on ? { icon: 'check' as const } : {});
   return [
-    { id: 'factory', label: 'De fábrica', ...check(current.kind === 'factory'), description: 'Las pistas que trae la app', onSelect: () => current.kind !== 'factory' && resetToFactory(workspace) },
+    { id: 'factory', label: 'De fábrica', ...check(current.kind === 'factory'), description: 'Vista clásica: las pistas que trae la app', onSelect: () => current.kind !== 'factory' && resetToFactory(workspace) },
+    ...(workspace === 'petrophysics' ? [{ id: 'essential', label: ESSENTIAL_NAME, ...check(current.kind === 'essential'), description: 'GR, resistividades, densidad–neutrón y resultados en pistas separadas. Las demás curvas siguen en Armar pistas.', onSelect: () => current.kind !== 'essential' && applyEssentialTemplate() } satisfies MenuEntry] : []),
     { type: 'label', id: 'l-m', label: mine.length ? 'Mis plantillas' : 'Mis plantillas · ninguna todavía' },
     ...mine.map((t): MenuEntry => ({ id: `t:${t.id}`, label: t.name, ...check(current.kind === 'template' && current.id === t.id), description: t.savedAt ? `Guardada el ${new Date(t.savedAt).toLocaleDateString('es-AR')}` : 'Plantilla propia', onSelect: () => applyTemplate(t.id, t.name) })),
     { type: 'separator', id: 's' },
