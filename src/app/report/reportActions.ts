@@ -89,12 +89,13 @@ export async function generateReport(options: ReportOptions): Promise<{ html: st
   const xy = listXYFigures();
   if (!entry) throw new Error('Cargá un pozo para generar el informe.');
   if (state.busy || state.error || !state.result || !sameContext(state.result.context,entryContext(entry))) throw new Error('Esperá a que termine el cálculo del pozo activo antes de generar el informe.');
-  const model = buildReportModel(entry.well, entry.interpretation, state.result);
+  const model = buildReportModel(entry.well, entry.interpretation, state.result, new Date(), undefined,
+    project.inputRevisions?.[entry.inputRevisionId ?? '']?.acquisition);
   const env = figureEnv();
   const html = await renderReport(options, model, env);
   const latest = selectActiveEntry(useProject.getState());
   const results = useResults.getState();
-  if (!latest || latest.well !== entry.well || !sameEngineInputs(latest.interpretation, entry.interpretation) || latest.interpretation !== entry.interpretation || useProject.getState().project.display !== project.display || results.result !== state.result || results.busy || results.error || workspace !== useUi.getState().workspace || (options.xyIds.length > 0 && xy !== listXYFigures())) throw new Error('El estado cambió mientras se generaba el informe. Generá una nueva copia.');
+  if (!latest || latest.inputRevisionId !== entry.inputRevisionId || latest.well !== entry.well || !sameEngineInputs(latest.interpretation, entry.interpretation) || latest.interpretation !== entry.interpretation || useProject.getState().project.display !== project.display || results.result !== state.result || results.busy || results.error || workspace !== useUi.getState().workspace || (options.xyIds.length > 0 && xy !== listXYFigures())) throw new Error('El estado cambió mientras se generaba el informe. Generá una nueva copia.');
   return { html, name: `${safeFileName(entry.well.name, 'pozo')}_informe.html` };
 }
 
