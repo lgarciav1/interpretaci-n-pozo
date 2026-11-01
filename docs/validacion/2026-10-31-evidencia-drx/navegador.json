@@ -1,0 +1,17 @@
+{
+  "errors": [],
+  "rows": 3,
+  "usable": 2,
+  "checks": [
+    "density provenance",
+    "typed dot/comma decimals",
+    "declared density uncertainty",
+    "save evidence",
+    "undo redo",
+    "CSV export",
+    "fresh browser re-open",
+    "content verification",
+    "stale invalidation",
+    "future version preserved"
+  ]
+}

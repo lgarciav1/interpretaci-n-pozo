@@ -153,8 +153,11 @@ export function createXrdSet(
     columns,
   });
 }
+const contractCache = new WeakMap<PointSet, XrdContract>();
 export function xrdContract(set: PointSet): XrdContract {
   if (set.kind !== "xrd") throw new Error("Se requiere un conjunto DRX.");
+  const cached = contractCache.get(set);
+  if (cached) return cached;
   const texts = pointTexts(set, "xrd:contract");
   if (!texts?.length || texts.some((t) => t !== texts[0]))
     throw new Error(
@@ -162,6 +165,7 @@ export function xrdContract(set: PointSet): XrdContract {
     );
   const c = JSON.parse(texts[0]!) as XrdContract;
   validateXrdContract(c);
+  contractCache.set(set, c);
   return c;
 }
 export interface XrdComposition {
@@ -233,6 +237,10 @@ export function xrdComposition(
     !Number.isFinite(clay)
   )
     return fail("Conversión fuera de dominio numérico.");
+  if (!(target === "solid-volume" && c.basis === "mass") && clay > 1)
+    return fail(
+      "Contenido de arcillas fuera de 0–1; revisá el cierre del ensayo.",
+    );
   // Base nativa conserva los valores; solo masa→volumen normaliza con densidades.
   return {
     clayFraction:
@@ -244,6 +252,8 @@ export function xrdComposition(
 }
 export interface XrdPair {
   id: string;
+  topMD: number;
+  baseMD: number | null;
   value: number | null;
   coverage: number;
   dispersion: number | null;
@@ -364,16 +374,23 @@ export async function pairXrd(
     const reason =
       options.decisions?.points[id]?.status === "exclude"
         ? "Muestra excluida por decisión"
-        : value === null
-          ? "Sin soporte válido"
-          : coverage + 1e-12 < options.minCoverage
-            ? "Cobertura insuficiente"
-            : null;
+        : value !== null &&
+            (!Number.isFinite(value) ||
+              (dispersion !== null && !Number.isFinite(dispersion)))
+          ? "Fuera del dominio numérico del emparejado"
+          : value === null
+            ? "Sin soporte válido"
+            : coverage + 1e-12 < options.minCoverage
+              ? "Cobertura insuficiente"
+              : null;
     pairs.push({
       id,
+      topMD: top,
+      baseMD: Number.isFinite(base) ? base : null,
       value: reason ? null : value,
       coverage,
-      dispersion,
+      dispersion:
+        dispersion !== null && Number.isFinite(dispersion) ? dispersion : null,
       quality: flags,
       reason,
       crossesZone,
