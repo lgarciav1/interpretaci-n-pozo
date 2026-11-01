@@ -8,3 +8,10 @@ export function maskQualityCounts(quality: Uint16Array) {
   }
   return { excluded, originallyMissing, newlyExcluded };
 }
+
+/** Conserva la API de conteo de máscaras; las estimaciones se cuentan aparte. */
+export function preparationQualityCounts(quality: Uint16Array) {
+  let interpolated = 0;
+  for (const q of quality) if (q & Quality.Interpolated) interpolated++;
+  return { ...maskQualityCounts(quality), interpolated };
+}

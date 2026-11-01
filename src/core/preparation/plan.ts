@@ -5,11 +5,12 @@ import type { Registry } from '../registry';
 import type { Curve, Well } from '../well';
 import { selectDataCurves, type DataContext } from './projection';
 import { preparedCurveId } from './source';
-import { maskRanges, preparationStateKey, PREPARATION_BUDGET, validatePreparation } from './state';
+import { interpolationSourceProblem } from './interpolation';
+import { maskRanges, preparationStateKey, PREPARATION_BUDGET, validatePreparation, type GapFill } from './state';
 
 export interface MaskBinding { depthKey: string; contentVersion: string; mnemonic: string; role: string | null; unit: string }
 export type PreparationBindings = Readonly<Record<string, MaskBinding | null>>;
-export interface PlannedMask {
+export interface PlannedPreparation {
   id: string;
   nodeId: string;
   sourceCurveId: string;
@@ -18,6 +19,8 @@ export interface PlannedMask {
   unit: string;
   recipeKey: string;
   ranges: { top: number; base: number }[];
+  gapFill?: GapFill;
+  boundaries?: number[];
   provenance: CurveProvenance;
   /** Una máscara no corrige efectos ambientales. */
   correctionLedger: [];
@@ -27,7 +30,7 @@ export interface PreparationPlan {
   context: EngineContext;
   originalKey: string;
   bindings: PreparationBindings;
-  artifacts: PlannedMask[];
+  artifacts: PlannedPreparation[];
   diagnostics: { nodeId: string; status: 'disabled' | 'needs-input'; message: string }[];
   toolString?: Interpretation['toolString'];
 }
@@ -38,7 +41,7 @@ export function planPreparation(well: EngineWell, i: Interpretation, inputRevisi
   if (i.preparation !== undefined) validatePreparation(i.preparation);
   const originals = well.curves.map(c => ({ ...c, provenance: curveProvenance(c, depthKey) }));
   const originalKey = curveInputKey(well.id, depthKey, originals);
-  const artifacts: PlannedMask[] = [], diagnostics: PreparationPlan['diagnostics'] = [];
+  const artifacts: PlannedPreparation[] = [], diagnostics: PreparationPlan['diagnostics'] = [];
   const nodes = i.preparation?.nodes ?? [];
   if (nodes.length && well.curves.some(c => c.provenance?.origin === 'prepared')) throw new Error('La preparación necesita originales, no una proyección anterior.');
   if (nodes.length && !inputRevisionId) throw new Error('La preparación necesita revisiones de entradas.');
@@ -51,10 +54,14 @@ export function planPreparation(well: EngineWell, i: Interpretation, inputRevisi
     const id = preparedCurveId(node.id, 'masked');
     if (well.curves.some(c => c.id === id)) throw new Error('El identificador preparado colisiona con un original.');
     const ranges = maskRanges(node.intervals);
-    const recipeKey = JSON.stringify(['mask', 1, c.id, c.provenance.contentVersion, depthKey, c.role, c.unit, ranges]);
+    const gapFill = node.kind === 'linear-interpolation' ? node.gapFill : undefined;
+    if (gapFill && i.zones.some(z => !Number.isFinite(z.top) || !Number.isFinite(z.base) || z.top >= z.base)) throw new Error('Las fronteras de zona deben ser finitas y ordenadas para interpolar.');
+    const boundaries = gapFill ? [...new Set(i.zones.flatMap(z => [z.top, z.base]))].sort((a, b) => a - b) : undefined;
+    if (gapFill) { const problem = interpolationSourceProblem(c); if (problem) throw new Error(problem); }
+    const recipeKey = JSON.stringify([gapFill ? 'linear-interpolation' : 'mask', 1, c.id, c.provenance.contentVersion, depthKey, c.role, c.unit, ranges, ...(gapFill ? [[gapFill.top, gapFill.base, gapFill.maxGapM], boundaries] : [])]);
     const owner = registry.tools.ownerOf(c);
     const provenance: CurveProvenance = { origin: 'prepared', contentVersion: `mask:${recipeKey}`, depthKey, ancestorToolIds: owner ? [owner.id] : [], qualityKey: `mask-quality:${recipeKey}` };
-    artifacts.push({ id, nodeId: node.id, sourceCurveId: c.id, mnemonic: `${c.mnemonic} preparada`, role: c.role, unit: c.unit, recipeKey, ranges, provenance, correctionLedger: [] });
+    artifacts.push({ id, nodeId: node.id, sourceCurveId: c.id, mnemonic: `${c.mnemonic} preparada`, role: c.role, unit: c.unit, recipeKey, ranges, ...(gapFill ? { gapFill: { ...gapFill }, boundaries } : {}), provenance, correctionLedger: [] });
   }
   if (well.depth.length * 10 * artifacts.length > PREPARATION_BUDGET) throw new Error('La preparación supera 128 MiB de artefactos. Reducí la cantidad de curvas.');
   const preparationKey = nodes.length ? JSON.stringify([artifacts.map(a => [a.id, a.provenance]), diagnostics]) : 'identity';
@@ -68,7 +75,13 @@ export function validatePreparedPayloads(plan: PreparationPlan, payloads: unknow
   const seen = new Set<string>();
   for (const p of payloads) {
     const expected = plan.artifacts.find(a => a.id === p?.id);
-    if (!expected || seen.has(p.id) || p.version !== expected.provenance.contentVersion || !(p.data instanceof Float64Array) || !(p.quality instanceof Uint16Array) || p.data.length !== n || p.quality.length !== n || p.quality.some((q: number) => (q & ~3) !== 0)) throw new Error('Artefacto preparado inválido, repetido u obsoleto.');
+    if (!expected || seen.has(p.id) || p.version !== expected.provenance.contentVersion || !(p.data instanceof Float64Array) || !(p.quality instanceof Uint16Array) || p.data.length !== n || p.quality.length !== n) throw new Error('Artefacto preparado inválido, repetido u obsoleto.');
+    for (let k = 0; k < n; k++) {
+      const q = p.quality[k]!, value = p.data[k]!;
+      if (q === 0 || (q === 9 && expected.gapFill)) {
+        if (!Number.isFinite(value)) throw new Error('Una medición o estimación publicada debe ser finita.');
+      } else if ((q !== 1 && q !== 2 && q !== 3) || !Number.isNaN(value)) throw new Error('La calidad de preparación no corresponde al valor publicado.');
+    }
     seen.add(p.id);
   }
 }

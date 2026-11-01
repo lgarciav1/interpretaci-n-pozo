@@ -1,9 +1,10 @@
 import { toEngineWell } from '../engine/engine';
 import { curveProvenance, identityKey } from '../engine/context';
+import { interpolationSourceProblem } from '../preparation/interpolation';
 import { preparationBindings } from '../preparation/bindings';
 import { planPreparation, type PreparationPlan } from '../preparation/plan';
 import { preparedCurveId } from '../preparation/source';
-import { validatePreparation, type MaskInterval, type MaskNode } from '../preparation/state';
+import { preparationState, validateGapFill, validatePreparation, type GapFill, type MaskInterval, type PreparationNode } from '../preparation/state';
 import type { Registry } from '../registry';
 import { enableProjectInputRevisions } from './inputRevisions';
 import { updateInterpretation, type Project, type WellEntry } from './project';
@@ -43,11 +44,11 @@ export function addMaskIntervals(project: Project, wellId: string, curveId: stri
     const depthKey = `depth:${identityKey(depth)}`;
     if (!binding || binding.depthKey !== depthKey || binding.contentVersion !== curveProvenance(curve, depthKey).contentVersion || binding.unit !== curve.unit || binding.role !== curve.role || binding.mnemonic !== curve.mnemonic) throw new Error('La máscara está vinculada a otros datos. Restaurá el original antes de preparar esta revisión.');
   }
-  const node: MaskNode = existing ? { ...existing, enabled: true, intervals: [...existing.intervals, ...intervals] } : {
+  const node: PreparationNode = existing ? { ...existing, enabled: true, intervals: [...existing.intervals, ...intervals] } : {
     id: nodeId, kind: 'mask', methodVersion: 1, enabled: true, input: { kind: 'original', inputRevisionId: entry.inputRevisionId!, curveId }, intervals: [...intervals],
   };
   const previousNodes = entry.interpretation.preparation?.nodes ?? [];
-  const preparation = { schemaVersion: 1 as const, nodes: existing ? previousNodes.map(n => n.id === node.id ? node : n) : [...previousNodes, node] };
+  const preparation = preparationState(existing ? previousNodes.map(n => n.id === node.id ? node : n) : [...previousNodes, node]);
   validatePreparation(preparation);
   return updateInterpretation(next, wellId, i => ({ ...i, preparation, sources: curve.role ? { ...i.sources, [curve.role]: { kind: 'curve', curveId: preparedCurveId(node.id, 'masked') } } : i.sources }));
 }
@@ -60,11 +61,51 @@ export function restoreMaskInterval(project: Project, wellId: string, nodeId: st
     const present = project.wells.find(e => e.well.id === wellId)?.well.curves.some(c => c.id === node.input.curveId);
     if (!present && Object.values(i.sources).some(ref => ref.kind === 'curve' && ref.curveId === preparedCurveId(nodeId, 'masked'))) throw new Error('El original ya no está en la revisión activa. Elegí otra fuente antes de quitar esta máscara.');
     const intervals = intervalId ? node.intervals.filter(r => r.id !== intervalId) : [];
-    if (intervals.length === node.intervals.length) return i;
-    const nodes = i.preparation!.nodes.flatMap(n => n.id !== nodeId ? [n] : intervals.length ? [{ ...node, intervals }] : []);
+    if (intervalId && intervals.length === node.intervals.length) return i;
+    const keep = !!intervalId && (intervals.length > 0 || node.kind === 'linear-interpolation');
+    const nodes = i.preparation!.nodes.flatMap(n => n.id !== nodeId ? [n] : keep ? [{ ...node, intervals }] : []);
     const sources = { ...i.sources };
-    if (!intervals.length) for (const [port, ref] of Object.entries(sources)) if (ref.kind === 'curve' && ref.curveId === preparedCurveId(nodeId, 'masked')) sources[port] = { kind: 'curve', curveId: node.input.curveId };
+    if (!keep) for (const [port, ref] of Object.entries(sources)) if (ref.kind === 'curve' && ref.curveId === preparedCurveId(nodeId, 'masked')) sources[port] = { kind: 'curve', curveId: node.input.curveId };
     const { preparation: _old, ...rest } = i;
-    return { ...rest, sources, ...(nodes.length ? { preparation: { schemaVersion: 1, nodes } as const } : {}) };
+    return { ...rest, sources, ...(nodes.length ? { preparation: preparationState(nodes) } : {}) };
   });
+}
+
+/** Una receta por curva: se conservan las exclusiones y su referencia al original. */
+export function setGapFill(project: Project, wellId: string, curveId: string, gapFill: GapFill, nodeId: string): Project {
+  validateGapFill(gapFill);
+  const next = enableProjectInputRevisions(project);
+  const entry = next.wells.find(e => e.well.id === wellId), curve = entry?.well.curves.find(c => c.id === curveId);
+  if (!entry || !curve) throw new Error('La curva original ya no existe.');
+  const problem = interpolationSourceProblem(curve);
+  if (problem) throw new Error(problem);
+  const depth = entry.well.depth.values;
+  if (gapFill.top < depth[0]! || gapFill.base > depth.at(-1)!) throw new Error('Elegí un tramo de interpolación dentro del pozo.');
+  const existing = entry.interpretation.preparation?.nodes.find(n => n.input.curveId === curveId);
+  if (existing) {
+    const binding = preparationBindings(entry.interpretation, wellId, next.inputRevisions)[existing.id];
+    const depthKey = `depth:${identityKey(depth)}`;
+    if (!binding || binding.depthKey !== depthKey || binding.contentVersion !== curveProvenance(curve, depthKey).contentVersion || binding.unit !== curve.unit || binding.role !== curve.role || binding.mnemonic !== curve.mnemonic) throw new Error('La receta está vinculada a otros datos. Restaurá el original antes de preparar esta revisión.');
+  }
+  const id = existing?.id ?? nodeId;
+  const source = curve.role ? entry.interpretation.sources[curve.role] : undefined;
+  if (existing?.kind === 'linear-interpolation' && existing.enabled && existing.gapFill.top === gapFill.top && existing.gapFill.base === gapFill.base && existing.gapFill.maxGapM === gapFill.maxGapM && (!curve.role || source?.kind === 'curve' && source.curveId === preparedCurveId(id, 'masked'))) return project;
+  const node: PreparationNode = { id, kind: 'linear-interpolation', methodVersion: 1, enabled: true,
+    input: existing?.input ?? { kind: 'original', inputRevisionId: entry.inputRevisionId!, curveId }, intervals: existing?.intervals ?? [], gapFill: { ...gapFill } };
+  const nodes = entry.interpretation.preparation?.nodes ?? [];
+  const preparation = preparationState(existing ? nodes.map(n => n.id === id ? node : n) : [...nodes, node]);
+  validatePreparation(preparation);
+  return updateInterpretation(next, wellId, i => ({ ...i, preparation, sources: curve.role ? { ...i.sources, [curve.role]: { kind: 'curve', curveId: preparedCurveId(id, 'masked') } } : i.sources }));
+}
+
+/** Quita sólo la estimación; las exclusiones y la identidad de salida se conservan. */
+export function removeGapFill(project: Project, wellId: string, nodeId: string): Project {
+  const node = project.wells.find(e => e.well.id === wellId)?.interpretation.preparation?.nodes.find(n => n.id === nodeId);
+  if (!node || node.kind !== 'linear-interpolation') return project;
+  if (!node.intervals.length) return restoreMaskInterval(project, wellId, nodeId);
+  return updateInterpretation(project, wellId, i => ({ ...i, preparation: preparationState(i.preparation!.nodes.map(n => {
+    if (n.id !== nodeId || n.kind !== 'linear-interpolation') return n;
+    const { gapFill: _removed, ...rest } = n;
+    return { ...rest, kind: 'mask' as const };
+  })) }));
 }

@@ -147,7 +147,7 @@ export function describeDiff(entry: DiffEntry, ctx: { registry?: Registry; zones
   const src = (s: SourceRef | undefined) =>
     !s ? 'por defecto' : s.kind === 'curve' ? `curva ${s.curveId}` : ctx.registry?.get(s.moduleId)?.name ?? s.moduleId;
   switch (entry.kind) {
-    case 'preparation': return 'Cambió la preparación de datos (exclusiones o restauraciones).';
+    case 'preparation': return 'Cambió la preparación de datos (exclusiones, estimaciones o restauraciones).';
     case 'param': {
       const label = ctx.registry?.paramSpecs.get(entry.key)?.spec.label ?? entry.key;
       return `${label} (${zoneName(entry.zoneId)}): ${fmt(entry.before)} → ${fmt(entry.after)}`;

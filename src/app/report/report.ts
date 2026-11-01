@@ -2,7 +2,7 @@ import { effectiveWell } from '../preparation/data';
 import { contextMatchesWell, engineDecisionKey, sameContext, wellInputKey } from '../../core/engine/context';
 import { planPreparation } from '../../core/preparation/plan';
 import { toEngineWell } from '../../core/engine/engine';
-import { maskQualityCounts } from '../../core/preparation/quality';
+import { preparationQualityCounts } from '../../core/preparation/quality';
 import type { ClientResult } from '../../core/engine/client';
 import type { Interpretation } from '../../core/interpretation';
 import type { TableCell, TableColumn, TableValue } from '../../core/module';
@@ -58,8 +58,10 @@ export function buildReportModel(well: Well, interpretation: Interpretation, res
   const qc = runQc(originals, { roles: catalog.roles });
   for (const p of current?.preparation?.artifacts ?? []) {
     const a = current!.preparation!.plan.artifacts.find(a => a.id === p.id)!;
-    const counts = maskQualityCounts(p.quality);
-    warnings.push(`Preparación · ${a.mnemonic}: ${counts.newlyExcluded} mediciones excluidas; ${counts.originallyMissing} faltantes originales. Intervalos MD con extremos incluidos: ${a.ranges.map(r => `${number(r.top)}–${number(r.base)} m`).join(', ')}. Los originales se conservan; el control de calidad describe las mediciones originales.`);
+    const counts = preparationQualityCounts(p.quality);
+    if (a.gapFill) warnings.push(`Interpolación lineal en MD · ${a.mnemonic}: ${counts.interpolated} muestras estimadas; tramo ${number(a.gapFill.top)}–${number(a.gapFill.base)} m; distancia máxima entre anclajes ${number(a.gapFill.maxGapM)} m. Calidad 9 = faltante original + interpolada. No extrapola, no cruza fronteras de zona ni rellena exclusiones; los valores estimados no son mediciones.`);
+    const exclusions = a.ranges.length ? `Intervalos MD con extremos incluidos: ${a.ranges.map(r => `${number(r.top)}–${number(r.base)} m`).join(', ')}.` : 'Sin exclusiones por intervalo.';
+    warnings.push(`Preparación · ${a.mnemonic}: ${counts.newlyExcluded} mediciones excluidas; ${counts.originallyMissing} faltantes originales. ${exclusions} Los originales se conservan; el control de calidad describe las mediciones originales.`);
   }
   warnings.push(`Control de calidad de registros: ${qc.status === 'ok' ? 'sin alertas relevantes' : qc.status === 'bad' ? 'datos con problemas importantes' : 'hay advertencias'}.`);
   for (const curve of qc.curves) for (const reason of curve.reasons) warnings.push(`Calidad · ${curve.mnemonic}: ${reason.message}`);
