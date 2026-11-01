@@ -111,6 +111,9 @@ export function TopBar() {
         <Button variant="primary" icon="upload" title="Cargar pozo" onClick={() => setUi({ loadDialog: {} })}>
           Cargar pozo
         </Button>
+        <Button icon="scan" title="Digitalizar registro" onClick={() => setUi({ digitizerOpen: true })} data-testid="digitizer-open">
+          Digitalizar
+        </Button>
         <Button icon="bookmark" title="Snapshots" onClick={() => setUi({ snapshotsOpen: true })} disabled={!entry}>
           Snapshots
           {snapshotCount > 0 && <span className="shell-count num">{snapshotCount}</span>}
