@@ -4,13 +4,15 @@
 
 - Estado: arquitectura y secuencia de implementación, con avances en ramas de revisión detallados al final. **No implica que las funciones nuevas estén disponibles en main; ningún PR de esta secuencia fue integrado.**
 
-- **Avance actual (2026-10-31): P5 implementada y validada en la cadena de revisión hasta [PR #54](https://github.com/lgarciav1/interpretaci-n-pozo/pull/54), sin integrar main.** GR y cutoffs tienen aceptación/evidencia separadas. La sección 39 precisa el cierre y corrige la caracterización de extensiones como bloqueantes en las secciones 37–38; campaña real sigue en la puerta P8.
+- **Avance actual (2026-11-01): P7a implementada para revisión en [PR #58](https://github.com/lgarciav1/interpretaci-n-pozo/pull/58), apilado sobre P6/#57.** Diagnóstico ambiental integrado con el CSV real del TP, hipótesis radial explícita y exportación reproducible. P5 sigue cerrada según sección 39; P8 queda pendiente para la entrega completa. Ver sección 43.
+
+- **Criterio acordado para el TP:** trabajar con los datos disponibles; modelo/condiciones/procesado inaccesibles permanecen desconocidos y no bloquean la interpretación de las curvas entregadas. Las correcciones que requieren esos datos quedan fuera del alcance actual del TP. No se relajan las puertas científicas de los métodos.
 
 
 - **P6 implementada para revisión:** [PR #57](https://github.com/lgarciav1/interpretaci-n-pozo/pull/57) entrega el primer método ambiental concreto (LDEO MGT, GR total), referencias primarias, casos independientes, preview/aceptación y trazabilidad. La puerta original se conserva; las otras familias siguen bloqueadas. Ver sección 42.
 
 
-- **Alcance de validación:** P6 verifica el modelo publicado y su implementación con casos matemáticos independientes. El TP requiere confirmar herramienta/condiciones; no se declara validación de campo ni integración a main.
+- **Alcance de validación:** P6 verifica el modelo publicado y su implementación con casos matemáticos independientes. Aplicar MGT al TP requeriría confirmar herramienta/condiciones; esa función permanece opcional y no condiciona terminar el TP con las curvas disponibles. No se declara validación de campo ni integración a main.
 
 - Fecha: 2026-10-27.
 - Base inspeccionada: main, commit 4f187f6a8d585475efc79b18ed89194b432a2116.
@@ -1043,3 +1045,20 @@ El evaluador puro se integra en el coordinador compartido con cache, memoria aco
 Validación: **2877 pruebas / 169 archivos** en la suite completa; tras el último endurecimiento de adquisición, **27 pruebas / 2 archivos**, typecheck y build aprobados. Chromium verifica alta desde adquisición/datum desconocidos, 46 muestras corregidas/4 no admitidas/1 faltante, preview sin motor principal ni mutación, aceptación/undo/redo, condiciones persistidas en otro navegador, snapshot, exportación LAS con manifiesto/QC y offline sin Worker/SubtleCrypto. Regenerar los fixtures no cambia sus bytes. HTML: **5760024 bytes**, SHA-256 `bc0fcd71a73af473b3213d6c8f08a7a6e8776964627fa186a29680ceaef9f344`.
 
 El TP permanece sin corrección ambiental automática hasta confirmar herramienta y condiciones. Métodos adicionales y validación real de entrega siguen en P7/P8. #57 abierto para revisión, ningún PR integrado, main conserva `4f187f6a8d585475efc79b18ed89194b432a2116`; #32 permanece abierto.
+
+
+## 43. P7a: diagnóstico integrado y alcance con los datos del TP (2026-11-01)
+
+[PR #58](https://github.com/lgarciav1/interpretaci-n-pozo/pull/58), apilado sobre #57, commit `041096c37893db0d8041ff79a1162a233d9aac8b`. [ADR 0051](https://github.com/lgarciav1/interpretaci-n-pozo/blob/codex/diagnostico-ambiental-tp-p7/docs/decisiones/0051-diagnostico-ambiental-con-datos-del-tp.md) fija alcance, procedimientos y matriz de compatibilidad; [validación](https://github.com/lgarciav1/interpretaci-n-pozo/blob/codex/diagnostico-ambiental-tp-p7/docs/validacion/2026-11-01-diagnostico-ambiental-tp.md) conserva reproducción, capturas e informes.
+
+**Instrucción del usuario:** limitar el TP a los datos disponibles porque ciertas condiciones de adquisición son imposibles de verificar en un trabajo de facultad. Los desconocidos se mantienen; no se exige inventarlos ni conseguirlos para terminar el TP. Las correcciones que los requieren quedan fuera del alcance actual. MGT conserva su contrato y es opcional. Este alcance también queda en `datos/README.md`.
+
+**Terminado en esta entrega:** frente de diagnóstico integrado de P7. En «Preparar datos → Diagnóstico ambiental con datos disponibles» se revisan originales CAL/BS, densidad/PE y resistividades, por zona/tramo, con denominadores y lecturas a una profundidad. Varias curvas de un rol requieren elección; unidad incompatible o selección inválida queda sin soporte, sin fallback. Los criterios operativos permiten sensibilidad, sin cambiar parámetros/cutoffs de interpretación. La tabla distingue efectos adquiridos, receta y fuente explícita.
+
+La exploración radial requiere una hipótesis explícita de inducción de arreglo y reutiliza el evaluador existente de una muestra: observaciones/modelo/residuos, parámetros zonales y estados de resolución. Sensibilidades aproximadas, ambigüedad y falta de unicidad siguen visibles; no se selecciona una Rt nueva ni se publican curvas corregidas. Caliper no determina revoque/standoff; PE sospechoso no confirma baritina; separación resistiva no prueba invasión. La matriz del ADR conserva rechazo de doble corrección y composición MGT/P3 existente.
+
+El CSV real aporta 5810 muestras: 189 calipers bajo mínimo, 71 ensanchamientos entre 5621 pares geométricos, 5559 pares PE sospechosos de 5810 y 3882 separaciones ≥10 % con al menos tres resistividades válidas. Un barrido independiente Python del CSV coincide. En 7785,6588 m el modelo radial tiene desajuste bajo pero diámetro mal determinado; el panel informa varios diámetros compatibles, sin afirmar confianza experimental.
+
+Validación: **2885 pruebas / 170 archivos**, typecheck y build aprobados. Chromium verifica adquisición desconocida, zonas/tramos, criterios, selección ambigua, exportación con procedencia y Project serializado exactamente idéntico antes/después de toda la revisión. Offline sin Worker/SubtleCrypto conserva recuentos e hipótesis radial. HTML **5776176 bytes**, SHA-256 `a96c08ae2765dcb594096fddf066f53ef6a7cbf8fda41d6549d392b2c7917941`. Sin nuevas dependencias ni cambios de formatos persistidos.
+
+**Pendiente:** P8, flujo completo de entrega/informe/manual y regresión final con el material disponible. El inventario general de correcciones P7 sigue ampliable; este PR no afirma implementar los métodos excluidos por falta de datos. Se conservan las puertas originales de las secciones 8/13. #58 abierto para revisión; ningún PR integrado, main en `4f187f6a8d585475efc79b18ed89194b432a2116`.
