@@ -18,6 +18,7 @@ import { SuspectReview } from './SuspectReview';
 import { XrdPanel } from './XrdPanel';
 import { RunEditor, CorrelationReview } from './RunEditor';
 import { EnvironmentPanel } from './EnvironmentPanel';
+import { EnvironmentDiagnosticPanel } from './EnvironmentDiagnosticPanel';
 import { setRunDepthShift } from '../../core/state/runs';
 import { ShiftEditor } from './ShiftEditor';
 import { FilterEditor } from './FilterEditor';
@@ -157,6 +158,7 @@ function MaskEditor({ wellId }: { wellId: string }) {
       </div>
       <div className="prep-editor__actions"><Button size="sm" onClick={() => { const d = entry.well.depth.values; setTop(String(Math.max(d[0]!, visible?.top ?? d[0]!))); setBase(String(Math.min(d.at(-1)!, visible?.base ?? d.at(-1)!))); }}>Usar tramo visible</Button><span>Se incluyen las muestras en ambos extremos. Las filas y la profundidad se conservan.</span></div>
       <XrdPanel project={project} entry={entry} />
+      <EnvironmentDiagnosticPanel project={project} entry={entry} top={number(top)} base={number(base)} />
       <EnvironmentPanel project={project} entry={entry} curveId={curveId} />
       <SuspectReview project={project} entry={entry} curveId={curveId} top={number(top)} base={number(base)} disabled={!activeTarget} onPreview={previewSamples} onInvalidate={invalidatePreview} />
       <InterpolationEditor problem={selected ? interpolationSourceProblem(selected) : null} disabled={!entry || !selected || !activeTarget} onPreview={previewInterpolation} onInvalidate={invalidatePreview} />

@@ -1,0 +1,259 @@
+{
+  "kind": "observational-environment-diagnostic",
+  "version": 1,
+  "basis": "original-measured-curves",
+  "wellId": "pozo-tp-perfiles",
+  "rangeM": {
+    "top": 7633.2588,
+    "base": 8518.5504
+  },
+  "criteria": {
+    "minCaliperIn": 5,
+    "washoutToleranceIn": 1,
+    "minSeparation": 0.1,
+    "peMin": 4,
+    "rhoMax": 2.55
+  },
+  "inputs": [
+    {
+      "role": "CALI",
+      "curveId": "CAL",
+      "mnemonic": "CAL",
+      "originalUnit": "in",
+      "canonicalUnit": "in"
+    },
+    {
+      "role": "BS",
+      "curveId": "BS",
+      "mnemonic": "BS",
+      "originalUnit": "in",
+      "canonicalUnit": "in"
+    },
+    {
+      "role": "PEF",
+      "curveId": "PE",
+      "mnemonic": "PE",
+      "originalUnit": "b/e",
+      "canonicalUnit": "b/e"
+    },
+    {
+      "role": "RHOB",
+      "curveId": "ZDEN",
+      "mnemonic": "ZDEN",
+      "originalUnit": "g/cm3",
+      "canonicalUnit": "g/cm3"
+    },
+    {
+      "role": "RA10",
+      "curveId": "AT10",
+      "mnemonic": "AT10",
+      "originalUnit": "ohm.m",
+      "canonicalUnit": "ohm.m"
+    },
+    {
+      "role": "RA30",
+      "curveId": "AT30",
+      "mnemonic": "AT30",
+      "originalUnit": "ohm.m",
+      "canonicalUnit": "ohm.m"
+    },
+    {
+      "role": "RM",
+      "curveId": "AT60",
+      "mnemonic": "AT60",
+      "originalUnit": "ohm.m",
+      "canonicalUnit": "ohm.m"
+    },
+    {
+      "role": "RT",
+      "curveId": "AT90",
+      "mnemonic": "AT90",
+      "originalUnit": "ohm.m",
+      "canonicalUnit": "ohm.m"
+    }
+  ],
+  "issues": [],
+  "total": {
+    "samples": 5810,
+    "invalidCaliper": 189,
+    "geometryPairs": 5621,
+    "washout": 71,
+    "belowBit": 4550,
+    "pePairs": 5810,
+    "suspectPe": 5559,
+    "resistivityTriples": 5810,
+    "separated": 3882,
+    "firstReviewIndex": 0
+  },
+  "zones": [
+    {
+      "id": "zone-a",
+      "name": "A",
+      "counts": {
+        "samples": 599,
+        "invalidCaliper": 39,
+        "geometryPairs": 560,
+        "washout": 68,
+        "belowBit": 105,
+        "pePairs": 599,
+        "suspectPe": 566,
+        "resistivityTriples": 599,
+        "separated": 498,
+        "firstReviewIndex": 0
+      }
+    },
+    {
+      "id": "zone-b",
+      "name": "B",
+      "counts": {
+        "samples": 1192,
+        "invalidCaliper": 0,
+        "geometryPairs": 1192,
+        "washout": 0,
+        "belowBit": 778,
+        "pePairs": 1192,
+        "suspectPe": 1167,
+        "resistivityTriples": 1192,
+        "separated": 694,
+        "firstReviewIndex": 599
+      }
+    },
+    {
+      "id": "zone-c",
+      "name": "C",
+      "counts": {
+        "samples": 419,
+        "invalidCaliper": 0,
+        "geometryPairs": 419,
+        "washout": 0,
+        "belowBit": 370,
+        "pePairs": 419,
+        "suspectPe": 385,
+        "resistivityTriples": 419,
+        "separated": 289,
+        "firstReviewIndex": 1791
+      }
+    },
+    {
+      "id": "zone-d",
+      "name": "D",
+      "counts": {
+        "samples": 1818,
+        "invalidCaliper": 0,
+        "geometryPairs": 1818,
+        "washout": 3,
+        "belowBit": 1796,
+        "pePairs": 1818,
+        "suspectPe": 1747,
+        "resistivityTriples": 1818,
+        "separated": 1564,
+        "firstReviewIndex": 2210
+      }
+    },
+    {
+      "id": "zone-e",
+      "name": "E",
+      "counts": {
+        "samples": 1782,
+        "invalidCaliper": 150,
+        "geometryPairs": 1632,
+        "washout": 0,
+        "belowBit": 1501,
+        "pePairs": 1782,
+        "suspectPe": 1694,
+        "resistivityTriples": 1782,
+        "separated": 837,
+        "firstReviewIndex": 4028
+      }
+    }
+  ],
+  "inputRevisionId": null,
+  "acquisition": {
+    "schemaVersion": 1,
+    "depth": {
+      "kind": "MD",
+      "datum": null
+    },
+    "runs": []
+  },
+  "inspectedSample": {
+    "index": 1000,
+    "depthM": 7785.6588,
+    "values": {
+      "CALI": 8.512,
+      "BS": 8.5,
+      "PEF": 7.652,
+      "RHOB": 2.343,
+      "RA10": 2.121,
+      "RA30": 1.772,
+      "RM": 1.548,
+      "RT": 1.52
+    },
+    "geometry": "within-tolerance",
+    "deltaIn": 0.012000000000000455,
+    "suspectPe": true,
+    "resistivityCount": 4,
+    "separation": 0.39539473684210535
+  },
+  "radialHypothesis": {
+    "basis": "approximate-array-induction-on-originals",
+    "status": "poorly-resolved",
+    "description": {
+      "tone": "warn",
+      "title": "di mal determinado",
+      "detail": "Varios diámetros de invasión reproducen las lecturas casi igual. El modelo no determina un diámetro único; no se adopta Rxo ni di para la interpretación."
+    },
+    "params": {
+      "minSeparation": 0.1,
+      "maxMisfit": 0.15,
+      "bitSize": 8.5
+    },
+    "bitSize": 8.5,
+    "bitFrom": "curve",
+    "misfit": 0.009720383991740049,
+    "compatibleDiameterIn": {
+      "low": 32.13627464932227,
+      "high": 102.10079440751905
+    },
+    "readings": [
+      {
+        "role": "RA10",
+        "label": "AT10",
+        "r50": 10,
+        "observed": 2.121,
+        "modelled": 2.1234452269738164,
+        "relativeError": -0.0011515375780618564
+      },
+      {
+        "role": "RA30",
+        "label": "AT30",
+        "r50": 30,
+        "observed": 1.772,
+        "modelled": 1.7601219526084384,
+        "relativeError": 0.006748422956692757
+      },
+      {
+        "role": "RM",
+        "label": "AT60",
+        "r50": 60,
+        "observed": 1.548,
+        "modelled": 1.5723748676960452,
+        "relativeError": -0.015501944349798014
+      },
+      {
+        "role": "RT",
+        "label": "AT90",
+        "r50": 90,
+        "observed": 1.52,
+        "modelled": 1.5056554466395278,
+        "relativeError": 0.009527115511379414
+      }
+    ]
+  },
+  "limitations": [
+    "Diagnóstico de originales; no aplica correcciones ni cambia fuentes.",
+    "Umbrales operativos; PE no confirma baritina; CAL no determina revoque/standoff; separación no prueba invasión.",
+    "Modelo radial aproximado bajo hipótesis explícita; no certificado del fabricante ni nueva Rt seleccionada.",
+    "Metadatos de adquisición desconocidos permanecen desconocidos."
+  ]
+}

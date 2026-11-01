@@ -1,0 +1,22 @@
+{
+  "basis": "Independent Python standard-library CSV scan; no production imports",
+  "csvSha256": "6e3a8d64fe6af0c8183080379bd8d3a3bbaaf5ed55ae918350df600fc818eab0",
+  "criteria": {
+    "minimumCaliperIn": 5,
+    "washoutToleranceIn": 1,
+    "peMin": 4,
+    "rhoMax": 2.55,
+    "minSeparation": 0.1
+  },
+  "counts": {
+    "samples": 5810,
+    "invalidCaliper": 189,
+    "geometryPairs": 5621,
+    "washout": 71,
+    "belowBit": 4550,
+    "pePairs": 5810,
+    "suspectPe": 5559,
+    "resistivityTriples": 5810,
+    "separated": 3882
+  }
+}

@@ -1,0 +1,259 @@
+{
+  "kind": "observational-environment-diagnostic",
+  "version": 1,
+  "basis": "original-measured-curves",
+  "wellId": "pozo-tp-perfiles",
+  "rangeM": {
+    "top": 7785.66,
+    "base": 7786
+  },
+  "criteria": {
+    "minCaliperIn": 5,
+    "washoutToleranceIn": 1,
+    "minSeparation": 0.1,
+    "peMin": 4,
+    "rhoMax": 2.55
+  },
+  "inputs": [
+    {
+      "role": "CALI",
+      "curveId": "CAL",
+      "mnemonic": "CAL",
+      "originalUnit": "in",
+      "canonicalUnit": "in"
+    },
+    {
+      "role": "BS",
+      "curveId": "BS",
+      "mnemonic": "BS",
+      "originalUnit": "in",
+      "canonicalUnit": "in"
+    },
+    {
+      "role": "PEF",
+      "curveId": "PE",
+      "mnemonic": "PE",
+      "originalUnit": "b/e",
+      "canonicalUnit": "b/e"
+    },
+    {
+      "role": "RHOB",
+      "curveId": "ZDEN",
+      "mnemonic": "ZDEN",
+      "originalUnit": "g/cm3",
+      "canonicalUnit": "g/cm3"
+    },
+    {
+      "role": "RA10",
+      "curveId": "AT10",
+      "mnemonic": "AT10",
+      "originalUnit": "ohm.m",
+      "canonicalUnit": "ohm.m"
+    },
+    {
+      "role": "RA30",
+      "curveId": "AT30",
+      "mnemonic": "AT30",
+      "originalUnit": "ohm.m",
+      "canonicalUnit": "ohm.m"
+    },
+    {
+      "role": "RM",
+      "curveId": "AT60",
+      "mnemonic": "AT60",
+      "originalUnit": "ohm.m",
+      "canonicalUnit": "ohm.m"
+    },
+    {
+      "role": "RT",
+      "curveId": "AT90",
+      "mnemonic": "AT90",
+      "originalUnit": "ohm.m",
+      "canonicalUnit": "ohm.m"
+    }
+  ],
+  "issues": [],
+  "total": {
+    "samples": 2,
+    "invalidCaliper": 0,
+    "geometryPairs": 2,
+    "washout": 0,
+    "belowBit": 2,
+    "pePairs": 2,
+    "suspectPe": 2,
+    "resistivityTriples": 2,
+    "separated": 2,
+    "firstReviewIndex": 1001
+  },
+  "zones": [
+    {
+      "id": "zone-a",
+      "name": "A",
+      "counts": {
+        "samples": 0,
+        "invalidCaliper": 0,
+        "geometryPairs": 0,
+        "washout": 0,
+        "belowBit": 0,
+        "pePairs": 0,
+        "suspectPe": 0,
+        "resistivityTriples": 0,
+        "separated": 0,
+        "firstReviewIndex": null
+      }
+    },
+    {
+      "id": "zone-b",
+      "name": "B",
+      "counts": {
+        "samples": 2,
+        "invalidCaliper": 0,
+        "geometryPairs": 2,
+        "washout": 0,
+        "belowBit": 2,
+        "pePairs": 2,
+        "suspectPe": 2,
+        "resistivityTriples": 2,
+        "separated": 2,
+        "firstReviewIndex": 1001
+      }
+    },
+    {
+      "id": "zone-c",
+      "name": "C",
+      "counts": {
+        "samples": 0,
+        "invalidCaliper": 0,
+        "geometryPairs": 0,
+        "washout": 0,
+        "belowBit": 0,
+        "pePairs": 0,
+        "suspectPe": 0,
+        "resistivityTriples": 0,
+        "separated": 0,
+        "firstReviewIndex": null
+      }
+    },
+    {
+      "id": "zone-d",
+      "name": "D",
+      "counts": {
+        "samples": 0,
+        "invalidCaliper": 0,
+        "geometryPairs": 0,
+        "washout": 0,
+        "belowBit": 0,
+        "pePairs": 0,
+        "suspectPe": 0,
+        "resistivityTriples": 0,
+        "separated": 0,
+        "firstReviewIndex": null
+      }
+    },
+    {
+      "id": "zone-e",
+      "name": "E",
+      "counts": {
+        "samples": 0,
+        "invalidCaliper": 0,
+        "geometryPairs": 0,
+        "washout": 0,
+        "belowBit": 0,
+        "pePairs": 0,
+        "suspectPe": 0,
+        "resistivityTriples": 0,
+        "separated": 0,
+        "firstReviewIndex": null
+      }
+    }
+  ],
+  "inputRevisionId": null,
+  "acquisition": {
+    "schemaVersion": 1,
+    "depth": {
+      "kind": "MD",
+      "datum": null
+    },
+    "runs": []
+  },
+  "inspectedSample": {
+    "index": 1001,
+    "depthM": 7785.8112,
+    "values": {
+      "CALI": 8.497,
+      "BS": 8.5,
+      "PEF": 8.009,
+      "RHOB": 2.382,
+      "RA10": 3.234,
+      "RA30": 2.723,
+      "RM": 2.325,
+      "RT": 2.188
+    },
+    "geometry": "below-bit",
+    "deltaIn": -0.0030000000000001137,
+    "suspectPe": true,
+    "resistivityCount": 4,
+    "separation": 0.4780621572212065
+  },
+  "radialHypothesis": {
+    "basis": "approximate-array-induction-on-originals",
+    "status": "poorly-resolved",
+    "description": {
+      "tone": "warn",
+      "title": "di mal determinado",
+      "detail": "Varios diámetros de invasión reproducen las lecturas casi igual. El modelo no determina un diámetro único; no se adopta Rxo ni di para la interpretación."
+    },
+    "params": {
+      "minSeparation": 0.1,
+      "maxMisfit": 0.15,
+      "bitSize": 8.5
+    },
+    "bitSize": 8.5,
+    "bitFrom": "curve",
+    "misfit": 0.003834401793203701,
+    "compatibleDiameterIn": {
+      "low": 55.64071964207639,
+      "high": 156.8361174863658
+    },
+    "readings": [
+      {
+        "role": "RA10",
+        "label": "AT10",
+        "r50": 10,
+        "observed": 3.234,
+        "modelled": 3.2368348227896364,
+        "relativeError": -0.0008758008810574314
+      },
+      {
+        "role": "RA30",
+        "label": "AT30",
+        "r50": 30,
+        "observed": 2.723,
+        "modelled": 2.7135765143807085,
+        "relativeError": 0.0034727178575402196
+      },
+      {
+        "role": "RM",
+        "label": "AT60",
+        "r50": 60,
+        "observed": 2.325,
+        "modelled": 2.3388820133999797,
+        "relativeError": -0.005935320089019647
+      },
+      {
+        "role": "RT",
+        "label": "AT90",
+        "r50": 90,
+        "observed": 2.188,
+        "modelled": 2.1808477080731903,
+        "relativeError": 0.0032795925640900503
+      }
+    ]
+  },
+  "limitations": [
+    "Diagnóstico de originales; no aplica correcciones ni cambia fuentes.",
+    "Umbrales operativos; PE no confirma baritina; CAL no determina revoque/standoff; separación no prueba invasión.",
+    "Modelo radial aproximado bajo hipótesis explícita; no certificado del fabricante ni nueva Rt seleccionada.",
+    "Metadatos de adquisición desconocidos permanecen desconocidos."
+  ]
+}
