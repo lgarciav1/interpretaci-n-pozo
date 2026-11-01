@@ -118,7 +118,7 @@ export default defineModule({
   },
   docs: {
     summary:
-      'Densidad de matriz aparente: la densidad de matriz que haría que la porosidad por densidad coincidiera con la porosidad total de densidad–neutrón (independiente de la matriz supuesta). En areniscas limpias y acuíferas ronda 2,65 g/cm³ (cuarzo), en calizas 2,71 y en dolomías 2,87; valores menores señalan gas o hidrocarburo liviano, carbón o un fluido supuesto demasiado denso, y mayores, minerales pesados (pirita, anhidrita). El valor por zona es la mediana de las muestras limpias (Vsh hasta el máximo elegido), con P10 y P90 de la distribución. Se compara con la densidad de grano de los plugs y con la densidad de matriz que iguala la porosidad densidad con la de corona en el panel Calibración, que también calibra el exponente de cementación m.',
+      'Densidad de matriz aparente: la densidad de matriz que haría que la porosidad por densidad coincidiera con la porosidad total de densidad–neutrón (independiente de la matriz supuesta). En areniscas limpias y acuíferas ronda 2,65 g/cm³ (cuarzo), en calizas 2,71 y en dolomías 2,87; valores menores señalan gas o hidrocarburo liviano, carbón o un fluido supuesto demasiado denso, y mayores, minerales pesados (pirita, anhidrita). El valor por zona es la mediana de las muestras limpias (Vsh hasta el máximo elegido), con P10 y P90 de la distribución. Se compara con la densidad de grano de los plugs y con la densidad de matriz que iguala la porosidad densidad con la de corona en el panel Calibración, que también calibra los exponentes de Archie: m con el factor de formación y n con el índice de resistividad de los plugs.',
     equations: [
       { latex: '\\rho_{maa} = \\frac{\\rho_b - \\phi_t\\,\\rho_f}{1 - \\phi_t}', description: 'Densidad de matriz aparente (g/cm³) con la porosidad total φt de densidad–neutrón; sin dato si φt < 0 o φt ≥ 1.' },
       { latex: '\\rho_{ma} = \\rho_f + \\frac{\\sum d_i^2}{\\sum d_i\\,(1 - \\phi_{c,i})},\\quad d_i = \\rho_{b,i} - \\rho_f', description: 'Densidad de matriz que iguala, en mínimos cuadrados, la porosidad densidad con la porosidad de corona φc de los plugs (solución cerrada).' },
@@ -126,6 +126,8 @@ export default defineModule({
       { latex: 'b_1^{RMA} = \\operatorname{signo}(s_{xy})\\sqrt{s_{yy}/s_{xx}},\\quad b_1^{OLS} = s_{xy}/s_{xx}', description: 'Rectas de calibración corona = b0 + b1·perfil: eje mayor reducido (ambas variables con error) y mínimos cuadrados ordinarios.' },
       { latex: 'F = \\frac{a}{\\phi^m} \\;\\Rightarrow\\; \\ln F = \\ln a - m\\ln\\phi', description: 'Exponente de cementación desde el factor de formación de los plugs, con a fija (regresión por el origen) o libre.' },
       { latex: 'm = \\frac{\\ln(a\\,R_w/R_t)}{\\ln\\phi}', description: 'Exponente de cementación por muestra en una zona acuífera (Sw = 1, Rt = Ro); se usa la mediana.' },
+      { latex: 'RI = \\frac{R_t}{R_o} = S_w^{-n} \\;\\Rightarrow\\; n = -\\frac{\\sum \\ln S_{w,i}\\,\\ln RI_i}{\\sum (\\ln S_{w,i})^2}', description: 'Exponente de saturación desde el ensayo de índice de resistividad de los plugs: recta por el origen (RI = 1 en Sw = 1) en log RI – log Sw; también se informa la recta con ordenada libre.' },
+      { latex: 'n = -\\frac{\\ln RI}{\\ln S_w}', description: 'Exponente de saturación puntual de un plug (un paso de desaturación con Sw < 1).' },
     ],
     references: [
       'Asquith, G. y Krygowski, D. (2004). Basic Well Log Analysis, 2.ª ed. AAPG Methods in Exploration 16, caps. 4 y 5.',

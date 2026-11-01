@@ -35,6 +35,8 @@ export {
 export type { BuildPressureOptions, BuildPressureResult, PressureColumnMapping, PressureField } from './pressures';
 export { buildCoreSet, CORE_COLUMNS, CORE_FIELD_DIMENSION, CORE_FIELD_LABEL, CORE_SET_KIND, CORE_UNITS, coreFieldUnit, suggestCoreMapping } from './core';
 export type { BuildCoreOptions, BuildCoreResult, CoreColumnMapping, CoreField } from './core';
+export { buildRiSet, CORE_RI_COLUMNS, CORE_RI_SET_KIND, RI_FIELD_DIMENSION, RI_FIELD_LABEL, riFieldUnit, suggestRiMapping } from './coreRi';
+export type { BuildRiOptions, BuildRiResult, RiColumnMapping, RiField } from './coreRi';
 export { getCurveQc, restrictQcReport, PAD_ROLES, PHYSICAL_RANGES, QC_DEFAULTS, QC_FLAGS, runQc, unreliableMask } from './qc';
 export type {
   BoreholeInterval,
