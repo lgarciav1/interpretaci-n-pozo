@@ -11,7 +11,7 @@
  *
  * Presentación: no conoce los stores. Lo conecta `src/modules/crossplot/dock.tsx`.
  */
-import { Fragment, memo, useEffect, useMemo, useState } from 'react';
+import { Fragment, memo, useEffect, useMemo, useRef, useState } from 'react';
 import type { SourceRef } from '../../core/interpretation';
 import type { CrossplotConfig, CrossplotTemplateId } from '../../core/plots';
 import type { HiddenCurve } from '../../core/toolString';
@@ -189,6 +189,8 @@ interface ClayState {
   estimate: EndpointEstimate;
   /** Escrituras de la propuesta (vacío si no hay propuesta o ya es la vigente). */
   writes: ParamWrite[];
+  /** Aviso si los extremos están más cerca que dos anchos de banda. */
+  close: string | null;
 }
 
 interface TemplateContext {
@@ -510,15 +512,22 @@ function thomasStieberDrawing(out: TemplateDrawing, t: TemplateContext, c: (hex:
   const summary = counts ? clayDistributionSummary(counts) : null;
   const estimate: EndpointEstimate = onAxes ? estimateClayEndpoints(t.cloudX, t.cloudY) : { phiSand: null, phiShale: null, nSand: 0, nShale: 0, problem: 'Los ejes no son VSH y PHIT.' };
   const writes = estimate.phiSand !== null && estimate.phiShale !== null && !estimate.problem ? clayEstimateWrites(estimate.phiSand, estimate.phiShale, params, scope) : [];
-  out.clay = { phiSand, phiShale, summary: summary?.text ?? null, estimate, writes };
+  // Extremos casi iguales: la diagonal queda casi horizontal y la banda laminar cubre buena parte del diagrama.
+  const close = phiSand - phiShale < 2 * tol ? 'φ arena y φ lutita difieren menos que dos anchos de la banda laminar: la diagonal queda casi horizontal y la clasificación separa poco. La porosidad total de la lutita incluye el agua ligada a la arcilla y puede acercarse a la de la arena; revisá los extremos y la porosidad total.' : null;
+  out.clay = { phiSand, phiShale, summary: summary?.text ?? null, estimate, writes, close };
   out.readouts.push(
     { label: 'φ arena limpia', value: sandText, color: accent, point: 'circle' },
     { label: 'φ lutita', value: shaleText, color: accent, point: 'circle' },
     { label: 'Banda laminar', value: `± ${formatParam(PLOT_PARAMS.clayBand, tol)}` },
   );
   if (summary && counts) {
-    out.readouts.push({ label: 'Laminar · dispersa · estructural', value: `${pct(summary.pct.laminated)} · ${pct(summary.pct.dispersed)} · ${pct(summary.pct.structural)}` });
-    out.readouts.push({ label: 'Sin clasificar', value: `${formatNumber(counts.unclassified, { digits: 0 })} de ${formatNumber(counts.total, { digits: 0 })}` });
+    // Porcentajes sobre las muestras clasificadas (las de arena limpia, lutita y fuera del diagrama, aparte).
+    out.readouts.push(
+      { label: 'Laminar', value: pct(summary.pct.laminated), color: colors.laminated },
+      { label: 'Dispersa (A)', value: pct(summary.pct.dispersed), color: colors.dispersed },
+      { label: 'Estructural (B)', value: pct(summary.pct.structural), color: colors.structural },
+      { label: 'Sin clasificar', value: `${formatNumber(counts.unclassified, { digits: 0 })} de ${formatNumber(counts.total, { digits: 0 })}` },
+    );
   }
   out.info = onAxes
     ? 'Arrastrá los extremos (arena limpia a la izquierda, lutita a la derecha) para elegir sus porosidades; las rectas, las regiones y el resumen se recalculan. Región A (debajo de la diagonal): arcilla dispersa; región B (encima): estructural; sobre la diagonal: laminar. Quedan sin clasificar la arena limpia (Vsh < 0,1), la lutita (Vsh > 0,9) y los puntos fuera del diagrama. Orientativo: confirmar con corona, imágenes o RMN.'
@@ -666,8 +675,18 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
   // Curvas por defecto: densidad contra neutrón si hay; si no, las dos primeras.
   const xKey = config.x ?? keyForRole(ctx, 'NPHI') ?? options[0]?.value ?? null;
   const yKey = config.y ?? keyForRole(ctx, 'RHOB') ?? options[1]?.value ?? options[0]?.value ?? null;
-  const cx = useMemo(() => resolvePlotCurve(ctx, xKey), [ctx, xKey]);
-  const cy = useMemo(() => resolvePlotCurve(ctx, yKey), [ctx, yKey]);
+  // Mientras el motor recalcula, el resultado queda vacío (`ctx.computed` sin curvas) y un eje calculado (VSH, PHIT,
+  // PHIE) dejaría de resolverse: el gráfico se desmontaría a mitad de un arrastre que cambia un parámetro (los extremos
+  // de Thomas–Stieber, 0061). Durante ese hueco se sigue mostrando la última curva de la misma clave.
+  const pending = ctx.computed.length === 0;
+  const lastX = useRef<PlotCurve | null>(null);
+  const lastY = useRef<PlotCurve | null>(null);
+  const cxNow = useMemo(() => resolvePlotCurve(ctx, xKey), [ctx, xKey]);
+  const cyNow = useMemo(() => resolvePlotCurve(ctx, yKey), [ctx, yKey]);
+  const cx = cxNow ?? (pending && lastX.current?.key === xKey ? lastX.current : null);
+  const cy = cyNow ?? (pending && lastY.current?.key === yKey ? lastY.current : null);
+  if (cxNow) lastX.current = cxNow;
+  if (cyNow) lastY.current = cyNow;
   const colorKey = config.color.kind === 'curve' ? config.color.curve : null;
   const cc = useMemo(() => resolvePlotCurve(ctx, colorKey), [ctx, colorKey]);
   // Curvas elegidas que la sarta oculta (0032): se conserva la elección y se dice por qué no se ven.
@@ -1185,6 +1204,11 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
                   {config.template === 'rhomaa-umaa' && <Button size="sm" variant="ghost" onClick={() => onChange({ xRange: [...UMAA_CHART_RANGE.u], yRange: [...UMAA_CHART_RANGE.rho] }, 'Volver al rango de la carta ρmaa–Umaa')}>Rango de la carta</Button>}
                   {tpl.readouts.length > 0 && <span className="plot-muted"> {tpl.pickett.length > 1 || tpl.pickett[0]?.key ? 'una recta por zona' : pscope.zoneId ? pscope.text : 'global'}</span>}
                 </div>
+                {config.template === 'thomas-stieber' && tpl.clay?.summary && (
+                  <p className="plot-summary" data-testid="thomas-stieber-summary">
+                    {tpl.clay.summary}
+                  </p>
+                )}
                 {tpl.readouts.length > 0 && (
                   <dl className="plot-params">
                     {tpl.readouts.map((r) => (
@@ -1203,10 +1227,10 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
                     {w.text}
                   </DriverCallout>
                 ))}
-                <p className="plot-hint">{tpl.info}</p>
                 {config.template === 'thomas-stieber' && tpl.clay && (
                   <ClayEstimateBlock clay={tpl.clay} onApply={() => props.onParams(CLAY_ESTIMATE_LABEL, tpl.clay!.writes, 'commit')} />
                 )}
+                <p className="plot-hint">{tpl.info}</p>
                 {tpl.byZoneOffer && (
                   <Button size="sm" variant="secondary" icon="layers" onClick={() => onChange({ zones: tpl.byZoneOffer! }, 'Ver una recta de agua por zona')} title="Filtra las zonas visibles: cada una se dibuja con su recta y sus parámetros">
                     Una recta por zona
@@ -1402,11 +1426,7 @@ function ClayEstimateBlock({ clay, onApply }: { clay: ClayState; onApply(): void
   const ok = e.phiSand !== null && e.phiShale !== null && !e.problem;
   return (
     <div className="plot-water" data-testid="thomas-stieber">
-      {clay.summary && (
-        <p className="plot-summary" data-testid="thomas-stieber-summary">
-          {clay.summary}
-        </p>
-      )}
+      {clay.close && <p className="plot-hint plot-hint--warn">{clay.close}</p>}
       {ok ? (
         <p className="plot-hint">
           De los puntos visibles: φ arena {formatParam(PLOT_PARAMS.phiSand, e.phiSand!)} ({formatNumber(e.nSand, { digits: 0 })} muestras con Vsh ≤ 0,1) · φ lutita {formatParam(PLOT_PARAMS.phiShale, e.phiShale!)} ({formatNumber(e.nShale, { digits: 0 })} con Vsh ≥ 0,9).

@@ -66,7 +66,7 @@ describe('capas del diagrama', () => {
     const l = thomasStieberLayers(0.3, 0.1, 0.02);
     const drawn = l.lines.filter((x) => x.x.length === 2 && !x.id.startsWith('ts-band'));
     expect(drawn.map((x) => x.id)).toEqual(['ts-dispersed-pore', 'ts-dispersed-grain', 'ts-structural-grain', 'ts-structural-pore', 'ts-laminated']);
-    expect(l.lines.filter((x) => x.label).map((x) => x.label)).toEqual(['Dispersa · relleno de poros', 'Dispersa · reemplazo de granos', 'Estructural · reemplazo de granos', 'Estructural · relleno de poros', 'Laminada']);
+    expect(l.lines.filter((x) => x.label).map((x) => x.label)).toEqual(['Dispersa · relleno de poros', 'Dispersa · reemplazo de granos', 'Estructural · reemplazo de granos', 'Estructural · relleno de poros', 'Laminada', 'A · arcilla dispersa', 'B · arcilla estructural']);
     const pore = l.lines.find((x) => x.id === 'ts-dispersed-pore')!;
     expect(pore.x[1]).toBeCloseTo(0.3, 12);
     expect(pore.y[1]).toBeCloseTo(0.03, 12);
@@ -76,7 +76,10 @@ describe('capas del diagrama', () => {
     const up = l.lines.find((x) => x.id === 'ts-band-up')!;
     expect(up.y[0]).toBeCloseTo(0.32, 12);
     expect(up.y[1]).toBeCloseTo(0.12, 12);
-    expect(l.polygons.map((p) => p.label)).toEqual(['A · dispersa', 'B · estructural']);
+    expect(l.polygons.map((p) => p.name)).toEqual(['Región A · arcilla dispersa', 'Región B · arcilla estructural']);
+    // Región A debajo de la diagonal, B encima (vértices del motor).
+    expect(l.polygons[0]!.vertices[1]![1]).toBeLessThan(0.3 * 0.7 + 0.1 * 0.3);
+    expect(l.polygons[1]!.vertices[1]![1]).toBeGreaterThan(0.3 * 0.3 + 0.1 * 0.7);
     for (const line of l.lines) for (const v of [...Array.from(line.x), ...Array.from(line.y)]) expect(Number.isFinite(v)).toBe(true);
   });
   it('extremos inválidos: sin capas', () => {

@@ -72,10 +72,10 @@ export default defineModule({
       label: 'Distribución de la arcilla por zona',
       columns: [
         { key: 'zone', label: 'Zona', kind: 'text' },
-        { key: 'laminated', label: 'Laminar (%)' },
-        { key: 'dispersed', label: 'Dispersa (%)' },
-        { key: 'structural', label: 'Estructural (%)' },
-        { key: 'unclassified', label: 'Sin clasificar (%)' },
+        { key: 'laminated', label: 'Laminar', unit: '%' },
+        { key: 'dispersed', label: 'Dispersa', unit: '%' },
+        { key: 'structural', label: 'Estructural', unit: '%' },
+        { key: 'unclassified', label: 'Sin clasificar', unit: '%' },
         { key: 'samples', label: 'Muestras con dato' },
         { key: 'dominant', label: 'Predomina', kind: 'text' },
       ],
@@ -85,10 +85,13 @@ export default defineModule({
     const { vsh, phit } = inputs;
     const dist = new Float64Array(n).fill(NaN);
     const bad = new Set<string>();
+    const close = new Set<string>();
     for (const s of segments) {
       const { phiSand, phiShale, bandTolerance } = s.params;
+      const name = s.zoneId ? (zones.find((z) => z.id === s.zoneId)?.name ?? s.zoneId) : 'fuera de las zonas';
+      if (validEndpoints(phiSand, phiShale) && phiSand - phiShale < 2 * bandTolerance && s.end > s.start) close.add(name);
       if (!validEndpoints(phiSand, phiShale)) {
-        bad.add(s.zoneId ? (zones.find((z) => z.id === s.zoneId)?.name ?? s.zoneId) : 'fuera de las zonas');
+        bad.add(name);
         continue;
       }
       for (let i = s.start; i < s.end; i++) {
@@ -97,6 +100,7 @@ export default defineModule({
       }
     }
     for (const z of bad) warn(`La φ de la lutita no es menor que la de la arena (${z}): la distribución queda sin dato.`);
+    if (close.size) warn(`φ de la arena y de la lutita difieren menos que dos anchos de la banda laminar (${[...close].join(', ')}): la diagonal es casi horizontal y la clasificación separa poco.`);
 
     const row = (zone: string, start: number, end: number): Record<string, TableCell> => {
       const c = [0, 0, 0, 0];

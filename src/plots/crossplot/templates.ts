@@ -543,8 +543,15 @@ export function thomasStieberLayers(phiSand: number, phiShale: number, tolerance
   if (!g) return { polygons: [], lines: [] };
   const centroid = (v: [number, number][]): [number, number] => [v.reduce((a, p) => a + p[0], 0) / v.length, v.reduce((a, p) => a + p[1], 0) / v.length];
   const polygons: XYPolygonLayer[] = [
-    { id: 'ts-region-a', name: 'Región A · arcilla dispersa', vertices: g.regionA, color: colors.dispersed, fillAlpha: 0.12, width: 0.001, label: 'A · dispersa', labelPosition: centroid(g.regionA) },
-    { id: 'ts-region-b', name: 'Región B · arcilla estructural', vertices: g.regionB, color: colors.structural, fillAlpha: 0.12, width: 0.001, label: 'B · estructural', labelPosition: centroid(g.regionB) },
+    { id: 'ts-region-a', name: 'Región A · arcilla dispersa', vertices: g.regionA, color: colors.dispersed, fillAlpha: 0.12, width: 0.001 },
+    { id: 'ts-region-b', name: 'Región B · arcilla estructural', vertices: g.regionB, color: colors.structural, fillAlpha: 0.12, width: 0.001 },
+  ];
+  // Rótulos de las regiones como rótulos de línea (con fondo, encima de la nube), cerca del centro de cada triángulo.
+  const [ax, ay] = centroid(g.regionA);
+  const [bx, by] = centroid(g.regionB);
+  const regionLabels: XYLineLayer[] = [
+    { id: 'ts-region-a-label', x: [ax - 0.06], y: [ay], color: colors.dispersed, label: 'A · arcilla dispersa', labelAt: 'start' },
+    { id: 'ts-region-b-label', x: [bx - 0.06], y: [by], color: colors.structural, label: 'B · arcilla estructural', labelAt: 'start' },
   ];
   /** Punto a una fracción `t` del tramo (para el rótulo de la recta). */
   const at = (l: { x: number[]; y: number[] }, t: number): [number, number] => [l.x[0]! + t * (l.x[1]! - l.x[0]!), l.y[0]! + t * (l.y[1]! - l.y[0]!)];
@@ -562,6 +569,7 @@ export function thomasStieberLayers(phiSand: number, phiShale: number, tolerance
     ...seg('structural-grain', 'Estructural · reemplazo de granos', g.structuralGrainReplacing, colors.structural, 'Estructural · reemplazo de granos', 0.35),
     ...seg('structural-pore', 'Estructural · relleno de poros', g.structuralPoreFilling, colors.structural, 'Estructural · relleno de poros', 0.35),
     ...seg('laminated', 'Laminada', g.laminated, colors.laminated, 'Laminada', 0.45, 2.25),
+    ...regionLabels,
   ];
   const tol = Math.max(0, tolerance);
   if (tol > 0) {
