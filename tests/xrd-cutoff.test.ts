@@ -13,7 +13,7 @@ import {
 } from "../src/core/preparation/xrdCutoff";
 import { previewXrdCutoff, applyXrdCutoff } from "../src/core/state/xrdCutoff";
 import { registry } from "../src/modules";
-import { calibrationPreviewRequest } from "../src/app/preparation/calibrationPreview";
+import { calibrationPreviewRequest } from "../src/modules/preparation/calibrationPreview";
 import {
   createInProcessClient,
   type ClientResult,

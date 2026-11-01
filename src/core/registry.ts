@@ -2,7 +2,7 @@
  * Registro de módulos: valida el contrato de todos los módulos juntos y arma los índices que usa el motor.
  * Si algo está mal lanza un `RegistryError` con TODOS los problemas encontrados (no solo el primero).
  */
-import { PORT_KIND_LABEL, portOf, type AnyModule, type PortKind } from './module';
+import { PORT_KIND_LABEL, portOf, type AnyModule, type PanelModuleDefinition, type PortKind } from './module';
 import { paramStorageKey, sharedSpecDifferences, validateParamSpec, type ParamSpec, type ParamsSpec } from './params';
 import { BUILTIN_ROLES, RoleCatalog, validateRoleDef, type RoleDef } from './roles';
 import { BUILTIN_TOOLS, ToolCatalog, validateToolDef, type ToolDef } from './tools';
@@ -20,6 +20,11 @@ export interface PortInfo {
 
 export interface Registry {
   readonly modules: readonly AnyModule[];
+  /**
+   * Módulos de panel (0058): herramientas de la interfaz sin puertos ni cálculo en el motor (p. ej. «Preparar
+   * datos»). Comparten espacio de ids, categorías y `docs` (módulo Ecuaciones) con los módulos; el motor no los ve.
+   */
+  readonly panels: readonly PanelModuleDefinition[];
   readonly roles: RoleCatalog;
   /** Herramientas de perfilaje: las incorporadas + las que declaran los módulos (sarta, docs/decisiones/0032). */
   readonly tools: ToolCatalog;
@@ -32,6 +37,8 @@ export interface Registry {
   /** Avisos que no impiden arrancar (p. ej. una clave compartida en un módulo y propia en otro). */
   readonly warnings: readonly string[];
   get(id: string): AnyModule | undefined;
+  /** Módulo de panel por id. */
+  getPanel(id: string): PanelModuleDefinition | undefined;
   /** Etiqueta de una categoría (la conocida o la declarada por un módulo). */
   categoryLabel(id: string): string;
   /** Posición en el registro (para ordenar de forma determinística). */
@@ -65,11 +72,13 @@ export interface RegistryOptions {
    * compartido de un módulo tiene que estar en el catálogo y ser idéntico. La app pasa `src/modules/sharedParams.ts`.
    */
   sharedParams?: ParamsSpec;
+  /** Módulos de panel (0058): se validan su identidad, categoría, espacio de trabajo y docs; no entran al motor. */
+  panels?: readonly PanelModuleDefinition[];
 }
 
 export function createRegistry(modules: readonly AnyModule[], options: RegistryOptions = {}): Registry {
   const problems: string[] = [];
-  const where = (m: AnyModule) => `Módulo '${m.id ?? '?'}'`;
+  const where = (m: Pick<AnyModule, 'id'>) => `Módulo '${m.id ?? '?'}'`;
 
   // 1. Identidad y metadatos
   const byId = new Map<string, AnyModule>();
@@ -93,10 +102,33 @@ export function createRegistry(modules: readonly AnyModule[], options: RegistryO
     }
   }
 
+  // 1a. Módulos de panel: misma identidad, espacio de trabajo y docs; sin compute ni puertos (0058).
+  const panels = options.panels ?? [];
+  const panelById = new Map<string, PanelModuleDefinition>();
+  for (const m of panels) {
+    if (!m || typeof m !== 'object') {
+      problems.push('Hay una entrada vacía en la lista de módulos de panel.');
+      continue;
+    }
+    const at = `Módulo de panel '${m.id ?? '?'}'`;
+    if (typeof m.id !== 'string' || !MODULE_ID_PATTERN.test(m.id)) problems.push(`${at}: el id debe estar en kebab-case.`);
+    if (byId.has(m.id) || panelById.has(m.id)) problems.push(`Hay dos módulos con el id '${m.id}'.`);
+    panelById.set(m.id, m);
+    if (!m.name?.trim()) problems.push(`${at}: falta el nombre.`);
+    const ws = typeof m.workspace === 'string' ? [m.workspace] : m.workspace;
+    if (!Array.isArray(ws) || ws.length === 0) problems.push(`${at}: falta el espacio de trabajo.`);
+    else for (const w of ws) if (!isWorkspaceId(w)) problems.push(`${at}: espacio de trabajo desconocido '${w}'.`);
+    if ('compute' in m || 'outputs' in m || 'inputs' in m) problems.push(`${at}: un módulo de panel no declara entradas, salidas ni compute (registralo en MODULES si corre en el motor).`);
+    if (!m.docs || typeof m.docs.summary !== 'string' || !Array.isArray(m.docs.equations) || !Array.isArray(m.docs.references)) {
+      problems.push(`${at}: docs debe tener summary, equations y references.`);
+    }
+  }
+  const described = [...modules, ...panels];
+
   // 1b. Categorías: las conocidas del núcleo + las que declaren los módulos (id + categoryLabel)
   const known = new Map<string, string>(CATEGORIES.map((c) => [c.id, c.label]));
   const declared = new Map<string, { label: string; owner: string }>();
-  for (const m of modules) {
+  for (const m of described) {
     if (!m || typeof m !== 'object') continue;
     const id = m.category as string;
     if (typeof id !== 'string' || !CATEGORY_ID_PATTERN.test(id)) {
@@ -114,13 +146,13 @@ export function createRegistry(modules: readonly AnyModule[], options: RegistryO
       else if (!prev) declared.set(id, { label, owner: m.id });
     }
   }
-  for (const m of modules) {
+  for (const m of described) {
     if (!m || typeof m !== 'object' || typeof m.category !== 'string') continue;
     if (!known.has(m.category) && !declared.has(m.category)) {
       problems.push(`${where(m)}: categoría desconocida '${m.category}'. Si es nueva, declarala con categoryLabel.`);
     }
   }
-  const used = new Set(modules.filter((m) => m && typeof m === 'object').map((m) => m.category as string));
+  const used = new Set(described.filter((m) => m && typeof m === 'object').map((m) => m.category as string));
   const categories = [
     ...CATEGORIES.filter((c) => used.has(c.id)).map((c) => ({ id: c.id as string, label: c.label as string })),
     ...[...declared].map(([id, d]) => ({ id, label: d.label })),
@@ -279,6 +311,7 @@ export function createRegistry(modules: readonly AnyModule[], options: RegistryO
   const order = new Map(modules.map((m, i) => [m.id, i]));
   return {
     modules,
+    panels,
     roles,
     tools,
     ports,
@@ -286,6 +319,7 @@ export function createRegistry(modules: readonly AnyModule[], options: RegistryO
     categories,
     warnings,
     get: (id) => byId.get(id),
+    getPanel: (id) => panelById.get(id),
     categoryLabel: (id) => known.get(id) ?? declared.get(id)?.label ?? id,
     indexOf: (id) => order.get(id) ?? -1,
   };

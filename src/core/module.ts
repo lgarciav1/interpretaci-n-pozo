@@ -377,6 +377,29 @@ export function defineModule<const I extends InputsSpec, const P extends ParamsS
   return def;
 }
 
-export function moduleWorkspaces(m: AnyModule): readonly WorkspaceId[] {
+/**
+ * Módulo de panel (docs/decisiones/0058): una herramienta de la interfaz que NO es un nodo del motor —no tiene puertos
+ * ni `compute`— pero sí identidad, categoría, espacio de trabajo y `docs` para el módulo Ecuaciones. Se registra en
+ * `src/modules/index.ts` (`PANEL_MODULES`, una línea) y aporta su interfaz con los archivos descubiertos de su carpeta
+ * (`dock.tsx`, `commands.ts`…). Ejemplo: «Preparar datos» (`src/modules/preparation/`), cuyos cálculos viven en
+ * `src/core/preparation/` y corren en el plan de preparación del motor, no como módulo.
+ */
+export interface PanelModuleDefinition {
+  /** kebab-case, único entre módulos y paneles. Es también el nombre de la carpeta. */
+  id: string;
+  name: string;
+  description?: string;
+  category: CategoryId;
+  categoryLabel?: string;
+  workspace: WorkspaceId | readonly WorkspaceId[];
+  docs: ModuleDocs;
+}
+
+/** Declara un módulo de panel (sin puertos ni cálculo en el motor). */
+export function definePanelModule(def: PanelModuleDefinition): PanelModuleDefinition {
+  return def;
+}
+
+export function moduleWorkspaces(m: Pick<AnyModule, 'workspace'>): readonly WorkspaceId[] {
   return typeof m.workspace === 'string' ? [m.workspace] : m.workspace;
 }

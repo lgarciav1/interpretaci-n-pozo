@@ -50,7 +50,7 @@ const PREVIEW_ROWS = 8;
 const nextPaint = () => new Promise<void>((r) => requestAnimationFrame(() => setTimeout(r, 0)));
 const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
-export function LoadPressuresDialog({ onClose, onExample }: { onClose: () => void; onExample?: () => void }) {
+export function LoadPressuresDialog({ onClose, onExample, onTp }: { onClose: () => void; onExample?: () => void; onTp?: () => void }) {
   const commit = useProject((s) => s.commit);
   const [step, setStep] = useState<Step>('source');
   const [busy, setBusy] = useState<string | null>(null);
@@ -230,11 +230,31 @@ export function LoadPressuresDialog({ onClose, onExample }: { onClose: () => voi
             title="Arrastrá la tabla de presiones acá o hacé clic para elegirla"
             description="Excel (.xlsx), CSV o LAS: una fila por prueba con profundidad, presión de formación y, si las hay, movilidad, presión del lodo antes y después, calidad y comentario. Las columnas se reconocen por su nombre; en el paso siguiente podés corregirlas."
           />
+          {(onTp || onExample) && (
+            <div className="lw-or" aria-hidden="true">
+              <span>o</span>
+            </div>
+          )}
+          {onTp && (
+            <div className="lw-tp">
+              <div className="lw-tp__text">
+                <div className="lw-tp__title">Presiones del TP · hoja MDT</div>
+                <div className="ui-text-muted">Las 58 pruebas MDT reales del pozo del TP (zonas B, C y D), con su profundidad en metros tal cual la hoja. Vienen incluidas en la app: no hace falta el Excel.</div>
+              </div>
+              <Button
+                icon="table"
+                onClick={() => {
+                  onTp();
+                  onClose();
+                }}
+                disabled={!!busy}
+              >
+                Cargar presiones del TP
+              </Button>
+            </div>
+          )}
           {onExample && (
             <>
-              <div className="lw-or" aria-hidden="true">
-                <span>o</span>
-              </div>
               <div className="lw-tp">
                 <div className="lw-tp__text">
                   <div className="lw-tp__title">Presiones de ejemplo · sintéticas</div>

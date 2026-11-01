@@ -5,7 +5,7 @@ import { registry } from '../../modules';
 
 export const commands: CommandSource = () => {
   const id = contextEquationId();
-  const name = id ? (registry.get(id)?.name ?? null) : null;
+  const name = id ? (registry.get(id)?.name ?? registry.getPanel(id)?.name ?? null) : null;
   return [
     {
       id: 'help:equations',

@@ -25,6 +25,7 @@ import {
 import { registry } from '../../modules';
 import { selectDataCurves } from '../../core/preparation/projection';
 import type { PreparedPayload } from '../../core/preparation/plan';
+import { describeNormalization } from '../../core/preparation/normalization';
 import { toast } from '../../ui';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useResults } from '../store/results';
@@ -70,7 +71,13 @@ export function exportSources(well: Well, result: ClientResult | null, includeAl
       columns.push({ id: `q:${p.id}`, mnemonic: `${a.mnemonic}_QC`, unit: 'unitless', data, origin: 'prepared', description: 'Calidad MGT: 1=faltante GR original; 64=corregida; 128=fuera de dominio o sin caliper. Sin extrapolación ni fallback original.' });
       continue;
     }
-    columns.push({ id: `q:${p.id}`, mnemonic: `${a.mnemonic}_QC`, unit: 'unitless', data, origin: 'prepared', description: a.shift ? `Alineación MD ${a.shift.offsetM} m; referencia ${a.shift.referenceId}; datum declarado ${a.shift.datum}; hueco máximo ${a.shift.maxGapM} m. Bits QC: 1=soporte sin medición original; 2=exclusión de origen; 8=soporte estimado; 16=filtrada; 32=alineada; 128=sin soporte. Flags heredados del origen, no del índice destino. Sin extrapolación.` : 'Calidad de preparación: 0=conservada; 1=faltante original; 2=excluida; 3=faltante original y excluida' + (a.gapFill ? '; 9=faltante original e interpolada (estimación)' : '') + (a.filter ? '; 16=filtrada; 24=filtrada con influencia interpolada; 25=faltante original interpolada y filtrada' : '') });
+    // Normalización (0060): la curva preparada y su calidad declaran percentiles de origen, referencias e intervalo.
+    const normalized = a.normalization && p.normalization ? describeNormalization(a.normalization.config, p.normalization, a.unit) : null;
+    if (normalized) {
+      const prepared = columns.find((c) => c.id === `m:${p.id}`);
+      if (prepared) prepared.description = [prepared.description, normalized].filter(Boolean).join(' · ');
+    }
+    columns.push({ id: `q:${p.id}`, mnemonic: `${a.mnemonic}_QC`, unit: 'unitless', data, origin: 'prepared', description: (normalized ? normalized + ' ' : '') + (a.shift ? `Alineación MD ${a.shift.offsetM} m; referencia ${a.shift.referenceId}; datum declarado ${a.shift.datum}; hueco máximo ${a.shift.maxGapM} m. Bits QC: 1=soporte sin medición original; 2=exclusión de origen; 8=soporte estimado; 16=filtrada; 32=alineada; 128=sin soporte. Flags heredados del origen, no del índice destino. Sin extrapolación.` : 'Calidad de preparación: 0=conservada; 1=faltante original; 2=excluida; 3=faltante original y excluida' + (a.gapFill ? '; 9=faltante original e interpolada (estimación)' : '') + (a.filter ? '; 16=filtrada; 24=filtrada con influencia interpolada; 25=faltante original interpolada y filtrada' : '')) });
   }
   return {
     columns,

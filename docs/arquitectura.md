@@ -65,9 +65,11 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 | `src/modules/<id>/<x>.worker-only.ts`, `<x>.main-thread.ts` | dependencia pesada que solo corre en el worker y su sustituto sin ella para el hilo principal (ver «Archivos solo-worker») | no |
 | `src/modules/<id>/panel.tsx` | panel a medida (opcional) | sí |
 | `src/modules/<id>/overlay.ts`, `draw.ts` | superposiciones del visor (opcional, `overlays: ViewerOverlay[]`): dibujo, arrastre, pista propia; `draw.ts` (opcional): dibujo en canvas de un panel o una figura del módulo que usa `ui/` y `plots/` (perfil radial, 0020). El worker no los importa y `tests/modules.test.ts` los excluye de la regla de pureza | no (canvas) |
-| `src/modules/index.ts` | **el registro** (una línea por módulo) | no |
+| `src/modules/index.ts` | **el registro** (una línea por módulo): `MODULES` (nodos del motor) y `PANEL_MODULES` (módulos de panel, sin puertos ni cálculo en el motor: identidad, categoría y `docs` para Ecuaciones, 0058) | no |
+| `src/modules/preparation/` | «Preparar datos» (0058): definición de panel pura (`index.ts`), panel del dock (`dock.tsx`, `PreparationPanel.tsx`: tarjetas de curva, tubería, gráfico antes/después, herramientas —incluida «Normalizar» con su histograma, 0060—, pestañas DRX/ambiente/MGT/corridas/guardadas), acciones de la paleta (`commands.ts`), lógica pura de la tubería, las banderas y el histograma (`pipeline.ts`, `flags.ts`, `normalizationView.ts`) y dibujo (`draw.ts`). Los cálculos están en `src/core/preparation/` | `.tsx` sí |
 | `src/modules/sharedParams.ts` | catálogo canónico de parámetros compartidos | no |
 | `src/app/` | arranque, worker (`engine.worker.ts`), puente con el motor, stores (`store/viewer.ts`: cursor y tramo visible), descubrimiento de superposiciones (`viewerOverlays.ts`), pantallas | sí |
+| `src/app/preparation/` | lo de la app sobre la preparación (0058): proyección de datos preparados que usan visor, gráficos, exportación, informe y snapshots (`data.ts`), curvas del visor con «Comparar» (`view.ts`), preferencia de vista y pedido de apertura (`store.ts`) y `openPreparation` (`open.ts`). La interfaz es del módulo `src/modules/preparation/` | sí |
 | `src/app/shell/` | armazón: barra superior, flujo guiado, inspector, dock (`dockPanels.tsx`: una entrada por panel), `ViewerSlot` (conecta stores con el visor: edición de zonas, modo marcar zona, encabezado, «Armar pistas»), `viewerOverlayList.ts` (superposiciones del visor de la app), `CurveEditor` (editor de escalas), diálogos | sí |
 | `src/app/tracks/` | «Armar pistas» (0016): panel con el catálogo (`TrackBuilder.tsx`), plantillas y diálogos (`Templates.tsx`), arrastre con eventos de puntero (`dnd.ts`) y acciones que traducen gestos a recetas con `commit` (`actions.ts`) | sí |
 | `src/app/toolString/` | sarta en la interfaz (0032, 0033): curvas visibles y disponibilidad del pozo activo con caché (`select.ts`), lista de la columna izquierda (`ToolStringPanel.tsx`), vista 3D (`ToolStringView.tsx`) con la escena como descripción pura (`scene.ts`, sin three ni DOM, testeada), la columna litológica del pozo para la formación (`formation.ts`, pura) y su dibujo con three.js (`render3d.ts`), ficha (`ToolSheetCard.tsx`) y atajos en la paleta (`commands.ts`) | `scene.ts` no |
@@ -236,6 +238,12 @@ params: { grClean: SHARED_PARAMS.grClean, grShale: SHARED_PARAMS.grShale },
 
 Si el módulo no encaja en ninguna categoría conocida, declarala en el propio módulo, sin tocar el núcleo:
 `category: 'sedimentology', categoryLabel: 'Sedimentología'`.
+
+**Módulo de panel** (una herramienta de la interfaz que no es nodo del motor, p. ej. «Preparar datos»): `index.ts`
+con `definePanelModule({ id, name, category, workspace, docs })` (sin `inputs`, `outputs`, `params` ni `compute`) y una
+línea en `PANEL_MODULES`. El registro valida identidad, categoría y `docs`; aparece en Ecuaciones y su interfaz va en
+los archivos descubiertos de la carpeta (`dock.tsx`, `commands.ts`, `overlay.ts`…). Decisión:
+[`0058`](decisiones/0058-preparacion-como-modulo.md).
 
 Opcional: un panel a medida en `src/modules/<id>/panel.tsx` que exporte
 `export const panel: ModulePanel = { moduleId: '<id>', component: MiPanel }` (contrato en `src/ui/modulePanel.ts`).
@@ -553,6 +561,18 @@ Decisión: [`docs/decisiones/0021-graficos-conectados-y-pickett.md`](decisiones/
 - Ampliaciones aditivas de `src/plots/xy/`: `selectTool`/`onSelectLasso`/`selectionShapes`, `emphasis`, `markedBins`/
   `onBarClick`, `onEscape`, `XYHandle.labelOnActive`, `XYPointLayer.ring`, `XYLineLayer.preview` (no sale en la figura).
 
+### Crossplots de determinación de litologías (Clase 8)
+
+Decisión: [`docs/decisiones/0059-crossplots-de-litologia.md`](decisiones/0059-crossplots-de-litologia.md).
+
+- Seis plantillas más (`sonic-neutron`, `density-sonic`, `m-n`, `rhomaa-umaa`, `pe-k`, `pe-thk`) con el mismo patrón que
+  `th-k` y `pe-density`: id en `CROSSPLOT_TEMPLATES`, definición en `CROSSPLOT_TEMPLATE_DEFS` (ahora con `group`, `zoneColor`
+  y `needs`) y capas puras en `lithologyTemplateLayers` (`src/plots/crossplot/templates.ts`) con los datos de
+  `src/petro/lithologyIndices.ts`. El menú las agrupa en «Litología y mineralogía» y «Porosidad y fluidos» y muestra el
+  motivo de las que no se pueden armar; una curva derivada que existe pero quedó sin dato también deshabilita la plantilla.
+- Módulo `lithology-indices` (Geología): M, N, Umaa y Th/K por muestra (roles `M`, `N`, `UMAA`, `THK`);
+  ρmaa sigue saliendo de `core-calibration`.
+
 ## Perfil radial de invasión (fase 8b)
 
 Decisión: [`docs/decisiones/0020-perfil-radial-de-invasion.md`](decisiones/0020-perfil-radial-de-invasion.md).
@@ -651,6 +671,10 @@ Decisión: [`docs/decisiones/0023-calibracion-con-corona.md`](decisiones/0023-ca
   (`src/modules/core-calibration/tpRi.ts`) arman los conjuntos, rotulados «Datos del TP» (no sintéticos), con la
   profundidad del Excel ya en profundidad del perfil y los 12 puntos RI individuales descartados por defecto. Tests:
   `tests/tp-datos-corona.test.ts`.
+- **Presiones MDT y SCAL del TP embebidos** ([`0057`](decisiones/0057-mdt-y-scal-del-tp-embebidos.md)): las 58
+  pruebas de la hoja MDT (`tpMdtSet`, `src/modules/mdt/tp.ts`, botón «Cargar presiones del TP», sin gradientes
+  automáticos) y las 8 muestras de la hoja SCAL en el panel «SCAL» del módulo `swi-pc`. Tests:
+  `tests/tp-datos-mdt-scal.test.ts`.
 
 ## Tipos de roca (fase 8, función P)
 
@@ -675,6 +699,43 @@ Saturación) sobre el motor puro `src/petro/swiPc.ts`: curva `SWI` por ley de po
 presión capilar de la planilla de la cátedra (o A y B manuales), bandera `SW_LT_SWI` (Sw < Swi − tolerancia) y tabla
 `SWI_ZONES` por zona. Entradas `PERM` y `PHIE`, `SW` opcional; roles `SWI` y `SW_LT_SWI` declarados por el módulo;
 `SWI` se dibuja punteada sobre `SW` en la pista «Porosidad · Sw» de fábrica. El motor también trae el ajuste log–log
-(`fitSwiPowerLaw`) y el de la presión de desplazamiento (`fitDisplacementPressure`), sin pantalla todavía. Los
+(`fitSwiPowerLaw`) y el de la presión de desplazamiento (`fitDisplacementPressure`); el panel «SCAL» del dock
+(`src/modules/swi-pc/dock.tsx`, [`0057`](decisiones/0057-mdt-y-scal-del-tp-embebidos.md)) muestra los datos SCAL del TP,
+ese ajuste, las seis curvas con su rango y «Usar nivel N». Los
 coeficientes son dato de la cátedra y valen en su rango de √(k/φ). Tests: `tests/petro-swi-pc.test.ts` (valores de mano
 y de numpy, `scripts/qa/swi-pc-reference.py`) y `tests/modules-swi-pc.test.ts` (módulo con el motor).
+
+## Preparar datos (módulo de panel)
+
+Decisión: [`docs/decisiones/0058-preparacion-como-modulo.md`](decisiones/0058-preparacion-como-modulo.md). La
+preparación (exclusión, espurios, interpolación, mediana, alineación, corridas, DRX y calibración GR, diagnóstico
+ambiental, MGT) es el módulo de panel `preparation`: pestaña «Preparar datos» del dock, abierta desde la columna
+izquierda, la paleta («Abrir Preparar datos») o la tarjeta del paso Calidad (`openPreparation`). Flujo: tarjeta de
+curva → herramienta (sliders sobre un borrador) → vista previa viva con el motor aislado de snapshots → «Aplicar» (un
+`commit`, un deshacer). La tubería (`pipeline.ts`) muestra las etapas en el orden del motor con conteos que salen de
+las banderas `Quality`; el gráfico antes/después y la barra de los nueve bits se dibujan en canvas (`draw.ts`). La lógica
+y el formato v7 viven en `src/core/preparation/` y `src/core/state/`. Tests:
+`tests/modules-preparation.test.ts`, `tests/preparation-panel.test.ts`, `tests/preparation-open.test.ts`.
+
+### Normalización de curvas
+
+Decisión: [`docs/decisiones/0060-normalizacion-de-curvas.md`](decisiones/0060-normalizacion-de-curvas.md) (Clase 8,
+slides 9–10). Etapa del motor después de la alineación: Exclusión → Interpolación → Mediana → Alineación →
+**Normalización** → Preparada. Lleva percentiles (definición 7) de la curva en un intervalo de referencia a valores que
+ingresa el usuario: dos puntos (escala y corrimiento) o un punto (desplazamiento o escala), sobre toda la curva.
+
+- Receta: nodo `linear-normalization` (`src/core/preparation/state.ts`), última etapa con las anteriores opcionales
+  (`withNodeStages(…, normalization)`); `PreparationState.schemaVersion` 6 solo si hay normalización (versión mínima del
+  contenido: los estados 1–5 abren y se guardan idénticos; el archivo sigue en v7). Se guardan niveles de percentil y
+  referencias; los percentiles de origen se recalculan al evaluar y viajan en `PreparedPayload.normalization`.
+- Matemática pura: `src/core/preparation/normalization.ts` (percentiles, inversa para los marcadores, anclajes, dominio
+  físico por rol, etapa del evaluador). Mínimo de 50 muestras de origen (finitas, sin excluidas ni faltantes
+  estimados). Bandera `Quality.Normalized` = 256; fuera del rango físico del rol: el valor se conserva con 128.
+- Interfaz: herramienta «Normalizar» (`NormalizationEditor.tsx`, `NormalizationHistogram.tsx`, puro
+  `normalizationView.ts`, dibujo en `draw.ts`): histograma antes/después con frecuencia acumulada, marcadores
+  arrastrables (Escape cancela), referencias numéricas, vista previa local inmediata y del motor; paleta «Normalizar
+  curva». Exportación (descripción de la curva y de su `_QC`) e informe de preparación (tabla «Normalización de
+  curvas»).
+- Verificación: `tests/preparation-normalization.test.ts` (referencia numpy `scripts/qa/normalization-reference.py`,
+  esquema v6, migración con el fixture `tests/fixtures/preparation-legacy-v1-v4.json` generado con el código anterior),
+  `tests/preparation-normalization-panel.test.ts` y el guion de navegador `scripts/qa/normalization-panel.cjs`.

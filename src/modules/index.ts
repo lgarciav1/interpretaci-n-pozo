@@ -53,6 +53,8 @@ import zoneSuggestions from './zone-suggestions';
 import electrosequences from './electrosequences';
 import clayTyping from './clay-typing';
 import mineralInversion from './mineral-inversion';
+import lithologyIndices from './lithology-indices';
+import preparation from './preparation';
 import { SHARED_PARAMS } from './sharedParams';
 
 export const MODULES = [
@@ -96,6 +98,7 @@ export const MODULES = [
   electrosequences,
   clayTyping,
   mineralInversion,
+  lithologyIndices,
   passeyToc,
   syntheticSeismogram,
   sedColumn,
@@ -104,6 +107,12 @@ export const MODULES = [
   electrofaciesScan,
 ];
 
+/**
+ * Módulos de panel (docs/decisiones/0058): herramientas de la interfaz sin puertos ni cálculo en el motor, con su
+ * documentación para el módulo Ecuaciones. También una línea por módulo.
+ */
+export const PANEL_MODULES = [preparation];
+
 /** Parámetros compartidos: ver sharedParams.ts (el registro exige que coincidan con ese catálogo). */
-export const registry = createRegistry(MODULES, { sharedParams: SHARED_PARAMS });
+export const registry = createRegistry(MODULES, { sharedParams: SHARED_PARAMS, panels: PANEL_MODULES });
 

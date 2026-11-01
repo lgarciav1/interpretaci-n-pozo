@@ -1,5 +1,15 @@
-/** Flags combinables. Corrected nunca implica exactitud garantizada. */
-export const Quality = Object.freeze({ OriginallyMissing: 1, Excluded: 2, Suspect: 4, Interpolated: 8, Filtered: 16, Shifted: 32, Corrected: 64, OutOfDomain: 128 });
+/**
+ * Flags combinables. Corrected nunca implica exactitud garantizada. Normalized (0060): valor finito transformado por la
+ * normalización; junto con OutOfDomain, el valor normalizado se conserva pero cae fuera del dominio físico del rol.
+ */
+export const Quality = Object.freeze({ OriginallyMissing: 1, Excluded: 2, Suspect: 4, Interpolated: 8, Filtered: 16, Shifted: 32, Corrected: 64, OutOfDomain: 128, Normalized: 256 });
+
+/** Muestras normalizadas y, de ellas, las que quedan fuera del dominio físico del rol. */
+export function normalizationQualityCounts(quality: Uint16Array) {
+  let normalized = 0, outOfDomain = 0;
+  for (const q of quality) if (q & Quality.Normalized) { normalized++; if (q & Quality.OutOfDomain) outOfDomain++; }
+  return { normalized, outOfDomain };
+}
 export function maskQualityCounts(quality: Uint16Array) {
   let excluded = 0, originallyMissing = 0, newlyExcluded = 0;
   for (const q of quality) {

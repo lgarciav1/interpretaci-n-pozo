@@ -9,7 +9,7 @@ const entries = buildEquationEntries(registry, EQUATION_EXTRAS);
 
 describe('documentación de los módulos', () => {
   it('cada módulo del registro y cada panel extra tiene summary, ecuaciones y referencias', () => {
-    expect(entries.length).toBe(registry.modules.length + EQUATION_EXTRAS.length);
+    expect(entries.length).toBe(registry.modules.length + registry.panels.length + EQUATION_EXTRAS.length);
     for (const e of entries) {
       expect(e.docs.summary.trim(), e.id).not.toBe('');
       expect(e.docs.equations.length, e.id).toBeGreaterThanOrEqual(1);

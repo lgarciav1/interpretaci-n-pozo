@@ -6,7 +6,9 @@ import type { Curve, Well } from '../well';
 import { selectDataCurves, type DataContext } from './projection';
 import { preparedCurveId } from './source';
 import { interpolationSourceProblem } from './interpolation';
-import { maskRanges, preparationStateKey, PREPARATION_BUDGET, validatePreparation, type GapFill, type MedianFilter, type DepthShift, nodeGapFill, nodeFilter } from './state';
+import { maskRanges, preparationStateKey, PREPARATION_BUDGET, validatePreparation, type GapFill, type MedianFilter, type DepthShift, nodeGapFill, nodeFilter, nodeShift, nodeNormalization, normalizationKey, type CurveNormalization } from './state';
+import { MIN_NORMALIZATION_SAMPLES, normalizationDomain, type NormalizationStats, type PhysicalDomain } from './normalization';
+import { Quality } from './quality';
 import { MGT_METHOD, type MgtConfig } from './mgt';
 import { convert, getUnit } from '../units';
 
@@ -37,6 +39,8 @@ export interface PlannedPreparation {
   gapFill?: GapFill;
   filter?: MedianFilter;
   shift?: DepthShift;
+  /** Normalización (0060) y dominio físico del rol en la unidad de la curva (null = sin dominio declarado). */
+  normalization?: { config: CurveNormalization; domain: PhysicalDomain | null };
   boundaries?: number[];
   provenance: CurveProvenance;
   /** Una máscara no corrige efectos ambientales. */
@@ -62,7 +66,9 @@ export interface PreparationPlan {
   diagnostics: { nodeId: string; status: 'disabled' | 'needs-input'; message: string }[];
   toolString?: Interpretation['toolString'];
 }
-export interface PreparedPayload { sourceCounts?: { interpolated: number; filtered: number }; id: string; version: string; data: Float64Array; quality: Uint16Array }
+export interface PreparedPayload { sourceCounts?: { interpolated: number; filtered: number }; normalization?: NormalizationStats; id: string; version: string; data: Float64Array; quality: Uint16Array }
+/** Artefactos que necesitan un buffer de trabajo del tamaño de la curva (uno compartido por el evaluador). */
+export const needsScratch = (a: Pick<PlannedPreparation, 'filter' | 'shift' | 'normalization'>): boolean => !!(a.filter || a.shift || a.normalization);
 export interface PreparedPackage { plan: PreparationPlan; artifacts: PreparedPayload[] }
 
 export function planPreparation(well: EngineWell, i: Interpretation, inputRevisionId: string | null, registry: Pick<Registry, 'tools'>, bindings: PreparationBindings = {}, depthKey = `depth:${identityKey(well.depth)}`): PreparationPlan {
@@ -154,17 +160,23 @@ export function planPreparation(well: EngineWell, i: Interpretation, inputRevisi
     }
     const gapFill = nodeGapFill(node);
     const filter = nodeFilter(node);
-    const shift = node.kind === 'constant-shift' ? node.shift : undefined;
+    const shift = nodeShift(node);
+    const normalization = nodeNormalization(node);
     if (shift && (shift.referenceId !== well.id || !binding.shiftFrame || binding.shiftFrame.referenceId !== well.id || [binding.shiftFrame.sourceDatum, binding.shiftFrame.targetDatum].some(d => d !== null && d !== shift.datum))) throw new Error('La alineación requiere la misma referencia MD y datum declarado para origen y destino.');
     if ((gapFill || filter || shift) && i.zones.some(z => !Number.isFinite(z.top) || !Number.isFinite(z.base) || z.top >= z.base)) throw new Error('Las fronteras de zona deben ser finitas y ordenadas para interpolar.');
     const boundaries = gapFill || filter || shift ? [...new Set(i.zones.flatMap(z => [z.top, z.base]))].sort((a, b) => a - b) : undefined;
-    if (gapFill || filter || shift) { const problem = interpolationSourceProblem(c, shift ? 'La alineación' : filter ? 'El filtro' : undefined); if (problem) throw new Error(problem); }
-    const recipeKey = JSON.stringify([shift ? 'constant-shift' : filter ? 'median-filter' : gapFill ? 'linear-interpolation' : 'mask', 1, c.id, c.provenance.contentVersion, depthKey, c.role, c.unit, ranges, ...(gapFill ? [[gapFill.top, gapFill.base, gapFill.maxGapM], boundaries] : []), ...(filter ? [[filter.top, filter.base, filter.radiusM, filter.maxStepM], ...(gapFill ? [] : [boundaries])] : []), ...(shift ? [[shift.offsetM, shift.maxGapM, shift.referenceId, shift.depthKind, shift.datum], binding.shiftFrame, ...(!gapFill && !filter ? [boundaries] : [])] : [])]);
+    if (gapFill || filter || shift || normalization) { const problem = interpolationSourceProblem(c, normalization ? 'La normalización' : shift ? 'La alineación' : filter ? 'El filtro' : undefined); if (problem) throw new Error(problem); }
+    if (normalization && (normalization.top < well.depth[0]! || normalization.base > well.depth[well.depth.length - 1]!)) throw new Error('El intervalo de referencia de la normalización está fuera del pozo.');
+    const domain = normalization ? normalizationDomain(c.role, c.unit) : null;
+    // Sin normalización, la receta (y su contentVersion) es byte a byte la de antes de 0060.
+    const recipe: unknown[] = [shift ? 'constant-shift' : filter ? 'median-filter' : gapFill ? 'linear-interpolation' : 'mask', 1, c.id, c.provenance.contentVersion, depthKey, c.role, c.unit, ranges, ...(gapFill ? [[gapFill.top, gapFill.base, gapFill.maxGapM], boundaries] : []), ...(filter ? [[filter.top, filter.base, filter.radiusM, filter.maxStepM], ...(gapFill ? [] : [boundaries])] : []), ...(shift ? [[shift.offsetM, shift.maxGapM, shift.referenceId, shift.depthKind, shift.datum], binding.shiftFrame, ...(!gapFill && !filter ? [boundaries] : [])] : [])];
+    if (normalization) { recipe[0] = 'linear-normalization'; recipe.push([...normalizationKey(normalization), domain]); }
+    const recipeKey = JSON.stringify(recipe);
     const owner = registry.tools.ownerOf(c);
     const provenance: CurveProvenance = { origin: 'prepared', contentVersion: `mask:${recipeKey}`, depthKey, ancestorToolIds: owner ? [owner.id] : [], qualityKey: `mask-quality:${recipeKey}` };
-    artifacts.push({ id, nodeId: node.id, sourceCurveId: c.id, mnemonic: `${c.mnemonic} preparada`, role: c.role, unit: c.unit, recipeKey, ranges, ...(gapFill ? { gapFill: { ...gapFill }, boundaries } : {}), ...(filter ? { filter: { ...filter }, boundaries } : {}), ...(shift ? { shift: { ...shift }, boundaries } : {}), provenance, correctionLedger: [] });
+    artifacts.push({ id, nodeId: node.id, sourceCurveId: c.id, mnemonic: `${c.mnemonic} preparada`, role: c.role, unit: c.unit, recipeKey, ranges, ...(gapFill ? { gapFill: { ...gapFill }, boundaries } : {}), ...(filter ? { filter: { ...filter }, boundaries } : {}), ...(shift ? { shift: { ...shift }, boundaries } : {}), ...(normalization ? { normalization: { config: { ...normalization }, domain } } : {}), provenance, correctionLedger: [] });
   }
-  if (well.depth.length * 10 * (artifacts.length + (artifacts.some(a => a.filter || a.shift) ? 1 : 0)) > PREPARATION_BUDGET) throw new Error('La preparación supera 128 MiB de artefactos y memoria de trabajo. Reducí la cantidad de curvas.');
+  if (well.depth.length * 10 * (artifacts.length + (artifacts.some(needsScratch) ? 1 : 0)) > PREPARATION_BUDGET) throw new Error('La preparación supera 128 MiB de artefactos y memoria de trabajo. Reducí la cantidad de curvas.');
   const preparationKey = nodes.length ? JSON.stringify([artifacts.map(a => [a.id, a.provenance]), diagnostics]) : 'identity';
   const context: EngineContext = Object.freeze({ wellId: well.id, inputRevisionId, depthKey, preparationKey,
     engineKey: curveInputKey(well.id, depthKey, [...originals, ...artifacts]) + '|' + engineDecisionKey(i) });
@@ -178,8 +190,25 @@ export function validatePreparedPayloads(plan: PreparationPlan, payloads: unknow
     const expected = plan.artifacts.find(a => a.id === p?.id);
     if (!expected || seen.has(p.id) || p.version !== expected.provenance.contentVersion || !(p.data instanceof Float64Array) || !(p.quality instanceof Uint16Array) || p.data.length !== n || p.quality.length !== n) throw new Error('Artefacto preparado inválido, repetido u obsoleto.');
     if (expected.shift && (!p.sourceCounts || Object.keys(p.sourceCounts).length !== 2 || !['interpolated','filtered'].every(key => Number.isInteger(p.sourceCounts[key]) && p.sourceCounts[key] >= 0 && p.sourceCounts[key] <= n) || !expected.gapFill && p.sourceCounts.interpolated !== 0 || !expected.filter && p.sourceCounts.filtered !== 0)) throw new Error('Conteos de la entrada alineada inválidos.');
+    if (!expected.shift && p.sourceCounts !== undefined) throw new Error('Conteos de alineación en un artefacto sin alineación.');
+    const stats = p.normalization;
+    if (expected.normalization) {
+      const twoPoint = expected.normalization.config.method === 'two-point';
+      if (!stats || typeof stats !== 'object' || Object.keys(stats).length !== 5 || !Number.isInteger(stats.samples) || stats.samples < MIN_NORMALIZATION_SAMPLES || stats.samples > n || !Number.isFinite(stats.sourceLow) || (twoPoint ? !(Number.isFinite(stats.sourceHigh) && stats.sourceHigh! > stats.sourceLow) : stats.sourceHigh !== null) || !Number.isFinite(stats.gain) || !(stats.gain > 0) || !Number.isInteger(stats.outOfDomain) || stats.outOfDomain < 0 || stats.outOfDomain > n) throw new Error('Estadísticas de normalización inválidas.');
+    } else if (stats !== undefined) throw new Error('Estadísticas de normalización en un artefacto sin normalización.');
+    let outOfDomain = 0;
     for (let k = 0; k < n; k++) {
-      const q = p.quality[k]!, value = p.data[k]!;
+      let q = p.quality[k]!;
+      const value = p.data[k]!;
+      // Normalización (0060): toda salida finita lleva 256 y, fuera del dominio físico, 128 con su valor; el resto de
+      // las banderas sigue las reglas de las etapas previas.
+      if (expected.normalization) {
+        if (Number.isFinite(value)) {
+          if (!(q & Quality.Normalized)) throw new Error('Una salida normalizada finita no tiene la bandera de normalización.');
+          if (q & Quality.OutOfDomain) outOfDomain++;
+          q &= ~(Quality.Normalized | Quality.OutOfDomain);
+        } else if (q & Quality.Normalized) throw new Error('Un faltante no puede estar normalizado.');
+      }
       if (expected.mgt) {
         if (
           q === 64
@@ -204,6 +233,7 @@ export function validatePreparedPayloads(plan: PreparationPlan, payloads: unknow
         if (!Number.isFinite(value)) throw new Error('Una medición o estimación publicada debe ser finita.');
       } else if ((q !== 1 && q !== 2 && q !== 3) || !Number.isNaN(value)) throw new Error('La calidad de preparación no corresponde al valor publicado.');
     }
+    if (stats && stats.outOfDomain !== outOfDomain) throw new Error('El conteo fuera de dominio de la normalización no coincide con las banderas.');
     seen.add(p.id);
   }
 }
