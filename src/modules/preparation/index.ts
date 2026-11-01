@@ -16,12 +16,12 @@ export default definePanelModule({
   id: PREPARATION_ID,
   name: 'Preparar datos',
   description:
-    'Limpieza y puesta en profundidad de las curvas medidas antes de interpretar: excluir tramos o espurios, estimar huecos cortos, suavizar con mediana, alinear en MD, corregir GR por pozo (MGT) y calibrar los extremos de GR con DRX. Conserva siempre el original.',
+    'Limpieza y puesta en profundidad de las curvas medidas antes de interpretar: excluir tramos o espurios, estimar huecos cortos, suavizar con mediana, alinear en MD, normalizar (calibración y escala), corregir GR por pozo (MGT) y calibrar los extremos de GR con DRX. Conserva siempre el original.',
   category: 'qc',
   workspace: ['petrophysics', 'geology'],
   docs: {
     summary:
-      'Etapas en orden fijo sobre cada curva original, sin borrar filas ni cambiar el índice de profundidad: exclusión → interpolación de faltantes originales → mediana móvil → corrimiento constante en MD. Cada muestra lleva banderas de calidad combinables (faltante original, excluida, sospechosa, interpolada, filtrada, corrida, corregida, fuera de dominio). La corrección MGT de GR por diámetro de pozo es una receta aparte, no combinable con las otras etapas. La calibración de GR con DRX ajusta los extremos de arena limpia y arcilla del índice de rayos gamma contra el volumen de arcilla de laboratorio para el método de Vsh elegido.',
+      'Etapas en orden fijo sobre cada curva original, sin borrar filas ni cambiar el índice de profundidad: exclusión → interpolación de faltantes originales → mediana móvil → corrimiento constante en MD → normalización. Cada muestra lleva banderas de calidad combinables (faltante original, excluida, sospechosa, interpolada, filtrada, corrida, corregida, fuera de dominio, normalizada). La normalización corrige posibles errores de calibración y escala: lleva percentiles de la curva en un intervalo de referencia a valores conocidos (de un pozo vecino o de arcilla y arena limpia) y se aplica a toda la curva. La corrección MGT de GR por diámetro de pozo es una receta aparte, no combinable con las otras etapas. La calibración de GR con DRX ajusta los extremos de arena limpia y arcilla del índice de rayos gamma contra el volumen de arcilla de laboratorio para el método de Vsh elegido.',
     equations: [
       {
         latex: "x'_i = \\begin{cases} \\mathrm{NaN} & z_t \\le z_i \\le z_b \\\\ x_i & \\text{en otro caso} \\end{cases}",
@@ -46,6 +46,20 @@ export default definePanelModule({
         latex: "z' = z + \\Delta z, \\qquad y(z_k) = (1 - t)\\,x_a + t\\,x_b, \\qquad t = \\frac{z_k - z'_a}{z'_b - z'_a}",
         description:
           'Corrimiento constante de toda la curva (positivo = más profundo) y remuestreo lineal al índice MD del pozo, sin extrapolar; las coincidencias exactas conservan el dato. Huecos mayores que el máximo quedan fuera de dominio.',
+      },
+      {
+        latex: "x' = y_{lo} + \\left(x - x_{lo}\\right) \\frac{y_{hi} - y_{lo}}{x_{hi} - x_{lo}}, \\qquad x_{lo} = P_{lo}, \\; x_{hi} = P_{hi}",
+        description:
+          'Normalización lineal de dos puntos: los percentiles P_lo y P_hi (por defecto P5 y P95) de la curva en el intervalo de referencia van a los valores de referencia y_lo < y_hi. Corrige escala y corrimiento a la vez. Exige x_hi > x_lo y al menos 50 muestras de origen (finitas, sin excluidas ni estimadas).',
+      },
+      {
+        latex: "x' = x + \\left(y - x_p\\right) \\quad \\text{(desplazamiento)}, \\qquad x' = x \\, \\frac{y}{x_p} \\quad \\text{(escala)}",
+        description:
+          'Normalización de un punto: el percentil P_p de origen (por defecto P50) va al valor de referencia y, sumando una constante o multiplicando por una (la escala exige y/x_p > 0). Una salida fuera del rango físico de la curva se conserva y se marca fuera de dominio, sin recortarla.',
+      },
+      {
+        latex: 'x_{(p)} = x_{\\lfloor h \\rfloor} + \\left(h - \\lfloor h \\rfloor\\right)\\left(x_{\\lfloor h \\rfloor + 1} - x_{\\lfloor h \\rfloor}\\right), \\qquad h = \\frac{(n - 1)\\,p}{100}',
+        description: 'Percentil p de las n muestras de origen ordenadas (definición 7 de Hyndman y Fan, la de numpy y R por defecto).',
       },
       {
         latex: 'GR_c = GR \\cdot f(d), \\qquad t = 1{,}316\\,d - 3{,}5',
@@ -86,6 +100,8 @@ export default definePanelModule({
       'Asquith, G. y Krygowski, D. (2004). Basic Well Log Analysis, 2.ª ed. AAPG Methods in Exploration 16.',
       'Bateman, R. M. (2012). Openhole Log Analysis and Formation Evaluation, 2.ª ed. SPE (control de calidad, puesta en profundidad).',
       'Tukey, J. W. (1977). Exploratory Data Analysis. Addison-Wesley (medianas móviles).',
+      'Cátedra de Interpretación de Perfiles (FIUBA), Clase 8 «Preparación de datos», slides 9–10 (normalización: correcciones por errores de calibración y escala; comparación de histogramas y frecuencia acumulada).',
+      'Hyndman, R. J. y Fan, Y. (1996). Sample quantiles in statistical packages. The American Statistician 50(4), 361–365 (percentiles, definición 7).',
       'Hampel, F. R. (1974). The influence curve and its role in robust estimation. Journal of the American Statistical Association 69 (MAD normalizada, 1,4826).',
       'Goldberg, D., Meltser, M., Myers, G. y Masterson, W. (2004). Proc. ODP Scientific Results 191, cap. 6, ecuaciones 2–4 (corrección MGT).',
       'Larionov, V. V. (1969). Borehole Radiometry. Moscú: Nedra.',

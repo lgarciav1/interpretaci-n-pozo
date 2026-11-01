@@ -66,7 +66,7 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 | `src/modules/<id>/panel.tsx` | panel a medida (opcional) | sí |
 | `src/modules/<id>/overlay.ts`, `draw.ts` | superposiciones del visor (opcional, `overlays: ViewerOverlay[]`): dibujo, arrastre, pista propia; `draw.ts` (opcional): dibujo en canvas de un panel o una figura del módulo que usa `ui/` y `plots/` (perfil radial, 0020). El worker no los importa y `tests/modules.test.ts` los excluye de la regla de pureza | no (canvas) |
 | `src/modules/index.ts` | **el registro** (una línea por módulo): `MODULES` (nodos del motor) y `PANEL_MODULES` (módulos de panel, sin puertos ni cálculo en el motor: identidad, categoría y `docs` para Ecuaciones, 0058) | no |
-| `src/modules/preparation/` | «Preparar datos» (0058): definición de panel pura (`index.ts`), panel del dock (`dock.tsx`, `PreparationPanel.tsx`: tarjetas de curva, tubería, gráfico antes/después, herramientas, pestañas DRX/ambiente/MGT/corridas/guardadas), acción de la paleta (`commands.ts`), lógica pura de la tubería y las banderas (`pipeline.ts`, `flags.ts`) y dibujo (`draw.ts`). Los cálculos están en `src/core/preparation/` | `.tsx` sí |
+| `src/modules/preparation/` | «Preparar datos» (0058): definición de panel pura (`index.ts`), panel del dock (`dock.tsx`, `PreparationPanel.tsx`: tarjetas de curva, tubería, gráfico antes/después, herramientas —incluida «Normalizar» con su histograma, 0060—, pestañas DRX/ambiente/MGT/corridas/guardadas), acciones de la paleta (`commands.ts`), lógica pura de la tubería, las banderas y el histograma (`pipeline.ts`, `flags.ts`, `normalizationView.ts`) y dibujo (`draw.ts`). Los cálculos están en `src/core/preparation/` | `.tsx` sí |
 | `src/modules/sharedParams.ts` | catálogo canónico de parámetros compartidos | no |
 | `src/app/` | arranque, worker (`engine.worker.ts`), puente con el motor, stores (`store/viewer.ts`: cursor y tramo visible), descubrimiento de superposiciones (`viewerOverlays.ts`), pantallas | sí |
 | `src/app/preparation/` | lo de la app sobre la preparación (0058): proyección de datos preparados que usan visor, gráficos, exportación, informe y snapshots (`data.ts`), curvas del visor con «Comparar» (`view.ts`), preferencia de vista y pedido de apertura (`store.ts`) y `openPreparation` (`open.ts`). La interfaz es del módulo `src/modules/preparation/` | sí |
@@ -713,6 +713,29 @@ ambiental, MGT) es el módulo de panel `preparation`: pestaña «Preparar datos�
 izquierda, la paleta («Abrir Preparar datos») o la tarjeta del paso Calidad (`openPreparation`). Flujo: tarjeta de
 curva → herramienta (sliders sobre un borrador) → vista previa viva con el motor aislado de snapshots → «Aplicar» (un
 `commit`, un deshacer). La tubería (`pipeline.ts`) muestra las etapas en el orden del motor con conteos que salen de
-las banderas `Quality`; el gráfico antes/después y la barra de los ocho bits se dibujan en canvas (`draw.ts`). La lógica
-y el formato v7 viven en `src/core/preparation/` y `src/core/state/`, sin cambios. Tests:
+las banderas `Quality`; el gráfico antes/después y la barra de los nueve bits se dibujan en canvas (`draw.ts`). La lógica
+y el formato v7 viven en `src/core/preparation/` y `src/core/state/`. Tests:
 `tests/modules-preparation.test.ts`, `tests/preparation-panel.test.ts`, `tests/preparation-open.test.ts`.
+
+### Normalización de curvas
+
+Decisión: [`docs/decisiones/0060-normalizacion-de-curvas.md`](decisiones/0060-normalizacion-de-curvas.md) (Clase 8,
+slides 9–10). Etapa del motor después de la alineación: Exclusión → Interpolación → Mediana → Alineación →
+**Normalización** → Preparada. Lleva percentiles (definición 7) de la curva en un intervalo de referencia a valores que
+ingresa el usuario: dos puntos (escala y corrimiento) o un punto (desplazamiento o escala), sobre toda la curva.
+
+- Receta: nodo `linear-normalization` (`src/core/preparation/state.ts`), última etapa con las anteriores opcionales
+  (`withNodeStages(…, normalization)`); `PreparationState.schemaVersion` 6 solo si hay normalización (versión mínima del
+  contenido: los estados 1–5 abren y se guardan idénticos; el archivo sigue en v7). Se guardan niveles de percentil y
+  referencias; los percentiles de origen se recalculan al evaluar y viajan en `PreparedPayload.normalization`.
+- Matemática pura: `src/core/preparation/normalization.ts` (percentiles, inversa para los marcadores, anclajes, dominio
+  físico por rol, etapa del evaluador). Mínimo de 50 muestras de origen (finitas, sin excluidas ni faltantes
+  estimados). Bandera `Quality.Normalized` = 256; fuera del rango físico del rol: el valor se conserva con 128.
+- Interfaz: herramienta «Normalizar» (`NormalizationEditor.tsx`, `NormalizationHistogram.tsx`, puro
+  `normalizationView.ts`, dibujo en `draw.ts`): histograma antes/después con frecuencia acumulada, marcadores
+  arrastrables (Escape cancela), referencias numéricas, vista previa local inmediata y del motor; paleta «Normalizar
+  curva». Exportación (descripción de la curva y de su `_QC`) e informe de preparación (tabla «Normalización de
+  curvas»).
+- Verificación: `tests/preparation-normalization.test.ts` (referencia numpy `scripts/qa/normalization-reference.py`,
+  esquema v6, migración con el fixture `tests/fixtures/preparation-legacy-v1-v4.json` generado con el código anterior),
+  `tests/preparation-normalization-panel.test.ts` y el guion de navegador `scripts/qa/normalization-panel.cjs`.
