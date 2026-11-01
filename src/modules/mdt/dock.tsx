@@ -1,7 +1,8 @@
 /**
  * Panel «Presiones MDT» del dock (docs/decisiones/0009, D6): tabla de pruebas con su calidad y la decisión de
  * incluir o descartar cada una, gradientes por fluido (psi/ft, bar/m, densidad y fluido sugerido) y contactos.
- * Estado vacío con «Cargar presiones» y «Usar presiones de ejemplo». Todo cambio va por `commit` (Ctrl+Z).
+ * Estado vacío con «Cargar presiones», «Cargar presiones del TP» (datos reales embebidos, 0057) y «Usar presiones de
+ * ejemplo». Todo cambio va por `commit` (Ctrl+Z).
  *
  * Es un panel del dock y no un panel de módulo del motor: MDT no calcula curvas ni puertos (las presiones no pasan
  * por el worker), y el dock es donde vive «Tendencias», la herramienta que usa. Se descubre solo
@@ -9,7 +10,7 @@
  */
 import { useMemo, useState, type ReactNode } from 'react';
 import { pointNumbers, pointTexts, shiftedDepth, type PointSet } from '../../core/pointSets';
-import { removePointSet, setPointDecision, setPointSetSetting } from '../../core/state/pointSets';
+import { addPointSet, removePointSet, setPointDecision, setPointSetSetting } from '../../core/state/pointSets';
 import { activeWellEntry, makeId, setOverlaySetting } from '../../core/state/project';
 import { removeTrend } from '../../core/state/trends';
 import { conversionCoefficients, unitLabel } from '../../core/units';
@@ -23,6 +24,7 @@ import { commitTrends, patchTrend, startTrendTool, stopTrendTool } from '../../a
 import { useTrendsUi } from '../../app/trends/store';
 import { addExample } from './example';
 import { LoadPressuresDialog } from './LoadPressuresDialog';
+import { isTpMdtSet, TP_MDT_VIEW, TP_MDT_ZONE_COLUMN, tpMdtSet } from './tp';
 import {
   CONTACT_LABEL,
   decisionFor,
@@ -80,6 +82,38 @@ function loadExample(): void {
   useUi.getState().set({ dockTab: 'mdt' });
 }
 
+/**
+ * Carga las presiones reales del TP (embebidas, 0057) sin gradientes ni descartes: el usuario traza los gradientes con
+ * las herramientas del panel. Si el pozo ya las tiene, no las duplica: avisa y muestra el panel.
+ */
+export function loadTpPressures(): void {
+  const entry = activeWellEntry(useProject.getState().project);
+  if (!entry) return;
+  const show = () => {
+    useTrendsUi.getState().requestRange(TP_MDT_VIEW[0], TP_MDT_VIEW[1]);
+    useUi.getState().set({ dockTab: 'mdt' });
+  };
+  if (entry.well.pointSets.some(isTpMdtSet)) {
+    toast({ tone: 'info', title: 'Las presiones del TP ya están cargadas', description: 'Para volver a cargarlas desde cero, borrá primero el conjunto con el botón de la papelera.' });
+    show();
+    return;
+  }
+  const set = tpMdtSet(makeId('mdt'));
+  const zones = pointTexts(set, TP_MDT_ZONE_COLUMN) ?? [];
+  const count = (z: string) => zones.filter((x) => x === z).length;
+  useProject.getState().commit('Cargar presiones del TP', (p) => addPointSet(p, entry.well.id, set));
+  const d = entry.well.depth.values;
+  const outside = d.length === 0 || d[0]! > set.depth[0]! || d[d.length - 1]! < set.depth[set.depth.length - 1]!;
+  toast({
+    tone: outside ? 'warn' : 'ok',
+    title: 'Presiones del TP cargadas (datos reales de la hoja MDT)',
+    description: outside
+      ? 'Son las presiones del pozo del TP (7.729–8.121 m): en este pozo quedan fuera de los perfiles.'
+      : `${set.pointIds.length} pruebas medidas (${count('B')} en la zona B, ${count('C')} en la C y ${count('D')} en la D), sin gradientes trazados. Elegí un fluido en «Gradientes» y arrastrá sobre el visor el tramo de sus puntos.`,
+  });
+  show();
+}
+
 /** Empieza un gradiente nuevo: tendencia lineal sobre la serie MDT de ese fluido, eligiendo el tramo en el visor. */
 function startGradient(setId: string, fluid: Fluid): void {
   const name = `Gradiente de ${FLUID_LABEL[fluid].toLowerCase()}`;
@@ -107,7 +141,7 @@ export function MdtPanel() {
   const interp = entry?.interpretation ?? null;
   const analysis = useMemo(() => (well && interp ? mdtAnalysis(well, interp) : null), [well, interp]);
 
-  const dialog = loading && <LoadPressuresDialog onClose={() => setLoading(false)} onExample={loadExample} />;
+  const dialog = loading && <LoadPressuresDialog onClose={() => setLoading(false)} onExample={loadExample} onTp={loadTpPressures} />;
   if (!entry || !well || !interp || !analysis) {
     return <EmptyState size="sm" icon="droplet" title="Sin pozo" description="Cargá un pozo para sumarle presiones de formación (MDT, RFT)." />;
   }
@@ -125,7 +159,10 @@ export function MdtPanel() {
               <Button variant="primary" icon="upload" onClick={() => setLoading(true)}>
                 Cargar presiones
               </Button>
-              <Button icon="play" onClick={loadExample} title="21 pruebas inventadas para practicar sobre el pozo del TP: no son mediciones del pozo">
+              <Button icon="table" onClick={loadTpPressures} title="58 pruebas MDT reales del pozo del TP (hoja MDT de la cátedra), embebidas en la app">
+                Cargar presiones del TP
+              </Button>
+              <Button variant="ghost" icon="play" onClick={loadExample} title="21 pruebas inventadas para practicar sobre el pozo del TP: no son mediciones del pozo">
                 Usar presiones de ejemplo
               </Button>
             </>
@@ -174,6 +211,11 @@ function MdtBar({ set, sets, unit, onPick, onLoad }: { set: PointSet; sets: Poin
           {set.synthetic && (
             <Badge tone="warn" icon="warning" title="Presiones inventadas para practicar: no son mediciones del pozo">
               Ejemplo sintético
+            </Badge>
+          )}
+          {isTpMdtSet(set) && (
+            <Badge tone="ok" icon="check-circle" title={`Mediciones reales: ${set.source}`}>
+              Datos del TP
             </Badge>
           )}
         </div>
@@ -240,6 +282,7 @@ function PointsTable({ set, analysis, unit, selected, onSelect }: { set: PointSe
   const mob = pointNumbers(set, 'mobility');
   const qual = pointTexts(set, 'quality');
   const comment = pointTexts(set, 'comment');
+  const zoneCol = pointTexts(set, TP_MDT_ZONE_COLUMN);
   const [a, b] = conversionCoefficients('psi', unit);
   const rows: PointRow[] = set.pointIds.map((id, i) => ({ i, id }));
 
@@ -291,6 +334,7 @@ function PointsTable({ set, analysis, unit, selected, onSelect }: { set: PointSe
         </span>
       ),
     },
+    ...(zoneCol ? [{ key: 'zone', header: 'Zona', title: 'Zona de la hoja de datos', render: (r: PointRow) => zoneCol[r.i] || '—' } satisfies Column<PointRow>] : []),
     { key: 'md', header: 'MD (m)', align: 'num', render: (r) => m1(set.depth[r.i]!) },
     {
       key: 'p',
