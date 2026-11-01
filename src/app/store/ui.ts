@@ -131,9 +131,12 @@ export interface UiStore {
   qcReportOpen: boolean;
   /** Pantalla «Ecuaciones» abierta, con el módulo elegido al abrir (null = el primero). Ver app/ecuaciones/open.ts. */
   equations: null | { moduleId: string | null };
+  /** Vista amplia temporal: no modifica ni persiste la disposición elegida por el usuario. */
+  readingMode: boolean;
   layout: ShellLayout;
-  set(patch: Partial<Omit<UiStore, 'set' | 'setLayout' | 'layout'>>): void;
+  set(patch: Partial<Omit<UiStore, 'set' | 'setLayout' | 'toggleReadingMode' | 'layout'>>): void;
   setLayout(patch: Partial<ShellLayout>): void;
+  toggleReadingMode(): void;
 }
 
 export const useUi = create<UiStore>()((set) => ({
@@ -151,9 +154,18 @@ export const useUi = create<UiStore>()((set) => ({
   exportOpen: false,
   qcReportOpen: false,
   equations: null,
+  readingMode: false,
   layout: loadLayout(),
-  set: (patch) => set(patch),
-  setLayout: (patch) => set((s) => ({ layout: { ...s.layout, ...patch } })),
+  set: (patch) => set((s) => ({
+    ...patch,
+    // Abrir un editor o un paso debe recuperar sus paneles antes de trabajar.
+    ...((patch.trackBuilder ?? s.trackBuilder) || (patch.toolStringOpen ?? s.toolStringOpen)
+      || patch.activeStepId != null || patch.activeModuleId != null || patch.editingZoneId != null
+      ? { readingMode: false } : {}),
+  })),
+  // Una acción explícita de panel/tamaño sale de lectura y aplica el cambio a la disposición original.
+  setLayout: (patch) => set((s) => ({ readingMode: false, layout: { ...s.layout, ...patch } })),
+  toggleReadingMode: () => set((s) => s.trackBuilder || s.toolStringOpen ? s : { readingMode: !s.readingMode }),
 }));
 
 // «Armar pistas» y la sarta usan la columna izquierda: abrir uno cierra el otro.
@@ -174,3 +186,4 @@ useUi.subscribe((s, prev) => {
     }
   }, 200);
 });
+

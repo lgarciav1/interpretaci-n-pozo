@@ -7,7 +7,7 @@ const ID_BASE = 'dock';
 
 export function Dock() {
   const tab = useUi((s) => s.dockTab);
-  const collapsed = useUi((s) => s.layout.dockCollapsed);
+  const collapsed = useUi((s) => s.readingMode || s.layout.dockCollapsed);
   const set = useUi((s) => s.set);
   const setLayout = useUi((s) => s.setLayout);
   // Hooks de insignia: la lista es constante, así que el orden de hooks también.
@@ -46,3 +46,4 @@ export function Dock() {
     </section>
   );
 }
+

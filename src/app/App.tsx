@@ -96,9 +96,10 @@ function Rail({ side, onExpand }: { side: 'left' | 'right'; onExpand: () => void
 export function App() {
   const ref = useRef<HTMLDivElement>(null);
   useShellVars(ref);
-  const leftCollapsed = useUi((s) => s.layout.leftCollapsed);
-  const rightCollapsed = useUi((s) => s.layout.rightCollapsed);
-  const dockCollapsed = useUi((s) => s.layout.dockCollapsed);
+  const readingMode = useUi((s) => s.readingMode);
+  const leftCollapsed = useUi((s) => s.readingMode || s.layout.leftCollapsed);
+  const rightCollapsed = useUi((s) => s.readingMode || s.layout.rightCollapsed);
+  const dockCollapsed = useUi((s) => s.readingMode || s.layout.dockCollapsed);
   const setLayout = useUi((s) => s.setLayout);
   const loadDialog = useUi((s) => s.loadDialog);
   const setUi = useUi((s) => s.set);
@@ -109,9 +110,9 @@ export function App() {
   const toolStringOpen = useUi((s) => s.toolStringOpen);
 
   return (
-    <div className="shell" ref={ref}>
+    <div className={`shell${readingMode ? ' is-reading' : ''}`} ref={ref}>
       <TopBar />
-      <FlowBar />
+      {!readingMode && <FlowBar />}
       <div className="shell-main">
         {toolStringOpen ? (
           <>
@@ -181,3 +182,4 @@ export function App() {
     </div>
   );
 }
+

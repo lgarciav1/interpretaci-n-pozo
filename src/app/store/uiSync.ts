@@ -8,13 +8,14 @@ import { clearPlotSelection, getPlotLink } from '../../plots/link';
 import { useProject } from './project';
 import { useUi, type UiStore } from './ui';
 
-type UiRefs = Pick<UiStore, 'editingZoneId' | 'activeModuleId' | 'zoneMarking' | 'snapshotsOpen'> & Partial<Pick<UiStore, 'curtain'>>;
+type UiRefs = Pick<UiStore, 'editingZoneId' | 'activeModuleId' | 'zoneMarking' | 'snapshotsOpen'> & Partial<Pick<UiStore, 'curtain' | 'readingMode'>>;
 
 /** Correcciones para que la interfaz no apunte a nada inexistente (vacío si está todo bien). */
 export function staleUiPatch(ui: UiRefs, project: Project, moduleExists: (id: string) => boolean = () => true): Partial<UiRefs> {
   const patch: Partial<UiRefs> = {};
   const entry = activeWellEntry(project);
   if (!entry) {
+    if (ui.readingMode) patch.readingMode = false;
     if (ui.zoneMarking) patch.zoneMarking = false;
     if (ui.snapshotsOpen) patch.snapshotsOpen = false;
   }
@@ -41,3 +42,4 @@ export function installUiSync(moduleExists?: (id: string) => boolean): void {
     if (sel && activeWellEntry(s.project)?.well.depth.values !== sel.depth) clearPlotSelection();
   });
 }
+
