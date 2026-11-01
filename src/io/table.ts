@@ -14,6 +14,8 @@ import { parseUnit } from '../core/units';
 export type SourceFormat = 'csv' | 'las' | 'xlsx';
 
 export interface RawColumn {
+  /** Optativo para ensayos: conserva ND/LD y sentinelas antes de la conversión numérica. */
+  rawCells?: string[];
   /** Nombre tal como aparece en el archivo (sin la unidad entre paréntesis, si la traía). */
   name: string;
   /** Texto de unidad tal como vino ('' si no hay). */
@@ -126,6 +128,7 @@ export function detectDecimal(rows: readonly string[][], fieldSeparatorIsComma: 
 }
 
 export interface TableContext {
+  preserveRawCells?: boolean;
   format: SourceFormat;
   sourceName: string;
   /** Si el separador de campos es la coma (el decimal entonces es punto). */
@@ -243,6 +246,7 @@ export function tableFromRows(allRows: string[][], allRowNumbers: number[], ctx:
       }
       columns.push({ name: names[c]!, unit: units[c]!, kind: 'numeric', numbers, text: null });
     }
+    if(ctx.preserveRawCells)columns.at(-1)!.rawCells=dataRows.map(row=>(row[c]??'').trim());
   }
 
   let depthColumn = columns.findIndex((col) => isDepthName(col.name));
