@@ -120,6 +120,8 @@ export interface UiStore {
   toolStringOpen: boolean;
   /** Asistente de carga abierto (con `tp` arranca leyendo los datos del TP). */
   loadDialog: null | { source?: 'tp' };
+  /** Espacio de calibración de imágenes para Log Digitizer. */
+  digitizerOpen: boolean;
   snapshotsOpen: boolean;
   /**
    * Cortina antes/después en el visor (docs/decisiones/0026): snapshot que se dibuja del lado «antes». Estado de
@@ -149,6 +151,7 @@ export const useUi = create<UiStore>()((set) => ({
   trackBuilder: false,
   toolStringOpen: false,
   loadDialog: null,
+  digitizerOpen: false,
   snapshotsOpen: false,
   curtain: null,
   exportOpen: false,
