@@ -68,7 +68,8 @@ export interface ZoneCard {
   base: number;
   /** Espesor bruto (m). */
   gross: number;
-  /** Neto de reservorio y neto pay (m); null = sin dato. */
+  /** Arena neta, reservorio neto y pay neto (m); null = sin dato (la arena, también si el sumario no la trae). */
+  netSand: number | null;
   netRes: number | null;
   netPay: number | null;
   ntgPay: number | null;
@@ -117,6 +118,7 @@ export function buildZoneCards(zones: readonly CardZone[], summary: readonly Row
         top: z.top,
         base: z.base,
         gross,
+        netSand: num(s?.netSand),
         netRes: num(s?.netRes),
         netPay,
         ntgPay,

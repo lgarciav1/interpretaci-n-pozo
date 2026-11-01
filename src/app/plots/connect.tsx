@@ -12,7 +12,7 @@ import { activeWellEntry, makeId, setModuleEnabled, setParam, setSource } from '
 import { showTool } from '../../core/state/toolString';
 import { showToolLabel, type HiddenCurve } from '../../core/toolString';
 import { SHARED_PARAMS } from '../../modules/sharedParams';
-import type { CutoffParamKey } from '../../plots/cutoffs';
+import { CUTOFF_TOGGLES, type CutoffParamKey } from '../../plots/cutoffs';
 import type { ParamWrite } from '../../plots/params';
 import type { SeriesContext } from '../../plots/trend/series';
 import type { GuidePhase } from '../../plots/xy/XYPlot';
@@ -67,7 +67,10 @@ let gesture: { id: string; label: string } | null = null;
  * solo parámetro, así se agrupan igual—. Cada movimiento recalcula en vivo; el gesto entero es un solo deshacer.
  * Una zona que ya no existe escribe el global.
  */
-export function commitPlotParams(label: string, writes: readonly ParamWrite[], phase: GuidePhase): void {
+/** Escritura de un parámetro: numérica (ParamWrite) o el interruptor booleano de un cutoff opcional (0054). */
+type AnyParamWrite = Omit<ParamWrite, 'value'> & { value: number | boolean };
+
+export function commitPlotParams(label: string, writes: readonly AnyParamWrite[], phase: GuidePhase): void {
   const store = useProject.getState();
   if (phase === 'cancel') {
     if (gesture) store.cancelGroup(gesture.id);
@@ -78,7 +81,7 @@ export function commitPlotParams(label: string, writes: readonly ParamWrite[], p
   const group = gesture?.label === label ? gesture.id : undefined;
   if (phase === 'commit') gesture = null;
   const entry = activeWellEntry(store.project);
-  const valid = writes.filter((w) => Number.isFinite(w.value));
+  const valid = writes.filter((w) => typeof w.value === 'boolean' || Number.isFinite(w.value));
   if (!entry || valid.length === 0) return;
   const zoneOk = (z: string | null) => (z && entry.interpretation.zones.some((q) => q.id === z) ? z : null);
   store.commit(label, (p) => valid.reduce((acc, w) => setParam(acc, entry.well.id, w.storage, w.value, zoneOk(w.zoneId)), p), group ? { group } : undefined);
@@ -91,7 +94,10 @@ export function commitPlotParams(label: string, writes: readonly ParamWrite[], p
  * vuelve al valor de antes del arrastre.
  */
 export function commitParamCutoff(key: CutoffParamKey, zoneId: string | null, value: number, phase: GuidePhase): void {
-  commitPlotParams(`Cambiar ${SHARED_PARAMS[key].label}`, [{ storage: key, value, zoneId }], phase);
+  // Un cutoff opcional (k, 0054) se activa al arrastrar su línea, en el mismo alcance y en el mismo deshacer.
+  const toggle = CUTOFF_TOGGLES[key];
+  const writes: AnyParamWrite[] = [{ storage: key, value, zoneId }, ...(toggle ? [{ storage: toggle, value: true, zoneId }] : [])];
+  commitPlotParams(`Cambiar ${SHARED_PARAMS[key].label}`, writes, phase);
 }
 
 /** Fuentes activas por puerto del último resultado del motor para el pozo activo (null mientras no hay). */

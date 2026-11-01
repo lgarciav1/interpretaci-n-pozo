@@ -12,7 +12,8 @@ histograma y crossplot libre (0014), parámetros elegidos sobre los gráficos (0
 indicadores automáticos (0017), los modelos de Sw lado a lado, las fichas de zona y la paleta de comandos (0018), el
 módulo de RMN con su pista y su crossplot (0019, `0019-rmn.md`), capacidad de flujo, incertidumbre y lectura automática
 (0019, `0019-reservorio-e-incertidumbre.md`), el perfil radial de invasión (0020), los gráficos conectados al perfil
-con el Pickett interactivo (0021), el informe automático (0022), la calibración con corona (0023) y la sarta de
+con el Pickett interactivo (0021), el informe automático (0022), la calibración con corona (0023; n desde el índice de
+resistividad en 0053) y la sarta de
 perfilaje (0032) con su configurador y vista 3D (0033).
 Este documento resume cómo encajan las piezas y cómo agregar un módulo.
 
@@ -361,6 +362,9 @@ Decisión y catálogo completo: [`docs/decisiones/0007-modulos-fase-6a.md`](deci
   temperatura) → `sw-*` → `bvw-sh`, `perm-*` → `cutoffs` (banderas) → `zone-summary` (tabla + valores por zona) →
   `volumetrics` (OOIP/OGIP por zona y total, m³ estándar; tabla en SI y en unidades de campo). `cutoff-sensitivity`
   produce el barrido de cada cutoff en una tabla oculta que dibuja su panel.
+- Espesores netos anidados (arena neta → reservorio neto/permeable → pay neto/útil) y corte opcional de permeabilidad
+  (`permCutoffOn` + `permCutoff`, desactivado por defecto; `cutoffs` lee `PERM` como entrada opcional y publica
+  además `NET_SAND`, rol declarado por el propio módulo): [`docs/decisiones/0054-cutoff-de-permeabilidad-y-arena-neta.md`](decisiones/0054-cutoff-de-permeabilidad-y-arena-neta.md).
 - Los parámetros comunes (a, m, n, Rsh, Δt matriz, Rmf, cutoffs, área, Bo, Bg, fluido) están en `SHARED_PARAMS`.
 - Unidades agregadas: múltiplos de volumen (Mm³, MMm³, Mbbl, MMbbl, MMscf, Bcf), `m3/m3`, gradiente de temperatura.
 
@@ -636,6 +640,11 @@ Decisión: [`docs/decisiones/0023-calibracion-con-corona.md`](decisiones/0023-ca
   con m = 1,85 (otra semilla: el resto del ejemplo no cambia).
 - Tests: `tests/modules-8n-core-calibration.test.ts` (módulo, cadena con el motor en el demo y el TP, modelo del panel,
   lector y ejemplo).
+- **Exponente de saturación n** ([`0053`](decisiones/0053-exponente-de-saturacion-desde-corona.md)): conjunto de
+  puntos `core-ri` (pasos RI–Sw por plug, lector `src/io/coreRi.ts`), ajuste por el origen (recomendado) y libre en
+  `src/petro/coreCalibration.ts`, sección «Exponente de saturación n» del panel con n por plug, «Aplicar n» y el resumen
+  «Archie desde corona» con «Aplicar a, m y n» en una receta. Tests: `tests/petro-exponente-saturacion.test.ts` y
+  `tests/modules-core-ri.test.ts`.
 
 ## Tipos de roca (fase 8, función P)
 
@@ -652,3 +661,14 @@ Decisión: [`docs/decisiones/0024-rock-typing.md`](decisiones/0024-rock-typing.m
 - **Pista «Tipo de roca»**: superposición con pista propia (`overlay.ts`), sin tocar el núcleo del visor; colores de
   clase compartidos con el panel (`draw.ts`, rampa viridis).
 - Tests: `tests/modules-8p-rock-typing.test.ts`.
+
+## Swi desde SCAL (tarea 8)
+
+Decisión: [`docs/decisiones/0055-swi-desde-scal.md`](decisiones/0055-swi-desde-scal.md). Módulo `swi-pc` (categoría
+Saturación) sobre el motor puro `src/petro/swiPc.ts`: curva `SWI` por ley de potencia en √(k/φ) con los seis niveles de
+presión capilar de la planilla de la cátedra (o A y B manuales), bandera `SW_LT_SWI` (Sw < Swi − tolerancia) y tabla
+`SWI_ZONES` por zona. Entradas `PERM` y `PHIE`, `SW` opcional; roles `SWI` y `SW_LT_SWI` declarados por el módulo;
+`SWI` se dibuja punteada sobre `SW` en la pista «Porosidad · Sw» de fábrica. El motor también trae el ajuste log–log
+(`fitSwiPowerLaw`) y el de la presión de desplazamiento (`fitDisplacementPressure`), sin pantalla todavía. Los
+coeficientes son dato de la cátedra y valen en su rango de √(k/φ). Tests: `tests/petro-swi-pc.test.ts` (valores de mano
+y de numpy, `scripts/qa/swi-pc-reference.py`) y `tests/modules-swi-pc.test.ts` (módulo con el motor).

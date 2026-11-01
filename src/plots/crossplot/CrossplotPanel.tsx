@@ -26,7 +26,7 @@ import { Badge, Button, Chip, EmptyState, IconButton, Menu, SEQUENTIAL_PALETTE, 
 import type { ThemeTokens } from '../../ui/tokens';
 import type { Zone } from '../../core/well';
 import { ControlGroup, CurveSelect, DriverCallout, HiddenCurveNote, HiddenCurveState, ScaleControl, SelectionSummary, ZoneFilterChips } from '../controls';
-import { CUTOFF_PASSES, cutoffParamFor, cutoffScope, normalizeCutoff, paramStep, resolveCutoffLine, type CutoffLine, type CutoffParamKey } from '../cutoffs';
+import { CUTOFF_PASSES, cutoffParamFor, cutoffScope, guideStep, normalizeCutoff, resolveCutoffLine, type CutoffLine, type CutoffParamKey } from '../cutoffs';
 import { effectiveScale, engineInputData, hiddenCurveOfKey, keyForRole, plotCurveOptions, resolvePlotCurve, zoneFilter, type PlotCurve, type ZoneFilter } from '../data';
 import { formatParam, grGuides, grWrite, inactiveDriver, normalizeParam, nudgeParam, paramChangeLabel, paramOfGuide, paramWrite, plotParamValue, plotScope, PLOT_PARAMS, RW_CORRECT_STORAGE, storedParamValue, type ParamWrite, type PlotScope } from '../params';
 import { clearPlotSelection, getPlotLink, makeSelection, setPlotLink, setPlotSelection } from '../link';
@@ -642,18 +642,23 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
         id: l.id,
         axis: l.axis,
         value: l.value,
-        color: l.param ? theme.color.error : theme.color.accent,
-        dash: l.param ? [] : [6, 4],
+        // Corte de k desactivado (0054): gris punteado; arrastrarlo lo activa.
+        color: l.inactive ? theme.color.textSubtle : l.param ? theme.color.error : theme.color.accent,
+        dash: l.param && !l.inactive ? [] : [6, 4],
         width: 1.75,
         draggable: true,
-        ...(l.param ? { step: paramStep(l.param) } : {}),
+        ...guideStep(l.param),
         label: `${l.title} · ${fmt(l.value)}`,
-        ...(n ? { detail: pass ? `Pasa ${pct(pass === 'below' ? below : 100 - below)}` : `${pct(below)} ≤ · ${pct(100 - below)} >` } : {}),
+        ...(l.inactive
+          ? { detail: 'Arrastrá para activar el corte' }
+          : n
+            ? { detail: pass ? `Pasa ${pct(pass === 'below' ? below : 100 - below)}` : `${pct(below)} ≤ · ${pct(100 - below)} >` }
+            : {}),
       });
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tpl, cloud, theme, lineX?.id, lineX?.value, lineX?.title, lineY?.id, lineY?.value, lineY?.title]);
+  }, [tpl, cloud, theme, lineX?.id, lineX?.value, lineX?.title, lineX?.inactive, lineY?.id, lineY?.value, lineY?.title, lineY?.inactive]);
 
   const points = useMemo<XYPointLayer[]>(() => {
     if (!cloud || !coloring || !cx || !cy) return [];

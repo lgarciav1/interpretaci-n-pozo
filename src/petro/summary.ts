@@ -8,8 +8,9 @@
  *   Bruto             gross = Σ hᵢ                       (todas las muestras del intervalo)
  *   Sin dato          noData = Σ hᵢ donde netRes = NaN   (ninguna curva conocida la descarta y falta Vsh o φ)
  *   Sin dato de pay   noDataPay = Σ hᵢ donde netRes = 1 y netPay = NaN   (reservorio sin Sw)
+ *   Arena neta        netSand = Σ hᵢ donde NET_SAND = 1   (NaN si no se pasa la bandera de arena; 0054)
  *   Neto reservorio   netRes = Σ hᵢ donde NET_RES = 1;   neto pay   netPay = Σ hᵢ donde NET_PAY = 1
- *   Neto/bruto        N/G = neto / bruto                  (NaN si bruto = 0)
+ *   Neto/bruto        N/G = neto / bruto                  (NaN si bruto = 0; también para la arena)
  *   Porosidad media   φ̄ = Σ hᵢφᵢ / Σ hᵢ                  (sobre el neto)
  *   Sw media          S̄w = Σ hᵢφᵢSwᵢ / Σ hᵢφᵢ            (ponderada por volumen poral; sobre el neto)
  *   Vsh y k medias    x̄ = Σ hᵢxᵢ / Σ hᵢ
@@ -34,6 +35,8 @@ export interface SummaryInput {
   /** Banderas 0/1/NaN. */
   netRes: ArrayLike<number>;
   netPay: ArrayLike<number>;
+  /** Bandera de arena neta 0/1/NaN (opcional: sin ella netSand y ntgSand son NaN). */
+  netSand?: ArrayLike<number>;
   /** v/v */
   phi: ArrayLike<number>;
   sw: ArrayLike<number>;
@@ -49,9 +52,14 @@ export interface IntervalSummary {
   noData: number;
   /** Espesor de reservorio sin dato de pay (netRes = 1, netPay NaN: falta Sw). */
   noDataPay: number;
+  /** Arena neta (NaN sin bandera de arena). */
+  netSand: number;
+  /** Espesor sin dato de arena (falta Vsh; NaN sin bandera de arena). */
+  noDataSand: number;
   netRes: number;
   netPay: number;
   /** v/v (NaN si gross = 0) */
+  ntgSand: number;
   ntgRes: number;
   ntgPay: number;
   /** Promedios sobre el neto de reservorio. */
@@ -102,8 +110,10 @@ export function summarizeRanges(
   input: SummaryInput,
   ranges: readonly { start: number; end: number }[],
 ): IntervalSummary {
-  const { thickness, netRes, netPay, phi, sw, vsh, perm } = input;
+  const { thickness, netRes, netPay, netSand, phi, sw, vsh, perm } = input;
   let gross = 0;
+  let sandH = 0;
+  let noDataSand = 0;
   let noData = 0;
   let noDataPay = 0;
   let nRes = 0; // muestras de reservorio
@@ -137,6 +147,11 @@ export function summarizeRanges(
     for (let i = start; i < end; i++) {
       const h = thickness[i]!;
       gross += h;
+      if (netSand) {
+        const a = netSand[i]!;
+        if (a === 1) sandH += h;
+        else if (Number.isNaN(a)) noDataSand += h;
+      }
       const r = netRes[i]!;
       if (Number.isNaN(r)) {
         noData += h;
@@ -163,8 +178,11 @@ export function summarizeRanges(
     gross,
     noData,
     noDataPay,
+    netSand: netSand ? sandH : NaN,
+    noDataSand: netSand ? noDataSand : NaN,
     netRes: res.h,
     netPay: unk(pay.h),
+    ntgSand: netSand ? ratio(sandH, gross) : NaN,
     ntgRes: ratio(res.h, gross),
     ntgPay: unk(ratio(pay.h, gross)),
     phiRes: ratio(res.hPhi, res.hPhiForAvg),
