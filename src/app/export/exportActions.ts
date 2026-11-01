@@ -63,7 +63,7 @@ export function exportSources(well: Well, result: ClientResult | null, includeAl
     let data = qualityColumns.get(p);
     if (!data) { data = Float64Array.from(p.quality); qualityColumns.set(p, data); }
     const a = result.preparation.plan.artifacts.find(a => a.id === p.id)!;
-    columns.push({ id: `q:${p.id}`, mnemonic: `${a.mnemonic}_QC`, unit: 'unitless', data, origin: 'prepared', description: 'Calidad de preparación: 0=conservada; 1=faltante original; 2=excluida; 3=faltante original y excluida' + (a.gapFill ? '; 9=faltante original e interpolada (estimación)' : '') + (a.filter ? '; 16=filtrada; 24=filtrada con influencia interpolada; 25=faltante original interpolada y filtrada' : '') });
+    columns.push({ id: `q:${p.id}`, mnemonic: `${a.mnemonic}_QC`, unit: 'unitless', data, origin: 'prepared', description: a.shift ? `Alineación MD ${a.shift.offsetM} m; referencia ${a.shift.referenceId}; datum declarado ${a.shift.datum}; hueco máximo ${a.shift.maxGapM} m. Bits QC: 1=soporte sin medición original; 2=exclusión de origen; 8=soporte estimado; 16=filtrada; 32=alineada; 128=sin soporte. Flags heredados del origen, no del índice destino. Sin extrapolación.` : 'Calidad de preparación: 0=conservada; 1=faltante original; 2=excluida; 3=faltante original y excluida' + (a.gapFill ? '; 9=faltante original e interpolada (estimación)' : '') + (a.filter ? '; 16=filtrada; 24=filtrada con influencia interpolada; 25=faltante original interpolada y filtrada' : '') });
   }
   return {
     columns,

@@ -41,13 +41,13 @@ export function projectInputState(project: Project): InputRevisionState | null {
   }
   const state = Object.freeze({ revisions: project.inputRevisions, activeByWell: Object.freeze(active) });
   validateInputRevisionState(state);
-  for (const entry of project.wells) preparationBindings(entry.interpretation, entry.well.id, state.revisions);
+  for (const entry of project.wells) preparationBindings(entry.interpretation, entry.well.id, state.revisions, entry.inputRevisionId);
   const snapshots = new Set<string>();
   for (const snapshot of project.snapshots) {
     if (snapshots.has(snapshot.id)) throw new Error('Hay ids de snapshot repetidos.');
     snapshots.add(snapshot.id);
     checkSnapshotRevision(project.inputRevisions, snapshot);
-    preparationBindings(snapshot.interpretation, snapshot.wellId, state.revisions);
+    preparationBindings(snapshot.interpretation, snapshot.wellId, state.revisions, snapshot.inputRevisionId);
     if (!wells.has(snapshot.wellId)) throw new Error('Un snapshot refiere a un pozo inexistente.');
   }
   return state;

@@ -1,0 +1,229 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "d85c599b91043c7788724160f74de4c84609450f",
+  "tests": {
+    "files": 160,
+    "passed": 2766,
+    "new": 15,
+    "durationSeconds": 141.19
+  },
+  "focusedShiftTestsAfterUiClarification": 15,
+  "typecheck": true,
+  "build": true,
+  "htmlBytes": 5621559,
+  "htmlSHA256": "6f0a09440dc64e7da9d7871bbe76f1918a95e58eea0720096f728a5fff2bcf37",
+  "browser": {
+    "samples": 5810,
+    "shiftM": 0.3048,
+    "positiveEventMovesFrom": 1000,
+    "positiveEventMovesTo": 1002,
+    "originalsAndPeerAndMasterIndexPreserved": true,
+    "laboratoryNotShifted": true,
+    "qc32And160CheckedEveryRow": true,
+    "positiveAndNegativeSigns": true,
+    "offsetReplacesRatherThanAccumulates": true,
+    "previewDoesNotRunMain": true,
+    "cancelUnchanged": true,
+    "undoRedo": true,
+    "reopenedAndSnapshotRestored": true,
+    "removeAlignmentRestoresOriginal": true,
+    "knownDatumMismatchRejectedAtomically": true,
+    "unknownDatumRemainsUnknownInAcquisition": true,
+    "futureSchemaRejectedAtomically": true,
+    "offlineWithoutWorkerOrSubtleCrypto": true,
+    "baselineLas": "6c375164330070a107e49ed9d15b063a79c4b350a38846ca4bb2b4a335e3dd9c",
+    "positiveLas": "5e9061c87679898d6bb0bb0011f1e3a9c3ea0a547a7a4ae2339989a0a4dada16",
+    "pageErrors": []
+  },
+  "filterRegression": {
+    "filteredIndices": [
+      999,
+      1000,
+      1001,
+      1002,
+      1003
+    ],
+    "expected": [
+      0,
+      10,
+      20,
+      30,
+      40,
+      40,
+      50,
+      60,
+      70
+    ],
+    "pipelineExpected": [
+      0,
+      10,
+      55,
+      55,
+      40,
+      40,
+      50,
+      60,
+      70
+    ],
+    "originalsAnd5810RowsPreserved": true,
+    "qc16And24And25Validated": true,
+    "fixedInputNoFeedback": true,
+    "previewDoesNotRunMain": true,
+    "zeroSupportBlocksApply": true,
+    "cancelUnchanged": true,
+    "undoRedo": true,
+    "reopenedAndSnapshotRestored": true,
+    "removeFilterRestoresOriginal": true,
+    "removeInterpolationPreservesFilter": true,
+    "zoneBoundaryReducesSupport": true,
+    "futureSchemaRejectedAtomically": true,
+    "offlineWithoutWorkerOrSubtleCrypto": true,
+    "baselineLas": "b444d3fab20d079acf7890823e2fea16e4b210a7f25205151f46ce7c235b86bc",
+    "preparedLas": "eb379c67faf05e2d55e574ee4232c597e97e8c2f8b6ca0294027b211c59c06b3",
+    "pageErrors": []
+  },
+  "interpolationRegression": {
+    "filledSamples": [
+      1000,
+      1001
+    ],
+    "expectedValues": [
+      14,
+      18
+    ],
+    "originalsAnd5810RowsPreserved": true,
+    "qc9OnlyEstimated": true,
+    "longAndEdgeGapsRemainMissing": true,
+    "previewDoesNotRunMain": true,
+    "cancelUnchanged": true,
+    "zeroEligibleBlocksApply": true,
+    "undoRedo": true,
+    "reopenedAndSnapshotRestored": true,
+    "exclusionBlocksGap": true,
+    "zoneBoundaryBlocksGap": true,
+    "removeInterpolationPreservesMaskV1": true,
+    "futureSchemaRejectedAtomically": true,
+    "offlineWithoutWorkerOrSubtleCrypto": true,
+    "baselineLas": "692f7843aeee63fc4d37f295144c9e561b5829d0633f1df4e636d954565eb66a",
+    "preparedLas": "4d67eb6ede264e7593f45694b392a7dabe95ec72df9fcb7ad277b7ad96ffddce",
+    "pageErrors": []
+  },
+  "maskRegression": {
+    "baselineLas": "5cf7210613f856a48d2f74309b4aa5c1ccd108541e22aedcecb3b647705f04f3",
+    "previewDoesNotChangeProjectOrMainRuns": true,
+    "preparedLas": "7280b018d81a77ee0dc5a62e5957c6dedecf8a447a83a1a52d38c1e42ad1fc3e",
+    "preparedSvg": "c21127dd7146c849dbe93a9787c633480818c8eecc486d3e67f56285dfed2868",
+    "changedFiniteSamples": 65,
+    "undoLas": "5cf7210613f856a48d2f74309b4aa5c1ccd108541e22aedcecb3b647705f04f3",
+    "redoLas": "7280b018d81a77ee0dc5a62e5957c6dedecf8a447a83a1a52d38c1e42ad1fc3e",
+    "atomicFullRecovery": {
+      "mainRuns": 6,
+      "isolatedRuns": 2,
+      "full": 1,
+      "corrupt": false,
+      "bad": 1,
+      "prepared": 3
+    },
+    "reopenedLas": "7280b018d81a77ee0dc5a62e5957c6dedecf8a447a83a1a52d38c1e42ad1fc3e",
+    "unsupportedRecipePreservesProject": true,
+    "restoredLas": "5cf7210613f856a48d2f74309b4aa5c1ccd108541e22aedcecb3b647705f04f3",
+    "snapshotRestoredLas": "7280b018d81a77ee0dc5a62e5957c6dedecf8a447a83a1a52d38c1e42ad1fc3e",
+    "decisionsOnlyNoPreparedBlobs": true,
+    "offlineWithoutWorkerOrSubtleCrypto": true,
+    "pageErrors": []
+  },
+  "suspectsRegression": {
+    "candidates": 14,
+    "interval": {
+      "id": "excluded-mvvjhige7il2v",
+      "top": 7805.3184,
+      "base": 7805.3184
+    },
+    "cancelUnchanged": true,
+    "previewDoesNotRunMain": true,
+    "undoRedo": true,
+    "reopened": true,
+    "restored": true,
+    "pageErrors": []
+  },
+  "oldReader": {
+    "baseCommit": "d85c599b91043c7788724160f74de4c84609450f",
+    "rejectedNewPreparationSchema": true,
+    "message": "No se abrió el proyecto v7: Entrada de pozo: Versión o cantidad de operaciones de preparación no admitida. Se conserva el archivo original; la recuperación independiente debe pedirse explícitamente."
+  },
+  "identityParent": {
+    "schemaVersion": 1,
+    "measuredAt": "2026-10-30T22:27:11.600Z",
+    "mode": "identity",
+    "scope": "Node/Vite SSR, TP completo: plan/proyección + motor/MessageChannel + reconstrucción de preparación; 1 warmup + 7 cambios de GR limpio. No navegador ni Worker.",
+    "samples": 5810,
+    "curves": 18,
+    "elapsedMs": {
+      "warmup": 1111.2604849999998,
+      "samples": [
+        80.12637099999984,
+        55.550362999999834,
+        57.845018999999866,
+        51.06994299999997,
+        62.85296500000004,
+        52.85742399999981,
+        63.23707599999989
+      ],
+      "median": 57.845018999999866
+    },
+    "scientificSHA256": "e9cb7cbe45d6ba0144dd225d22ffd975524f34dda4442df5beccbbdb5ce456fa",
+    "originalBytesUnchanged": true,
+    "inputBuffersIntact": true
+  },
+  "identityCandidate": {
+    "schemaVersion": 1,
+    "measuredAt": "2026-10-30T22:27:14.714Z",
+    "mode": "identity",
+    "scope": "Node/Vite SSR, TP completo: plan/proyección + motor/MessageChannel + reconstrucción de preparación; 1 warmup + 7 cambios de GR limpio. No navegador ni Worker.",
+    "samples": 5810,
+    "curves": 18,
+    "elapsedMs": {
+      "warmup": 1130.578148,
+      "samples": [
+        105.23385199999984,
+        68.6809790000002,
+        75.59204599999975,
+        54.47105199999987,
+        62.49623500000007,
+        62.48559100000011,
+        52.73415800000021
+      ],
+      "median": 62.49623500000007
+    },
+    "scientificSHA256": "e9cb7cbe45d6ba0144dd225d22ffd975524f34dda4442df5beccbbdb5ce456fa",
+    "originalBytesUnchanged": true,
+    "inputBuffersIntact": true
+  },
+  "alignmentBenchmark": {
+    "schemaVersion": 1,
+    "measuredAt": "2026-10-30T22:27:15.980Z",
+    "scope": "Node/Vite SSR: decisión/plan/evaluación/validación; 100000 muestras, sin petrofísica, Worker ni UI. Desplazamientos distintos sin hit de caché.",
+    "samples": 100000,
+    "elapsedMs": {
+      "warmup": 77.89202,
+      "samples": [
+        82.18394899999998,
+        70.03731399999992,
+        67.27159999999992,
+        67.37268400000005,
+        80.26955700000008,
+        66.81251099999997,
+        64.41797899999995
+      ],
+      "median": 67.37268400000005
+    },
+    "fractionalElapsedMs": 78.36557099999993,
+    "retainedArrayBytes": 9000000,
+    "resultAndSharedScratchBytesPerArtifact": 2000000,
+    "exactAndFractionalReferencesMatch": true,
+    "originalBytesAndBuffersIntact": true,
+    "exactScientificSHA256": "58b23f10ce0a96658eee115baf95bdc19f1b21552e4c02ba82ed8bbedb219e04",
+    "fractionalScientificSHA256": "7767d06a9ff90dbe62bfebbd5653ff93c10082825331cc5a95c190b065e2b878"
+  },
+  "identityRatio": 1.0804082370514947
+}

@@ -4,7 +4,7 @@ import { interpolationSourceProblem } from '../preparation/interpolation';
 import { preparationBindings } from '../preparation/bindings';
 import { planPreparation, type PreparationPlan } from '../preparation/plan';
 import { preparedCurveId } from '../preparation/source';
-import { preparationState, validateGapFill, validateMedianFilter, nodeGapFill, type MedianFilter, validatePreparation, type GapFill, type MaskInterval, type PreparationNode } from '../preparation/state';
+import { preparationState, validateGapFill, validateDepthShift, nodeShift, nodeFilter, withNodeStages, type DepthShift, validateMedianFilter, nodeGapFill, type MedianFilter, validatePreparation, type GapFill, type MaskInterval, type PreparationNode } from '../preparation/state';
 import type { Registry } from '../registry';
 import { enableProjectInputRevisions } from './inputRevisions';
 import { updateInterpretation, type Project, type WellEntry } from './project';
@@ -14,7 +14,7 @@ export function entryPreparationPlan(project: Project, entry: WellEntry, registr
   const hit = plans.get(entry);
   const revisionsKey = project.inputRevisions ? identityKey(project.inputRevisions) : 'legacy';
   if (hit && hit.revisionsKey === revisionsKey && hit.registry === registry) return hit.plan;
-  const plan = planPreparation(toEngineWell(entry.well), entry.interpretation, entry.inputRevisionId ?? null, registry, preparationBindings(entry.interpretation, entry.well.id, project.inputRevisions));
+  const plan = planPreparation(toEngineWell(entry.well), entry.interpretation, entry.inputRevisionId ?? null, registry, preparationBindings(entry.interpretation, entry.well.id, project.inputRevisions, entry.inputRevisionId));
   plans.set(entry, { revisionsKey, registry, plan }); return plan;
 }
 
@@ -40,7 +40,7 @@ export function addMaskIntervals(project: Project, wellId: string, curveId: stri
   }
   const existing = entry.interpretation.preparation?.nodes.find(n => n.input.curveId === curveId);
   if (existing) {
-    const binding = preparationBindings(entry.interpretation, wellId, next.inputRevisions)[existing.id];
+    const binding = preparationBindings(entry.interpretation, wellId, next.inputRevisions, entry.inputRevisionId)[existing.id];
     const depthKey = `depth:${identityKey(depth)}`;
     if (!binding || binding.depthKey !== depthKey || binding.contentVersion !== curveProvenance(curve, depthKey).contentVersion || binding.unit !== curve.unit || binding.role !== curve.role || binding.mnemonic !== curve.mnemonic) throw new Error('La máscara está vinculada a otros datos. Restaurá el original antes de preparar esta revisión.');
   }
@@ -83,7 +83,7 @@ export function setGapFill(project: Project, wellId: string, curveId: string, ga
   if (gapFill.top < depth[0]! || gapFill.base > depth.at(-1)!) throw new Error('Elegí un tramo de interpolación dentro del pozo.');
   const existing = entry.interpretation.preparation?.nodes.find(n => n.input.curveId === curveId);
   if (existing) {
-    const binding = preparationBindings(entry.interpretation, wellId, next.inputRevisions)[existing.id];
+    const binding = preparationBindings(entry.interpretation, wellId, next.inputRevisions, entry.inputRevisionId)[existing.id];
     const depthKey = `depth:${identityKey(depth)}`;
     if (!binding || binding.depthKey !== depthKey || binding.contentVersion !== curveProvenance(curve, depthKey).contentVersion || binding.unit !== curve.unit || binding.role !== curve.role || binding.mnemonic !== curve.mnemonic) throw new Error('La receta está vinculada a otros datos. Restaurá el original antes de preparar esta revisión.');
   }
@@ -91,8 +91,8 @@ export function setGapFill(project: Project, wellId: string, curveId: string, ga
   const source = curve.role ? entry.interpretation.sources[curve.role] : undefined;
   const oldFill = existing ? nodeGapFill(existing) : undefined;
   if (oldFill && existing!.enabled && oldFill.top === gapFill.top && oldFill.base === gapFill.base && oldFill.maxGapM === gapFill.maxGapM && (!curve.role || source?.kind === 'curve' && source.curveId === preparedCurveId(id, 'masked'))) return project;
-  const node: PreparationNode = { id, ...(existing?.kind === 'median-filter' ? { kind: 'median-filter' as const, filter: existing.filter } : { kind: 'linear-interpolation' as const }), methodVersion: 1, enabled: true,
-    input: existing?.input ?? { kind: 'original', inputRevisionId: entry.inputRevisionId!, curveId }, intervals: existing?.intervals ?? [], gapFill: { ...gapFill } };
+  const baseNode: PreparationNode = existing ?? { id, kind: 'mask', methodVersion: 1, enabled: true, input: { kind: 'original', inputRevisionId: entry.inputRevisionId!, curveId }, intervals: [] };
+  const node = withNodeStages({ ...baseNode, enabled: true }, { ...gapFill }, nodeFilter(baseNode), nodeShift(baseNode));
   const nodes = entry.interpretation.preparation?.nodes ?? [];
   const preparation = preparationState(existing ? nodes.map(n => n.id === id ? node : n) : [...nodes, node]);
   validatePreparation(preparation);
@@ -103,15 +103,9 @@ export function setGapFill(project: Project, wellId: string, curveId: string, ga
 export function removeGapFill(project: Project, wellId: string, nodeId: string): Project {
   const node = project.wells.find(e => e.well.id === wellId)?.interpretation.preparation?.nodes.find(n => n.id === nodeId);
   if (!node || !nodeGapFill(node)) return project;
-  if (!node.intervals.length && node.kind !== 'median-filter') return restoreMaskInterval(project, wellId, nodeId);
-  return updateInterpretation(project, wellId, i => ({ ...i, preparation: preparationState(i.preparation!.nodes.map(n => {
-    if (n.id !== nodeId || n.kind === 'mask') return n;
-    const { gapFill: _removed, ...rest } = n;
-    if (n.kind === 'median-filter') return { ...rest, kind: 'median-filter' as const, filter: n.filter };
-    return { ...rest, kind: 'mask' as const };
-  })) }));
+  if (!node.intervals.length && !nodeFilter(node) && !nodeShift(node)) return restoreMaskInterval(project, wellId, nodeId);
+  return updateInterpretation(project, wellId, i => ({ ...i, preparation: preparationState(i.preparation!.nodes.map(n => n.id === nodeId ? withNodeStages(n, undefined, nodeFilter(n), nodeShift(n)) : n)) }));
 }
-
 
 export function setMedianFilter(project: Project, wellId: string, curveId: string, filter: MedianFilter, nodeId: string): Project {
   validateMedianFilter(filter);
@@ -123,24 +117,48 @@ export function setMedianFilter(project: Project, wellId: string, curveId: strin
   if (filter.top < depth[0]! || filter.base > depth.at(-1)!) throw new Error('Elegí un tramo de filtrado dentro del pozo.');
   const existing = entry.interpretation.preparation?.nodes.find(n => n.input.curveId === curveId);
   if (existing) {
-    const binding = preparationBindings(entry.interpretation, wellId, next.inputRevisions)[existing.id], depthKey = `depth:${identityKey(depth)}`;
+    const binding = preparationBindings(entry.interpretation, wellId, next.inputRevisions, entry.inputRevisionId)[existing.id], depthKey = `depth:${identityKey(depth)}`;
     if (!binding || binding.depthKey !== depthKey || binding.contentVersion !== curveProvenance(curve, depthKey).contentVersion || binding.unit !== curve.unit || binding.role !== curve.role || binding.mnemonic !== curve.mnemonic) throw new Error('La receta está vinculada a otros datos. Restaurá el original antes de preparar esta revisión.');
   }
   const id = existing?.id ?? nodeId, gapFill = existing ? nodeGapFill(existing) : undefined;
   const source = curve.role ? entry.interpretation.sources[curve.role] : undefined;
-  if (existing?.kind === 'median-filter' && existing.enabled && existing.filter.top === filter.top && existing.filter.base === filter.base && existing.filter.radiusM === filter.radiusM && existing.filter.maxStepM === filter.maxStepM && (!curve.role || source?.kind === 'curve' && source.curveId === preparedCurveId(id, 'masked'))) return project;
-  const node: PreparationNode = { id, kind: 'median-filter', methodVersion: 1, enabled: true, input: existing?.input ?? { kind: 'original', inputRevisionId: entry.inputRevisionId!, curveId }, intervals: existing?.intervals ?? [], filter: { ...filter }, ...(gapFill ? { gapFill } : {}) };
+  const oldFilter = existing ? nodeFilter(existing) : undefined;
+  if (oldFilter && existing!.enabled && oldFilter.top === filter.top && oldFilter.base === filter.base && oldFilter.radiusM === filter.radiusM && oldFilter.maxStepM === filter.maxStepM && (!curve.role || source?.kind === 'curve' && source.curveId === preparedCurveId(id, 'masked'))) return project;
+  const baseNode: PreparationNode = existing ?? { id, kind: 'mask', methodVersion: 1, enabled: true, input: { kind: 'original', inputRevisionId: entry.inputRevisionId!, curveId }, intervals: [] };
+  const node = withNodeStages({ ...baseNode, enabled: true }, gapFill, { ...filter }, nodeShift(baseNode));
   const nodes = entry.interpretation.preparation?.nodes ?? [], preparation = preparationState(existing ? nodes.map(n => n.id === id ? node : n) : [...nodes, node]);
   validatePreparation(preparation);
   return updateInterpretation(next, wellId, i => ({ ...i, preparation, sources: curve.role ? { ...i.sources, [curve.role]: { kind: 'curve', curveId: preparedCurveId(id, 'masked') } } : i.sources }));
 }
 export function removeMedianFilter(project: Project, wellId: string, nodeId: string): Project {
   const node = project.wells.find(e => e.well.id === wellId)?.interpretation.preparation?.nodes.find(n => n.id === nodeId);
-  if (!node || node.kind !== 'median-filter') return project;
-  if (!node.intervals.length && !node.gapFill) return restoreMaskInterval(project, wellId, nodeId);
-  return updateInterpretation(project, wellId, i => ({ ...i, preparation: preparationState(i.preparation!.nodes.map(n => {
-    if (n.id !== nodeId || n.kind !== 'median-filter') return n;
-    const { filter: _removed, gapFill, ...rest } = n;
-    return gapFill ? { ...rest, kind: 'linear-interpolation' as const, gapFill } : { ...rest, kind: 'mask' as const };
-  })) }));
+  if (!node || !nodeFilter(node)) return project;
+  if (!node.intervals.length && !nodeGapFill(node) && !nodeShift(node)) return restoreMaskInterval(project, wellId, nodeId);
+  return updateInterpretation(project, wellId, i => ({ ...i, preparation: preparationState(i.preparation!.nodes.map(n => n.id === nodeId ? withNodeStages(n, nodeGapFill(n), undefined, nodeShift(n)) : n)) }));
+}
+
+export function setDepthShift(project: Project, wellId: string, curveId: string, shift: DepthShift, nodeId: string): Project {
+  validateDepthShift(shift);
+  const next = enableProjectInputRevisions(project), entry = next.wells.find(e => e.well.id === wellId), curve = entry?.well.curves.find(c => c.id === curveId);
+  if (!entry || !curve) throw new Error('La curva original ya no existe.');
+  const problem = interpolationSourceProblem(curve, 'La alineación'); if (problem) throw new Error(problem);
+  const datum = next.inputRevisions![entry.inputRevisionId!]!.acquisition.depth.datum;
+  if (shift.referenceId !== wellId || datum !== null && datum !== shift.datum) throw new Error('La alineación debe conservar la referencia MD y el datum conocido del pozo.');
+  const existing = entry.interpretation.preparation?.nodes.find(n => n.input.curveId === curveId);
+  if (existing) {
+    const binding = preparationBindings(entry.interpretation, wellId, next.inputRevisions, entry.inputRevisionId)[existing.id], depthKey = `depth:${identityKey(entry.well.depth.values)}`;
+    if (!binding || binding.depthKey !== depthKey || binding.contentVersion !== curveProvenance(curve, depthKey).contentVersion || binding.unit !== curve.unit || binding.role !== curve.role || binding.mnemonic !== curve.mnemonic) throw new Error('La receta está vinculada a otros datos. Restaurá el original antes de alinear esta revisión.');
+  }
+  const old = existing ? nodeShift(existing) : undefined, id = existing?.id ?? nodeId, source = curve.role ? entry.interpretation.sources[curve.role] : undefined;
+  if (old && existing!.enabled && old.offsetM === shift.offsetM && old.maxGapM === shift.maxGapM && old.datum === shift.datum && old.depthKind === shift.depthKind && old.referenceId === shift.referenceId && source?.kind === 'curve' && source.curveId === preparedCurveId(id, 'masked')) return project;
+  const baseNode: PreparationNode = existing ?? { id, kind: 'mask', methodVersion: 1, enabled: true, input: { kind: 'original', inputRevisionId: entry.inputRevisionId!, curveId }, intervals: [] };
+  const node = withNodeStages({ ...baseNode, enabled: true }, nodeGapFill(baseNode), nodeFilter(baseNode), { ...shift });
+  const nodes = entry.interpretation.preparation?.nodes ?? [], preparation = preparationState(existing ? nodes.map(n => n.id === id ? node : n) : [...nodes, node]); validatePreparation(preparation);
+  return updateInterpretation(next, wellId, i => ({ ...i, preparation, sources: curve.role ? { ...i.sources, [curve.role]: { kind: 'curve', curveId: preparedCurveId(id, 'masked') } } : i.sources }));
+}
+export function removeDepthShift(project: Project, wellId: string, nodeId: string): Project {
+  const node = project.wells.find(e => e.well.id === wellId)?.interpretation.preparation?.nodes.find(n => n.id === nodeId);
+  if (!node || !nodeShift(node)) return project;
+  if (!node.intervals.length && !nodeGapFill(node) && !nodeFilter(node)) return restoreMaskInterval(project, wellId, nodeId);
+  return updateInterpretation(project, wellId, i => ({ ...i, preparation: preparationState(i.preparation!.nodes.map(n => n.id === nodeId ? withNodeStages(n, nodeGapFill(n), nodeFilter(n), undefined) : n)) }));
 }

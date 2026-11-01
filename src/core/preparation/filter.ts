@@ -1,5 +1,6 @@
 import { Quality } from './quality';
 import type { MedianFilter } from './state';
+import type { PreparationScratch } from './scratch';
 
 export const MAX_MEDIAN_SAMPLES = 255;
 const lowerBound = (sorted: number[], value: number) => {
@@ -12,8 +13,9 @@ const lowerBound = (sorted: number[], value: number) => {
  * Conserva bordes sin ventana completa. NaN, zonas y saltos MD cortan segmentos.
  * Scratch reservado por el evaluador: 10 bytes/muestra, más hasta 255 números.
  */
-export async function filterMedian(depth: Float64Array, data: Float64Array, quality: Uint16Array, config: MedianFilter, boundaries: readonly number[], checkpoint: () => Promise<void>): Promise<void> {
-  const input = data.slice(), flags = quality.slice();
+export async function filterMedian(depth: Float64Array, data: Float64Array, quality: Uint16Array, config: MedianFilter, boundaries: readonly number[], checkpoint: () => Promise<void>, scratch: PreparationScratch = { data: new Float64Array(data.length), quality: new Uint16Array(data.length) }): Promise<void> {
+  const input = scratch.data, flags = scratch.quality;
+  input.set(data); flags.set(quality);
   let start = 0, boundary = 0, ticks = 0;
   while (start < data.length) {
     // No modificar ni llenar faltantes, exclusiones o muestras fuera del tramo.
