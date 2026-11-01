@@ -51,7 +51,7 @@ const PREVIEW_ROWS = 8;
 const nextPaint = () => new Promise<void>((r) => requestAnimationFrame(() => setTimeout(r, 0)));
 const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
-export function LoadCoreDialog({ onClose, onExample }: { onClose: () => void; onExample?: () => void }) {
+export function LoadCoreDialog({ onClose, onExample, onTp }: { onClose: () => void; onExample?: () => void; onTp?: () => void }) {
   const commit = useProject((s) => s.commit);
   const [step, setStep] = useState<Step>('source');
   const [busy, setBusy] = useState<string | null>(null);
@@ -235,11 +235,31 @@ export function LoadCoreDialog({ onClose, onExample }: { onClose: () => void; on
             title="Arrastrá la tabla de plugs acá o hacé clic para elegirla"
             description="Excel (.xlsx), CSV o LAS: una fila por plug con profundidad, porosidad (% o v/v), permeabilidad (mD) y, si las hay, densidad de grano, número de corona, id del plug y descripción. Las columnas se reconocen por su nombre; en el paso siguiente podés corregirlas."
           />
+          {(onTp || onExample) && (
+            <div className="lw-or" aria-hidden="true">
+              <span>o</span>
+            </div>
+          )}
+          {onTp && (
+            <div className="lw-tp">
+              <div className="lw-tp__text">
+                <div className="lw-tp__title">Corona del TP · datos de laboratorio</div>
+                <div className="ui-text-muted">Los 151 plugs reales de las dos coronas del pozo del TP (φ, k, densidad de grano y factor de formación en 12), ya puestos en profundidad del perfil. Vienen incluidos en la app: no hace falta el Excel.</div>
+              </div>
+              <Button
+                icon="table"
+                onClick={() => {
+                  onTp();
+                  onClose();
+                }}
+                disabled={!!busy}
+              >
+                Cargar corona del TP
+              </Button>
+            </div>
+          )}
           {onExample && (
             <>
-              <div className="lw-or" aria-hidden="true">
-                <span>o</span>
-              </div>
               <div className="lw-tp">
                 <div className="lw-tp__text">
                   <div className="lw-tp__title">Plugs de ejemplo · sintéticos</div>

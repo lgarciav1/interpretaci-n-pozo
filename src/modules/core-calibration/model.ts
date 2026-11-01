@@ -30,7 +30,7 @@ import {
   type MatrixDensityFit,
   type ValueSummary,
 } from '../../petro/coreCalibration';
-import { COL, coreGroups, DEFAULT_MATCH_CURVE, MATCH_CURVE_SETTING, plugStatuses } from '../core/model';
+import { COL, coreGroups, DEFAULT_MATCH_CURVE, DEPTH_ON_LOG_SETTING, MATCH_CURVE_SETTING, plugStatuses } from '../core/model';
 import phiDensity from '../phi-density';
 import { SHARED_PARAMS } from '../sharedParams';
 import coreCalibration, { CORE_CALIBRATION_ID, WHOLE_WELL_ROW } from './index';
@@ -134,10 +134,14 @@ export function plugColumn(set: PointSet, plugs: IncludedPlugs, key: string): Fl
 
 export type DepthMatchState = 'applied' | 'none';
 
-/** ¿Alguna corona tiene puesta en profundidad? Sin ella se calibra contra la profundidad del archivo. */
+/**
+ * ¿Alguna corona tiene puesta en profundidad? Sin ella se calibra contra la profundidad del archivo. Un conjunto cuya
+ * profundidad de archivo ya es la del perfil (`DEPTH_ON_LOG_SETTING`) cuenta como puesto aunque el desplazamiento sea 0.
+ */
 export function depthMatchState(set: PointSet, dec: PointSetDecisions | undefined): { state: DepthMatchState; shifts: { label: string; shift: number }[] } {
   const shifts = coreGroups(set).map((g) => ({ label: g.label, shift: shiftOf(dec, g.run) }));
-  return { state: shifts.some((s) => s.shift !== 0) ? 'applied' : 'none', shifts };
+  const onLog = dec?.settings?.[DEPTH_ON_LOG_SETTING] === true;
+  return { state: onLog || shifts.some((s) => s.shift !== 0) ? 'applied' : 'none', shifts };
 }
 
 // ── φ perfil vs. φ corona ────────────────────────────────────────────────────────────────────────────────────

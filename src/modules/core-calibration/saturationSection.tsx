@@ -21,6 +21,7 @@ import { LoadRiDialog } from './LoadRiDialog';
 import { applyArchie, applySaturation, archieFits, CALIB_PARAMS, fitsParam, paramValue, plugCementation, roundedParam, zonesWithOwnValue, type PlugScope } from './model';
 import { KPI, Legend } from './parts';
 import { exampleRiSet } from './riExample';
+import { addTpRi, isTpRiSet, TP_RI_COMPOSITE_PLUG, TP_RI_DEFAULT_EXCLUDED, tpRiSet } from './tpRi';
 import { riLine, riSaturation, riSets, setRiPlugIncluded, type RiPlugRow } from './saturation';
 
 const f2 = (v: number | null | undefined) => formatNumber(v, { digits: 2 });
@@ -45,6 +46,27 @@ export function loadRiExample(): void {
   });
 }
 
+/**
+ * Carga el ensayo RI–Sw real del TP (embebido): el compuesto incluido y los 12 plugs individuales descartados. Si el
+ * pozo ya lo tiene, no lo duplica.
+ */
+export function loadTpRi(): void {
+  const entry = activeWellEntry(useProject.getState().project);
+  if (!entry) return;
+  if (entry.well.pointSets.some(isTpRiSet)) {
+    toast({ tone: 'info', title: 'El índice de resistividad del TP ya está cargado', description: 'Elegilo en el selector de ensayos de la sección «Exponente de saturación n».' });
+    return;
+  }
+  const set = tpRiSet(makeId('ri'));
+  const nComp = set.columns['plug']!.values.filter((p) => p === TP_RI_COMPOSITE_PLUG).length;
+  useProject.getState().commit('Cargar índice de resistividad del TP', (p) => addTpRi(p, entry.well.id, set));
+  toast({
+    tone: 'ok',
+    title: 'Índice de resistividad del TP cargado (datos reales de laboratorio)',
+    description: `${nComp} pares Sw–RI compuestos de la hoja IRSummary, incluidos en el ajuste, y el punto final de los ${TP_RI_DEFAULT_EXCLUDED.length} plugs, descartados porque ya están en el compuesto (podés incluirlos con su casilla). Para a y m con los 12 plugs con factor de formación, elegí «Todo el pozo» en «Aplicar en».`,
+  });
+}
+
 type AMode = 'fixed' | 'free';
 
 export function SaturationSection({ wellSets, interp, zoneId, coreSet, scope }: { wellSets: readonly PointSet[]; interp: Interpretation; zoneId: string | null; coreSet: PointSet | null; scope: PlugScope }) {
@@ -62,7 +84,7 @@ export function SaturationSection({ wellSets, interp, zoneId, coreSet, scope }: 
   const aNow = paramValue(interp.params, CALIB_PARAMS.a, zoneId);
   const mNow = paramValue(interp.params, CALIB_PARAMS.m, zoneId);
   const cem = useMemo(() => (coreSet ? plugCementation(coreSet, interp.pointSets[coreSet.id], aNow, scope) : null), [coreSet, interp.pointSets, aNow, scope.zones, scope.zoneId]);
-  const dialog = loading && <LoadRiDialog onClose={() => setLoading(false)} onExample={loadRiExample} />;
+  const dialog = loading && <LoadRiDialog onClose={() => setLoading(false)} onExample={loadRiExample} onTp={loadTpRi} />;
 
   const origin = sat?.pooled.origin ?? null;
   const free = sat?.pooled.free ?? null;
@@ -86,13 +108,16 @@ export function SaturationSection({ wellSets, interp, zoneId, coreSet, scope }: 
       <section className="ccal-col" aria-label="Exponente de saturación n">
         {header}
         <p className="ccal-empty">
-          El exponente n sale del ensayo de índice de resistividad de los plugs: pares de saturación de agua e índice de resistividad (Rt/Ro) medidos al desaturar cada plug. Cargá la tabla del laboratorio o usá el ensayo de ejemplo.
+          El exponente n sale del ensayo de índice de resistividad de los plugs: pares de saturación de agua e índice de resistividad (Rt/Ro) medidos al desaturar cada plug. Cargá la tabla del laboratorio, el ensayo real del TP o el de ejemplo.
         </p>
         <div className="ccal-row">
           <Button size="sm" variant="primary" icon="upload" onClick={() => setLoading(true)}>
             Cargar RI–Sw
           </Button>
-          <Button size="sm" icon="play" onClick={loadRiExample} title="Ensayo inventado para practicar: no son mediciones del pozo">
+          <Button size="sm" icon="table" onClick={loadTpRi} title="Ensayo real de la hoja IRSummary del pozo del TP, embebido en la app" data-testid="ccal-load-tp-ri">
+            Cargar RI del TP
+          </Button>
+          <Button size="sm" variant="ghost" icon="play" onClick={loadRiExample} title="Ensayo inventado para practicar: no son mediciones del pozo">
             Usar ensayo de ejemplo
           </Button>
         </div>
@@ -203,6 +228,11 @@ export function SaturationSection({ wellSets, interp, zoneId, coreSet, scope }: 
         {set.synthetic && (
           <Badge tone="warn" icon="warning" title="Ensayo inventado para practicar: no son mediciones del pozo">
             Ejemplo sintético
+          </Badge>
+        )}
+        {isTpRiSet(set) && (
+          <Badge tone="ok" icon="check-circle" title={`Mediciones reales del laboratorio: ${set.source}`}>
+            Datos del TP
           </Badge>
         )}
         <span className="shell-spacer" />

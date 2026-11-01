@@ -20,7 +20,7 @@ import type { TableValue } from '../../core/module';
 import { pointTexts, type PointSet } from '../../core/pointSets';
 import { updatePlotConfig } from '../../core/state/plots';
 import { setPointSetSetting } from '../../core/state/pointSets';
-import { activeWellEntry } from '../../core/state/project';
+import { activeWellEntry, makeId } from '../../core/state/project';
 import { layoutZones, type Well, type Zone } from '../../core/well';
 import { autoRange, binEdges, countBins } from '../../plots/histogram/histogram';
 import { niceRange, type XYAxis } from '../../plots/xy/axes';
@@ -37,6 +37,7 @@ import { useUi } from '../../app/store/ui';
 import { resolveSeries } from '../../app/trends/providers';
 import { useTrendsUi } from '../../app/trends/store';
 import { loadExample } from '../core/dock';
+import { addTpCore, isTpCoreSet, TP_CORE_VIEW, tpCoreSet } from '../core/tp';
 import { COL, CORE_DOCK_ID, coreSets, runColor, runLabel } from '../core/model';
 import { CORE_CALIBRATION_ID, RHOMAA_ZONES, WHOLE_WELL_ROW } from './index';
 import {
@@ -71,6 +72,7 @@ import {
 import { KPI, Legend } from './parts';
 import { riSets } from './saturation';
 import { loadRiExample, SaturationSection } from './saturationSection';
+import { addTpRi, tpRiSet } from './tpRi';
 import './calibration.css';
 
 const f2 = (v: number | null | undefined) => formatNumber(v, { digits: 2 });
@@ -94,6 +96,21 @@ const scopeText = (zones: readonly Zone[], zoneId: string | null) => {
   return z ? `la zona ${z.name}` : 'todo el pozo';
 };
 
+/** Estado vacío: plugs y ensayo RI reales del TP en una sola receta (un Ctrl+Z). */
+function loadTpAll(): void {
+  const w = activeWellId();
+  if (!w) return;
+  const core = tpCoreSet(makeId('corona'));
+  const ri = tpRiSet(makeId('ri'));
+  useProject.getState().commit('Cargar datos de corona del TP', (p) => addTpRi(addTpCore(p, w, core, makeId('tend')), w, ri));
+  toast({
+    tone: 'ok',
+    title: 'Datos de corona del TP cargados (reales, de laboratorio)',
+    description: `${core.pointIds.length} plugs de las dos coronas, ya en profundidad del perfil, y el ensayo de índice de resistividad compuesto. Para a y m con los 12 plugs con factor de formación, elegí «Todo el pozo» en «Aplicar en».`,
+  });
+  useTrendsUi.getState().requestRange(TP_CORE_VIEW[0], TP_CORE_VIEW[1]);
+}
+
 // ── panel ──────────────────────────────────────────────────────────────────────────────────────────────────
 
 export function CalibrationPanel() {
@@ -114,13 +131,16 @@ export function CalibrationPanel() {
         size="sm"
         icon="layers"
         title="Sin plugs de corona"
-        description="La calibración compara el perfil con los plugs ya puestos en profundidad: porosidad del perfil contra la de corona, densidad de matriz y exponentes de Archie (m desde el factor de formación, n desde el índice de resistividad). Cargá los plugs en el panel Corona o usá los de ejemplo."
+        description="La calibración compara el perfil con los plugs ya puestos en profundidad: porosidad del perfil contra la de corona, densidad de matriz y exponentes de Archie (m desde el factor de formación, n desde el índice de resistividad). Cargá los plugs en el panel Corona, los datos reales del TP o los de ejemplo."
         actions={
           <>
             <Button variant="primary" icon="layers" onClick={() => useUi.getState().set({ dockTab: CORE_DOCK_ID })}>
               Ir a Corona
             </Button>
-            <Button icon="play" onClick={loadExample} title="Plugs inventados para practicar sobre el pozo del TP: no son mediciones del pozo">
+            <Button icon="table" onClick={loadTpAll} title="Plugs y ensayo de índice de resistividad reales del pozo del TP (laboratorio de la cátedra), embebidos en la app">
+              Cargar datos del TP
+            </Button>
+            <Button variant="ghost" icon="play" onClick={loadExample} title="Plugs inventados para practicar sobre el pozo del TP: no son mediciones del pozo">
               Usar plugs de ejemplo
             </Button>
             <Button variant="ghost" icon="play" onClick={loadRiExample} title="Ensayo de índice de resistividad inventado para practicar: no son mediciones del pozo">
@@ -237,6 +257,11 @@ function CalibrationBar({
         {set.synthetic && (
           <Badge tone="warn" icon="warning" title="Plugs inventados para practicar: no son mediciones del pozo">
             Ejemplo sintético
+          </Badge>
+        )}
+        {isTpCoreSet(set) && (
+          <Badge tone="ok" icon="check-circle" title={`Mediciones reales del laboratorio: ${set.source}`}>
+            Datos del TP
           </Badge>
         )}
       </div>

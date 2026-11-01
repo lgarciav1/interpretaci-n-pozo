@@ -645,6 +645,12 @@ Decisión: [`docs/decisiones/0023-calibracion-con-corona.md`](decisiones/0023-ca
   `src/petro/coreCalibration.ts`, sección «Exponente de saturación n» del panel con n por plug, «Aplicar n» y el resumen
   «Archie desde corona» con «Aplicar a, m y n» en una receta. Tests: `tests/petro-exponente-saturacion.test.ts` y
   `tests/modules-core-ri.test.ts`.
+- **Datos reales del TP embebidos** ([`0056`](decisiones/0056-datos-reales-del-tp-embebidos.md)): los 151 plugs de
+  las dos coronas (12 con F) y el ensayo RI–Sw de la cátedra viven en `src/modules/core/tpData.ts` (generado por
+  `scripts/qa/tp-lab-data.py`); `tpCoreSet` (`src/modules/core/tp.ts`) y `tpRiSet`
+  (`src/modules/core-calibration/tpRi.ts`) arman los conjuntos, rotulados «Datos del TP» (no sintéticos), con la
+  profundidad del Excel ya en profundidad del perfil y los 12 puntos RI individuales descartados por defecto. Tests:
+  `tests/tp-datos-corona.test.ts`.
 
 ## Tipos de roca (fase 8, función P)
 
