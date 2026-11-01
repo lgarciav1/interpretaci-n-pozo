@@ -15,7 +15,13 @@ import { sanitizeToolString } from '../toolString';
 import { sanitizeTrends } from '../trends';
 import { createWell, type Curve, type Well } from '../well';
 import { emptyProgress, type FlowProgress, type Project, type Snapshot } from './project';
-import { containsInputRevisions } from './inputRevisions';
+import { containsInputRevisions, enableProjectInputRevisions } from './inputRevisions';
+import { encodeArray, decodeArray, defaultCodec, type CodecChoice, type EncodedArray } from './archive/arrayCodec';
+import { ArchiveLimitError, archiveLimits, checkFileSize, DecodeBudget, type ArchiveLimits } from './archive/limits';
+import { readProjectV7, REVISION_PROJECT_VERSION, serializeProjectV7, type RecoveryResult } from './archive/projectV7';
+export { REVISION_PROJECT_VERSION, type RevisionProjectFile, ArchiveReadError } from './archive/projectV7';
+export { ARCHIVE_LIMITS, ArchiveLimitError } from './archive/limits';
+export { encodeArray, decodeArray, compressionAvailable, type ArrayCodec, type CodecChoice, type EncodedArray } from './archive/arrayCodec';
 
 export const PROJECT_FORMAT = 'pozo-proyecto';
 /**
@@ -33,17 +39,8 @@ export const PROJECT_FORMAT = 'pozo-proyecto';
  *   La fase 11a (docs/decisiones/0032) suma, también sin cambiar la versión, `interpretation.toolString` (sarta de
  *   perfilaje, en cada pozo y snapshot). Ausente = modo datos sin nada apagado; se valida al abrir.
  */
+/** Versión de escritura de proyectos legados. v7 se usa cuando hay revisiones explícitas. */
 export const PROJECT_VERSION = 6;
-
-export type ArrayCodec = 'f64le-b64' | 'f64le-deflate-b64' | 'f64le-shuffle-deflate-b64';
-/** 'auto' = la variante comprimida más chica para cada array. */
-export type CodecChoice = ArrayCodec | 'auto';
-
-export interface EncodedArray {
-  codec: ArrayCodec;
-  length: number;
-  data: string;
-}
 
 interface SavedCurve extends Omit<Curve, 'data'> {
   data: EncodedArray;
@@ -77,105 +74,13 @@ export interface ProjectFile {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// Codificación de arrays
-
-const LITTLE_ENDIAN = new Uint8Array(new Uint16Array([1]).buffer)[0] === 1;
-
-function toBytes(values: Float64Array): Uint8Array {
-  if (!LITTLE_ENDIAN) {
-    const out = new Uint8Array(values.length * 8);
-    const view = new DataView(out.buffer);
-    values.forEach((v, i) => view.setFloat64(i * 8, v, true));
-    return out;
-  }
-  return new Uint8Array(values.buffer, values.byteOffset, values.byteLength).slice();
-}
-
-function fromBytes(bytes: Uint8Array, length: number): Float64Array {
-  if (bytes.length !== length * 8) throw new Error(`Array corrupto: se esperaban ${length * 8} bytes y hay ${bytes.length}.`);
-  const out = new Float64Array(length);
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  for (let i = 0; i < length; i++) out[i] = view.getFloat64(i * 8, true);
-  return out;
-}
-
-/** Byte shuffle: agrupa el byte k de todos los valores (mejora mucho la compresión de floats). */
-function shuffle(bytes: Uint8Array, width: number): Uint8Array {
-  const n = bytes.length / width;
-  const out = new Uint8Array(bytes.length);
-  for (let i = 0; i < n; i++) for (let k = 0; k < width; k++) out[k * n + i] = bytes[i * width + k]!;
-  return out;
-}
-
-function unshuffle(bytes: Uint8Array, width: number): Uint8Array {
-  const n = bytes.length / width;
-  const out = new Uint8Array(bytes.length);
-  for (let i = 0; i < n; i++) for (let k = 0; k < width; k++) out[i * width + k] = bytes[k * n + i]!;
-  return out;
-}
-
-function toBase64(bytes: Uint8Array): string {
-  let s = '';
-  const CHUNK = 0x8000;
-  for (let i = 0; i < bytes.length; i += CHUNK) s += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
-  return btoa(s);
-}
-
-function fromBase64(text: string): Uint8Array {
-  const s = atob(text);
-  const out = new Uint8Array(s.length);
-  for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
-  return out;
-}
-
-async function pipeThrough(bytes: Uint8Array, stream: CompressionStream | DecompressionStream): Promise<Uint8Array> {
-  const blob = new Blob([bytes as BlobPart]);
-  const buffer = await new Response(blob.stream().pipeThrough(stream)).arrayBuffer();
-  return new Uint8Array(buffer);
-}
-
-export function compressionAvailable(): boolean {
-  return typeof CompressionStream !== 'undefined' && typeof DecompressionStream !== 'undefined';
-}
-
-export async function encodeArray(values: Float64Array, choice: CodecChoice = defaultCodec()): Promise<EncodedArray> {
-  const bytes = toBytes(values);
-  const length = values.length;
-  if (choice === 'f64le-b64') return { codec: choice, length, data: toBase64(bytes) };
-  const deflate = (b: Uint8Array) => pipeThrough(b, new CompressionStream('deflate'));
-  if (choice === 'f64le-deflate-b64') return { codec: choice, length, data: toBase64(await deflate(bytes)) };
-  if (choice === 'f64le-shuffle-deflate-b64') return { codec: choice, length, data: toBase64(await deflate(shuffle(bytes, 8))) };
-  const [plain, shuffled] = await Promise.all([deflate(bytes), deflate(shuffle(bytes, 8))]);
-  return shuffled.length < plain.length
-    ? { codec: 'f64le-shuffle-deflate-b64', length, data: toBase64(shuffled) }
-    : { codec: 'f64le-deflate-b64', length, data: toBase64(plain) };
-}
-
-export async function decodeArray(enc: EncodedArray): Promise<Float64Array> {
-  const raw = fromBase64(enc.data);
-  switch (enc.codec) {
-    case 'f64le-b64':
-      return fromBytes(raw, enc.length);
-    case 'f64le-deflate-b64':
-    case 'f64le-shuffle-deflate-b64': {
-      if (!compressionAvailable()) throw new Error('Este navegador no puede descomprimir el proyecto (falta DecompressionStream).');
-      const bytes = await pipeThrough(raw, new DecompressionStream('deflate'));
-      return fromBytes(enc.codec === 'f64le-deflate-b64' ? bytes : unshuffle(bytes, 8), enc.length);
-    }
-    default:
-      throw new Error(`Codificación de array desconocida: '${(enc as { codec: string }).codec}'.`);
-  }
-}
-
-function defaultCodec(): CodecChoice {
-  return compressionAvailable() ? 'auto' : 'f64le-b64';
-}
-
-// ---------------------------------------------------------------------------------------------------------------
 // Proyecto
 
-export async function serializeProject(project: Project, opts: { codec?: CodecChoice; savedAt?: string } = {}): Promise<string> {
-  if (containsInputRevisions(project)) throw new Error('El formato v6 no puede conservar revisiones de entradas. Se requiere la persistencia de la próxima versión; no se guardó una copia incompleta.');
+export async function serializeProject(project: Project, opts: { codec?: CodecChoice; savedAt?: string; version?: 6 | 7 } = {}): Promise<string> {
+  const version = opts.version ?? (containsInputRevisions(project) ? REVISION_PROJECT_VERSION : PROJECT_VERSION);
+  if (version === REVISION_PROJECT_VERSION) return serializeProjectV7(project, opts.codec ?? defaultCodec(), opts.savedAt ?? new Date().toISOString());
+  if (version !== 6) throw new Error('Versión de escritura no admitida.');
+  if (containsInputRevisions(project)) throw new Error('El formato v6 no puede conservar revisiones de entradas; no se guardó una copia incompleta.');
   const codec = opts.codec ?? defaultCodec();
   const wells = await Promise.all(
     project.wells.map(async ({ well, interpretation, progress }) => {
@@ -200,7 +105,9 @@ export async function serializeProject(project: Project, opts: { codec?: CodecCh
     savedAt: opts.savedAt ?? new Date().toISOString(),
     project: { name: project.name, activeWellId: project.activeWellId, wells, snapshots: project.snapshots, display: project.display },
   };
-  return JSON.stringify(file);
+  const text = JSON.stringify(file);
+  checkFileSize(text, archiveLimits().fileBytes);
+  return text;
 }
 
 async function encodePointSet(ps: PointSet, codec: CodecChoice): Promise<SavedPointSet> {
@@ -212,11 +119,11 @@ async function encodePointSet(ps: PointSet, codec: CodecChoice): Promise<SavedPo
 }
 
 /** Conjunto guardado → `PointSet` validado; null (con aviso) si está roto: no tira abajo el proyecto. */
-async function decodePointSet(raw: SavedPointSet, where: string, warn: (m: string) => void): Promise<PointSet | null> {
+async function decodePointSet(raw: SavedPointSet, where: string, warn: (m: string) => void, budget: DecodeBudget): Promise<PointSet | null> {
   const label = `${where}, conjunto de puntos '${raw?.name ?? raw?.id ?? '?'}'`;
   try {
     if (!raw || typeof raw !== 'object' || !raw.depth || !Array.isArray(raw.pointIds)) throw new Error('le faltan la profundidad o los ids');
-    const depth = await decodeArray(raw.depth);
+    const depth = await decodeArray(raw.depth, budget);
     const columns: Record<string, PointColumn> = {};
     const cols = raw.columns && typeof raw.columns === 'object' && !Array.isArray(raw.columns) ? raw.columns : {};
     for (const [key, c] of Object.entries(cols)) {
@@ -224,7 +131,7 @@ async function decodePointSet(raw: SavedPointSet, where: string, warn: (m: strin
       let col: PointColumn | null = null;
       if (c && typeof c === 'object' && 'values' in c && c.values && typeof c.values === 'object' && 'codec' in c.values) {
         const unit = typeof c.unit === 'string' && c.unit ? c.unit : 'unitless';
-        const values = await decodeArray(c.values).catch(() => null);
+        const values = await decodeArray(c.values, budget).catch((err) => { if (err instanceof ArchiveLimitError) throw err; return null; });
         if (values) col = { label: String(c.label ?? key), unit, values };
       } else if (c && typeof c === 'object' && 'text' in c && Array.isArray(c.text)) {
         col = { label: String(c.label ?? key), values: c.text.map((v) => (typeof v === 'string' ? v : String(v ?? ''))) };
@@ -244,6 +151,7 @@ async function decodePointSet(raw: SavedPointSet, where: string, warn: (m: strin
       columns,
     });
   } catch (err) {
+    if (err instanceof ArchiveLimitError) throw err;
     warn(`${label}: ${(err instanceof Error ? err.message : String(err)).replace(/\.$/, '')}; se descarta el conjunto.`);
     return null;
   }
@@ -299,9 +207,15 @@ function migrate(file: ProjectFile): ProjectFile {
 export interface DeserializeOptions {
   /** Avisos de lo que se descartó por inválido (por defecto, a la consola). */
   onWarning?: (message: string) => void;
+  /** Migración explícita v1–v6 → revisiones; por defecto conserva el flujo legado. */
+  upgradeInputs?: boolean;
+  limits?: Partial<ArchiveLimits>;
 }
 
 export async function deserializeProject(text: string, opts: DeserializeOptions = {}): Promise<Project> {
+  const limits = archiveLimits(opts.limits);
+  checkFileSize(text, limits.fileBytes);
+  const budget = new DecodeBudget(limits);
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -309,8 +223,13 @@ export async function deserializeProject(text: string, opts: DeserializeOptions 
     throw new Error('El archivo no es un proyecto válido (no es JSON).');
   }
   const file = parsed as ProjectFile;
-  if (!file || file.format !== PROJECT_FORMAT || typeof file.version !== 'number' || !file.project) {
+  if (!file || file.format !== PROJECT_FORMAT || !Number.isInteger(file.version) || file.version < 1 || !file.project) {
     throw new Error('El archivo no es un proyecto de esta app.');
+  }
+  if (file.version === REVISION_PROJECT_VERSION) {
+    const result = await readProjectV7(parsed, { limits, onWarning: opts.onWarning ?? ((m) => console.warn(`Proyecto: ${m}`)) });
+    if (!result.project) throw new Error('El archivo v7 no contiene un proyecto recuperable.');
+    return result.project;
   }
   if (file.version <= PROJECT_VERSION && containsInputRevisions(file.project)) throw new Error('El archivo declara v6 o anterior pero contiene referencias a revisiones de entradas. No se pueden descartar esas referencias al abrirlo.');
   const { project } = migrate(file);
@@ -328,10 +247,10 @@ export async function deserializeProject(text: string, opts: DeserializeOptions 
   };
   const wells = await Promise.all(
     project.wells.map(async ({ well, interpretation, progress }) => {
-      const depth = await decodeArray(well.depth.values);
-      const curves: Curve[] = await Promise.all(well.curves.map(async (c) => ({ ...c, data: await decodeArray(c.data) })));
+      const depth = await decodeArray(well.depth.values, budget);
+      const curves: Curve[] = await Promise.all(well.curves.map(async (c) => ({ ...c, data: await decodeArray(c.data, budget) })));
       const where = `Pozo '${well.name}'`;
-      const decoded = await Promise.all((Array.isArray(well.pointSets) ? well.pointSets : []).map((ps) => decodePointSet(ps, where, warn)));
+      const decoded = await Promise.all((Array.isArray(well.pointSets) ? well.pointSets : []).map((ps) => decodePointSet(ps, where, warn, budget)));
       const ids = new Set<string>();
       const pointSets = decoded.filter((ps): ps is PointSet => {
         if (!ps) return false;
@@ -354,12 +273,25 @@ export async function deserializeProject(text: string, opts: DeserializeOptions 
       return { well: restored, interpretation: cleanInterp(interpretation, where), progress: progress ?? emptyProgress() };
     }),
   );
-  return {
+  const restored: Project = {
     name: project.name,
     activeWellId: project.activeWellId,
     wells,
     snapshots: (project.snapshots ?? []).map((s) => ({ ...s, interpretation: cleanInterp(s.interpretation, `Snapshot '${s.name}'`) })),
     display: sanitizeDisplay(project.display, warn),
   };
+  if (!opts.upgradeInputs) return restored;
+  const upgraded = enableProjectInputRevisions(restored);
+  for (const s of upgraded.snapshots) warn(`Snapshot '${s.name}': el archivo antiguo no conservaba entradas históricas; se asocia a los datos disponibles al migrar.`);
+  return upgraded;
+}
+
+/** No se usa automáticamente al abrir: la recuperación requiere una elección explícita del llamador. */
+export async function recoverProject(text: string, opts: Pick<DeserializeOptions, 'limits' | 'onWarning'> = {}): Promise<RecoveryResult> {
+  const limits = archiveLimits(opts.limits);
+  checkFileSize(text, limits.fileBytes);
+  let raw: unknown;
+  try { raw = JSON.parse(text); } catch { throw new Error('El archivo no es un proyecto válido (no es JSON).'); }
+  return readProjectV7(raw, { ...opts, limits, recover: true });
 }
 

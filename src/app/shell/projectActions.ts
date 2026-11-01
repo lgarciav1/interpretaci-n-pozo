@@ -1,5 +1,6 @@
 /** Guardar y abrir proyecto (con avisos). Sin React: se llaman desde menús y atajos. */
-import { deserializeProject, serializeProject } from '../../core/state/serialize';
+import { ARCHIVE_LIMITS } from '../../core/state/serialize';
+import { projectFiles } from '../projectFiles';
 import { toast } from '../../ui';
 import { useProject } from '../store/project';
 import { useUi } from '../store/ui';
@@ -7,7 +8,9 @@ import { useUi } from '../store/ui';
 export async function saveProject(): Promise<void> {
   const project = useProject.getState().project;
   try {
-    const text = await serializeProject(project);
+    const result = await projectFiles.run({ kind: 'save', project });
+    if (result.kind !== 'save') throw new Error('Respuesta de guardado inválida.');
+    const text = result.text;
     const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
     const a = document.createElement('a');
     a.href = url;
@@ -22,13 +25,16 @@ export async function saveProject(): Promise<void> {
 
 export async function openProjectFile(file: File): Promise<void> {
   try {
-    const warnings: string[] = [];
-    useProject.getState().replace(await deserializeProject(await file.text(), { onWarning: (m) => warnings.push(m) }));
+    if (file.size > ARCHIVE_LIMITS.fileBytes) throw new Error('El proyecto supera el límite de tamaño de archivo.');
+    const result = await projectFiles.run({ kind: 'open', text: await file.text() });
+    if (result.kind !== 'open') throw new Error('Respuesta de apertura inválida.');
+    const { warnings, project } = result;
+    useProject.getState().replace(project);
     useUi.getState().set({ activeStepId: null, activeModuleId: null, editingZoneId: null });
     toast({ title: 'Proyecto abierto', description: file.name, tone: 'ok' });
     if (warnings.length) {
       console.warn(warnings.join('\n'));
-      toast({ title: 'Se descartó parte de la configuración del visor', description: warnings.length === 1 ? warnings[0]! : `${warnings[0]} (y ${warnings.length - 1} más; detalle en la consola)`, tone: 'warn' });
+      toast({ title: 'Avisos al abrir el proyecto', description: warnings.length === 1 ? warnings[0]! : `${warnings[0]} (y ${warnings.length - 1} más; detalle en la consola)`, tone: 'warn' });
     }
   } catch (err) {
     toast({ title: 'No se pudo abrir el proyecto', description: err instanceof Error ? err.message : String(err), tone: 'error' });
@@ -46,3 +52,4 @@ export function pickProjectFile(): void {
   };
   input.click();
 }
+

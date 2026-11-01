@@ -165,6 +165,11 @@ export function SummaryCompare({ entry, snapshots, a, b, onChange }: { entry: We
           )}
         </div>
         {a === b && <Callout tone="info">A y B son el mismo estado: todas las diferencias dan cero.</Callout>}
+        {snapshots.some((s) => (s.id === a || s.id === b) && s.inputBinding === 'legacy-current-inputs') && (
+          <Callout tone="warn" title="Datos históricos limitados">
+            El archivo original no guardaba los datos de este snapshot. Se comparan las entradas disponibles al migrarlo.
+          </Callout>
+        )}
         {problems.length > 0 ? (
           <Callout tone="warn" title="No se puede armar el sumario para comparar">
             <ul className="snap-diff">

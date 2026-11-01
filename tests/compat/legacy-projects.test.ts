@@ -124,7 +124,7 @@ it('dos pozos con los mismos ids de curvas no mezclan datos o metadatos al edita
 it('un archivo futuro se rechaza sin modificar el proyecto abierto', async () => {
   const p = await load('v6.pozo.json');
   const raw = JSON.parse(files['../fixtures/projects/v6.pozo.json']!);
-  raw.version = 7;
+  raw.version = 8; // v7 ya es un formato admitido.
   await expect(deserializeProject(JSON.stringify(raw))).rejects.toThrow(/versión más nueva/);
   expect(arraysOf(p)).toEqual(manifest.fixtures[5]!.arraysHex);
 });
