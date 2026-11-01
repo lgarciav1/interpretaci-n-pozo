@@ -314,6 +314,8 @@ describe('las acciones reales de la app', () => {
     for (const id of ['theme:light', 'theme:dark', 'theme:system', 'scale:compact', 'scale:normal', 'scale:large', 'workspace:petrophysics', 'workspace:geology']) have(id);
     for (const id of ['tracks:builder', 'tracks:template-factory', 'tracks:template-save', 'tracks:sw-models']) have(id);
     for (const t of ['density-neutron', 'pickett', 'phi-sw', 'gr-rt']) have(`crossplot:template:${t}`);
+    // Plantillas de determinación de litologías (0059)
+    for (const t of ['sonic-neutron', 'density-sonic', 'm-n', 'rhomaa-umaa', 'pe-k', 'pe-thk']) have(`crossplot:template:${t}`);
     have('ui:palette');
     have('ui:shortcuts');
 
@@ -339,6 +341,7 @@ describe('las acciones reales de la app', () => {
     expect(searchCommands(all, 'saturacion')[0]!.command.id).toBe('step:saturation');
     expect(ids(searchCommands(all, 'tema oscuro'))[0]).toBe('theme:dark');
     expect(ids(searchCommands(all, 'pickett'))[0]).toBe('crossplot:template:pickett');
+    expect(ids(searchCommands(all, 'umaa'))[0]).toBe('crossplot:template:rhomaa-umaa');
     expect(ids(searchCommands(all, 'modelos de sw'))[0]).toBe('tracks:sw-models');
     expect(ids(searchCommands(all, 'exportar'))).toContain('project:export');
     expect(ids(searchCommands(all, 'snapshot'))).toEqual(expect.arrayContaining(['project:snapshots', 'project:snapshot-now']));

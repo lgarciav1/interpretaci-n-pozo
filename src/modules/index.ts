@@ -53,6 +53,7 @@ import zoneSuggestions from './zone-suggestions';
 import electrosequences from './electrosequences';
 import clayTyping from './clay-typing';
 import mineralInversion from './mineral-inversion';
+import lithologyIndices from './lithology-indices';
 import { SHARED_PARAMS } from './sharedParams';
 
 export const MODULES = [
@@ -96,6 +97,7 @@ export const MODULES = [
   electrosequences,
   clayTyping,
   mineralInversion,
+  lithologyIndices,
   passeyToc,
   syntheticSeismogram,
   sedColumn,
