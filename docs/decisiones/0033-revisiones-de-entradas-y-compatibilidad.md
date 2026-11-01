@@ -1,6 +1,6 @@
 # ADR 0033: revisiones de entradas y compatibilidad
 
-Fecha: 2026-10-28. Estado: contrato propuesto para P1/P2, con caracterización ejecutable de v1–v6. Referencias: masterplan #33, preparación #32 y DRX #31. Base de código: PR #38, eecad95a60b389c7ff4e847a2bbdffd397bbc763. Esta entrega no implementa la migración ni modifica la aplicación.
+Fecha: 2026-10-28. Estado: contrato P1/P2, con caracterización ejecutable de v1–v6 y primera implementación aislada P1a (ver avance al final). Referencias: masterplan #33, preparación #32 y DRX #31. Base de código: PR #38, eecad95a60b389c7ff4e847a2bbdffd397bbc763. La entrega original #39 no implementó la migración ni modificó la aplicación. P1a agrega un módulo aislado, todavía sin conectarlo a Project o al formato de archivo.
 
 ## Problema concreto
 
@@ -137,3 +137,20 @@ Para una implementación P1 sin preparación, comparar contra la rama base en el
 ## Siguiente PR acotado
 
 P1: modelo de revisiones, recetas y snapshots fijados, archivo y validación v7, migración de este corpus y runner aislado que resuelva la revisión correcta. Revisión de compatibilidad con guardar/abrir, undo/redo, MDT/corona, fuentes, datos y exportaciones. No agregar limpieza ni calibración en ese mismo cambio. Los tipos y campos de este documento son un contrato a implementar, no APIs disponibles.
+
+
+## Avance P1a: modelo y operaciones aislados (2026-10-29)
+
+`src/core/inputs/` implementa InputRevision, adquisición declarada y un InputRevisionState independiente de Project. Este almacén temporal conserva revisiones por id y la revisión activa de cada pozo; no es la forma del archivo v7 ni una segunda pila de historial de la aplicación.
+
+APIs implementadas: emptyInputRevisions, addInitialInputRevision, getActiveInputRevision, copyInputWellForEdit, reviseInputRevision, validateInputRevisionState, unknownAcquisition y validateAcquisition. inputRevisionIdFromBytes formatea 16 bytes suministrados por el llamador; no obtiene entropía ni lee el reloj. Las recetas reciben id y fecha ISO UTC con milisegundos. La generación aleatoria/fallback de D1 queda pendiente de la integración, sin introducir ahora un generador distinto del acordado.
+
+La captura inicial copia arrays y estructuras externos; la hija conserva los arrays de su padre que tienen los mismos bytes y copia los que cambiaron. Se conservan subarrays, NaN y sus payloads, ±Infinity y ceros con signo. Los metadatos y contenedores se congelan. Un no-op por contenido mantiene el mismo estado y no publica el sello suministrado. Las fechas/ids de un sello no utilizado no se validan porque no crean una revisión.
+
+El llamador debe usar copyInputWellForEdit para modificar datos. Los Float64Array publicados siguen siendo de lectura por contrato, igual que los Well existentes: ni TypeScript ni Object.freeze protegen sus elementos. No se ofrece protección contra escrituras directas que eludan la API. No se transfiere ningún buffer del almacén. Los estados suministrados manualmente al validador se comprueban estructuralmente; la validación no adquiere propiedad de sus buffers ni los incorpora automáticamente a un almacén.
+
+Validación estricta, sin reparar datos: índice MD creciente/finito y paso consistente, dimensiones, ids, PointSet ordenados (con cotas repetidas admitidas), origen, formas de metadatos, adquisición y grafo. Las unidades/roles no vacíos y nombres de efectos desconocidos se conservan; eso no habilita su uso científico. El esquema 1 asigna cada curva completa a una sola corrida; un futuro soporte de corridas por intervalos requerirá su propio esquema.
+
+Hay una raíz por pozo y padres del mismo pozo; se rechazan ciclos y referencias activas inconsistentes. Cambiar entradas o adquisición crea una hija y cambia su revisión activa en una sola devolución, conservando las anteriores. No se implementó limpieza de revisiones. La validación actual recorre el almacén y sus datos; antes de activarlo sobre historiales extensos deberá medirse ese costo.
+
+Continúan pendientes las partes de P1 que modifican Project, snapshots, runner aislado, generación de ids, persistencia, integridad de blobs y migración. La aplicación continúa guardando v6 y no usa todavía este módulo. Las reglas D1–D6 siguen siendo el contrato para esas próximas entregas.
