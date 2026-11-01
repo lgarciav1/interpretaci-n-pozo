@@ -4,10 +4,10 @@ import { BUILTIN_ROLES } from '../roles';
 import { getUnit } from '../units';
 
 /** Alcance explícito: roles medidos del catálogo. No inferir continuidad por ver números. */
-export function interpolationSourceProblem(curve: { role: string | null; unit: string }): string | null {
+export function interpolationSourceProblem(curve: { role: string | null; unit: string }, label = 'La interpolación'): string | null {
   const role = BUILTIN_ROLES.find(r => r.id === curve.role);
-  if (!role || role.origin === 'computed' || role.family === 'flag') return 'La interpolación requiere un rol de perfil medido del catálogo; no admite banderas, categorías ni curvas sin rol reconocido.';
-  if (!getUnit(curve.unit) || getUnit(curve.unit)?.dimension !== getUnit(role.unit)?.dimension) return 'La unidad no es compatible con el rol de la curva para interpolar.';
+  if (!role || role.origin === 'computed' || role.family === 'flag') return `${label} requiere un rol de perfil medido del catálogo; no admite banderas, categorías ni curvas sin rol reconocido.`;
+  if (!getUnit(curve.unit) || getUnit(curve.unit)?.dimension !== getUnit(role.unit)?.dimension) return 'La unidad no es compatible con el rol de la curva para esta preparación.';
   return null;
 }
 
