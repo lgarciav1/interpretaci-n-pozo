@@ -12,7 +12,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { toEngineWell } from '../../core/engine/engine';
 import { sameContext } from '../../core/engine/context';
 import { interpolationSourceProblem } from '../../core/preparation/interpolation';
-import { alignmentQualityCounts, stageQualityCounts } from '../../core/preparation/quality';
+import { alignmentQualityCounts, normalizationQualityCounts, stageQualityCounts } from '../../core/preparation/quality';
+import { nodeNormalization, nodeShift } from '../../core/preparation/state';
+import { normalizationAnchorsList, type PhysicalDomain } from '../../core/preparation/normalization';
 import { preparedCurveId } from '../../core/preparation/source';
 import { entryPreparationPlan } from '../../core/state/preparation';
 import { makeId, type Project, type WellEntry } from '../../core/state/project';
@@ -35,6 +37,8 @@ import { ExclusionEditor } from './ExclusionEditor';
 import { FilterEditor } from './FilterEditor';
 import { indexRange, qualityOf, withSuspects } from './flags';
 import { InterpolationEditor } from './InterpolationEditor';
+import { NormalizationEditor } from './NormalizationEditor';
+import { stagePriorView } from './normalizationView';
 import { Pipeline } from './Pipeline';
 import { pipelineStages, type PipelineStage, type PreparedView, type ToolId } from './pipeline';
 import { CorrelationReview, RunEditor } from './RunEditor';
@@ -75,11 +79,20 @@ export const TOOLS: readonly ToolDef[] = [
   { id: 'interpolate', title: 'Interpolar huecos', icon: 'activity', description: 'Estima faltantes cortos entre dos mediciones.' },
   { id: 'filter', title: 'Mediana móvil', icon: 'filter', description: 'Suaviza el ruido con una ventana en metros.' },
   { id: 'shift', title: 'Alinear en profundidad', icon: 'swap', description: 'Corre toda la curva una distancia constante en MD.' },
+  { id: 'normalize', title: 'Normalizar', icon: 'histogram', description: 'Corrige calibración y escala llevando percentiles a valores de referencia.' },
 ];
 
-const STAGE_OF_TOOL: Record<ToolId, PipelineStage['id']> = { exclude: 'exclusion', suspects: 'exclusion', interpolate: 'interpolation', filter: 'median', shift: 'alignment' };
+const STAGE_OF_TOOL: Record<ToolId, PipelineStage['id']> = { exclude: 'exclusion', suspects: 'exclusion', interpolate: 'interpolation', filter: 'median', shift: 'alignment', normalize: 'normalization' };
 
-const APPLY_VERB: Record<Operation, string> = { exclude: 'Excluir mediciones de', interpolate: 'Interpolar faltantes de', filter: 'Filtrar con mediana', shift: 'Alinear curva' };
+const APPLY_VERB: Record<Operation, string> = { exclude: 'Excluir mediciones de', interpolate: 'Interpolar faltantes de', filter: 'Filtrar con mediana', shift: 'Alinear curva', normalize: 'Normalizar' };
+
+/** Rango físico legible («−0,15 a 1 v/v», «≥ 0 gAPI», «> 0 ohm.m»). */
+function domainText(d: PhysicalDomain, unit: string): string {
+  const v = (x: number) => formatNumber(x, { significant: 4 }).replace('-', '−');
+  if (d.min !== null && d.max !== null) return `${v(d.min)} a ${v(d.max)} ${unit}`;
+  if (d.min !== null) return `${d.strictMin ? '>' : '≥'} ${v(d.min)} ${unit}`;
+  return d.max !== null ? `≤ ${v(d.max)} ${unit}` : '';
+}
 
 function medianStep(depth: Float64Array): number {
   const n = Math.min(depth.length - 1, 512);
@@ -189,6 +202,11 @@ function Workspace({ wellId }: { wellId: string }) {
     if (!request) return;
     if (request.curveId && measured.some((c) => c.id === request.curveId)) selectCurve(request.curveId);
     setTab('clean');
+    if (request.tool && TOOLS.some((t) => t.id === request.tool)) {
+      setTool(request.tool as ToolId);
+      setReport(null);
+      setApplied(null);
+    }
     usePreparationUi.setState({ request: null });
   }, [request, measured, selectCurve]);
 
@@ -290,6 +308,8 @@ function Workspace({ wellId }: { wellId: string }) {
           ? 'No hay ventanas con soporte completo: revisá radio, separación y tramo.'
           : current.operation === 'shift' && !(aligned?.finite ?? 0)
             ? 'No queda cobertura: ajustá el desplazamiento o el hueco máximo.'
+            : current.operation === 'normalize' && !(previewPayload && normalizationQualityCounts(previewPayload.quality).normalized)
+              ? 'No queda ninguna muestra para normalizar en la curva.'
             : current.operation === 'exclude' && !addedExcluded
               ? 'El tramo no agrega mediciones para excluir: ya están excluidas o sin dato.'
               : !batchReady
@@ -353,6 +373,12 @@ function Workspace({ wellId }: { wellId: string }) {
   }, [curve, shownPreview, appliedPayload, qc, suspects, win]);
 
   const zones = entry.interpretation.zones;
+  // La curva tal como entra a la normalización: la preparada vigente sin su normalización (o el original).
+  const prior = useMemo(() => {
+    const data = curve?.data ?? new Float64Array(0);
+    const base = appliedPayload && appliedPayload.data.length === data.length ? { data: appliedPayload.data, quality: appliedPayload.quality } : { data, quality: qualityOf(data) };
+    return stagePriorView(base, appliedNode ? nodeNormalization(appliedNode) : undefined, appliedPayload?.normalization);
+  }, [curve, appliedPayload, appliedNode]);
   const zoneValue = sameRange(view, wellRange) ? 'well' : (zones.find((z) => sameRange(view, z))?.id ?? 'custom');
   const toolRange = selection ?? view;
   const problem = curve ? interpolationSourceProblem(curve) : 'Elegí una curva.';
@@ -404,6 +430,23 @@ function Workspace({ wellId }: { wellId: string }) {
             step={step}
           />
         );
+      case 'normalize':
+        return (
+          <NormalizationEditor
+            key={curveId}
+            {...common}
+            problem={problem ? problem.replace('La interpolación', 'La normalización') : null}
+            view={view}
+            selection={selection}
+            zones={zones}
+            depth={depth}
+            prior={prior}
+            applied={appliedNode ? nodeNormalization(appliedNode) : undefined}
+            color={style?.color ?? 'currentColor'}
+            log={style?.scale === 'log'}
+            unit={curve.unit}
+          />
+        );
     }
   })();
 
@@ -420,7 +463,20 @@ function Workspace({ wellId }: { wellId: string }) {
         return `${count(previewPayload?.sourceCounts?.filtered ?? counts.filtered)} muestras filtradas · ${count(counts.estimatedInfluence)} con influencia de estimaciones.`;
       case 'shift':
         return aligned ? `${count(aligned.finite)} salidas con dato · ${count(aligned.unsupported)} sin soporte · ${count(aligned.estimatedSupport)} con soporte estimado.` : null;
+      case 'normalize': {
+        const s = previewPayload?.normalization, n = previewNode ? nodeNormalization(previewNode) : undefined;
+        if (!s || !n || !previewPayload) return null;
+        const pairs = normalizationAnchorsList(n, s).map((a) => `P${formatNumber(a.percentile, { significant: 3 })} ${formatNumber(a.source, { significant: 4 })} → ${formatNumber(a.reference, { significant: 4 })}`).join(' · ');
+        return `${count(normalizationQualityCounts(previewPayload.quality).normalized)} muestras normalizadas (${pairs} ${curve?.unit ?? ''}) con ${count(s.samples)} muestras de origen.`;
+      }
     }
+  })();
+  // Normalización: salidas fuera del dominio físico del rol (se conservan marcadas, no se recortan).
+  const domainWarning = (() => {
+    if (!ready || current?.operation !== 'normalize' || !previewPayload?.normalization?.outOfDomain) return null;
+    const d = previewRequest?.plan.artifacts.find((a) => a.id === previewId)?.normalization?.domain;
+    const range = d ? domainText(d, curve?.unit ?? '') : '';
+    return `${count(previewPayload.normalization.outOfDomain)} muestras quedan fuera del rango físico de ${curve?.role ?? curve?.mnemonic}${range ? ` (${range})` : ''}: se conservan marcadas «Fuera de dominio». Revisá las referencias o excluí los picos.`;
   })();
 
   const footer = tool ? (
@@ -438,6 +494,11 @@ function Workspace({ wellId }: { wellId: string }) {
           <span>{summary}</span>
         ) : null}
       </div>
+      {domainWarning && !motive && (
+        <p className="prep-warn" role="note">
+          <Icon name="warning" size={13} /> {domainWarning}
+        </p>
+      )}
       {current?.batchNodeIds && ready && (
         <ul className="prep-batch" aria-label="Cobertura de la corrida">
           {current.batchNodeIds.map((id) => {
@@ -513,10 +574,10 @@ function Workspace({ wellId }: { wellId: string }) {
                 </div>
               )}
               {error && <Callout tone="error">{error}</Callout>}
-              {appliedNode?.kind === 'constant-shift' && tool && tool !== 'shift' && (
+              {appliedNode && nodeShift(appliedNode) && tool && tool !== 'shift' && tool !== 'normalize' && (
                 <Callout tone="warn">Curva alineada: el tramo de esta herramienta usa la MD de origen, antes del corrimiento.</Callout>
               )}
-              <div className={`prep-main${tool ? ' has-tool' : ''}`}>
+              <div className={`prep-main${tool ? ` has-tool is-tool-${tool}` : ''}`}>
                 <section className="prep-card-box prep-chart-box" aria-label={`Antes y después de ${curve.mnemonic}`}>
                   <header className="prep-box__head">
                     <h3 className="prep-box__title">

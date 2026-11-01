@@ -3,9 +3,10 @@
  * preparada o el original, y cómo quitar cada etapa o restaurar el original. Cada acción es un `commit` (un deshacer).
  */
 import type { ClientResult } from '../../core/engine/client';
-import { nodeFilter, nodeGapFill, nodeShift } from '../../core/preparation/state';
+import { nodeFilter, nodeGapFill, nodeNormalization, nodeShift } from '../../core/preparation/state';
+import { NORMALIZATION_METHOD_LABEL, normalizationAnchorsList } from '../../core/preparation/normalization';
 import { preparedCurveId } from '../../core/preparation/source';
-import { removeDepthShift, removeGapFill, removeMedianFilter, restoreMaskInterval } from '../../core/state/preparation';
+import { removeDepthShift, removeGapFill, removeMedianFilter, removeNormalization, restoreMaskInterval } from '../../core/state/preparation';
 import { makeId, setSource, type Project, type WellEntry } from '../../core/state/project';
 import { useProject } from '../../app/store/project';
 import { Badge, Button, Callout, EmptyState, formatNumber } from '../../ui';
@@ -40,7 +41,8 @@ export function SavedPreparations({ entry, result, onError, onOpenCurve }: {
         const preparedId = preparedCurveId(node.id, 'masked');
         const source = c?.role ? entry.interpretation.sources[c.role] : undefined;
         const active = source?.kind === 'curve' && source.curveId === preparedId;
-        const gapFill = nodeGapFill(node), filter = nodeFilter(node), shift = nodeShift(node);
+        const gapFill = nodeGapFill(node), filter = nodeFilter(node), shift = nodeShift(node), normalization = nodeNormalization(node);
+        const stats = result?.preparation?.artifacts.find((a) => a.id === preparedId)?.normalization;
         const name = c?.mnemonic ?? node.input.curveId;
         return (
           <article className="prep-saved__card" key={node.id} aria-label={`Preparación de ${name}`}>
@@ -109,6 +111,21 @@ export function SavedPreparations({ entry, result, onError, onOpenCurve }: {
                   </span>
                   <Button size="sm" variant="ghost" onClick={() => run('Quitar alineación', (p) => removeDepthShift(p, wellId, node.id), 'remove-shift')}>
                     Quitar alineación
+                  </Button>
+                </li>
+              )}
+              {normalization && (
+                <li>
+                  <span className="prep-saved__stage">Normalización</span>
+                  <span className="num">
+                    {NORMALIZATION_METHOD_LABEL[normalization.method]} · {show(normalization.top)} – {show(normalization.base)} m MD ·{' '}
+                    {(stats ? normalizationAnchorsList(normalization, stats) : normalizationAnchorsList(normalization, { sourceLow: NaN, sourceHigh: NaN }))
+                      .map((a) => `P${formatNumber(a.percentile, { significant: 3 })}${stats ? ` ${formatNumber(a.source, { significant: 4 })}` : ''} → ${formatNumber(a.reference, { significant: 4 })}`)
+                      .join(' · ')}
+                    {c ? ` ${c.unit}` : ''}
+                  </span>
+                  <Button size="sm" variant="ghost" onClick={() => run('Quitar normalización', (p) => removeNormalization(p, wellId, node.id), 'remove-normalization')}>
+                    Quitar normalización
                   </Button>
                 </li>
               )}

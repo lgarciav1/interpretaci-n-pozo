@@ -3,7 +3,7 @@ import type { Project } from '../../core/state/project';
 import type { ToolId } from './pipeline';
 
 /** Operación que propone una herramienta (la misma receta que guardaba el diálogo anterior). */
-export type Operation = 'exclude' | 'interpolate' | 'filter' | 'shift';
+export type Operation = 'exclude' | 'interpolate' | 'filter' | 'shift' | 'normalize';
 
 /**
  * Borrador de una herramienta: la receta pura que se previsualiza. `key` resume sus parámetros (si no cambia, no se
@@ -31,4 +31,5 @@ export const TOOL_OPERATION: Readonly<Record<ToolId, Operation>> = {
   interpolate: 'interpolate',
   filter: 'filter',
   shift: 'shift',
+  normalize: 'normalize',
 };

@@ -1,13 +1,13 @@
 /**
  * Banderas de calidad por muestra para la interfaz de «Preparar datos» (0058). PURO: sin React ni DOM.
  *
- * Los ocho bits son los de `Quality` (src/core/preparation/quality.ts); acá solo se nombran, se cuentan y se reducen a
- * columnas de píxeles para dibujar. «Sospechoso» no lo escribe el motor: la interfaz lo marca para mostrar los picos
- * del control de calidad y los candidatos de la búsqueda de espurios (solo vista, nunca se guarda).
+ * Los nueve bits son los de `Quality` (src/core/preparation/quality.ts; «normalizada» desde 0060); acá solo se nombran,
+ * se cuentan y se reducen a columnas de píxeles para dibujar. «Sospechoso» no lo escribe el motor: la interfaz lo marca
+ * para mostrar los picos del control de calidad y los candidatos de la búsqueda de espurios (solo vista, nunca se guarda).
  */
 import { Quality } from '../../core/preparation/quality';
 
-export type FlagKey = 'missing' | 'excluded' | 'suspect' | 'interpolated' | 'filtered' | 'shifted' | 'corrected' | 'outOfDomain';
+export type FlagKey = 'missing' | 'excluded' | 'suspect' | 'interpolated' | 'filtered' | 'shifted' | 'corrected' | 'outOfDomain' | 'normalized';
 
 export interface FlagDef {
   key: FlagKey;
@@ -26,14 +26,15 @@ export const QUALITY_FLAGS: readonly FlagDef[] = [
   { key: 'filtered', bit: Quality.Filtered, label: 'Filtrada', description: 'Suavizada con mediana móvil.' },
   { key: 'shifted', bit: Quality.Shifted, label: 'Corrida', description: 'Desplazada en profundidad y remuestreada.' },
   { key: 'corrected', bit: Quality.Corrected, label: 'Corregida', description: 'Corrección ambiental aplicada (no garantiza exactitud).' },
-  { key: 'outOfDomain', bit: Quality.OutOfDomain, label: 'Fuera de dominio', description: 'Sin soporte para estimar o fuera del rango del método.' },
+  { key: 'outOfDomain', bit: Quality.OutOfDomain, label: 'Fuera de dominio', description: 'Sin soporte para estimar, fuera del rango del método o del rango físico de la curva.' },
+  { key: 'normalized', bit: Quality.Normalized, label: 'Normalizada', description: 'Llevada a los valores de referencia por la normalización.' },
 ];
 
 export const FLAG_BY_KEY: Readonly<Record<FlagKey, FlagDef>> = Object.fromEntries(QUALITY_FLAGS.map((f) => [f.key, f])) as Record<FlagKey, FlagDef>;
 
 export type FlagCounts = Record<FlagKey, number>;
 
-const zeroCounts = (): FlagCounts => ({ missing: 0, excluded: 0, suspect: 0, interpolated: 0, filtered: 0, shifted: 0, corrected: 0, outOfDomain: 0 });
+const zeroCounts = (): FlagCounts => ({ missing: 0, excluded: 0, suspect: 0, interpolated: 0, filtered: 0, shifted: 0, corrected: 0, outOfDomain: 0, normalized: 0 });
 
 /** Calidad mínima de una curva sin preparar: solo «faltante original» donde no hay dato. */
 export function qualityOf(data: ArrayLike<number>): Uint16Array {
@@ -109,7 +110,7 @@ export function columnFlags(quality: ArrayLike<number>, start: number, end: numb
 }
 
 /** Prioridad para la barra de una sola fila (tarjetas): lo que más importa ver primero. */
-const PRIORITY: readonly FlagKey[] = ['excluded', 'outOfDomain', 'suspect', 'corrected', 'interpolated', 'filtered', 'shifted', 'missing'];
+const PRIORITY: readonly FlagKey[] = ['excluded', 'outOfDomain', 'suspect', 'corrected', 'interpolated', 'filtered', 'shifted', 'normalized', 'missing'];
 
 /** Bandera dominante de un conjunto de bits (o null si no hay ninguna). */
 export function dominantFlag(bits: number): FlagKey | null {

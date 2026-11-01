@@ -14,6 +14,7 @@ import { depthTicks } from '../../viewer/ticks';
 import { Quality } from '../../core/preparation/quality';
 import type { Zone } from '../../core/well';
 import { columnFlags, dominantFlag, minMaxColumns, QUALITY_FLAGS, type FlagKey } from './flags';
+import { histogramFraction, type HistogramModel, type MarkerId } from './normalizationView';
 
 /** Color de cada bandera, de los tokens del tema (claro u oscuro). */
 export function flagColor(key: FlagKey, theme: ThemeTokens): string {
@@ -36,6 +37,8 @@ export function flagColor(key: FlagKey, theme: ThemeTokens): string {
       return c.ok;
     case 'outOfDomain':
       return cat[1]!;
+    case 'normalized':
+      return cat[6]!;
   }
 }
 
@@ -480,4 +483,229 @@ export function drawBeforeAfter(ctx: CanvasRenderingContext2D, size: { width: nu
   };
   cursor(input.viewerDepth, true);
   cursor(input.hoverDepth, false);
+}
+
+// ── histograma de la normalización (0060) ────────────────────────────────────────────────────────────────────
+
+export interface NormalizationMarker {
+  id: MarkerId;
+  /** Valor de origen (percentil de la curva antes de normalizar). */
+  value: number;
+  /** «P5». */
+  label: string;
+}
+
+export interface NormalizationHistogramInput {
+  model: HistogramModel;
+  color: string;
+  unit: string;
+  markers: readonly NormalizationMarker[];
+  /** Valores de referencia (a donde va cada marcador), en el mismo orden. */
+  references: readonly number[];
+  active: MarkerId | null;
+  /** Hay vista previa (sin ella solo se dibuja «antes»). */
+  hasAfter: boolean;
+}
+
+export interface NormalizationLayout {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+  width: number;
+  height: number;
+}
+
+/** Medidas del histograma (las comparte el manejo del puntero). */
+export function normalizationLayout(width: number, height: number, ui: number): NormalizationLayout {
+  const left = Math.round(36 * ui), right = Math.round(30 * ui), top = Math.round(22 * ui), bottom = Math.round(32 * ui);
+  return { left, right, top, bottom, width: Math.max(1, width - left - right), height: Math.max(20, height - top - bottom) };
+}
+
+export function drawNormalizationHistogram(ctx: CanvasRenderingContext2D, size: { width: number; height: number }, theme: ThemeTokens, ui: number, input: NormalizationHistogramInput): void {
+  const L = normalizationLayout(size.width, size.height, ui);
+  const { model } = input;
+  const c = theme.color, v = theme.viewer;
+  const font = canvasFont(BASE_TOKENS.text.xs, 400, ui), strong = canvasFont(BASE_TOKENS.text.xs, 600, ui);
+  const x = (val: number) => L.left + histogramFraction(model, val) * L.width;
+  const base = L.top + L.height;
+  const after = input.hasAfter ? model.after : null;
+  let max = 0;
+  for (const s of [model.before, after]) if (s) for (const p of s.percent) max = Math.max(max, p);
+  max = niceMax(max || 1);
+  const yPct = (p: number) => L.top + L.height * (1 - p / max);
+  const yCum = (p: number) => L.top + L.height * (1 - p / 100);
+  const bins = model.edges.length - 1;
+  ctx.fillStyle = v.trackBg;
+  ctx.fillRect(L.left, L.top, L.width, L.height);
+
+  // Grilla horizontal: eje izquierdo (% de muestras por clase) y derecho (frecuencia acumulada, %).
+  ctx.font = font;
+  ctx.lineWidth = 1;
+  ctx.textBaseline = 'middle';
+  for (let k = 0; k <= 4; k++) {
+    const y = Math.round(L.top + (L.height * k) / 4) + 0.5;
+    ctx.strokeStyle = v.gridMinor;
+    ctx.beginPath();
+    ctx.moveTo(L.left, y);
+    ctx.lineTo(L.left + L.width, y);
+    ctx.stroke();
+    ctx.fillStyle = v.axisText;
+    ctx.textAlign = 'right';
+    ctx.fillText(formatPct(max * (1 - k / 4)), L.left - 5, y);
+    ctx.textAlign = 'left';
+    ctx.fillText(`${100 - 25 * k}`, L.left + L.width + 5, y);
+  }
+
+  // Barras: antes (gris) y después (color de la curva, translúcido, con contorno escalonado).
+  const bars = (percent: Float64Array, fill: string, stroke: string | null) => {
+    ctx.fillStyle = fill;
+    for (let j = 0; j < bins; j++) {
+      const p = percent[j]!;
+      if (!(p > 0)) continue;
+      const x0 = x(model.edges[j]!), x1 = x(model.edges[j + 1]!), y = yPct(p);
+      ctx.fillRect(x0 + 0.5, y, Math.max(1, x1 - x0 - 1), base - y);
+    }
+    if (!stroke) return;
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 1.25 * ui;
+    ctx.beginPath();
+    ctx.moveTo(x(model.edges[0]!), base);
+    for (let j = 0; j < bins; j++) {
+      const y = yPct(percent[j]!);
+      ctx.lineTo(x(model.edges[j]!), y);
+      ctx.lineTo(x(model.edges[j + 1]!), y);
+    }
+    ctx.lineTo(x(model.edges[bins]!), base);
+    ctx.stroke();
+  };
+  bars(model.before.percent, withAlpha(c.textSubtle, theme.name === 'dark' ? 0.5 : 0.38), null);
+  if (after) bars(after.percent, withAlpha(input.color, theme.name === 'dark' ? 0.3 : 0.22), input.color);
+
+  // Frecuencia acumulada: antes punteada, después continua.
+  const cumulative = (s: HistogramModel['before'], stroke: string, dash: number[]) => {
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 1.6 * ui;
+    ctx.setLineDash(dash);
+    ctx.beginPath();
+    ctx.moveTo(x(model.edges[0]!), yCum((100 * s.below) / Math.max(1, s.n)));
+    for (let j = 0; j < bins; j++) ctx.lineTo(x(model.edges[j + 1]!), yCum(s.cumulative[j]!));
+    ctx.stroke();
+    ctx.setLineDash([]);
+  };
+  cumulative(model.before, c.textMuted, [4 * ui, 3 * ui]);
+  if (after) cumulative(after, input.color, []);
+
+  // Eje de valores (lineal o log10, como la pista de la curva).
+  const axis: XYAxis = { kind: model.log ? 'log' : 'linear', min: model.lo, max: model.hi, label: '' };
+  ctx.fillStyle = v.axisText;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.strokeStyle = v.gridMajor;
+  for (const t of axisTicks(axis, L.width, 52 * ui)) {
+    const px = Math.round(L.left + t.f * L.width) + 0.5;
+    ctx.beginPath();
+    ctx.moveTo(px, base);
+    ctx.lineTo(px, base + (t.major ? 4 : 2));
+    ctx.stroke();
+    if (t.label) ctx.fillText(t.label, px, base + 5);
+  }
+  ctx.fillStyle = c.textMuted;
+  ctx.textBaseline = 'bottom';
+  ctx.textAlign = 'right';
+  ctx.fillText(input.unit, size.width - 2, size.height - 1);
+  ctx.textAlign = 'left';
+  ctx.fillText('% por clase · acumulada %', 2, size.height - 1);
+
+  // Valores de referencia (destino): discontinuas en el color de la curva, con flecha desde el percentil de origen.
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(L.left, 0, L.width, size.height);
+  ctx.clip();
+  input.references.forEach((ref, i) => {
+    if (!Number.isFinite(ref)) return;
+    const rx = x(ref), m = input.markers[i];
+    ctx.strokeStyle = input.color;
+    ctx.lineWidth = 1.4 * ui;
+    ctx.setLineDash([5 * ui, 3 * ui]);
+    ctx.beginPath();
+    ctx.moveTo(Math.round(rx) + 0.5, L.top);
+    ctx.lineTo(Math.round(rx) + 0.5, base);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    if (!m || !Number.isFinite(m.value) || !input.hasAfter) return;
+    const sx = x(m.value), y = L.top + (9 + i * 11) * ui;
+    if (Math.abs(rx - sx) <= 7 * ui) return;
+    ctx.beginPath();
+    ctx.moveTo(sx, y);
+    ctx.lineTo(rx, y);
+    ctx.stroke();
+    const dir = rx > sx ? -1 : 1;
+    ctx.fillStyle = input.color;
+    ctx.beginPath();
+    ctx.moveTo(rx, y);
+    ctx.lineTo(rx + dir * 6 * ui, y - 3.5 * ui);
+    ctx.lineTo(rx + dir * 6 * ui, y + 3.5 * ui);
+    ctx.closePath();
+    ctx.fill();
+  });
+  ctx.restore();
+
+  // Marcadores arrastrables de los percentiles de origen: línea y asa con el rótulo.
+  ctx.font = strong;
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center';
+  const tags = input.markers
+    .filter((m) => Number.isFinite(m.value))
+    .map((m) => {
+      const mx = Math.min(L.left + L.width, Math.max(L.left, x(m.value)));
+      const w = ctx.measureText(m.label).width + 12 * ui;
+      return { m, mx, w, bx: Math.min(size.width - w - 1, Math.max(1, mx - w / 2)) };
+    })
+    .sort((a, b) => a.mx - b.mx);
+  // Asas que se pisarían: se separan hacia afuera (la línea sigue en su valor).
+  for (let i = 1; i < tags.length; i++) {
+    const a = tags[i - 1]!, b = tags[i]!, overlap = a.bx + a.w + 3 - b.bx;
+    if (overlap <= 0) continue;
+    a.bx = Math.max(1, a.bx - overlap / 2);
+    b.bx = Math.min(size.width - b.w - 1, a.bx + a.w + 3);
+  }
+  for (const { m, mx, w, bx } of tags) {
+    const on = input.active === m.id;
+    ctx.strokeStyle = on ? c.accent : c.text;
+    ctx.lineWidth = (on ? 2.25 : 1.5) * ui;
+    ctx.beginPath();
+    ctx.moveTo(Math.round(mx) + 0.5, L.top - 3);
+    ctx.lineTo(Math.round(mx) + 0.5, base);
+    ctx.stroke();
+    const h = 16 * ui;
+    ctx.fillStyle = on ? c.accent : c.text;
+    roundedRect(ctx, bx, 2, w, h, 4 * ui);
+    ctx.fill();
+    ctx.fillStyle = on ? c.textOnAccent : c.surface;
+    ctx.fillText(m.label, bx + w / 2, 2 + h / 2 + 0.5);
+  }
+  ctx.strokeStyle = c.border;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(L.left + 0.5, L.top + 0.5, L.width - 1, L.height - 1);
+}
+
+function niceMax(v: number): number {
+  const p = 10 ** Math.floor(Math.log10(v));
+  for (const m of [1, 2, 2.5, 5, 10]) if (v <= m * p * (1 + 1e-9)) return m * p;
+  return 10 * p;
+}
+
+function formatPct(v: number): string {
+  return v.toLocaleString('es-AR', { maximumFractionDigits: v < 10 ? 1 : 0 });
+}
+
+function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
 }

@@ -14,8 +14,9 @@ export const PREPARATION_DOCK_HEIGHT = 460;
 
 let seq = 0;
 
-export function openPreparation(curveId: string | null = null): void {
-  usePreparationUi.setState({ request: { curveId, seq: ++seq } });
+/** `tool`: herramienta que se abre directamente (p. ej. «normalize» desde la paleta). */
+export function openPreparation(curveId: string | null = null, tool: string | null = null): void {
+  usePreparationUi.setState({ request: { curveId, seq: ++seq, ...(tool ? { tool } : {}) } });
   const ui = useUi.getState();
   ui.set({ dockTab: PREPARATION_DOCK_ID });
   // Despliega el dock (también sale del modo lectura) y, si está bajo o en automático, le da alto para el gráfico.

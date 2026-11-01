@@ -23,8 +23,9 @@ const shifted: PreparationNode = {
 };
 
 describe('banderas de calidad', () => {
-  it('nombra los ocho bits de Quality en orden, con leyenda en español', () => {
-    expect(QUALITY_FLAGS.map((f) => f.bit)).toEqual([1, 2, 4, 8, 16, 32, 64, 128]);
+  it('nombra los nueve bits de Quality en orden (256 = normalizada, 0060), con leyenda en español', () => {
+    expect(QUALITY_FLAGS.map((f) => f.bit)).toEqual([1, 2, 4, 8, 16, 32, 64, 128, 256]);
+    expect(QUALITY_FLAGS.at(-1)!.label).toBe('Normalizada');
     expect(QUALITY_FLAGS.map((f) => f.bit)).toEqual(Object.values(Quality));
     for (const f of QUALITY_FLAGS) {
       expect(f.label.trim()).not.toBe('');
@@ -89,10 +90,11 @@ describe('tubería de preparación', () => {
 
   it('orden fijo del motor y curva sin preparar', () => {
     const s = pipelineStages({ original });
-    expect(s.map((x) => x.id)).toEqual(['original', 'exclusion', 'interpolation', 'median', 'alignment', 'prepared']);
+    expect(s.map((x) => x.id)).toEqual(['original', 'exclusion', 'interpolation', 'median', 'alignment', 'normalization', 'prepared']);
     expect(s[0]!.detail).toBe('1 sin dato');
-    expect(s.slice(1, 5).every((x) => x.state === 'idle' && x.detail === 'Sin aplicar')).toBe(true);
-    expect(s[5]!.detail).toBe('Sin cambios');
+    expect(s.slice(1, 6).every((x) => x.state === 'idle' && x.detail === 'Sin aplicar')).toBe(true);
+    expect(s[5]).toMatchObject({ label: 'Normalización', tool: 'normalize' });
+    expect(s[6]!.detail).toBe('Sin cambios');
     expect(pipelineSummary(s)).toMatch(/opcionales/);
   });
 
@@ -103,7 +105,19 @@ describe('tubería de preparación', () => {
     expect(s.find((x) => x.id === 'median')).toMatchObject({ state: 'done', detail: '1 filtradas', tool: 'filter' });
     expect(s.find((x) => x.id === 'interpolation')!.state).toBe('idle');
     expect(s.find((x) => x.id === 'prepared')!.detail).toBe('En uso como GR');
-    expect(pipelineSummary(s)).toMatch(/2 de 4 etapas aplicadas/);
+    expect(pipelineSummary(s)).toMatch(/2 de 5 etapas aplicadas/);
+  });
+
+  it('normalización (0060): «N normalizadas» desde el bit 256, vista previa propia y fuera de dominio contado', () => {
+    const norm = { ...filtered, kind: 'linear-normalization', normalization: { method: 'two-point', top: 0, base: 100, lowPercentile: 5, highPercentile: 95, lowReference: 20, highReference: 80 } } as unknown as PreparationNode;
+    const quality = Uint16Array.from([256, 1, 2, 256 | 16, 256 | 128, 256]);
+    const s = pipelineStages({ original, applied: norm, appliedView: { data: original, quality } });
+    expect(s.find((x) => x.id === 'normalization')).toMatchObject({ state: 'done', detail: '4 normalizadas', tool: 'normalize' });
+    expect(stageCounts(original, { data: original, quality })).toMatchObject({ normalized: 4, normalizedOutOfDomain: 1 });
+    const preview = pipelineStages({ original, applied: filtered, preview: norm, previewView: { data: original, quality } });
+    expect(preview.find((x) => x.id === 'normalization')!.state).toBe('preview');
+    expect(preview.find((x) => x.id === 'median')!.state).toBe('done');
+    expect([...changedStages(filtered, norm)]).toEqual(['normalization']);
   });
 
   it('la vista previa marca solo las etapas que cambian', () => {
@@ -133,8 +147,8 @@ describe('tubería de preparación', () => {
   it('MGT bloquea las etapas de limpieza', () => {
     const mgt = { ...base, kind: 'mgt-borehole', intervals: [], mgt: {} } as unknown as PreparationNode;
     const s = pipelineStages({ original, applied: mgt, appliedView: { data: original, quality: new Uint16Array(6) } });
-    expect(s.slice(1, 5).every((x) => x.state === 'blocked')).toBe(true);
-    expect(s[5]!.detail).toMatch(/MGT/);
+    expect(s.slice(1, 6).every((x) => x.state === 'blocked')).toBe(true);
+    expect(s[6]!.detail).toMatch(/MGT/);
     expect(pipelineSummary(s)).toMatch(/MGT/);
   });
 

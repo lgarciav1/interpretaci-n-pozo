@@ -2,18 +2,19 @@
  * «Tubería» de preparación (0058): las etapas en el orden fijo del motor, con su estado y un conteo legible.
  * PURO: sin React ni DOM; lo dibuja `Pipeline.tsx`.
  *
- *   Original → Exclusión → Interpolación → Mediana → Alineación → Preparada
+ *   Original → Exclusión → Interpolación → Mediana → Alineación → Normalización → Preparada
  *
  * El estado de cada etapa sale de la receta guardada (`PreparationNode`) y, si hay una vista previa, de la receta
  * propuesta: la etapa que cambia queda «en vista previa» con los conteos del cálculo del motor. Los conteos vienen de
  * las banderas de calidad de la curva preparada (`Quality`); nunca se recalcula una etapa acá.
  */
-import { maskRanges, nodeFilter, nodeGapFill, nodeShift, type PreparationNode } from '../../core/preparation/state';
+import { maskRanges, nodeFilter, nodeGapFill, nodeNormalization, nodeShift, type PreparationNode } from '../../core/preparation/state';
 import { Quality } from '../../core/preparation/quality';
+import type { NormalizationStats } from '../../core/preparation/normalization';
 
-export type StageId = 'original' | 'exclusion' | 'interpolation' | 'median' | 'alignment' | 'prepared';
+export type StageId = 'original' | 'exclusion' | 'interpolation' | 'median' | 'alignment' | 'normalization' | 'prepared';
 /** Herramientas del panel que abre cada etapa. */
-export type ToolId = 'exclude' | 'suspects' | 'interpolate' | 'filter' | 'shift';
+export type ToolId = 'exclude' | 'suspects' | 'interpolate' | 'filter' | 'shift' | 'normalize';
 /** done = aplicada; preview = cambia con la vista previa; idle = sin aplicar (opcional); blocked = no combinable. */
 export type StageState = 'done' | 'preview' | 'idle' | 'blocked';
 
@@ -33,6 +34,8 @@ export interface PreparedView {
   quality: Uint16Array;
   /** Conteos de las etapas previas al corrimiento (el corrimiento remuestrea y reasigna banderas). */
   sourceCounts?: { interpolated: number; filtered: number };
+  /** Anclajes de la normalización (0060), si la receta normaliza. */
+  normalization?: NormalizationStats;
 }
 
 export interface PipelineInput {
@@ -55,6 +58,7 @@ export const STAGE_LABELS: Readonly<Record<StageId, string>> = {
   interpolation: 'Interpolación',
   median: 'Mediana',
   alignment: 'Alineación',
+  normalization: 'Normalización',
   prepared: 'Preparada',
 };
 
@@ -77,13 +81,16 @@ export interface StageCounts {
   /** Salidas alineadas con dato. */
   aligned: number;
   outOfDomain: number;
+  /** Salidas normalizadas (bit 256) y, de ellas, fuera del dominio físico del rol. */
+  normalized: number;
+  normalizedOutOfDomain: number;
 }
 
 /** Conteos de una curva preparada (o del original, sin vista). */
 export function stageCounts(original: ArrayLike<number>, view?: PreparedView | null): StageCounts {
   let originalMissing = 0;
   for (let i = 0; i < original.length; i++) if (Number.isNaN(original[i]!)) originalMissing++;
-  const c: StageCounts = { samples: original.length, originalMissing, excluded: 0, interpolated: 0, filtered: 0, aligned: 0, outOfDomain: 0 };
+  const c: StageCounts = { samples: original.length, originalMissing, excluded: 0, interpolated: 0, filtered: 0, aligned: 0, outOfDomain: 0, normalized: 0, normalizedOutOfDomain: 0 };
   if (!view) return c;
   let shifted = false;
   for (let i = 0; i < view.quality.length; i++) {
@@ -92,6 +99,10 @@ export function stageCounts(original: ArrayLike<number>, view?: PreparedView | n
     if (q & Quality.Interpolated && q & Quality.OriginallyMissing) c.interpolated++;
     if (q & Quality.Filtered) c.filtered++;
     if (q & Quality.OutOfDomain) c.outOfDomain++;
+    if (q & Quality.Normalized) {
+      c.normalized++;
+      if (q & Quality.OutOfDomain) c.normalizedOutOfDomain++;
+    }
     if (q & Quality.Shifted) {
       shifted = true;
       if (Number.isFinite(view.data[i]!)) c.aligned++;
@@ -114,6 +125,7 @@ export function changedStages(a: PreparationNode | undefined, b: PreparationNode
   if (!sameJson(a && nodeGapFill(a), b && nodeGapFill(b))) out.add('interpolation');
   if (!sameJson(a && nodeFilter(a), b && nodeFilter(b))) out.add('median');
   if (!sameJson(a && nodeShift(a), b && nodeShift(b))) out.add('alignment');
+  if (!sameJson(a && nodeNormalization(a), b && nodeNormalization(b))) out.add('normalization');
   if ((a?.kind === 'mgt-borehole') !== (b?.kind === 'mgt-borehole') || (a?.kind === 'mgt-borehole' && !sameJson(a, b))) out.add('prepared');
   return out;
 }
@@ -178,6 +190,16 @@ export function pipelineStages(input: PipelineInput): PipelineStage[] {
     state: shState,
     detail: shState === 'blocked' ? 'No combinable con MGT' : shift ? formatOffset(shift.offsetM) : idle,
     tool: 'shift',
+  });
+
+  const normalization = node ? nodeNormalization(node) : undefined;
+  const noState = stateOf('normalization', !!normalization);
+  stages.push({
+    id: 'normalization',
+    label: STAGE_LABELS.normalization,
+    state: noState,
+    detail: noState === 'blocked' ? 'No combinable con MGT' : normalization ? (pending ?? `${n(counts.normalized)} normalizadas`) : idle,
+    tool: 'normalize',
   });
 
   const prepared: PipelineStage = { id: 'prepared', label: STAGE_LABELS.prepared, state: 'idle', detail: 'Sin cambios', tool: null };

@@ -7,6 +7,8 @@ import { selectActiveEntry, useProject } from '../../app/store/project';
 import type { CommandSource } from '../../ui';
 
 export const PREPARATION_COMMAND_ID = 'preparation:open';
+/** Abre el panel con la herramienta «Normalizar» (0060). */
+export const NORMALIZATION_COMMAND_ID = 'preparation:normalize';
 
 export const commands: CommandSource = () => [
   {
@@ -17,5 +19,14 @@ export const commands: CommandSource = () => [
     icon: 'filter',
     enabled: () => !!selectActiveEntry(useProject.getState()),
     run: () => openPreparation(),
+  },
+  {
+    id: NORMALIZATION_COMMAND_ID,
+    title: 'Normalizar curva',
+    group: 'Pozo',
+    keywords: ['normalizar', 'normalización', 'calibración', 'escala', 'histograma', 'percentil', 'referencia', 'preparar'],
+    icon: 'histogram',
+    enabled: () => !!selectActiveEntry(useProject.getState()),
+    run: () => openPreparation(null, 'normalize'),
   },
 ];

@@ -2,7 +2,7 @@ import { curveProvenance, identityKey } from '../engine/context';
 import type { InputRevision } from '../inputs/revisions';
 import type { Interpretation } from '../interpretation';
 import type { PreparationBindings } from './plan';
-import { validatePreparation, nodeGapFill, nodeFilter } from './state';
+import { validatePreparation, nodeGapFill, nodeFilter, nodeNormalization, nodeShift } from './state';
 import { interpolationSourceProblem } from './interpolation';
 import { validateMgtInputs, mgtAcquisitionKey } from './mgt';
 
@@ -15,13 +15,15 @@ export function preparationBindings(i: Interpretation, wellId: string, revisions
     const c = revision.well.curves.find(c => c.id === node.input.curveId);
     if (!c) throw new Error('La curva original fijada por la preparación no existe en su revisión.');
     if (node.kind !== 'mask') {
-      const problem = interpolationSourceProblem(c, node.kind === 'median-filter' ? 'El filtro' : undefined);
+      const problem = interpolationSourceProblem(c, node.kind === 'median-filter' ? 'El filtro' : node.kind === 'linear-normalization' ? 'La normalización' : undefined);
       if (problem) throw new Error(problem);
     }
     const gapFill = nodeGapFill(node);
     if (gapFill && (gapFill.top < revision.well.depth.values[0]! || gapFill.base > revision.well.depth.values.at(-1)!)) throw new Error('El tramo de interpolación está fuera de las entradas fijadas.');
     const filter = nodeFilter(node);
     if (filter && (filter.top < revision.well.depth.values[0]! || filter.base > revision.well.depth.values.at(-1)!)) throw new Error('El tramo del filtro está fuera de las entradas fijadas.');
+    const normalization = nodeNormalization(node);
+    if (normalization && (normalization.top < revision.well.depth.values[0]! || normalization.base > revision.well.depth.values.at(-1)!)) throw new Error('El intervalo de referencia de la normalización está fuera de las entradas fijadas.');
     const target = activeRevisionId ? revisions?.[activeRevisionId] : revision;
     let mgt;
       if (node.kind === "mgt-borehole") {
@@ -65,8 +67,9 @@ export function preparationBindings(i: Interpretation, wellId: string, revisions
           acquisitionKey: mgtAcquisitionKey(revision.acquisition),
         };
       }
-      const shiftFrame = node.kind === 'constant-shift' ? { referenceId: wellId, sourceDatum: revision.acquisition.depth.datum, targetDatum: target?.acquisition.depth.datum ?? null } : undefined;
-    if (node.kind === 'constant-shift' && (node.shift.referenceId !== wellId || !target || target.wellId !== wellId || [shiftFrame!.sourceDatum, shiftFrame!.targetDatum].some(d => d !== null && d !== node.shift.datum))) throw new Error('La referencia o datum de la alineación no coincide con las entradas.');
+      const shift = nodeShift(node);
+      const shiftFrame = shift ? { referenceId: wellId, sourceDatum: revision.acquisition.depth.datum, targetDatum: target?.acquisition.depth.datum ?? null } : undefined;
+    if (shift && (shift.referenceId !== wellId || !target || target.wellId !== wellId || [shiftFrame!.sourceDatum, shiftFrame!.targetDatum].some(d => d !== null && d !== shift.datum))) throw new Error('La referencia o datum de la alineación no coincide con las entradas.');
     const depthKey = `depth:${identityKey(revision.well.depth.values)}`;
     return [node.id, { ...(shiftFrame ? { shiftFrame } : {}), ...(mgt ? { mgt } : {}), depthKey, contentVersion: curveProvenance(c, depthKey).contentVersion, mnemonic: c.mnemonic, unit: c.unit, role: c.role }];
   }));

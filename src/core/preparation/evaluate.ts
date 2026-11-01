@@ -1,5 +1,6 @@
 import type { EngineWell } from '../engine/engine';
-import type { PreparationPlan, PreparedPayload } from './plan';
+import { needsScratch, type PreparationPlan, type PreparedPayload } from './plan';
+import { applyNormalization } from './normalization';
 import { PREPARATION_BUDGET } from './state';
 import { Quality } from './quality';
 import { shiftConstant } from './shift';
@@ -15,7 +16,7 @@ export class MaskEvaluator {
   constructor(private readonly budget = PREPARATION_BUDGET) {}
   get retainedBytes(): number { return this.bytes; }
   async evaluate(well: EngineWell, plan: PreparationPlan, cancelled: () => boolean = () => false, yieldTask: () => Promise<void> = () => new Promise(resolve => setTimeout(resolve, 0))): Promise<PreparedPayload[]> {
-    if (well.depth.length * 10 * (plan.artifacts.length + (plan.artifacts.some(a => a.filter || a.shift) ? 1 : 0)) > this.budget) throw new Error('La preparación excede el presupuesto de memoria.');
+    if (well.depth.length * 10 * (plan.artifacts.length + (plan.artifacts.some(needsScratch) ? 1 : 0)) > this.budget) throw new Error('La preparación excede el presupuesto de memoria.');
     const pinned = new Set(plan.artifacts.map(a => a.provenance.contentVersion));
     const result: PreparedPayload[] = [];
     for (const a of plan.artifacts) {
@@ -23,7 +24,7 @@ export class MaskEvaluator {
       const version = a.provenance.contentVersion;
       const hit = this.cache.get(version);
       if (hit) { this.cache.delete(version); this.cache.set(version, hit); result.push({ ...hit, id: a.id }); continue; }
-      const bytes = well.depth.length * 10, allocation = bytes * (a.filter || a.shift ? 2 : 1);
+      const bytes = well.depth.length * 10, allocation = bytes * (needsScratch(a) ? 2 : 1);
       for (const [key, old] of this.cache) {
         if (this.bytes + allocation <= this.budget) break;
         if (!pinned.has(key)) { this.cache.delete(key); this.bytes -= old.data.byteLength + old.quality.byteLength; }
@@ -34,7 +35,7 @@ export class MaskEvaluator {
       const data = new Float64Array(well.depth.length), quality = new Uint16Array(well.depth.length);
       const caliper = a.mgt ? well.curves.find(c => c.id === a.mgt!.config.caliperCurveId) : undefined;
       if (a.mgt && !caliper) throw new Error('Falta caliper fijado para MGT.');
-      const scratch = a.filter || a.shift ? { data: new Float64Array(data.length), quality: new Uint16Array(data.length) } : undefined;
+      const scratch = needsScratch(a) ? { data: new Float64Array(data.length), quality: new Uint16Array(data.length) } : undefined;
       let range = 0;
       for (let start = 0; start < data.length; start += 16384) {
         if (cancelled()) throw new PreparationCancelled();
@@ -73,7 +74,14 @@ export class MaskEvaluator {
         if (cancelled()) throw new PreparationCancelled();
       }, scratch!) : undefined;
       if (cancelled()) throw new PreparationCancelled();
-      const payload = { id: a.id, version, data, quality, ...(sourceCounts ? { sourceCounts } : {}) };
+      // Normalización (0060): después de la alineación, sobre toda la curva; la muestra ordenada usa el scratch.
+      const normalization = a.normalization ? await applyNormalization(well.depth, data, quality, a.normalization.config, a.normalization.domain, scratch!.data, async () => {
+        if (cancelled()) throw new PreparationCancelled();
+        await yieldTask();
+        if (cancelled()) throw new PreparationCancelled();
+      }) : undefined;
+      if (cancelled()) throw new PreparationCancelled();
+      const payload = { id: a.id, version, data, quality, ...(sourceCounts ? { sourceCounts } : {}), ...(normalization ? { normalization } : {}) };
       this.cache.set(version, payload); this.bytes += bytes; result.push(payload);
     }
     return result;

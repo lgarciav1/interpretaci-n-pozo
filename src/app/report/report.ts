@@ -2,7 +2,8 @@ import { effectiveWell } from '../preparation/data';
 import { contextMatchesWell, engineDecisionKey, sameContext, wellInputKey } from '../../core/engine/context';
 import { planPreparation } from '../../core/preparation/plan';
 import { toEngineWell } from '../../core/engine/engine';
-import { stageQualityCounts, alignmentQualityCounts } from '../../core/preparation/quality';
+import { stageQualityCounts, alignmentQualityCounts, normalizationQualityCounts } from '../../core/preparation/quality';
+import { NORMALIZATION_METHOD_LABEL, normalizationAnchorsList } from '../../core/preparation/normalization';
 import type { ClientResult } from '../../core/engine/client';
 import type { Interpretation } from '../../core/interpretation';
 import type { TableCell, TableColumn, TableValue } from '../../core/module';
@@ -64,6 +65,11 @@ export function buildReportModel(well: Well, interpretation: Interpretation, res
     const a = current!.preparation!.plan.artifacts.find(a => a.id === p.id)!;
     if (a.mgt) { warnings.push(`Corrección ambiental MGT: ${JSON.stringify(a.correctionLedger)}. ${p.quality.reduce((n,q) => n + (q === 64 ? 1 : 0),0)} muestras corregidas; ${p.quality.reduce((n,q) => n + (q === 128 ? 1 : 0),0)} fuera de dominio o sin caliper. No certifica resultados del TP ni equivalencia con otra herramienta.`); continue; }
     const counts = stageQualityCounts(p.quality);
+    if (a.normalization && p.normalization) {
+      const n = a.normalization.config, s = p.normalization, unit = unitLabel(a.unit);
+      const pairs = normalizationAnchorsList(n, s).map((x) => `P${number(x.percentile)} de origen ${number(x.source)} → ${number(x.reference)} ${unit}`).join('; ');
+      warnings.push(`Normalización ${NORMALIZATION_METHOD_LABEL[n.method]} · ${a.mnemonic}: ${pairs}; intervalo de referencia ${number(n.top)}–${number(n.base)} m MD con ${s.samples} muestras de origen (finitas, sin excluidas ni estimadas); ganancia ${number(s.gain)}. Se aplica a toda la curva después de las demás etapas; ${normalizationQualityCounts(p.quality).normalized} muestras normalizadas (bit 256)${s.outOfDomain ? `; ${s.outOfDomain} quedan fuera del dominio físico del rol y se conservan marcadas (bit 128)` : ''}. Los valores de referencia los ingresó el usuario; no es una normalización entre pozos.`);
+    }
     if (a.shift) {
       const shifted = alignmentQualityCounts(p.data, p.quality);
       warnings.push(`Alineación manual constante · ${a.mnemonic}: ${a.shift.offsetM > 0 ? '+' : ''}${number(a.shift.offsetM)} m; referencia MD ${a.shift.referenceId}, datum declarado ${a.shift.datum}; hueco máximo ${number(a.shift.maxGapM)} m. ${shifted.finite} salidas finitas, ${shifted.unsupported} sin soporte, ${shifted.missing} faltantes trasladados; ${shifted.estimatedSupport} salidas con soporte estimado. Remuestreo lineal sin extrapolación, después de las etapas previas. Bits 32=alineada, 128=sin soporte; los demás flags proceden del soporte de origen. Antes de alinear: ${p.sourceCounts!.interpolated} muestras interpoladas y ${p.sourceCounts!.filtered} filtradas. No mueve otras curvas ni laboratorio, no convierte datum/MD/TVD y no valida la correlación geológica. Los originales se conservan.`);
@@ -98,7 +104,7 @@ export function buildReportModel(well: Well, interpretation: Interpretation, res
   return { wellName: well.name, date: date.toLocaleString('es-AR'), samples: well.depth.values.length, top: well.depth.values[0] ?? NaN, base: well.depth.values[well.depth.values.length - 1] ?? NaN,
     header: Object.entries(well.header).map(([label, h]) => ({ label, value: `${h.value}${h.unit ? ` ${unitLabel(h.unit)}` : ''}` })), zones,
     methods, parameters, summary: table('ZONE_SUMMARY'), volumes: table('VOLUMETRICS'), warnings: [...new Set(warnings)],
-    preparation: buildPreparationReport(originals, interpretation, current?.context.inputRevisionId ?? null, catalog, acquisition) };
+    preparation: buildPreparationReport(originals, interpretation, current?.context.inputRevisionId ?? null, catalog, acquisition, current?.preparation ?? null) };
 }
 export const escapeReportText = (s: unknown): string => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 const e = escapeReportText;

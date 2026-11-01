@@ -10,6 +10,7 @@ const STAGE_ICON: Record<PipelineStage['id'], IconName> = {
   interpolation: 'activity',
   median: 'filter',
   alignment: 'swap',
+  normalization: 'histogram',
   prepared: 'check-circle',
 };
 
