@@ -67,6 +67,7 @@ export function SnapshotsDialog() {
       ) : (
         <>
           <DataTable
+            className="snap-list"
             rows={[...snapshots].reverse()}
             rowKey={(s) => s.id}
             maxHeight={168}
@@ -108,3 +109,4 @@ export function SnapshotsDialog() {
     </Dialog>
   );
 }
+

@@ -3,13 +3,14 @@
  * primera vez que se compara). Lo comparten el diálogo de Snapshots (sumario lado a lado) y la cortina del visor:
  * elegir el mismo snapshot en los dos no vuelve a calcular. Ver docs/decisiones/0026.
  */
-import { useEffect, useSyncExternalStore } from 'react';
-import { toEngineWell } from '../../core/engine/engine';
-import type { Snapshot } from '../../core/state/project';
+import { useEffect, useMemo, useSyncExternalStore } from 'react';
+import type { ClientResult } from '../../core/engine/client';
+import type { Project, Snapshot } from '../../core/state/project';
 import type { Well } from '../../core/well';
 import { registry } from '../../modules';
 import { createEngineSupervisor } from '../engineBridge';
-import { IsolatedRunner, runKey, type RunEntry } from './runner';
+import { IsolatedRunner, type RunEntry } from './runner';
+import { snapshotRunRequest } from './request';
 
 const PENDING: RunEntry = { status: 'pending' };
 
@@ -23,19 +24,29 @@ if (typeof window !== 'undefined') {
 }
 
 /**
- * Corrida del motor con la interpretación del snapshot sobre las curvas medidas del pozo activo. null si no hay
+ * Corrida del motor sobre los datos fijados por el snapshot (o datos actuales en modo legado). null si no hay
  * snapshot o pozo, o si el snapshot es de otro pozo.
  */
-export function useSnapshotRun(snapshot: Snapshot | null, well: Well | null): RunEntry | null {
-  const valid = !!snapshot && !!well && snapshot.wellId === well.id;
-  const key = valid ? runKey(snapshot.id, snapshot.interpretation, { id: well.id, depth: well.depth.values, curves: well.curves }) : null;
+export type SnapshotRunEntry = Exclude<RunEntry, { status: 'ready' }> | { status: 'ready'; result: ClientResult; well: Well; inputRevisionId: string | null };
+export function useSnapshotRun(snapshot: Snapshot | null, well: Well | null, project: Project): SnapshotRunEntry | null {
+  const selection = useMemo(() => {
+    if (!snapshot || !well || snapshot.wellId !== well.id) return { request: null, error: null };
+    try { return { request: snapshotRunRequest(project, snapshot), error: null }; }
+    catch (err) { return { request: null, error: err instanceof Error ? err.message : String(err) }; }
+  }, [snapshot, well, project]);
+  const request = selection.request;
+  const key = request?.key ?? null;
   useEffect(() => {
-    if (!key || !snapshot || !well) return;
-    return snapshotRunner.acquire(key, toEngineWell(well), snapshot.interpretation);
+    if (!key || !request) return;
+    return snapshotRunner.acquire(key, request.engineWell, request.interpretation);
     // La clave resume snapshot, interpretación y curvas: no hace falta depender de los objetos.
   }, [key]);
-  return useSyncExternalStore(
+  const entry = useSyncExternalStore(
     subscribe,
     () => (key ? (snapshotRunner.get(key) ?? PENDING) : null),
   );
+  if (selection.error) return { status: 'error', message: selection.error };
+  if (entry?.status === 'ready') return request ? { ...entry, well: request.well, inputRevisionId: request.inputRevisionId } : null;
+  return entry;
 }
+

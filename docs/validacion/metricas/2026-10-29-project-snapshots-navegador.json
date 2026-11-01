@@ -1,0 +1,512 @@
+{
+  "schemaVersion": 1,
+  "browser": "Chromium 154.0.8037.57, headless, Linux",
+  "parentRemoteCommit": "fb1db6f023ffb4bda840978d701b19f557ccbc01",
+  "builds": {
+    "parent": {
+      "bytes": 5415233,
+      "sha256": "feff041b73ab6c9f06c233ba4545cac992a49fc546f78b75536e49ca035999ef"
+    },
+    "candidate": {
+      "bytes": 5432496,
+      "sha256": "56768b34613c70c2b28a39ecf34109d835149cb4737bb358d1af3279a9f886be"
+    }
+  },
+  "snapshots": {
+    "parentGeometry": {
+      "range": "7633,3 – 8518,6 m",
+      "body": {
+        "x": 333.828125,
+        "y": 343.40625,
+        "width": 1092,
+        "height": 183.5625,
+        "top": 343.40625,
+        "right": 1425.828125,
+        "bottom": 526.96875,
+        "left": 333.828125
+      },
+      "headerHeight": 132.90625,
+      "heads": [
+        {
+          "title": "GR",
+          "width": 117
+        },
+        {
+          "title": "Prof.",
+          "width": 86
+        },
+        {
+          "title": "Resistividad",
+          "width": 146
+        },
+        {
+          "title": "Dens. · neutrón",
+          "width": 176
+        },
+        {
+          "title": "Arcilla",
+          "width": 117
+        },
+        {
+          "title": "Porosidad",
+          "width": 117
+        },
+        {
+          "title": "Sw",
+          "width": 117
+        },
+        {
+          "title": "Permeabilidad",
+          "width": 117
+        },
+        {
+          "title": "Indicadores",
+          "width": 99
+        }
+      ],
+      "layout": null
+    },
+    "parentFlowRows": 1790,
+    "parentFlowTable": "29d1800990ffb410c97ff9610e9456f3f0b73c449238092e1ee898c32ee3c057",
+    "parentLas": "ce05261de2da6624cc0d94f2611ec20fe0125b62d15cbb60aafd8808fcca6c2b",
+    "parentSvg": "faed7fe0052c14429515ff1564a87477fb0de9d804de3b5d5991b4d4e8a726f8",
+    "candidateGeometry": {
+      "range": "7633,3 – 8518,6 m",
+      "body": {
+        "x": 333.828125,
+        "y": 343.40625,
+        "width": 1092,
+        "height": 183.5625,
+        "top": 343.40625,
+        "right": 1425.828125,
+        "bottom": 526.96875,
+        "left": 333.828125
+      },
+      "headerHeight": 132.90625,
+      "heads": [
+        {
+          "title": "GR",
+          "width": 117
+        },
+        {
+          "title": "Prof.",
+          "width": 86
+        },
+        {
+          "title": "Resistividad",
+          "width": 146
+        },
+        {
+          "title": "Dens. · neutrón",
+          "width": 176
+        },
+        {
+          "title": "Arcilla",
+          "width": 117
+        },
+        {
+          "title": "Porosidad",
+          "width": 117
+        },
+        {
+          "title": "Sw",
+          "width": 117
+        },
+        {
+          "title": "Permeabilidad",
+          "width": 117
+        },
+        {
+          "title": "Indicadores",
+          "width": 99
+        }
+      ],
+      "layout": null
+    },
+    "candidateFlowRows": 1790,
+    "candidateFlowTable": "29d1800990ffb410c97ff9610e9456f3f0b73c449238092e1ee898c32ee3c057",
+    "candidateLas": "ce05261de2da6624cc0d94f2611ec20fe0125b62d15cbb60aafd8808fcca6c2b",
+    "candidateSvg": "faed7fe0052c14429515ff1564a87477fb0de9d804de3b5d5991b4d4e8a726f8",
+    "restoredFlowTable": "29d1800990ffb410c97ff9610e9456f3f0b73c449238092e1ee898c32ee3c057",
+    "restoredLas": "ce05261de2da6624cc0d94f2611ec20fe0125b62d15cbb60aafd8808fcca6c2b",
+    "restoredSvg": "faed7fe0052c14429515ff1564a87477fb0de9d804de3b5d5991b4d4e8a726f8",
+    "comparisonTableEqual": true,
+    "legacyRestoreUndoRedo": true,
+    "pageErrors": []
+  },
+  "reading": {
+    "parentNormal": {
+      "range": "7633,3 – 8518,6 m",
+      "body": {
+        "x": 333.828125,
+        "y": 343.40625,
+        "width": 1092,
+        "height": 183.5625,
+        "top": 343.40625,
+        "right": 1425.828125,
+        "bottom": 526.96875,
+        "left": 333.828125
+      },
+      "headerHeight": 132.90625,
+      "heads": [
+        {
+          "title": "GR",
+          "width": 117
+        },
+        {
+          "title": "Prof.",
+          "width": 86
+        },
+        {
+          "title": "Resistividad",
+          "width": 146
+        },
+        {
+          "title": "Dens. · neutrón",
+          "width": 176
+        },
+        {
+          "title": "Arcilla",
+          "width": 117
+        },
+        {
+          "title": "Porosidad",
+          "width": 117
+        },
+        {
+          "title": "Sw",
+          "width": 117
+        },
+        {
+          "title": "Permeabilidad",
+          "width": 117
+        },
+        {
+          "title": "Indicadores",
+          "width": 99
+        }
+      ],
+      "layout": null
+    },
+    "parentLas": "ce05261de2da6624cc0d94f2611ec20fe0125b62d15cbb60aafd8808fcca6c2b",
+    "candidateNormal": {
+      "range": "7633,3 – 8518,6 m",
+      "body": {
+        "x": 333.828125,
+        "y": 343.40625,
+        "width": 1092,
+        "height": 183.5625,
+        "top": 343.40625,
+        "right": 1425.828125,
+        "bottom": 526.96875,
+        "left": 333.828125
+      },
+      "headerHeight": 132.90625,
+      "heads": [
+        {
+          "title": "GR",
+          "width": 117
+        },
+        {
+          "title": "Prof.",
+          "width": 86
+        },
+        {
+          "title": "Resistividad",
+          "width": 146
+        },
+        {
+          "title": "Dens. · neutrón",
+          "width": 176
+        },
+        {
+          "title": "Arcilla",
+          "width": 117
+        },
+        {
+          "title": "Porosidad",
+          "width": 117
+        },
+        {
+          "title": "Sw",
+          "width": 117
+        },
+        {
+          "title": "Permeabilidad",
+          "width": 117
+        },
+        {
+          "title": "Indicadores",
+          "width": 99
+        }
+      ],
+      "layout": null
+    },
+    "reading1366": {
+      "range": "7633,3 – 8518,6 m",
+      "body": {
+        "x": 55,
+        "y": 236.390625,
+        "width": 1209,
+        "height": 474.859375,
+        "top": 236.390625,
+        "right": 1264,
+        "bottom": 711.25,
+        "left": 55
+      },
+      "headerHeight": 124.640625,
+      "heads": [
+        {
+          "title": "GR",
+          "width": 132
+        },
+        {
+          "title": "Prof.",
+          "width": 86
+        },
+        {
+          "title": "Resistividad",
+          "width": 165
+        },
+        {
+          "title": "Dens. · neutrón",
+          "width": 198
+        },
+        {
+          "title": "Arcilla",
+          "width": 133
+        },
+        {
+          "title": "Porosidad",
+          "width": 132
+        },
+        {
+          "title": "Sw",
+          "width": 132
+        },
+        {
+          "title": "Permeabilidad",
+          "width": 132
+        },
+        {
+          "title": "Indicadores",
+          "width": 99
+        }
+      ],
+      "layout": null
+    },
+    "readingLas": "ce05261de2da6624cc0d94f2611ec20fe0125b62d15cbb60aafd8808fcca6c2b",
+    "readingSvg": "faed7fe0052c14429515ff1564a87477fb0de9d804de3b5d5991b4d4e8a726f8",
+    "geologyReading": {
+      "range": "7633,3 – 8518,6 m",
+      "body": {
+        "x": 55,
+        "y": 240.140625,
+        "width": 2422,
+        "height": 471.109375,
+        "top": 240.140625,
+        "right": 2477,
+        "bottom": 711.25,
+        "left": 55
+      },
+      "headerHeight": 128.390625,
+      "heads": [
+        {
+          "title": "GR espectral",
+          "width": 117
+        },
+        {
+          "title": "Electrosec.",
+          "width": 117
+        },
+        {
+          "title": "U alto",
+          "width": 117
+        },
+        {
+          "title": "Prof.",
+          "width": 86
+        },
+        {
+          "title": "Litología",
+          "width": 129
+        },
+        {
+          "title": "Mineralogía",
+          "width": 128
+        },
+        {
+          "title": "Impedancia acústica",
+          "width": 117
+        },
+        {
+          "title": "Reflectividad",
+          "width": 117
+        },
+        {
+          "title": "Sintético · 4 repeticiones",
+          "width": 141
+        },
+        {
+          "title": "Columna",
+          "width": 210
+        },
+        {
+          "title": "Litología (ML)",
+          "width": 141
+        },
+        {
+          "title": "Electrofacies",
+          "width": 117
+        },
+        {
+          "title": "Sónico",
+          "width": 117
+        },
+        {
+          "title": "Passey · ciclos",
+          "width": 129
+        },
+        {
+          "title": "TOC",
+          "width": 117
+        },
+        {
+          "title": "Generadora",
+          "width": 99
+        },
+        {
+          "title": "RMN",
+          "width": 128
+        },
+        {
+          "title": "Interpretación",
+          "width": 117
+        },
+        {
+          "title": "Banderas",
+          "width": 178
+        }
+      ],
+      "layout": "{\"leftWidth\":292,\"rightWidth\":368,\"leftCollapsed\":false,\"rightCollapsed\":false,\"dockHeight\":260,\"leftAuto\":true,\"rightAuto\":true,\"dockAuto\":true,\"dockCollapsed\":false,\"wellHeader\":true}"
+    },
+    "customLayoutRestored": true,
+    "dpr2": {
+      "range": "7633,3 – 8518,6 m",
+      "body": {
+        "x": 55,
+        "y": 236.390625,
+        "width": 1209,
+        "height": 474.859375,
+        "top": 236.390625,
+        "right": 1264,
+        "bottom": 711.25,
+        "left": 55
+      },
+      "headerHeight": 124.640625,
+      "heads": [
+        {
+          "title": "GR",
+          "width": 132
+        },
+        {
+          "title": "Prof.",
+          "width": 86
+        },
+        {
+          "title": "Resistividad",
+          "width": 165
+        },
+        {
+          "title": "Dens. · neutrón",
+          "width": 198
+        },
+        {
+          "title": "Arcilla",
+          "width": 133
+        },
+        {
+          "title": "Porosidad",
+          "width": 132
+        },
+        {
+          "title": "Sw",
+          "width": 132
+        },
+        {
+          "title": "Permeabilidad",
+          "width": 132
+        },
+        {
+          "title": "Indicadores",
+          "width": 99
+        }
+      ],
+      "layout": null
+    },
+    "pageErrors": []
+  },
+  "animationDiagnostic": {
+    "before": [
+      {
+        "frames": 1,
+        "timers": 9,
+        "nodes": 62087,
+        "animations": 21939,
+        "visibility": "visible",
+        "focus": true
+      },
+      {
+        "frames": 2,
+        "timers": 20,
+        "nodes": 62078,
+        "animations": 21939,
+        "visibility": "visible",
+        "focus": true
+      },
+      {
+        "frames": 2,
+        "timers": 31,
+        "nodes": 62078,
+        "animations": 21939,
+        "visibility": "visible",
+        "focus": true
+      }
+    ],
+    "after": [
+      {
+        "frames": 59,
+        "timers": 10,
+        "nodes": 62087,
+        "animations": 0,
+        "visibility": "visible",
+        "focus": true
+      },
+      {
+        "frames": 120,
+        "timers": 20,
+        "nodes": 62087,
+        "animations": 0,
+        "visibility": "visible",
+        "focus": true
+      },
+      {
+        "frames": 181,
+        "timers": 30,
+        "nodes": 62078,
+        "animations": 0,
+        "visibility": "visible",
+        "focus": true
+      }
+    ],
+    "poll": "Three readings at approximately one-second intervals after keyboard restore/close; timers in 100 ms ticks. Diagnostic observations, not a hardware-independent FPS guarantee.",
+    "beforeScreenshot": "Timed out after 12000 ms",
+    "afterScreenshot": "Completed"
+  },
+  "tests": {
+    "passed": 2557,
+    "files": 150,
+    "failed": 0,
+    "pending": 0
+  }
+}

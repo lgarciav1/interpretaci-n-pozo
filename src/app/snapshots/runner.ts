@@ -39,8 +39,8 @@ export function revisionOf(o: object): number {
 }
 
 /** Clave de caché de una corrida: qué snapshot, qué revisión de su interpretación, sobre qué pozo y curvas. */
-export function runKey(snapshotId: string, interpretation: Interpretation, well: { id: string; depth: object; curves: object }): string {
-  return `${snapshotId}@${revisionOf(interpretation)}|${well.id}#${revisionOf(well.depth)}.${revisionOf(well.curves)}`;
+export function runKey(snapshotId: string, interpretation: Interpretation, well: { id: string; depth: object; curves: object }, inputRevisionId?: string | null): string {
+  return `${snapshotId}@${revisionOf(interpretation)}|${well.id}#${revisionOf(well.depth)}.${revisionOf(well.curves)}${inputRevisionId ? `|input:${inputRevisionId}` : ''}`;
 }
 
 export class IsolatedRunner {
@@ -158,3 +158,4 @@ export class IsolatedRunner {
     for (const l of this.listeners) l();
   }
 }
+

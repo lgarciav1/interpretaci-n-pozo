@@ -112,17 +112,18 @@ function Waiting({ sources }: { sources: SourceState[] }) {
 export function SummaryCompare({ entry, snapshots, a, b, onChange }: { entry: WellEntry; snapshots: readonly Snapshot[]; a: string; b: string; onChange(a: string, b: string): void }) {
   const srcA = useSource(a, entry, snapshots);
   const srcB = useSource(b, entry, snapshots);
-  const depth = entry.well.depth.values;
-  const sumA = useSummary(srcA, depth);
-  const sumB = useSummary(srcB, depth);
+  const sumA = useSummary(srcA);
+  const sumB = useSummary(srcB);
   const comparison = useMemo(() => (sumA && sumB && !sumA.missing && !sumB.missing ? compareSummaries(sumA, sumB) : null), [sumA, sumB]);
   const cols = useMemo(() => (comparison ? columns(comparison.metrics) : []), [comparison]);
 
   const diffLines = useMemo(() => {
     if (!srcA.interpretation || !srcB.interpretation) return null;
     const zones = [...srcB.interpretation.zones, ...srcA.interpretation.zones.filter((z) => !srcB.interpretation!.zones.some((x) => x.id === z.id))];
-    return diffInterpretations(srcA.interpretation, srcB.interpretation, registry).map((d) => describeDiff(d, { registry, zones }));
-  }, [srcA.interpretation, srcB.interpretation]);
+    const lines = diffInterpretations(srcA.interpretation, srcB.interpretation, registry).map((d) => describeDiff(d, { registry, zones }));
+    if (srcA.status === 'ready' && srcB.status === 'ready' && srcA.inputRevisionId !== srcB.inputRevisionId) lines.unshift('Los estados usan versiones diferentes de los datos de entrada.');
+    return lines;
+  }, [srcA, srcB]);
 
   const options = [
     { value: CURRENT, label: 'Interpretación actual' },
@@ -217,3 +218,4 @@ export function SummaryCompare({ entry, snapshots, a, b, onChange }: { entry: We
     </>
   );
 }
+

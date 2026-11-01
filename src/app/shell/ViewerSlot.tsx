@@ -26,6 +26,7 @@ import { WellViewer, type ViewerCurtain } from '../../viewer/WellViewer';
 import { alignCurtainTracks } from '../../viewer/curtain';
 import { closeCurtain } from '../snapshots/actions';
 import { useSnapshotRun } from '../snapshots/snapshotEngine';
+import { snapshotCurtainIssue } from '../snapshots/request';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useWellQc } from '../store/qc';
 import { useResults } from '../store/results';
@@ -122,18 +123,21 @@ export function ViewerSlot() {
   }, [well, curves, computed, layoutSpec, overrides, building]);
 
   // Cortina antes/después: el snapshot se calcula una vez al elegirlo (caché compartida con el diálogo); arrastrar la
-  // línea solo redibuja. Las curvas medidas son las del pozo activo en los dos lados.
+  // línea solo redibuja. Cada lado usa sus datos; una grilla/laboratorio incompatibles bloquean la cortina.
   const curtainId = useUi((s) => s.curtain?.snapshotId ?? null);
   const curtainSnap = useProject((s) => (curtainId ? (s.project.snapshots.find((x) => x.id === curtainId) ?? null) : null));
-  const curtainRun = useSnapshotRun(curtainSnap, well);
+  const snapshotProject = useProject((s) => s.project);
+  const curtainRun = useSnapshotRun(curtainSnap, well, snapshotProject);
   const curtainResult = curtainRun?.status === 'ready' ? curtainRun.result : null;
+  const curtainWell = curtainRun?.status === 'ready' ? curtainRun.well : null;
+  const curtainIssue = useMemo(() => well && curtainWell ? snapshotCurtainIssue(well, curtainWell) : null, [well, curtainWell]);
   const curtain = useMemo<ViewerCurtain | null>(() => {
-    if (!well || !curtainSnap || !curtainResult) return null;
+    if (!well || !curtainSnap || !curtainResult || !curtainWell || curtainIssue) return null;
     // El lado «antes» con la sarta del snapshot (sus curvas medidas son las que veía ese cálculo).
-    const beforeCurves = visibleCurves(well, curtainSnap.interpretation);
-    const before = resolveTracks(layoutSpec, { depth: well.depth.values, curves: beforeCurves, computed: computedCurves(curtainResult, well), catalog: registry.roles }, overrides, { keepEmpty: true });
+    const beforeCurves = visibleCurves(curtainWell, curtainSnap.interpretation);
+    const before = resolveTracks(layoutSpec, { depth: curtainWell.depth.values, curves: beforeCurves, computed: computedCurves(curtainResult, curtainWell), catalog: registry.roles }, overrides, { keepEmpty: true });
     return { before: alignCurtainTracks(tracks, before), beforeLabel: `Antes: ${curtainSnap.name}`, afterLabel: 'Después: actual' };
-  }, [well, curtainSnap, curtainResult, layoutSpec, overrides, tracks]);
+  }, [well, curtainSnap, curtainResult, curtainWell, curtainIssue, layoutSpec, overrides, tracks]);
 
   // «Armar pistas» (docs/decisiones/0016): acciones sobre las pistas que se ven, publicadas para el panel.
   const editor = useMemo(() => (well ? createLayoutEditor({ workspace, overlays: OVERLAYS, displayed: tracks, curves }) : null), [well, workspace, tracks, curves]);
@@ -458,10 +462,10 @@ export function ViewerSlot() {
               Arrastrá sobre el perfil para marcar una zona · <kbd>Esc</kbd> para salir
             </>
           ) : curtainId && !curtain ? (
-            curtainRun?.status === 'error' ? (
+            curtainRun?.status === 'error' || curtainIssue ? (
               <>
                 <Icon name="warning" size={14} />
-                {`No se pudo calcular «${curtainSnap?.name ?? 'el snapshot'}»: ${curtainRun.message}`} · <kbd>Esc</kbd> para salir
+                {`No se pudo comparar «${curtainSnap?.name ?? 'el snapshot'}»: ${curtainRun?.status === 'error' ? curtainRun.message : curtainIssue}`} · <kbd>Esc</kbd> para salir
               </>
             ) : (
               <>

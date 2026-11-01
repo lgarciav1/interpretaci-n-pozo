@@ -7,6 +7,8 @@ import type { ClientResult } from '../../core/engine/client';
 import type { Interpretation } from '../../core/interpretation';
 import { extractSummary, type SummarySide } from '../../core/state/snapshotCompare';
 import type { Snapshot, WellEntry } from '../../core/state/project';
+import type { Well } from '../../core/well';
+import { useProject } from '../store/project';
 import { useResults } from '../store/results';
 import { useSnapshotRun } from './snapshotEngine';
 
@@ -16,7 +18,7 @@ export const CURRENT = '#current';
 export type SourceState =
   | { status: 'pending'; label: string; interpretation: Interpretation | null }
   | { status: 'error'; label: string; interpretation: Interpretation | null; message: string }
-  | { status: 'ready'; label: string; interpretation: Interpretation; result: ClientResult };
+  | { status: 'ready'; label: string; interpretation: Interpretation; result: ClientResult; well: Well; inputRevisionId: string | null };
 
 export function sourceLabel(id: string, snapshots: readonly Snapshot[]): string {
   if (id === CURRENT) return 'Interpretación actual';
@@ -25,7 +27,8 @@ export function sourceLabel(id: string, snapshots: readonly Snapshot[]): string 
 
 export function useSource(id: string, entry: WellEntry, snapshots: readonly Snapshot[]): SourceState {
   const snap = id === CURRENT ? null : (snapshots.find((s) => s.id === id) ?? null);
-  const run = useSnapshotRun(snap, entry.well);
+  const project = useProject((s) => s.project);
+  const run = useSnapshotRun(snap, entry.well, project);
   const main = useResults((s) => s.result);
   const busy = useResults((s) => s.busy);
   const mainError = useResults((s) => s.error);
@@ -33,19 +36,21 @@ export function useSource(id: string, entry: WellEntry, snapshots: readonly Snap
 
   if (id === CURRENT) {
     const interpretation = entry.interpretation;
-    if (main && main.wellId === entry.well.id && !busy) return { status: 'ready', label, interpretation, result: main };
+    if (main && main.wellId === entry.well.id && !busy) return { status: 'ready', label, interpretation, result: main, well: entry.well, inputRevisionId: entry.inputRevisionId ?? null };
     if (mainError && !busy) return { status: 'error', label, interpretation, message: mainError };
     return { status: 'pending', label, interpretation };
   }
   if (!snap) return { status: 'error', label, interpretation: null, message: 'El snapshot ya no existe.' };
   if (!run || run.status === 'pending') return { status: 'pending', label, interpretation: snap.interpretation };
   if (run.status === 'error') return { status: 'error', label, interpretation: snap.interpretation, message: run.message };
-  return { status: 'ready', label, interpretation: snap.interpretation, result: run.result };
+  return { status: 'ready', label, interpretation: snap.interpretation, result: run.result, well: run.well, inputRevisionId: run.inputRevisionId };
 }
 
 /** Sumario por zona de una fuente lista (memorizado por resultado e interpretación). */
-export function useSummary(src: SourceState, depth: Float64Array): SummarySide | null {
+export function useSummary(src: SourceState): SummarySide | null {
   const result = src.status === 'ready' ? src.result : null;
+  const depth = src.status === 'ready' ? src.well.depth.values : null;
   const zones = src.interpretation?.zones;
-  return useMemo(() => (result && zones ? extractSummary(result, zones, depth) : null), [result, zones, depth]);
+  return useMemo(() => (result && zones && depth ? extractSummary(result, zones, depth) : null), [result, zones, depth]);
 }
+

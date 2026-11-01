@@ -159,7 +159,7 @@ export function copyInputWellForEdit(state: InputRevisionState, wellId: string):
   return structuredClone(getActiveInputRevision(state, wellId).well);
 }
 
-export function reviseInputRevision(state: InputRevisionState, wellId: string, changes: InputChanges, stamp: RevisionStamp): InputRevisionState {
+export function reviseInputRevision(state: InputRevisionState, wellId: string, changes: InputChanges, stamp: RevisionStamp | (() => RevisionStamp)): InputRevisionState {
   const parent = getActiveInputRevision(state, wellId);
   requireShape(changes, 'Cambios de entradas', [], ['well', 'acquisition']);
   const well = own(changes, 'well') ? changes.well : parent.well;
@@ -171,6 +171,7 @@ export function reviseInputRevision(state: InputRevisionState, wellId: string, c
   const capturedAcquisition = capture(acquisition, parent.acquisition);
   // Una copia con el mismo contenido no crea revisión, aunque sus objetos tengan otra identidad.
   if (capturedWell === parent.well && capturedAcquisition === parent.acquisition) return state;
-  checkStamp(state, stamp);
-  return publish(state, { ...stamp, wellId, parentRevisionId: parent.id, schemaVersion: 1, reason: 'edit-input', well: capturedWell, acquisition: capturedAcquisition });
+  const identity = typeof stamp === 'function' ? stamp() : stamp;
+  checkStamp(state, identity);
+  return publish(state, { ...identity, wellId, parentRevisionId: parent.id, schemaVersion: 1, reason: 'edit-input', well: capturedWell, acquisition: capturedAcquisition });
 }

@@ -1,6 +1,6 @@
 # ADR 0033: revisiones de entradas y compatibilidad
 
-Fecha: 2026-10-28. Estado: contrato P1/P2, con caracterización ejecutable de v1–v6 y primera implementación aislada P1a (ver avance al final). Referencias: masterplan #33, preparación #32 y DRX #31. Base de código: PR #38, eecad95a60b389c7ff4e847a2bbdffd397bbc763. La entrega original #39 no implementó la migración ni modificó la aplicación. P1a agrega un módulo aislado, todavía sin conectarlo a Project o al formato de archivo.
+Fecha: 2026-10-28. Estado: contrato P1/P2, con caracterización ejecutable de v1–v6 y P1a y conexión optativa P1b en memoria (ver avances al final). Referencias: masterplan #33, preparación #32 y DRX #31. Base de código: PR #38, eecad95a60b389c7ff4e847a2bbdffd397bbc763. La entrega original #39 no implementó la migración ni modificó la aplicación. P1a agregó el módulo aislado; P1b lo conecta de forma optativa a Project/snapshots. La persistencia de revisiones aún no está implementada.
 
 ## Problema concreto
 
@@ -154,3 +154,18 @@ Validación estricta, sin reparar datos: índice MD creciente/finito y paso cons
 Hay una raíz por pozo y padres del mismo pozo; se rechazan ciclos y referencias activas inconsistentes. Cambiar entradas o adquisición crea una hija y cambia su revisión activa en una sola devolución, conservando las anteriores. No se implementó limpieza de revisiones. La validación actual recorre el almacén y sus datos; antes de activarlo sobre historiales extensos deberá medirse ese costo.
 
 Continúan pendientes las partes de P1 que modifican Project, snapshots, runner aislado, generación de ids, persistencia, integridad de blobs y migración. La aplicación continúa guardando v6 y no usa todavía este módulo. Las reglas D1–D6 siguen siendo el contrato para esas próximas entregas.
+
+
+## Avance P1b: Project, snapshots y comparación (2026-10-29)
+
+Project admite inputRevisions por id; WellEntry y Snapshot admiten inputRevisionId. enableProjectInputRevisions es una operación de dominio explícita: captura las entradas disponibles y marca los snapshots antiguos como legacy-current-inputs. No se invoca desde la UI ni desde la apertura o creación normal de proyectos. Los snapshots nuevos de un proyecto con revisiones usan pinned.
+
+projectInputState valida grafo, aliases por identidad y vínculos de snapshots. Las recetas de agregar Well, cambiar datos/roles y editar laboratorio conservan la revisión anterior y publican hija/alias juntos cuando el proyecto está habilitado. updateWell entrega una copia al callback en ese modo; errores no mutan al padre. Los no-op por contenido no generan id ni consultan el reloj. El store valida el proyecto antes de commit/replace e historial; undo/redo recupera el proyecto completo.
+
+Restaurar un snapshot fijado devuelve Well + inputRevisionId + interpretación juntos, manteniendo progreso, display y pozo activo. Resolver/comparar usa la revisión fijada, sin respaldo a datos actuales ante referencias rotas. La caché del runner aislado incluye inputRevisionId y el sumario de cada lado usa su propio índice. La cortina usa las curvas originales del snapshot cuando los índices y el laboratorio son compatibles por contenido; si difieren, se bloquea con un mensaje. El renderer actual comparte esos datos y no debe simular una alineación o mezcla que no implementa.
+
+La identidad usa 16 bytes de crypto si está disponible; ante ausencia/fallo usa un fallback local con Math.random, chequea colisiones y limita a ocho intentos. Es un identificador de unicidad, no una clave de seguridad. Entropía y reloj son inyectables en pruebas; el reloj se consulta tras obtener un id no utilizado. El formato no depende solo de la fecha.
+
+Límite temporal de persistencia: serializeProject rechaza proyectos con revisiones porque v6 no puede representarlas íntegramente. deserializeProject rechaza archivos que declaren v6 o anterior y contengan marcadores de revisiones. No se descartan referencias ni se ofrece una conversión incompleta. Los proyectos legados continúan por el recorrido v6 existente. P1c debe implementar archivo/migración v7 antes de exponer activación en la UI.
+
+Permanecen pendientes persistencia e integridad de blobs, pruebas de recuperación tras guardar/abrir v7, y el protocolo/contexto completo de P2. Esta entrega no activa preparación, calibración DRX ni correcciones ambientales.
