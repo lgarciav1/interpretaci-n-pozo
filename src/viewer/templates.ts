@@ -130,7 +130,7 @@ export const BUILTIN_LAYOUTS: Readonly<Record<WorkspaceId, readonly TrackSpec[]>
       id: 'saturation',
       title: 'Porosidad · Sw',
       kind: 'curves',
-      curves: [{ select: { role: 'BVW' } }, { select: { role: 'SW' } }, { select: { role: 'PHIE' } }],
+      curves: [{ select: { role: 'BVW' } }, { select: { role: 'SW' } }, { select: { role: 'SWI' }, style: { line: 'dashed' } }, { select: { role: 'PHIE' } }],
       fills: [{ kind: 'edge', curve: 'SW', side: 'left', fill: 'hydrocarbon', opacity: 0.6 }],
       hideWhenEmpty: true,
     },
