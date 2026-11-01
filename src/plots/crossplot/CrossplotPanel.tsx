@@ -28,7 +28,7 @@ import type { Zone } from '../../core/well';
 import { ControlGroup, CurveSelect, DriverCallout, HiddenCurveNote, HiddenCurveState, ScaleControl, SelectionSummary, ZoneFilterChips } from '../controls';
 import { CUTOFF_PASSES, cutoffParamFor, cutoffScope, guideStep, normalizeCutoff, resolveCutoffLine, type CutoffLine, type CutoffParamKey } from '../cutoffs';
 import { effectiveScale, engineInputData, hiddenCurveOfKey, keyForRole, plotCurveOptions, resolvePlotCurve, zoneFilter, type PlotCurve, type ZoneFilter } from '../data';
-import { formatParam, grGuides, grWrite, inactiveDriver, normalizeParam, nudgeParam, paramChangeLabel, paramOfGuide, paramWrite, plotParamValue, plotScope, PLOT_PARAMS, RW_CORRECT_STORAGE, storedParamValue, type ParamWrite, type PlotScope } from '../params';
+import { clayEndpointWrite, clayEstimateWrites, formatParam, grGuides, grWrite, inactiveDriver, normalizeParam, nudgeParam, paramChangeLabel, paramOfGuide, paramWrite, plotParamValue, plotScope, PLOT_PARAMS, RW_CORRECT_STORAGE, storedParamValue, type ParamWrite, type PlotScope } from '../params';
 import { clearPlotSelection, getPlotLink, makeSelection, setPlotLink, setPlotSelection } from '../link';
 import { cloudMask, maskFromCloud, pointsInShape, unionMask, type DataPolygon, type SelectionShape } from '../selection';
 import { usePlotSelection } from '../useLink';
@@ -46,8 +46,10 @@ import { CROSSPLOT_PROVIDER_ID, crossplotSeries, crossplotSeriesKey, parseCrossp
 import { fitWaterLine, WATER_FIT_DEFAULTS, ownPickettParams, parseWaterHandle, waterLineDragWrites, waterLineNudgeWrites, ownValuesNotice, pickettByZone, zonesWithOwnPickett, type WaterFit } from './pickett';
 import { matrixParamsOf, matrixPointOf, projectMatrixLine, representativeTemperature, rwAtFormation, snapMatrixToLithology, waterLineHandles, waterLineRt } from './drag';
 import { crossplotTemplatePatch } from './applyTemplate';
+import { thomasStieberLayers } from './templates';
 import { BVW_LINES, CROSSPLOT_TEMPLATE_DEFS, DN_LITHOLOGIES, PICKETT_SW, TEMPLATE_GROUPS, bvwLine, densityNeutronLine, isLithologyTemplate, lithologyTemplateLayers, nmrDnLines, pickettLine, mineralogyTemplateLayers, mineralogyFullRange, templateDef, type ArchieParams, type MatrixColors } from './templates';
 import { UMAA_CHART_RANGE } from '../../petro/lithologyIndices';
+import { clayDistributionSummary, countClayDistribution, estimateClayEndpoints, type EndpointEstimate } from '../../petro/clayDistribution';
 import '../plots.css';
 
 export interface CrossplotPanelProps {
@@ -175,6 +177,18 @@ interface TemplateDrawing {
   water: WaterZoneState | null;
   /** Con alcance global y zonas con valores propios: ofrecer una recta por zona (ids de las zonas visibles). */
   byZoneOffer: string[] | null;
+  /** Thomas–Stieber (0061): extremos vigentes, resumen de la nube y la propuesta de «Estimar de los datos». */
+  clay: ClayState | null;
+}
+
+interface ClayState {
+  phiSand: number;
+  phiShale: number;
+  /** «62 % bajo la diagonal: predomina arcilla dispersa», o null sin muestras clasificadas. */
+  summary: string | null;
+  estimate: EndpointEstimate;
+  /** Escrituras de la propuesta (vacío si no hay propuesta o ya es la vigente). */
+  writes: ParamWrite[];
 }
 
 interface TemplateContext {
@@ -443,10 +457,78 @@ function pickettDrawing(out: TemplateDrawing, t: TemplateContext, c: (hex: strin
   if (!scope.zoneId && visible.length >= 2 && zonesWithOwnPickett(params, visible.map((z) => z.id)).length) out.byZoneOffer = visible.map((z) => z.id);
 }
 
+/**
+ * Thomas–Stieber (0061): regiones, rectas y banda laminar con los extremos del alcance; los dos extremos son manijas
+ * que se arrastran en vertical (φ de la arena en Vsh = 0, φ de la lutita en Vsh = 1) y escriben los parámetros de
+ * `clay-distribution`. Resumen de la nube y propuesta de «Estimar de los datos» con el motor puro.
+ */
+function thomasStieberDrawing(out: TemplateDrawing, t: TemplateContext, c: (hex: string) => string): void {
+  const { ctx, theme, scope } = t;
+  const params = ctx.interpretation.params;
+  const phiSand = plotParamValue(params, PLOT_PARAMS.phiSand, scope.zoneId);
+  const phiShale = plotParamValue(params, PLOT_PARAMS.phiShale, scope.zoneId);
+  const tol = plotParamValue(params, PLOT_PARAMS.clayBand, scope.zoneId);
+  const colors = { dispersed: c(theme.name === 'dark' ? '#3fd0a8' : '#0f8b6f'), structural: c(theme.name === 'dark' ? '#f0b43c' : '#a8670a'), laminated: c(theme.color.text), band: c(theme.color.textMuted) };
+  const layers = thomasStieberLayers(phiSand, phiShale, tol, colors);
+  out.polygons.push(...layers.polygons);
+  out.lines.push(...layers.lines);
+  const onAxes = t.cx.role === 'VSH' && t.cy.role === 'PHIT';
+  const sandText = formatParam(PLOT_PARAMS.phiSand, phiSand);
+  const shaleText = formatParam(PLOT_PARAMS.phiShale, phiShale);
+  const accent = c(theme.color.accent);
+  if (onAxes) {
+    const dragSand = t.dragging?.id === 'ts-sand' ? t.dragging : null;
+    const dragShale = t.dragging?.id === 'ts-shale' ? t.dragging : null;
+    out.handles.push(
+      {
+        id: 'ts-sand',
+        x: 0,
+        y: dragSand ? dragSand.y : phiSand,
+        color: accent,
+        cursor: 'ns-resize',
+        label: `φ arena ${scope.text} · ${sandText}`,
+        detail: 'arena limpia · Vsh 0',
+        ariaLabel: `Extremo de arena limpia ${scope.text}: cambia la porosidad de la arena limpia. Flechas arriba y abajo para mover, Mayús para pasos largos`,
+        valueText: `porosidad de la arena limpia ${sandText}`,
+        labelAt: { x: 'right', y: 'above' },
+      },
+      {
+        id: 'ts-shale',
+        x: 1,
+        y: dragShale ? dragShale.y : phiShale,
+        color: accent,
+        cursor: 'ns-resize',
+        label: `φ lutita ${scope.text} · ${shaleText}`,
+        detail: 'lutita · Vsh 1',
+        ariaLabel: `Extremo de lutita ${scope.text}: cambia la porosidad de la lutita. Flechas arriba y abajo para mover, Mayús para pasos largos`,
+        valueText: `porosidad de la lutita ${shaleText}`,
+        labelAt: { x: 'left', y: 'above' },
+      },
+    );
+  }
+  const counts = onAxes ? countClayDistribution(t.cloudX, t.cloudY, phiSand, phiShale, tol) : null;
+  const summary = counts ? clayDistributionSummary(counts) : null;
+  const estimate: EndpointEstimate = onAxes ? estimateClayEndpoints(t.cloudX, t.cloudY) : { phiSand: null, phiShale: null, nSand: 0, nShale: 0, problem: 'Los ejes no son VSH y PHIT.' };
+  const writes = estimate.phiSand !== null && estimate.phiShale !== null && !estimate.problem ? clayEstimateWrites(estimate.phiSand, estimate.phiShale, params, scope) : [];
+  out.clay = { phiSand, phiShale, summary: summary?.text ?? null, estimate, writes };
+  out.readouts.push(
+    { label: 'φ arena limpia', value: sandText, color: accent, point: 'circle' },
+    { label: 'φ lutita', value: shaleText, color: accent, point: 'circle' },
+    { label: 'Banda laminar', value: `± ${formatParam(PLOT_PARAMS.clayBand, tol)}` },
+  );
+  if (summary && counts) {
+    out.readouts.push({ label: 'Laminar · dispersa · estructural', value: `${pct(summary.pct.laminated)} · ${pct(summary.pct.dispersed)} · ${pct(summary.pct.structural)}` });
+    out.readouts.push({ label: 'Sin clasificar', value: `${formatNumber(counts.unclassified, { digits: 0 })} de ${formatNumber(counts.total, { digits: 0 })}` });
+  }
+  out.info = onAxes
+    ? 'Arrastrá los extremos (arena limpia a la izquierda, lutita a la derecha) para elegir sus porosidades; las rectas, las regiones y el resumen se recalculan. Región A (debajo de la diagonal): arcilla dispersa; región B (encima): estructural; sobre la diagonal: laminar. Quedan sin clasificar la arena limpia (Vsh < 0,1), la lutita (Vsh > 0,9) y los puntos fuera del diagrama. Orientativo: confirmar con corona, imágenes o RMN.'
+    : 'Rectas de Thomas–Stieber con los extremos del proyecto. Los extremos se arrastran con VSH en X y PHIT en Y.';
+}
+
 /** Líneas guía y manijas de la plantilla, con colores del tema (la matemática está en `templates.ts` y `drag.ts`). */
 function templateDrawing(id: CrossplotTemplateId | null, t: TemplateContext): TemplateDrawing {
   const { ctx, theme, scope } = t;
-  const out: TemplateDrawing = { lines: [], polygons: [], guides: [], points: [], handles: [], info: null, readouts: [], warnings: [], dn: null, pickett: [], water: null, byZoneOffer: null };
+  const out: TemplateDrawing = { lines: [], polygons: [], guides: [], points: [], handles: [], info: null, readouts: [], warnings: [], dn: null, pickett: [], water: null, byZoneOffer: null, clay: null };
   const bg = theme.viewer.trackBg;
   const c = (hex: string) => ensureContrast(hex, bg, 3);
   const params = ctx.interpretation.params;
@@ -542,6 +624,8 @@ function templateDrawing(id: CrossplotTemplateId | null, t: TemplateContext): Te
       }
       if (n && right / n > 0.05) out.info = `El ${pct((100 * right) / n)} de las muestras tiene Umaa mayor que ${UMAA_CHART_RANGE.u[1]}, a la derecha de la calcita: PEF alto, típico de baritina en el lodo (no es la matriz). «Ver toda la nube» las muestra. ${layers.info}`;
     }
+  } else if (id === 'thomas-stieber') {
+    thomasStieberDrawing(out, t, c);
   } else if (id === 'nmr-dn') {
     const tol = plotParamValue(params, PLOT_PARAMS.nmrTolerance, scope.zoneId);
     const l = nmrDnLines(tol);
@@ -825,6 +909,12 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
       props.onParams(MATRIX_LABEL, matrixWrites(snap.point.nphi, snap.point.rhob), phase);
       return;
     }
+    if (id === 'ts-sand' || id === 'ts-shale') {
+      const which = id === 'ts-sand' ? 'phiSand' : 'phiShale';
+      const w = clayEndpointWrite(which, pos.y, params, pscope);
+      props.onParams(paramChangeLabel(PLOT_PARAMS[which]), w ? [w] : [], phase);
+      return;
+    }
     const w = parseWaterHandle(id);
     const u = w ? waterUnit(w.key) : null;
     if (w && u) props.onParams(paramChangeLabel(w.which === 'move' ? PLOT_PARAMS.rwRef : PLOT_PARAMS.m), waterLineDragWrites(u, w.which, { rt: pos.x, phi: pos.y }), phase);
@@ -837,6 +927,15 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
       if (dx) writes.push(paramWrite(PLOT_PARAMS.matrixOffset, nudgeParam(PLOT_PARAMS.matrixOffset.spec, tpl.dn.matrixOffset, (dx * (xAxis?.reversed ? 1 : -1)) as 1 | -1, big), pscope));
       if (dy) writes.push(paramWrite(PLOT_PARAMS.rhoMa, nudgeParam(PLOT_PARAMS.rhoMa.spec, tpl.dn.rhoMa, (dy * (yAxis?.reversed ? -1 : 1)) as 1 | -1, big), pscope));
       props.onParams(MATRIX_LABEL, writes, 'commit');
+      return;
+    }
+    // Extremos de Thomas–Stieber: solo en vertical (arriba = más porosidad).
+    if ((id === 'ts-sand' || id === 'ts-shale') && tpl?.clay) {
+      if (!dy) return;
+      const which = id === 'ts-sand' ? 'phiSand' : 'phiShale';
+      const cur = which === 'phiSand' ? tpl.clay.phiSand : tpl.clay.phiShale;
+      const w = clayEndpointWrite(which, nudgeParam(PLOT_PARAMS[which].spec, cur, (dy * (yAxis?.reversed ? -1 : 1)) as 1 | -1, big), params, pscope);
+      if (w) props.onParams(paramChangeLabel(PLOT_PARAMS[which]), [w], 'commit');
       return;
     }
     // Recta de agua: derecha o arriba = más Rw (trasladar) o más m (rotar).
@@ -1105,6 +1204,9 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
                   </DriverCallout>
                 ))}
                 <p className="plot-hint">{tpl.info}</p>
+                {config.template === 'thomas-stieber' && tpl.clay && (
+                  <ClayEstimateBlock clay={tpl.clay} onApply={() => props.onParams(CLAY_ESTIMATE_LABEL, tpl.clay!.writes, 'commit')} />
+                )}
                 {tpl.byZoneOffer && (
                   <Button size="sm" variant="secondary" icon="layers" onClick={() => onChange({ zones: tpl.byZoneOffer! }, 'Ver una recta de agua por zona')} title="Filtra las zonas visibles: cada una se dibuja con su recta y sus parámetros">
                     Una recta por zona
@@ -1285,6 +1387,38 @@ function WaterZoneBlock({ zones, chosen, water, byZone, onToggle, onApply }: { z
           </Button>
         </>
       ) : null}
+    </div>
+  );
+}
+
+const CLAY_ESTIMATE_LABEL = 'Estimar φ de arena y de lutita de los datos';
+
+/**
+ * Thomas–Stieber (0061): resumen de la nube y «Estimar de los datos» (percentil 95 de PHIT con Vsh ≤ 0,1 y mediana con
+ * Vsh ≥ 0,9) en un solo `commit` (un Ctrl+Z). Sin muestras suficientes, el motivo.
+ */
+function ClayEstimateBlock({ clay, onApply }: { clay: ClayState; onApply(): void }) {
+  const e = clay.estimate;
+  const ok = e.phiSand !== null && e.phiShale !== null && !e.problem;
+  return (
+    <div className="plot-water" data-testid="thomas-stieber">
+      {clay.summary && (
+        <p className="plot-summary" data-testid="thomas-stieber-summary">
+          {clay.summary}
+        </p>
+      )}
+      {ok ? (
+        <p className="plot-hint">
+          De los puntos visibles: φ arena {formatParam(PLOT_PARAMS.phiSand, e.phiSand!)} ({formatNumber(e.nSand, { digits: 0 })} muestras con Vsh ≤ 0,1) · φ lutita {formatParam(PLOT_PARAMS.phiShale, e.phiShale!)} ({formatNumber(e.nShale, { digits: 0 })} con Vsh ≥ 0,9).
+        </p>
+      ) : (
+        <p className="plot-hint plot-hint--warn" data-testid="thomas-stieber-problem">
+          No se pueden estimar los extremos: {e.problem}
+        </p>
+      )}
+      <Button size="sm" variant="secondary" block disabled={!ok || clay.writes.length === 0} onClick={onApply} title="φ arena: percentil 95 de PHIT con Vsh ≤ 0,1; φ lutita: mediana de PHIT con Vsh ≥ 0,9 (puntos visibles). Un Ctrl+Z lo deshace.">
+        {ok && clay.writes.length === 0 ? 'Los extremos ya coinciden con los datos' : 'Estimar de los datos'}
+      </Button>
     </div>
   );
 }

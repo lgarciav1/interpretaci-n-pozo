@@ -30,7 +30,8 @@ describe('las seis plantillas nuevas', () => {
       expect(templateDef(id)?.group).toBe('lithology');
       expect(sanitizeCrossplot({ template: id }).template).toBe(id);
     }
-    expect(CROSSPLOT_TEMPLATE_DEFS).toHaveLength(13);
+    // 13 + Thomas–Stieber (0061).
+    expect(CROSSPLOT_TEMPLATE_DEFS).toHaveLength(14);
   });
 
   it('ejes por rol, Th/K en log y PEF–K lineal', () => {
