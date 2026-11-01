@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Interpretación de perfiles · Manual de entrega</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#eef2f6;color:#17283c;font:16px/1.6 system-ui,sans-serif}main{max-width:960px;margin:32px auto;padding:40px;background:white;border-radius:14px}h1{line-height:1.2}h2{margin-top:34px;border-bottom:1px solid #dce4ed;padding-bottom:8px}table{border-collapse:collapse;width:100%;font-size:14px}td,th{padding:10px;border-bottom:1px solid #dce4ed;text-align:left;vertical-align:top}a{color:#175a9b}code{background:#edf3f8;padding:2px 5px}aside{padding:16px;background:#fff4d8;border-left:4px solid #c28c1d}button{padding:10px 16px;cursor:pointer}nav a{display:inline-block;margin:4px 14px 4px 0}small{color:#52647b}@media(max-width:700px){main{margin:0;padding:22px;border-radius:0}table{display:block;overflow:auto}}@media print{body{background:white}main{margin:0;padding:0}button,nav{display:none}h2{break-after:avoid}tr,aside{break-inside:avoid}}
+</style></head><body><main>
+<button onclick="window.print()">Imprimir / Guardar como PDF</button>
+<h1>Interpretación de perfiles<br>Manual de entrega</h1>
+<p>TP de Interpretación de Perfiles · FIUBA · Preparación, DRX y entrega P8.<br><small>Versión del manual: 2026-11-01. Funciona sin conexión.</small></p>
+<nav><a href="#inicio">Abrir y guardar</a><a href="#tp">Datos del TP</a><a href="#preparar">Preparación</a><a href="#drx">DRX y calibración</a><a href="#ambiente">Ambiente</a><a href="#entrega">Entrega</a><a href="#problemas">Problemas frecuentes</a></nav>
+<aside>El TP se resuelve con los datos disponibles. La herramienta, el lodo y el procesado que no se puedan verificar permanecen desconocidos. Se explicitan límites y supuestos; las correcciones que requieren esos datos quedan fuera del alcance actual. Los ejemplos sintéticos sirven para verificar el programa y no son ensayos reales del TP.</aside>
+
+<h2 id="inicio">1. Abrir la aplicación y conservar el trabajo</h2>
+<ol><li>Extraé el ZIP de entrega antes de abrir los archivos. Abrí <code>Interpretacion.html</code> con un navegador actual.</li>
+<li>Cargá un proyecto <code>.pozo.json</code> para recuperar curvas, laboratorio, zonas, parámetros, recetas y snapshots. Para empezar desde mediciones, usá CSV, Excel o LAS y revisá el mapeo de columnas y unidades.</li>
+<li>Esperá el estado <strong>Listo</strong> antes de exportar resultados. Los avisos de calidad pueden continuar visibles: revisalos.</li>
+<li>Usá <strong>Proyecto → Guardar proyecto</strong> y conservá el archivo descargado. Volvé a guardarlo después de cambios importantes; el HTML de la aplicación no guarda dentro de sí la interpretación.</li>
+<li>Los snapshots fijan una versión de datos y decisiones dentro del proyecto. Guardá el proyecto después de crear uno para poder recuperarlo en otro navegador.</li></ol>
+<p>Deshacer: <code>Ctrl+Z</code>. Rehacer: <code>Ctrl+Shift+Z</code>. En Mac, usá el modificador equivalente. Los diagnósticos y controles temporales de vista no son decisiones guardadas; exportá su JSON cuando necesites conservarlos.</p>
+<p>Si tu navegador institucional bloquea archivos locales, podés usar un servidor HTTP local y abrir la aplicación desde él. La aplicación no necesita servicios externos para calcular. Una política del navegador puede impedir <code>file://</code> sin que el HTML esté incompleto.</p>
+
+<h2 id="tp">2. Qué contiene el TP disponible</h2>
+<p><code>pozo_tp_perfiles.csv</code> contiene 5.810 muestras entre 7633,2588 y 8518,5504 m MD, con paso 0,1524 m y zonas A–E. Incluye mediciones, sin las columnas interpretadas del Excel. El bloque final duplicado y desplazado «zona F» del archivo de origen fue excluido.</p>
+<table><thead><tr><th>Curvas</th><th>Unidad y uso</th><th>Revisión necesaria</th></tr></thead><tbody>
+<tr><td>BS, CAL</td><td>Pulgadas; trépano y caliper.</td><td>189 muestras de CAL bajo 5 in según el criterio operativo del TP; no eliminarlas automáticamente.</td></tr>
+<tr><td>GR</td><td>gAPI; entrada de IGR/Vsh.</td><td>Extremos y método de Vsh son decisiones de interpretación.</td></tr>
+<tr><td>ZDEN, PE, NPHI, DT</td><td>g/cm³, b/e, v/v y µs/ft.</td><td>PE sospechoso en gran parte del pozo, picos de NPHI y faltantes de DT. Revisar los indicadores y las hipótesis litológicas.</td></tr>
+<tr><td>AT10, AT30, AT60, AT90</td><td>Ω·m; lecturas de distinto alcance.</td><td>AT90 es una lectura profunda; una separación entre curvas no prueba invasión ni garantiza Rt virgen.</td></tr>
+<tr><td>SP</td><td>mV.</td><td>Solo 12 muestras con datos; no alcanza para estimar Rw desde SP en este TP.</td></tr>
+<tr><td>URAN, THOR, POTA; curvas CMR</td><td>ppm, %, porosidades v/v.</td><td>Conservar las unidades de origen y revisar qué fuente alimenta cada cálculo.</td></tr>
+</tbody></table>
+<p>El proyecto TP base es un punto de partida de software, con los valores iniciales del programa: no representa una interpretación final aprobada por la cátedra. DRX, corona y MDT reales se incorporan cuando estén disponibles; su ausencia se declara en el informe.</p>
+
+<h2 id="preparar">3. Revisar y preparar mediciones</h2>
+<ol><li>Abrí <strong>Preparar datos</strong>, elegí una curva original y definí el tramo en m MD. Los extremos se incluyen.</li>
+<li>Revisá sospechosos antes de excluir. Un pico puede corresponder a una capa fina real.</li>
+<li>Generá una vista previa. Compará originales, preparadas, faltantes y consecuencias antes de aceptar.</li>
+<li>Aplicá explícitamente. La receta conserva el original y puede deshacerse. Verificá la fuente elegida del rol y la comparación original/preparada en el visor.</li>
+<li>Guardá un snapshot y el proyecto antes de continuar con decisiones de calibración.</li></ol>
+<p>Excluir conserva la malla y deja sin dato las muestras seleccionadas. Interpolar produce estimaciones, conserva exclusiones y exige soporte dentro de la distancia máxima. El filtro de mediana mantiene huecos y límites de soporte; se aplica después de la interpolación cuando ambas existen. La alineación constante positiva desplaza el evento hacia mayor MD y se aplica después de las etapas anteriores, con remuestreo sin extrapolación.</p>
+<p>Una corrida solo debe agrupar curvas que realmente compartan adquisición/alineación. Declarar un datum no transforma profundidades ni convierte MD en TVD. Si faltan datos para identificar una alineación, conservá la referencia disponible y explicitá la limitación.</p>
+<table><thead><tr><th>QC de preparación</th><th>Significado</th></tr></thead><tbody>
+<tr><td>1 / 2</td><td>Faltante original / exclusión; pueden combinarse.</td></tr><tr><td>8 / 16 / 32</td><td>Soporte interpolado / filtrado / alineado; se conservan los bits de origen. Una muestra estimada no se vuelve medida.</td></tr>
+<tr><td>64 / 128</td><td>Corrección MGT / fuera de dominio o sin soporte, según la receta. Revisá la descripción de la columna QC exportada.</td></tr></tbody></table>
+
+<h2 id="drx">4. Laboratorio DRX, calibración GR y cutoffs</h2>
+<p>En <strong>Preparar datos → DRX</strong> cargá CSV o Excel de laboratorio. Identificá muestra, profundidad puntual o intervalo, minerales, base masa/volumen, roca completa/fracción arcilla y escala porcentaje/fracción. Registrá informe, datum compartido y las incertidumbres disponibles. Revisá la tabla antes de importar; no cambies «no medido» o «bajo detección» por cero.</p>
+<p>Para comparar perfiles con muestras, elegí la curva y el soporte en profundidad. Un par sin cobertura suficiente queda excluido con motivo. Los duplicados técnicos no aumentan la información independiente. Una composición dentro de la fracción arcilla no equivale al contenido total de arcillas de la roca.</p>
+<p>La conversión masa→volumen necesita composición y densidades compatibles. Calibrar Vsh exige además declarar la relación entre minerales arcillosos y el proxy de lutita, junto con una referencia independiente del GR. Un ajuste con rango insuficiente o extremos no identificables queda bloqueado; el panel permite fijar un extremo externo cuando exista una referencia justificada.</p>
+<ol><li>Compará con soporte declarado y elegí zona y objetivo físico.</li><li>Proponé la calibración y revisá extremos, localizaciones independientes, residuos, validación por bloques e impacto.</li><li>Aceptá cuando corresponda. Cambiar datos o controles invalida una propuesta pendiente.</li><li>Revisá los cutoffs en su panel separado. Aplicar GR no cambia automáticamente Vsh/φ/Sw cutoff.</li></ol>
+<p>Un cutoff es una decisión operativa. DRX por sí sola no demuestra permeabilidad ni pay. La evidencia aceptada queda en el proyecto; el informe resume referencias, relación adoptada y parámetros, distinguiendo registros históricos de la interpretación actual.</p>
+<p>Cuando no hay DRX real, continuá con los perfiles disponibles y las referencias de interpretación de la materia. El informe debe declarar esa ausencia. El ejemplo sintético de entrega verifica extremos conocidos de 25/135 gAPI y se identifica expresamente como sintético.</p>
+
+<h2 id="ambiente">5. Diagnóstico ambiental y métodos admitidos</h2>
+<p><strong>Diagnóstico ambiental con datos disponibles</strong> revisa originales por zona/tramo. Cada cociente usa su soporte válido; las alertas pueden coexistir. El mínimo de caliper y la tolerancia de ensanchamiento son criterios operativos ajustables. Caliper menor que trépano no determina espesor de revoque; PE sospechoso no confirma baritina.</p>
+<p>La hipótesis de inducción de arreglo se activa explícitamente. El modelo radial usa sensibilidades aproximadas; revisá observaciones, modelo, residuo y estados insuficiente, ambiguo/no resuelto o mal determinado. Un residuo bajo puede coexistir con varios diámetros compatibles. Abrir el diagnóstico no selecciona una nueva Rt. Exportá su JSON si cambiaste los criterios o usaste la hipótesis.</p>
+<p>La corrección MGT requiere LDEO MGT confirmado, GR total calibrado, caliper original, posición conocida, pozo abierto con agua de mar y condiciones/referencias explícitas dentro de sus guardas. No se habilita para el GR genérico del TP. No se compone con efectos ambientales previos ni preparaciones incompatibles. Su incertidumbre no está cuantificada y sus guardas no certifican un rango experimental.</p>
+
+<h2 id="entrega">6. Preparar una entrega reproducible</h2>
+<ol><li>Guardá el proyecto final y un snapshot con un nombre que explique la decisión.</li>
+<li>En <strong>Exportar → Datos</strong>, elegí CSV, LAS o Excel, columnas, unidades, zona y tratamiento de faltantes. Distinguí originales, preparadas y calculadas e incluí QC cuando corresponda. Un ZIP puede contener datos, sumario y manifiesto; conservá todos sus archivos.</li>
+<li>En <strong>Exportar → Informe</strong>, revisá título/autor, métodos/parámetros, preparación/laboratorio, sumario, volúmenes, advertencias y figuras. El diagnóstico del informe usa originales y criterios predeterminados; adjuntá el JSON del panel si exploraste otra configuración.</li>
+<li>Generá la vista previa y descargá el HTML. Para PDF usá su botón de impresión, destino «Guardar como PDF» y A4 horizontal. Las figuras ajustadas a página no mantienen una escala física de impresión garantizada.</li>
+<li>Reabrí el proyecto en otra sesión y verificá fuentes, parámetros, recetas y datos de laboratorio. Un informe descargado es una copia fija y no se recalcula al abrirlo.</li></ol>
+<p>Entregá: proyecto, informe HTML/PDF, datos exportados y sus acompañantes, diagnóstico JSON cuando corresponda, y una explicación de los supuestos. Los volúmenes son estimaciones in situ condicionadas a parámetros y cutoffs; no son reservas recuperables. Los resultados de demostración no sustituyen la interpretación académica.</p>
+
+<h2 id="problemas">7. Resolver problemas frecuentes</h2>
+<table><thead><tr><th>Situación</th><th>Acción</th></tr></thead><tbody>
+<tr><td>Aplicar desaparece o la propuesta queda obsoleta.</td><td>Generá otra vista previa con los datos y controles actuales.</td></tr>
+<tr><td>Una fuente preparada queda bloqueada.</td><td>Revisá entradas, receta y herramienta. Elegir el original debe ser una decisión explícita.</td></tr>
+<tr><td>Calibración rechazada.</td><td>Leé el motivo: soporte, independencia, composición, rango o identificabilidad. Conservá diagnóstico si no se puede justificar la aplicación.</td></tr>
+<tr><td>Sumario/volumen incompleto.</td><td>Revisá filas sin datos, zonas, Sw y fuentes. Un total finito no significa que todas las zonas tengan información.</td></tr>
+<tr><td>Falta una herramienta o condición.</td><td>Para el TP continuá con los datos disponibles y declaralo. La corrección específica permanece sin aplicar.</td></tr>
+<tr><td>El navegador no permite workers o criptografía.</td><td>El motor dispone de ejecución alternativa. El módulo de aprendizaje automático puede indicar que requiere worker; revisá las advertencias y conservá los demás módulos disponibles.</td></tr>
+<tr><td>Un archivo nuevo no abre en una aplicación anterior.</td><td>Usá el HTML de esta entrega. Las versiones nuevas se rechazan explícitamente para preservar recetas.</td></tr>
+</tbody></table>
+<p><small>Referencias científicas y ecuaciones: módulo Ecuaciones de la aplicación y documentación del repositorio. La consulta de documentos externos requiere internet; los cálculos, el manual y los archivos descargados funcionan localmente.</small></p>
+</main></body></html>

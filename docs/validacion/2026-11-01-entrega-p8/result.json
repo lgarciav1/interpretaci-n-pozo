@@ -1,0 +1,27 @@
+{
+  "errors": [],
+  "tpSamples": 5810,
+  "synthetic": {
+    "samples": 201,
+    "locations": 18,
+    "grClean": 25,
+    "grShale": 135,
+    "cutoff": 0.5
+  },
+  "fileProtocol": {
+    "status": "blocked-by-administrator",
+    "reason": "Managed Chromium rejects file:// before loading the HTML; no bypass attempted."
+  },
+  "checks": [
+    "TP original and prepared values/QC",
+    "original blobs revisions parameters preserved",
+    "atomic undo redo",
+    "snapshot restore after removal",
+    "CSV LAS xlsx downloads",
+    "CSV equal after reopening in new browser",
+    "self-contained report with zonal embedded figures and printable PDF",
+    "manual download offline",
+    "synthetic GR and cutoff accepted evidence in report",
+    "offline without Worker/SubtleCrypto"
+  ]
+}

@@ -12,13 +12,16 @@ import { unitLabel } from '../../core/units';
 import type { Well } from '../../core/well';
 import { registry } from '../../modules';
 import { runQc } from '../../io/qc';
+import type { AcquisitionMetadata } from '../../core/inputs/acquisition';
+import { buildPreparationReport, preparationReportHtml, type PreparationReport } from './preparationReport';
 
 export interface ReportOptions {
   title: string; author: string;
   includeParameters: boolean; includeSummary: boolean; includeVolumes: boolean; includeWarnings: boolean;
+  includePreparation?: boolean;
   profile: 'none' | 'well' | 'zones'; trackIds: readonly string[] | null; xyIds: readonly string[];
 }
-export const defaultReportOptions = (): ReportOptions => ({ title: '', author: '', includeParameters: true, includeSummary: true, includeVolumes: true, includeWarnings: true, profile: 'well', trackIds: null, xyIds: [] });
+export const defaultReportOptions = (): ReportOptions => ({ title: '', author: '', includeParameters: true, includeSummary: true, includeVolumes: true, includeWarnings: true, includePreparation: true, profile: 'well', trackIds: null, xyIds: [] });
 export interface ReportTable { title: string; columns: readonly TableColumn[]; rows: Record<string, TableCell>[] }
 export interface ReportModel {
   wellName: string; date: string; samples: number; top: number; base: number;
@@ -27,6 +30,7 @@ export interface ReportModel {
   methods: { port: string; source: string }[];
   parameters: { module: string; status: string; rows: { label: string; global: string; zones: string[] }[] }[];
   summary: ReportTable | null; volumes: ReportTable | null; warnings: string[];
+  preparation?: PreparationReport;
 }
 export interface ReportFigure { title: string; dataUrl: string; caption: string }
 const number = (v: number) => Number.isFinite(v) ? v.toLocaleString('es-AR', { maximumSignificantDigits: 6 }) : '—';
@@ -37,7 +41,7 @@ function paramText(spec: ParamSpec, value: ParamValue): string {
   return `${typeof value === 'number' ? number(value) : value}${unit ? ` ${unit}` : ''}`;
 }
 /** Copia los textos y tablas de una corrida; no calcula petrofísica ni conserva arrays del motor. */
-export function buildReportModel(well: Well, interpretation: Interpretation, result: ClientResult | null, date = new Date(), catalog: Registry = registry): ReportModel {
+export function buildReportModel(well: Well, interpretation: Interpretation, result: ClientResult | null, date = new Date(), catalog: Registry = registry, acquisition?: AcquisitionMetadata): ReportModel {
   const originals = well;
   if (result?.preparation) {
     try { if (!sameContext(result.context, planPreparation(toEngineWell(well), interpretation, result.context.inputRevisionId, catalog, result.preparation.plan.bindings).context)) result = null; }
@@ -93,7 +97,8 @@ export function buildReportModel(well: Well, interpretation: Interpretation, res
   const methods = Object.entries(current?.sources ?? {}).filter(([port, s]) => s.kind === 'curve' ? consumed.has(port) : current?.outputs.some((o) => o.moduleId === s.moduleId && o.port === port && o.active && (o.kind === 'curve' || port === 'ZONE_SUMMARY' || port === 'VOLUMETRICS'))).map(([port, s]) => ({ port, source: s.kind === 'module' ? catalog.get(s.moduleId)?.name ?? s.moduleId : well.curves.find((c) => c.id === s.curveId)?.mnemonic ?? s.curveId }));
   return { wellName: well.name, date: date.toLocaleString('es-AR'), samples: well.depth.values.length, top: well.depth.values[0] ?? NaN, base: well.depth.values[well.depth.values.length - 1] ?? NaN,
     header: Object.entries(well.header).map(([label, h]) => ({ label, value: `${h.value}${h.unit ? ` ${unitLabel(h.unit)}` : ''}` })), zones,
-    methods, parameters, summary: table('ZONE_SUMMARY'), volumes: table('VOLUMETRICS'), warnings: [...new Set(warnings)] };
+    methods, parameters, summary: table('ZONE_SUMMARY'), volumes: table('VOLUMETRICS'), warnings: [...new Set(warnings)],
+    preparation: buildPreparationReport(originals, interpretation, current?.context.inputRevisionId ?? null, catalog, acquisition) };
 }
 export const escapeReportText = (s: unknown): string => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 const e = escapeReportText;
@@ -115,6 +120,7 @@ export function reportHtml(model: ReportModel, figures: readonly ReportFigure[] 
   <section><h2>Zonas interpretadas</h2>${model.zones.length ? `<table><thead><tr><th>Zona</th><th>Tope (m MD)</th><th>Base (m MD)</th><th>Tipo</th></tr></thead><tbody>${model.zones.map((z) => `<tr><td>${e(z.name)}</td><td>${number(z.top)}</td><td>${number(z.base)}</td><td>${e(({ formation: 'Formación', reservoir: 'Reservorio', seal: 'Sello', other: 'Otra' } as Record<string, string>)[z.kind] ?? z.kind)}</td></tr>`).join('')}</tbody></table>` : '<p>No se definieron zonas.</p>'}</section>
   ${options.includeParameters ? `<section><h2>Métodos y parámetros efectivos</h2><p>Fuentes que alimentan la cadena de cálculo:</p><table><thead><tr><th>Puerto</th><th>Fuente elegida</th></tr></thead><tbody>${model.methods.map((m) => `<tr><td>${e(m.port)}</td><td>${e(m.source)}</td></tr>`).join('')}</tbody></table><p>Las columnas de zona incluyen el valor global heredado cuando no existe una modificación local.</p>${model.parameters.map((p) => `<h3>${e(p.module)}</h3><p class="meta">${e(p.status)}</p>${p.rows.length ? `<table><thead><tr><th>Parámetro</th><th>Global</th>${model.zones.map((z) => `<th>${e(z.name)}</th>`).join('')}</tr></thead><tbody>${p.rows.map((r) => `<tr><td>${e(r.label)}</td><td>${e(r.global)}</td>${r.zones.map((v) => `<td>${e(v)}</td>`).join('')}</tr>`).join('')}</tbody></table>` : '<p>Sin parámetros configurables.</p>'}`).join('')}</section>` : ''}
   ${options.includeSummary ? dataTable(model.summary, 'Sumario por zona') : ''}${options.includeVolumes ? dataTable(model.volumes, 'Volumen in situ por zona') : ''}
+  ${options.includePreparation !== false && model.preparation ? preparationReportHtml(model.preparation, e) : ''}
   ${options.includeWarnings ? `<section><h2>Advertencias y limitaciones</h2><ul>${model.warnings.map((w) => `<li>${e(w)}</li>`).join('')}</ul></section>` : ''}
   ${figures.map((f) => { if (!/^data:image\/(?:png|svg\+xml);base64,[A-Za-z0-9+/=]+$/.test(f.dataUrl)) throw new Error('La figura del informe debe ser una imagen incrustada.'); return `<section class="figure"><h2>${e(f.title)}</h2><figure><img src="${f.dataUrl}" alt="${e(f.title)}"><figcaption>${e(f.caption)}</figcaption></figure></section>`; }).join('')}<footer>Interpretación de registros de pozo · FIUBA · Copia del estado al generar el informe. No se recalcula al abrirlo.</footer></main></body></html>`;
 }

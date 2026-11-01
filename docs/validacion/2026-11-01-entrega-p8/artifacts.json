@@ -1,0 +1,110 @@
+{
+  "basis": "QA generado localmente con scripts/qa/delivery.py; no interpretaci\u00f3n acad\u00e9mica final",
+  "artifacts": [
+    {
+      "name": "Manual.html",
+      "bytes": 13721,
+      "sha256": "fbc5a557c1abafad5dd98a3e418244ef0de875582d4e0aed90cec49462f4d892"
+    },
+    {
+      "name": "informe-diagnostico.png",
+      "bytes": 103948,
+      "sha256": "ebe2660ccf3c043c43f0aeea7aa8dcad8c543a68e783df71da4a1892b407511a"
+    },
+    {
+      "name": "result.json",
+      "bytes": 782,
+      "sha256": "b47f6f35c83df53a32e83f59aab131463d4324c74cb8b65744bbeee106185c36"
+    },
+    {
+      "name": "sintetico-informe.html",
+      "bytes": 201358,
+      "sha256": "c57a97a2462ac107a98f17e521570bdd51fc77960e007d3a78ea29eeaeb487b5"
+    },
+    {
+      "name": "synthetic-after.pozo.json",
+      "bytes": 20973,
+      "sha256": "8b043e9af029a7da470aac4684c82d69c7ea7229558fc388cce6a6bbcd077fd2"
+    },
+    {
+      "name": "synthetic-before.pozo.json",
+      "bytes": 20973,
+      "sha256": "3ba64b615b43d6c3406b44b0b2bc448560b8c5abcc2328b27199189aa20c7f89"
+    },
+    {
+      "name": "tp-before.pozo.json",
+      "bytes": 296107,
+      "sha256": "9f6f7b419e2c337b6849ca84277668e3ff29cc7d1083ad174a45d23417cd5a3c"
+    },
+    {
+      "name": "tp-csv.zip",
+      "bytes": 2067270,
+      "sha256": "7bd6a1b151669e750342e45636f2ee138bf6b9bdbb70e57942186a1a800a88d0"
+    },
+    {
+      "name": "tp-informe.html",
+      "bytes": 6284845,
+      "sha256": "fb57a01fb812571296bfd879764d630fc389db2701a862bd28ab140f574faf9d"
+    },
+    {
+      "name": "tp-informe.pdf",
+      "bytes": 3613954,
+      "sha256": "1e6a84482a6fe3502e8e1343b641394bc141e75c8ef09766faf648440fa38ab2"
+    },
+    {
+      "name": "tp-las.zip",
+      "bytes": 2266424,
+      "sha256": "e73b7bd21e2649222590a827ff25757a7cf4fc830ce68043222f80ae2a91fb2e"
+    },
+    {
+      "name": "tp-offline-informe.html",
+      "bytes": 57441,
+      "sha256": "8df6b92bf52ecf6f03296b093c1404ae98713a2aec21756e38259e6ca187a2f7"
+    },
+    {
+      "name": "tp-offline.zip",
+      "bytes": 1908306,
+      "sha256": "d349bbf86fa6cd4bc88c114cb187959366d4fef7c417e531c77941e9b82bcbd0"
+    },
+    {
+      "name": "tp-prepared.pozo.json",
+      "bytes": 296475,
+      "sha256": "2fa1ba7b68beef1ecddde967db83ca07cb7bada0d2bd665ef648ad48a2564de2"
+    },
+    {
+      "name": "tp-redo.pozo.json",
+      "bytes": 296475,
+      "sha256": "7c4b69e30fa0fcff1c19efcc7678c366bfb294fca83ff507ea2c7eb0539d10a6"
+    },
+    {
+      "name": "tp-reopened-informe.html",
+      "bytes": 57786,
+      "sha256": "02c3df305a58deeac6dbf8ba22e914943625dd3d488362a575a92685da858aea"
+    },
+    {
+      "name": "tp-reopened.zip",
+      "bytes": 2067270,
+      "sha256": "3446695fa4c27bcbebf647b3aa3d18a22864e4359bffe6c5c49f72cac3dfb588"
+    },
+    {
+      "name": "tp-restored.pozo.json",
+      "bytes": 297689,
+      "sha256": "36c81b745a77b14dec980ad69bd3a8aad42ca38d11c7836a19d0f878bb20c320"
+    },
+    {
+      "name": "tp-snapshot.pozo.json",
+      "bytes": 297689,
+      "sha256": "3aaa1187886846dc0bf7ec87f08d194725fd1193403ca530a648f087b626841e"
+    },
+    {
+      "name": "tp-undo.pozo.json",
+      "bytes": 296107,
+      "sha256": "a520c39ec1f40e64b6611c6ff4292aac12389b342736539b06b29341f516e4fe"
+    },
+    {
+      "name": "tp.xlsx",
+      "bytes": 3751719,
+      "sha256": "b7ca8bdce5b1d1b69068f846eac76b8348db4bed1ba97eb43cef86f940ec2fe7"
+    }
+  ]
+}
