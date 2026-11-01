@@ -19,24 +19,32 @@ export function entryPreparationPlan(project: Project, entry: WellEntry, registr
 
 /** Una sola receta: migración optativa, máscara y selección explícita se aceptan juntas. */
 export function addMaskInterval(project: Project, wellId: string, curveId: string, interval: MaskInterval, nodeId: string): Project {
+  return addMaskIntervals(project, wellId, curveId, [interval], nodeId);
+}
+
+/** Acepta un lote revisado como una sola decisión, sin publicar estados intermedios. */
+export function addMaskIntervals(project: Project, wellId: string, curveId: string, intervals: MaskInterval[], nodeId: string): Project {
+  if (!intervals.length || intervals.length > 256) throw new Error('Elegí entre 1 y 256 muestras o intervalos.');
   const next = enableProjectInputRevisions(project);
   const entry = next.wells.find(e => e.well.id === wellId);
   const curve = entry?.well.curves.find(c => c.id === curveId);
   if (!entry || !curve) throw new Error('La curva original ya no existe.');
   const depth = entry.well.depth.values;
-  if (!Number.isFinite(interval.top) || !Number.isFinite(interval.base) || interval.base < interval.top || interval.top < depth[0]! || interval.base > depth.at(-1)!) throw new Error('Elegí un intervalo dentro del pozo, con base mayor o igual al tope.');
-  // No aceptar un tramo sin ninguna muestra.
-  let lo = 0, hi = depth.length;
-  while (lo < hi) { const mid = (lo + hi) >>> 1; if (depth[mid]! < interval.top) lo = mid + 1; else hi = mid; }
-  if (lo >= depth.length || depth[lo]! > interval.base) throw new Error('El intervalo no contiene muestras.');
+  for (const interval of intervals) {
+    if (!Number.isFinite(interval.top) || !Number.isFinite(interval.base) || interval.base < interval.top || interval.top < depth[0]! || interval.base > depth.at(-1)!) throw new Error('Elegí un intervalo dentro del pozo, con base mayor o igual al tope.');
+    // No aceptar un tramo sin ninguna muestra.
+    let lo = 0, hi = depth.length;
+    while (lo < hi) { const mid = (lo + hi) >>> 1; if (depth[mid]! < interval.top) lo = mid + 1; else hi = mid; }
+    if (lo >= depth.length || depth[lo]! > interval.base) throw new Error('El intervalo no contiene muestras.');
+  }
   const existing = entry.interpretation.preparation?.nodes.find(n => n.input.curveId === curveId);
   if (existing) {
     const binding = preparationBindings(entry.interpretation, wellId, next.inputRevisions)[existing.id];
     const depthKey = `depth:${identityKey(depth)}`;
     if (!binding || binding.depthKey !== depthKey || binding.contentVersion !== curveProvenance(curve, depthKey).contentVersion || binding.unit !== curve.unit || binding.role !== curve.role || binding.mnemonic !== curve.mnemonic) throw new Error('La máscara está vinculada a otros datos. Restaurá el original antes de preparar esta revisión.');
   }
-  const node: MaskNode = existing ? { ...existing, enabled: true, intervals: [...existing.intervals, interval] } : {
-    id: nodeId, kind: 'mask', methodVersion: 1, enabled: true, input: { kind: 'original', inputRevisionId: entry.inputRevisionId!, curveId }, intervals: [interval],
+  const node: MaskNode = existing ? { ...existing, enabled: true, intervals: [...existing.intervals, ...intervals] } : {
+    id: nodeId, kind: 'mask', methodVersion: 1, enabled: true, input: { kind: 'original', inputRevisionId: entry.inputRevisionId!, curveId }, intervals: [...intervals],
   };
   const previousNodes = entry.interpretation.preparation?.nodes ?? [];
   const preparation = { schemaVersion: 1 as const, nodes: existing ? previousNodes.map(n => n.id === node.id ? node : n) : [...previousNodes, node] };
