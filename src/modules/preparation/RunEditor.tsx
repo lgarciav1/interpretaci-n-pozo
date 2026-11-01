@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Project, WellEntry } from "../../core/state/project";
 import { registerRun, removeRunDepthShift } from "../../core/state/runs";
-import { useProject } from "../store/project";
+import { useProject } from "../../app/store/project";
 import { Button, Checkbox, Field, Select, TextField, Callout } from "../../ui";
 import { diagnoseShift } from "../../core/preparation/correlation";
 
@@ -25,7 +25,7 @@ export function RunEditor({
     [members, setMembers] = useState<string[]>([]),
     [error, setError] = useState("");
   return (
-    <details><summary>Gestionar corridas y alineación conjunta</summary><section aria-label="Corridas registradas">
+    <section className="prep-legacy" aria-label="Corridas registradas">
       <h3>Corridas registradas</h3>
       <p>
         Registrá solo pertenencias conocidas de adquisición. Herramienta, lodo y
@@ -107,7 +107,7 @@ export function RunEditor({
           ]}
         />
       </Field>
-    </section></details>
+    </section>
   );
 }
 
@@ -148,7 +148,7 @@ export function CorrelationReview({
   ]);
   const result = report?.key === key ? report.value : null;
   return (
-    <details><summary>Revisar correlación con ventana independiente</summary><section aria-label="Diagnóstico de correlación">
+    <section className="prep-legacy" aria-label="Diagnóstico de correlación">
       <h3>Diagnóstico de correlación</h3>
       <p>
         Compara originales de igual rol y unidad. El tope/base superior define
@@ -272,6 +272,6 @@ export function CorrelationReview({
           </p>
         </>
       )}
-    </section></details>
+    </section>
   );
 }

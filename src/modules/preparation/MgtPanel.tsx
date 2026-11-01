@@ -11,9 +11,9 @@ import { sameContext } from "../../core/engine/context";
 import type { ClientResult } from "../../core/engine/client";
 import { registry } from "../../modules";
 import { Button, Callout, Checkbox, Field, Select, TextField } from "../../ui";
-import { useProject } from "../store/project";
-import { useResults } from "../store/results";
-import { snapshotRunner } from "../snapshots/snapshotEngine";
+import { useProject } from "../../app/store/project";
+import { useResults } from "../../app/store/results";
+import { snapshotRunner } from "../../app/snapshots/snapshotEngine";
 import { calibrationPreviewRequest } from "./calibrationPreview";
 import { entryPreparationPlan } from "../../core/state/preparation";
 import { cutoffImpact } from "../../core/preparation/xrdCutoff";
@@ -140,8 +140,8 @@ export function MgtPanel({
     ["Referencia de GR calibrado sin corrección de pozo previa", raw, setRaw],
   ] as const;
   return (
-    <details>
-      <summary>MGT · corrección GR específica con preview</summary>
+    <section className="prep-legacy" aria-label="MGT">
+      <h3>MGT · corrección GR específica con vista previa</h3>
       <p>
         Modelo publicado LDEO MGT v1, para GR total calibrado, pozo abierto con
         agua de mar y posición conocida. Activará GR preparado en la cadena
@@ -475,6 +475,6 @@ export function MgtPanel({
       <a href={MGT_METHOD.url} target="_blank" rel="noreferrer">
         {MGT_METHOD.reference}
       </a>
-    </details>
+    </section>
   );
 }

@@ -8,7 +8,7 @@ import {
   enableMgtCorrection,
   removeMgtCorrection,
 } from "../src/core/state/mgt";
-import { calibrationPreviewRequest } from "../src/app/preparation/calibrationPreview";
+import { calibrationPreviewRequest } from "../src/modules/preparation/calibrationPreview";
 import {
   createInProcessClient,
   type ClientResult,
