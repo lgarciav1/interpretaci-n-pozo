@@ -5,6 +5,7 @@ import { Quality } from './quality';
 import { shiftConstant } from './shift';
 import { filterMedian } from './filter';
 import { fillLinearGaps } from './interpolation';
+import { mgtGamma } from '../../petro/mgt';
 
 export class PreparationCancelled extends Error {}
 /** Caché LRU por bytes reales; no conserva arrays del proyecto como resultados editados. */
@@ -31,6 +32,8 @@ export class MaskEvaluator {
       const source = well.curves.find(c => c.id === a.sourceCurveId);
       if (!source) throw new Error('La curva original de la máscara no está disponible.');
       const data = new Float64Array(well.depth.length), quality = new Uint16Array(well.depth.length);
+      const caliper = a.mgt ? well.curves.find(c => c.id === a.mgt!.config.caliperCurveId) : undefined;
+      if (a.mgt && !caliper) throw new Error('Falta caliper fijado para MGT.');
       const scratch = a.filter || a.shift ? { data: new Float64Array(data.length), quality: new Uint16Array(data.length) } : undefined;
       let range = 0;
       for (let start = 0; start < data.length; start += 16384) {
@@ -39,6 +42,11 @@ export class MaskEvaluator {
         for (let k = start; k < end; k++) {
           const d = well.depth[k]!, value = source.data[k]!;
           if (!Number.isFinite(value) && !Number.isNaN(value)) throw new Error('La curva original contiene valores infinitos. Revisá los datos.');
+          if (a.mgt) {
+            data[k] = mgtGamma(value, caliper!.data[k]! * a.mgt.toInches, a.mgt.config.position);
+            quality[k] = Number.isNaN(value) ? Quality.OriginallyMissing : Number.isFinite(data[k]) ? Quality.Corrected : Quality.OutOfDomain;
+            continue;
+          }
           while (range < a.ranges.length && a.ranges[range]!.base < d) range++;
           const excluded = range < a.ranges.length && a.ranges[range]!.top <= d;
           data[k] = excluded ? NaN : value;

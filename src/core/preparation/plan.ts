@@ -7,9 +7,23 @@ import { selectDataCurves, type DataContext } from './projection';
 import { preparedCurveId } from './source';
 import { interpolationSourceProblem } from './interpolation';
 import { maskRanges, preparationStateKey, PREPARATION_BUDGET, validatePreparation, type GapFill, type MedianFilter, type DepthShift, nodeGapFill, nodeFilter } from './state';
+import { MGT_METHOD, type MgtConfig } from './mgt';
+import { convert, getUnit } from '../units';
 
 export interface ShiftFrame { referenceId: string; sourceDatum: string | null; targetDatum: string | null }
-export interface MaskBinding { shiftFrame?: ShiftFrame; depthKey: string; contentVersion: string; mnemonic: string; role: string | null; unit: string }
+export interface MaskBinding {
+  mgt?: {
+    caliperContentVersion: string;
+    caliperUnit: string;
+    acquisitionKey: string;
+  };
+  shiftFrame?: ShiftFrame;
+  depthKey: string;
+  contentVersion: string;
+  mnemonic: string;
+  role: string | null;
+  unit: string;
+}
 export type PreparationBindings = Readonly<Record<string, MaskBinding | null>>;
 export interface PlannedPreparation {
   id: string;
@@ -26,7 +40,18 @@ export interface PlannedPreparation {
   boundaries?: number[];
   provenance: CurveProvenance;
   /** Una máscara no corrige efectos ambientales. */
-  correctionLedger: [];
+  correctionLedger: {
+    effect: "borehole";
+    method: string;
+    version: number;
+    reference: string;
+    url: string;
+    uncertainty: string;
+    inputRevisionId: string;
+    conditions: MgtConfig;
+    definition: typeof MGT_METHOD;
+  }[];
+  mgt?: { config: MgtConfig; toInches: number };
 }
 export interface PreparationPlan {
   stateKey: string;
@@ -57,6 +82,76 @@ export function planPreparation(well: EngineWell, i: Interpretation, inputRevisi
     const id = preparedCurveId(node.id, 'masked');
     if (well.curves.some(c => c.id === id)) throw new Error('El identificador preparado colisiona con un original.');
     const ranges = maskRanges(node.intervals);
+    if (node.kind === "mgt-borehole") {
+      const caliper = originals.find((x) => x.id === node.mgt.caliperCurveId);
+      if (
+        c.role !== "GR" ||
+        c.unit !== "gAPI" ||
+        !binding.mgt ||
+        caliper?.role !== "CALI" ||
+        getUnit(caliper.unit)?.dimension !== "length" ||
+        binding.mgt.caliperContentVersion !==
+          caliper.provenance.contentVersion ||
+        binding.mgt.caliperUnit !== caliper.unit
+      )
+        throw new Error(
+          "Entradas MGT ausentes, incompatibles o pertenecientes a otra versión.",
+        );
+      const toInches = convert(1, caliper.unit, "in");
+      const recipeKey = JSON.stringify([
+        MGT_METHOD.id,
+        1,
+        c.id,
+        c.provenance.contentVersion,
+        caliper.id,
+        caliper.provenance.contentVersion,
+        depthKey,
+        node.input.inputRevisionId,
+        node.mgt,
+        binding.mgt,
+      ]);
+      const ancestorToolIds = [
+        ...new Set(
+          [
+            registry.tools.ownerOf(c)?.id,
+            registry.tools.ownerOf(caliper)?.id,
+          ].filter((x): x is string => !!x),
+        ),
+      ];
+      const provenance: CurveProvenance = {
+        origin: "prepared",
+        contentVersion: `mgt:${recipeKey}`,
+        depthKey,
+        ancestorToolIds,
+        qualityKey: `mgt-quality:${recipeKey}`,
+      };
+      artifacts.push({
+        id,
+        nodeId: node.id,
+        sourceCurveId: c.id,
+        mnemonic: `${c.mnemonic} MGT corregida`,
+        role: c.role,
+        unit: c.unit,
+        recipeKey,
+        ranges: [],
+        provenance,
+        mgt: { config: node.mgt, toInches },
+        correctionLedger: [
+          {
+            effect: "borehole",
+            method: MGT_METHOD.id,
+            version: 1,
+            reference: MGT_METHOD.reference,
+            url: MGT_METHOD.url,
+            uncertainty: MGT_METHOD.uncertainty,
+            inputRevisionId: node.input.inputRevisionId,
+            conditions: node.mgt,
+            definition: MGT_METHOD,
+          },
+        ],
+      });
+      continue;
+    }
     const gapFill = nodeGapFill(node);
     const filter = nodeFilter(node);
     const shift = node.kind === 'constant-shift' ? node.shift : undefined;
@@ -85,6 +180,17 @@ export function validatePreparedPayloads(plan: PreparationPlan, payloads: unknow
     if (expected.shift && (!p.sourceCounts || Object.keys(p.sourceCounts).length !== 2 || !['interpolated','filtered'].every(key => Number.isInteger(p.sourceCounts[key]) && p.sourceCounts[key] >= 0 && p.sourceCounts[key] <= n) || !expected.gapFill && p.sourceCounts.interpolated !== 0 || !expected.filter && p.sourceCounts.filtered !== 0)) throw new Error('Conteos de la entrada alineada inválidos.');
     for (let k = 0; k < n; k++) {
       const q = p.quality[k]!, value = p.data[k]!;
+      if (expected.mgt) {
+        if (
+          q === 64
+            ? !Number.isFinite(value)
+            : ![1, 128].includes(q) || !Number.isNaN(value)
+        )
+          throw new Error(
+            "Calidad MGT incompatible: corregido finito o faltante/fuera de dominio explícitos.",
+          );
+        continue;
+      }
       if (expected.shift) {
         const allowed = 1 | 2 | 8 | 16 | 32 | 128;
         if ((q & ~allowed) || !(q & 32) || ((q & 16) && !expected.filter)) throw new Error('Calidad de alineación inválida.');

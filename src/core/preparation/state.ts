@@ -1,4 +1,5 @@
 /** Recetas persistibles de P3. Intervalos MD cerrados [top, base], sin borrar filas. */
+import { validateMgtConfig, type MgtConfig } from './mgt';
 export interface MaskInterval { id: string; top: number; base: number }
 export interface MaskNode {
   id: string;
@@ -27,19 +28,21 @@ export interface ShiftNode extends Omit<MaskNode, 'kind'> {
   gapFill?: GapFill;
   filter?: MedianFilter;
 }
-export type PreparationNode = MaskNode | InterpolationNode | FilterNode | ShiftNode;
+export interface MgtNode extends Omit<MaskNode, 'kind'> { kind: 'mgt-borehole'; mgt: MgtConfig }
+export type PreparationNode = MaskNode | InterpolationNode | FilterNode | ShiftNode | MgtNode;
 export function nodeShift(node: PreparationNode): DepthShift | undefined { return node.kind === 'constant-shift' ? node.shift : undefined; }
 export function withNodeStages(node: PreparationNode, gapFill: GapFill | undefined, filter: MedianFilter | undefined, shift: DepthShift | undefined): PreparationNode {
+  if (node.kind === 'mgt-borehole') throw new Error('Retirá la corrección MGT antes de cambiar etapas de limpieza o alineación; no se descarta silenciosamente.');
   const base = { id: node.id, methodVersion: 1 as const, enabled: node.enabled, input: node.input, intervals: node.intervals };
   return shift ? { ...base, kind: 'constant-shift', shift, ...(gapFill ? { gapFill } : {}), ...(filter ? { filter } : {}) }
     : filter ? { ...base, kind: 'median-filter', filter, ...(gapFill ? { gapFill } : {}) }
     : gapFill ? { ...base, kind: 'linear-interpolation', gapFill } : { ...base, kind: 'mask' };
 }
 export function nodeFilter(node: PreparationNode): MedianFilter | undefined { return node.kind === 'median-filter' || node.kind === 'constant-shift' ? node.filter : undefined; }
-export function nodeGapFill(node: PreparationNode): GapFill | undefined { return node.kind === 'mask' ? undefined : node.gapFill; }
-export interface PreparationState { schemaVersion: 1 | 2 | 3 | 4; nodes: PreparationNode[] }
+export function nodeGapFill(node: PreparationNode): GapFill | undefined { return node.kind === 'mask' || node.kind === 'mgt-borehole' ? undefined : node.gapFill; }
+export interface PreparationState { schemaVersion: 1 | 2 | 3 | 4 | 5; nodes: PreparationNode[] }
 export function preparationState(nodes: PreparationNode[]): PreparationState {
-  return { schemaVersion: nodes.some(n => n.kind === 'constant-shift') ? 4 : nodes.some(n => n.kind === 'median-filter') ? 3 : nodes.some(n => n.kind === 'linear-interpolation') ? 2 : 1, nodes };
+  return { schemaVersion: nodes.some(n => n.kind === 'mgt-borehole') ? 5 : nodes.some(n => n.kind === 'constant-shift') ? 4 : nodes.some(n => n.kind === 'median-filter') ? 3 : nodes.some(n => n.kind === 'linear-interpolation') ? 2 : 1, nodes };
 }
 export const PREPARATION_BUDGET = 128 * 1024 * 1024;
 export const MAX_MASK_NODES = 32;
@@ -50,11 +53,11 @@ function shape(v: unknown, keys: string[]): asserts v is Record<string, unknown>
 const text = (v: unknown): v is string => typeof v === 'string' && !!v.trim();
 export function validatePreparation(value: unknown): asserts value is PreparationState {
   shape(value, ['schemaVersion', 'nodes']);
-  if (![1, 2, 3, 4].includes(value.schemaVersion as number) || !Array.isArray(value.nodes) || value.nodes.length > MAX_MASK_NODES) throw new Error('Versión o cantidad de operaciones de preparación no admitida.');
+  if (![1, 2, 3, 4, 5].includes(value.schemaVersion as number) || !Array.isArray(value.nodes) || value.nodes.length > MAX_MASK_NODES) throw new Error('Versión o cantidad de operaciones de preparación no admitida.');
   const ids = new Set<string>(), curves = new Set<string>();
   for (const n of value.nodes) {
-    shape(n, ['id', 'kind', 'methodVersion', 'enabled', 'input', 'intervals', ...(n?.kind === 'linear-interpolation' || (n?.kind === 'median-filter' || n?.kind === 'constant-shift') && Object.hasOwn(n, 'gapFill') ? ['gapFill'] : []), ...(n?.kind === 'median-filter' || n?.kind === 'constant-shift' && Object.hasOwn(n, 'filter') ? ['filter'] : []), ...(n?.kind === 'constant-shift' ? ['shift'] : [])]);
-    if (!text(n.id) || !/^[a-zA-Z0-9_-]+$/.test(n.id) || ids.has(n.id) || !['mask', 'linear-interpolation', 'median-filter', 'constant-shift'].includes(n.kind as string) || n.methodVersion !== 1 || typeof n.enabled !== 'boolean') throw new Error('Operación de preparación desconocida o repetida.');
+    shape(n, ['id', 'kind', 'methodVersion', 'enabled', 'input', 'intervals', ...(n?.kind === 'linear-interpolation' || (n?.kind === 'median-filter' || n?.kind === 'constant-shift') && Object.hasOwn(n, 'gapFill') ? ['gapFill'] : []), ...(n?.kind === 'median-filter' || n?.kind === 'constant-shift' && Object.hasOwn(n, 'filter') ? ['filter'] : []), ...(n?.kind === 'constant-shift' ? ['shift'] : []), ...(n?.kind === 'mgt-borehole' ? ['mgt'] : [])]);
+    if (!text(n.id) || !/^[a-zA-Z0-9_-]+$/.test(n.id) || ids.has(n.id) || !['mask', 'linear-interpolation', 'median-filter', 'constant-shift', 'mgt-borehole'].includes(n.kind as string) || n.methodVersion !== 1 || typeof n.enabled !== 'boolean') throw new Error('Operación de preparación desconocida o repetida.');
     ids.add(n.id);
     shape(n.input, ['kind', 'inputRevisionId', 'curveId']);
     if (n.input.kind !== 'original' || !text(n.input.inputRevisionId) || !text(n.input.curveId) || curves.has(n.input.curveId)) throw new Error('Cada curva admite una receta sobre un original con revisión explícita.');
@@ -69,6 +72,7 @@ export function validatePreparation(value: unknown): asserts value is Preparatio
     if (n.kind === 'linear-interpolation' || Object.hasOwn(n, 'gapFill')) validateGapFill(n.gapFill);
     if (n.kind === 'median-filter' || Object.hasOwn(n, 'filter')) validateMedianFilter(n.filter);
     if (n.kind === 'constant-shift') validateDepthShift(n.shift);
+    if (n.kind === 'mgt-borehole') { validateMgtConfig(n.mgt); if (n.intervals.length) throw new Error('MGT v1 no se combina con exclusiones u otras etapas sobre sus entradas.'); }
   }
   if (value.schemaVersion !== preparationState(value.nodes as PreparationNode[]).schemaVersion) throw new Error('La versión de preparación no corresponde a sus métodos.');
 }
@@ -96,5 +100,5 @@ export function maskRanges(intervals: readonly MaskInterval[]): { top: number; b
 }
 /** No incluye ids de intervalos ni tiempos de UI; sí la referencia explícita al origen. */
 export function preparationStateKey(state: PreparationState | undefined): string {
-  return JSON.stringify(state?.nodes.map(n => [n.id, n.kind, n.methodVersion, n.enabled, n.input.kind, n.input.inputRevisionId, n.input.curveId, maskRanges(n.intervals), ...(nodeGapFill(n) ? [[nodeGapFill(n)!.top, nodeGapFill(n)!.base, nodeGapFill(n)!.maxGapM]] : []), ...(nodeFilter(n) ? [[nodeFilter(n)!.top, nodeFilter(n)!.base, nodeFilter(n)!.radiusM, nodeFilter(n)!.maxStepM]] : []), ...(n.kind === 'constant-shift' ? [[n.shift.offsetM, n.shift.maxGapM, n.shift.referenceId, n.shift.depthKind, n.shift.datum]] : [])]) ?? []);
+  return JSON.stringify(state?.nodes.map(n => [n.id, n.kind, n.methodVersion, n.enabled, n.input.kind, n.input.inputRevisionId, n.input.curveId, maskRanges(n.intervals), ...(nodeGapFill(n) ? [[nodeGapFill(n)!.top, nodeGapFill(n)!.base, nodeGapFill(n)!.maxGapM]] : []), ...(nodeFilter(n) ? [[nodeFilter(n)!.top, nodeFilter(n)!.base, nodeFilter(n)!.radiusM, nodeFilter(n)!.maxStepM]] : []), ...(n.kind === 'constant-shift' ? [[n.shift.offsetM, n.shift.maxGapM, n.shift.referenceId, n.shift.depthKind, n.shift.datum]] : []), ...(n.kind === 'mgt-borehole' ? [n.mgt] : [])]) ?? []);
 }

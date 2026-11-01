@@ -13,6 +13,7 @@ import { registry } from "../../modules";
 import { unitLabel } from "../../core/units";
 import { Button, Callout, Checkbox, Field, Select, TextField } from "../../ui";
 import { useProject } from "../store/project";
+import { MgtPanel } from "./MgtPanel";
 
 function AcquisitionEditor({
   project,
@@ -23,8 +24,12 @@ function AcquisitionEditor({
   entry: WellEntry;
   run: AcquisitionRun;
 }) {
+  const originalDatum =
+    project.inputRevisions?.[entry.inputRevisionId ?? ""]?.acquisition.depth
+      .datum ?? null;
   const initial = () => ({
     base: project,
+    datum: originalDatum,
     tool: { ...run.tool },
     corrections: {
       ...run.corrections,
@@ -33,12 +38,15 @@ function AcquisitionEditor({
   });
   const [draft, setDraft] = useState(initial),
     [confirmed, setConfirmed] = useState(false),
+    [datumConfirmed, setDatumConfirmed] = useState(false),
     [error, setError] = useState("");
   const changed = () => {
     setConfirmed(false);
+    setDatumConfirmed(false);
     setError("");
   };
   const current = draft.base === project;
+  const datumChanged = draft.datum !== originalDatum;
   const toolOptions = [
     { value: "", label: "Herramienta desconocida" },
     ...registry.tools.all().map((t) => ({ value: t.id, label: t.name })),
@@ -63,6 +71,28 @@ function AcquisitionEditor({
         fabricante/modelo del nombre de la curva. Campos vacíos permanecen
         desconocidos.
       </p>
+      <Field label="Datum MD del pozo (todas las corridas)">
+        <TextField
+          aria-label="Datum MD del pozo (todas las corridas)"
+          value={draft.datum ?? ""}
+          onChange={(value) => {
+            changed();
+            setDraft((d) => ({ ...d, datum: value || null }));
+          }}
+        />
+      </Field>
+      <p>
+        Este datum describe el índice MD de todo el pozo; declararlo no
+        transforma profundidades. Cambiarlo puede invalidar preparaciones y
+        comparaciones vinculadas a la referencia anterior.
+      </p>
+      {datumChanged && (
+        <Checkbox
+          label="Confirmo el datum MD para todas las curvas y corridas del pozo"
+          checked={datumConfirmed}
+          onChange={setDatumConfirmed}
+        />
+      )}
       {!current && (
         <Callout tone="warn">
           Cambió el proyecto. Recargá la declaración para editar el contexto
@@ -255,7 +285,7 @@ function AcquisitionEditor({
       />
       {error && <Callout tone="error">{error}</Callout>}
       <Button
-        disabled={!confirmed || !current}
+        disabled={!confirmed || !current || (datumChanged && !datumConfirmed)}
         onClick={() => {
           try {
             const declaration = {
@@ -286,6 +316,7 @@ function AcquisitionEditor({
                     run.id,
                     declaration,
                     registry.tools,
+                    draft.datum?.trim() || null,
                   ),
                 { group: `acquisition:${entry.inputRevisionId}:${run.id}` },
               );
@@ -326,10 +357,10 @@ export function EnvironmentPanel({
     <details>
       <summary>Correcciones ambientales · catálogo y adquisición</summary>
       <p>
-        Relevamiento de {curve.mnemonic}. Los métodos de este catálogo están
-        pendientes de admisión científica; registrar datos no los habilita.
-        Ninguna acción de esta sección modifica medidas ni aplica una
-        corrección.
+        Relevamiento de {curve.mnemonic}. Las familias generales permanecen
+        pendientes de admisión; registrar datos no las habilita. La excepción
+        específica MGT tiene su propia referencia, condiciones y aceptación con
+        preview debajo. Declarar adquisición no modifica medidas.
       </p>
       <p>
         Atribución del catálogo por rol/mnemónico:{" "}
@@ -394,6 +425,12 @@ export function EnvironmentPanel({
           </a>
         </section>
       ))}
+      <MgtPanel
+        key={curveId}
+        project={project}
+        entry={entry}
+        curveId={curveId}
+      />
     </details>
   );
 }

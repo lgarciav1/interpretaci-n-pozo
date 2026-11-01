@@ -8,6 +8,9 @@ import { preparationState, validateGapFill, validateDepthShift, nodeShift, nodeF
 import type { Registry } from '../registry';
 import { enableProjectInputRevisions } from './inputRevisions';
 import { updateInterpretation, type Project, type WellEntry } from './project';
+function rejectMgtAuxiliary(entry: WellEntry, curveId: string) {
+  if (entry.interpretation.preparation?.nodes.some(n => n.kind === 'mgt-borehole' && n.enabled && n.mgt.caliperCurveId === curveId)) throw new Error('Retirá o desactivá MGT antes de preparar su caliper; no se ignora una dependencia.');
+}
 
 const plans = new WeakMap<WellEntry, { revisionsKey: string; registry: Registry; plan: PreparationPlan }>();
 export function entryPreparationPlan(project: Project, entry: WellEntry, registry: Registry): PreparationPlan {
@@ -30,6 +33,7 @@ export function addMaskIntervals(project: Project, wellId: string, curveId: stri
   const entry = next.wells.find(e => e.well.id === wellId);
   const curve = entry?.well.curves.find(c => c.id === curveId);
   if (!entry || !curve) throw new Error('La curva original ya no existe.');
+  rejectMgtAuxiliary(entry, curveId);
   const depth = entry.well.depth.values;
   for (const interval of intervals) {
     if (!Number.isFinite(interval.top) || !Number.isFinite(interval.base) || interval.base < interval.top || interval.top < depth[0]! || interval.base > depth.at(-1)!) throw new Error('Elegí un intervalo dentro del pozo, con base mayor o igual al tope.');
@@ -39,6 +43,7 @@ export function addMaskIntervals(project: Project, wellId: string, curveId: stri
     if (lo >= depth.length || depth[lo]! > interval.base) throw new Error('El intervalo no contiene muestras.');
   }
   const existing = entry.interpretation.preparation?.nodes.find(n => n.input.curveId === curveId);
+  if (existing?.kind === 'mgt-borehole') throw new Error('Retirá MGT antes de excluir datos; la corrección no se descarta silenciosamente.');
   if (existing) {
     const binding = preparationBindings(entry.interpretation, wellId, next.inputRevisions, entry.inputRevisionId)[existing.id];
     const depthKey = `depth:${identityKey(depth)}`;
@@ -78,6 +83,7 @@ export function setGapFill(project: Project, wellId: string, curveId: string, ga
   const entry = next.wells.find(e => e.well.id === wellId), curve = entry?.well.curves.find(c => c.id === curveId);
   if (!entry || !curve) throw new Error('La curva original ya no existe.');
   const problem = interpolationSourceProblem(curve);
+  rejectMgtAuxiliary(entry, curveId);
   if (problem) throw new Error(problem);
   const depth = entry.well.depth.values;
   if (gapFill.top < depth[0]! || gapFill.base > depth.at(-1)!) throw new Error('Elegí un tramo de interpolación dentro del pozo.');
@@ -112,6 +118,7 @@ export function setMedianFilter(project: Project, wellId: string, curveId: strin
   const next = enableProjectInputRevisions(project), entry = next.wells.find(e => e.well.id === wellId), curve = entry?.well.curves.find(c => c.id === curveId);
   if (!entry || !curve) throw new Error('La curva original ya no existe.');
   const problem = interpolationSourceProblem(curve, 'El filtro');
+  rejectMgtAuxiliary(entry, curveId);
   if (problem) throw new Error(problem);
   const depth = entry.well.depth.values;
   if (filter.top < depth[0]! || filter.base > depth.at(-1)!) throw new Error('Elegí un tramo de filtrado dentro del pozo.');
@@ -142,6 +149,7 @@ export function setDepthShift(project: Project, wellId: string, curveId: string,
   const next = enableProjectInputRevisions(project), entry = next.wells.find(e => e.well.id === wellId), curve = entry?.well.curves.find(c => c.id === curveId);
   if (!entry || !curve) throw new Error('La curva original ya no existe.');
   const problem = interpolationSourceProblem(curve, 'La alineación'); if (problem) throw new Error(problem);
+  rejectMgtAuxiliary(entry, curveId);
   const datum = next.inputRevisions![entry.inputRevisionId!]!.acquisition.depth.datum;
   if (shift.referenceId !== wellId || datum !== null && datum !== shift.datum) throw new Error('La alineación debe conservar la referencia MD y el datum conocido del pozo.');
   const existing = entry.interpretation.preparation?.nodes.find(n => n.input.curveId === curveId);

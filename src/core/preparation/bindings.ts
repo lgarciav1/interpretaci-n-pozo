@@ -4,6 +4,7 @@ import type { Interpretation } from '../interpretation';
 import type { PreparationBindings } from './plan';
 import { validatePreparation, nodeGapFill, nodeFilter } from './state';
 import { interpolationSourceProblem } from './interpolation';
+import { validateMgtInputs, mgtAcquisitionKey } from './mgt';
 
 export function preparationBindings(i: Interpretation, wellId: string, revisions: Readonly<Record<string, InputRevision>> | undefined, activeRevisionId?: string): PreparationBindings {
   if (i.preparation === undefined) return {};
@@ -22,9 +23,51 @@ export function preparationBindings(i: Interpretation, wellId: string, revisions
     const filter = nodeFilter(node);
     if (filter && (filter.top < revision.well.depth.values[0]! || filter.base > revision.well.depth.values.at(-1)!)) throw new Error('El tramo del filtro está fuera de las entradas fijadas.');
     const target = activeRevisionId ? revisions?.[activeRevisionId] : revision;
-    const shiftFrame = node.kind === 'constant-shift' ? { referenceId: wellId, sourceDatum: revision.acquisition.depth.datum, targetDatum: target?.acquisition.depth.datum ?? null } : undefined;
+    let mgt;
+      if (node.kind === "mgt-borehole") {
+        const inputs = validateMgtInputs(
+          revision.well,
+          revision.acquisition,
+          c.id,
+          node.mgt,
+        );
+        const currentCaliper = target?.well.curves.find(
+          (x) => x.id === inputs.caliper.id,
+        );
+        if (
+          !target ||
+          mgtAcquisitionKey(target.acquisition) !==
+            mgtAcquisitionKey(revision.acquisition) ||
+          currentCaliper?.data !== inputs.caliper.data ||
+          currentCaliper.unit !== inputs.caliper.unit ||
+          currentCaliper.role !== inputs.caliper.role ||
+          currentCaliper.mnemonic !== inputs.caliper.mnemonic
+        )
+          return [node.id, null];
+        if (
+          node.enabled &&
+          i.preparation!.nodes.some(
+            (n) =>
+              n.enabled &&
+              n.id !== node.id &&
+              n.input.curveId === inputs.caliper.id,
+          )
+        )
+          throw new Error(
+            "MGT v1 no admite caliper preparado; retiralo antes de corregir GR.",
+          );
+        mgt = {
+          caliperContentVersion: curveProvenance(
+            inputs.caliper,
+            `depth:${identityKey(revision.well.depth.values)}`,
+          ).contentVersion,
+          caliperUnit: inputs.caliper.unit,
+          acquisitionKey: mgtAcquisitionKey(revision.acquisition),
+        };
+      }
+      const shiftFrame = node.kind === 'constant-shift' ? { referenceId: wellId, sourceDatum: revision.acquisition.depth.datum, targetDatum: target?.acquisition.depth.datum ?? null } : undefined;
     if (node.kind === 'constant-shift' && (node.shift.referenceId !== wellId || !target || target.wellId !== wellId || [shiftFrame!.sourceDatum, shiftFrame!.targetDatum].some(d => d !== null && d !== node.shift.datum))) throw new Error('La referencia o datum de la alineación no coincide con las entradas.');
     const depthKey = `depth:${identityKey(revision.well.depth.values)}`;
-    return [node.id, { ...(shiftFrame ? { shiftFrame } : {}), depthKey, contentVersion: curveProvenance(c, depthKey).contentVersion, mnemonic: c.mnemonic, unit: c.unit, role: c.role }];
+    return [node.id, { ...(shiftFrame ? { shiftFrame } : {}), ...(mgt ? { mgt } : {}), depthKey, contentVersion: curveProvenance(c, depthKey).contentVersion, mnemonic: c.mnemonic, unit: c.unit, role: c.role }];
   }));
 }

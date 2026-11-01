@@ -1,5 +1,7 @@
 # 0049 — P6: evaluación del primer método ambiental
 
+> Evaluación histórica superada por [ADR 0050](0050-primer-metodo-ambiental-mgt.md): se leyó la referencia MGT completa y se implementó su modelo con guardas explícitas, limitación de incertidumbre y casos matemáticos independientes. Se completa la implementación y el contraste que esta evaluación no había agotado. No se modifica la puerta de P6 ni se presenta la validación numérica como certificación de campo.
+
 Fecha: 2026-10-31. Estado: **admisión pendiente; P6 bloqueada en su puerta científica**, sobre P6a (#55). No cambia producción ni admite un evaluador.
 
 ## Puerta que se intentó cerrar

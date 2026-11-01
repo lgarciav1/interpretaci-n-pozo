@@ -1,0 +1,25 @@
+{
+  "errors": [],
+  "correctedSamples": 46,
+  "unsupportedSamples": 4,
+  "originalMissing": 1,
+  "checks": [
+    "model unknown blocked",
+    "already corrected blocked",
+    "explicit conditions",
+    "comma input",
+    "isolated preview no main run",
+    "original corrected difference table",
+    "Vsh impact",
+    "controls invalidate",
+    "preview Project unchanged",
+    "one acceptance undo redo",
+    "parameters cutoffs originals unchanged",
+    "manifest LAS and QC",
+    "deactivate reactivate once only",
+    "new browser references",
+    "changed recipe snapshot restore",
+    "remove original source",
+    "offline without Worker/SubtleCrypto"
+  ]
+}

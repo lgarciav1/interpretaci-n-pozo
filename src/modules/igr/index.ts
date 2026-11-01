@@ -55,6 +55,14 @@ export default defineModule({
       "Índice de rayos gamma: posición relativa de la lectura de GR entre la arena limpia y la arcilla.",
     equations: [
       {
+        latex: "t=1.316D-3.5,\\quad GR_c=CF(t)GR",
+        description: "Preparación ambiental opcional y específica LDEO MGT: agua de mar, pozo abierto, profundidad ambiente máxima declarada 5000 m. No se aplica a GR genérico. D en pulgadas; guarda operativa >3,375 in y ≤42 cm, sin extrapolación. Incertidumbre empírica no cuantificada (ADR 0050).",
+      },
+      {
+        latex: "CF_c=0.82-0.00131t+0.00559t^2-0.000245t^3+0.0000047t^4,\\quad CF_e=0.812+0.0244t+0.000136t^2-0.00000822t^3",
+        description: "MGT centrado (c) o excéntrico (e), posición declarada. Ecuaciones publicadas 2–4, no una carta universal. Las guardas de implementación no son un dominio experimental certificado.",
+      },
+      {
         latex: "I_{GR} = \\frac{GR - GR_{limpia}}{GR_{arcilla} - GR_{limpia}}",
         description: "Se recorta al intervalo [0, 1].",
       },
@@ -76,6 +84,7 @@ export default defineModule({
       },
     ],
     references: [
+      "Goldberg, D., Meltser, A., Myers, G. y Masterson, W. (2004). Comparison of Multi-Sensor Spectral Gamma Ray Tool (MGT) and conventional spectral gamma ray logs, ODP Site 1179. Proc. ODP Sci. Results 191, cap. 6, pp.5,10,18; ecuaciones 2–4. https://www-odp.tamu.edu/publications/191_SR/VOLUME/CHAPTERS/004.PDF",
       "Asquith, G. y Krygowski, D. (2004). Basic Well Log Analysis, 2.ª ed. AAPG Methods in Exploration 16.",
       "Draper, N. R. y Smith, H. (1998). Applied Regression Analysis, 3.ª ed. Wiley. La admisión por bloques y sus umbrales operativos se documentan en ADR 0045.",
     ],

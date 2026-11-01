@@ -144,6 +144,7 @@ export function ExportDialog() {
         <FiguresPanel form={figure} />
       ) : (
       <div className="exp">
+        {!!result?.preparation?.plan.artifacts.some(a => a.mgt) && <Callout>La exportación incluye un ZIP con los datos y un manifiesto de método, referencias, condiciones y calidad de la corrección ambiental.</Callout>}
         <Field label="Formato" hint={FORMAT_HINT[format]}>
           <SegmentedControl<ExportFormat>
             aria-label="Formato de exportación"
@@ -173,7 +174,7 @@ export function ExportDialog() {
 
         {group('Curvas medidas', measured, 'El pozo no tiene curvas medidas.')}
         {prepared.length > 0 && group('Curvas preparadas', prepared, '')}
-        {prepared.some(c => c.id.startsWith('q:')) && <p className="ui-hint">Calidad (QC): 0 = conservada; 1 = faltante original; 2 = excluida; 3 = faltante original y excluida.</p>}
+        {prepared.some(c => c.id.startsWith('q:')) && <p className="ui-hint">Calidad (QC): 0 = conservada; 1 = faltante original; 2 = excluida; 3 = faltante original y excluida. {result?.preparation?.plan.artifacts.some(a => a.mgt) && 'Para MGT: 64 = corregida; 128 = fuera de dominio o sin caliper.'}</p>}
         {group('Curvas calculadas', computed, 'Todavía no hay curvas calculadas: se agregan cuando el motor termina de calcular.')}
         {sources.alternatives > 0 && (
           <Checkbox

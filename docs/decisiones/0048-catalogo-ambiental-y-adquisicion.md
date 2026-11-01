@@ -1,5 +1,7 @@
 # 0048 — P6a: catálogo ambiental y declaraciones de adquisición
 
+> Ampliado por [ADR 0050](0050-primer-metodo-ambiental-mgt.md): incorpora registro reversible del datum MD global con confirmación propia y el primer modelo específico MGT; las familias generales no admitidas permanecen bloqueadas.
+
 Estado: implementado en revisión sobre #54, sin integrar main. Primera parte de P6; **no cierra la fase ni admite un método numérico**.
 
 ## Alcance
