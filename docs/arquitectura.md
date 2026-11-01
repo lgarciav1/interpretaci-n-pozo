@@ -652,3 +652,14 @@ Decisión: [`docs/decisiones/0024-rock-typing.md`](decisiones/0024-rock-typing.m
 - **Pista «Tipo de roca»**: superposición con pista propia (`overlay.ts`), sin tocar el núcleo del visor; colores de
   clase compartidos con el panel (`draw.ts`, rampa viridis).
 - Tests: `tests/modules-8p-rock-typing.test.ts`.
+
+## Swi desde SCAL (tarea 8)
+
+Decisión: [`docs/decisiones/0055-swi-desde-scal.md`](decisiones/0055-swi-desde-scal.md). Módulo `swi-pc` (categoría
+Saturación) sobre el motor puro `src/petro/swiPc.ts`: curva `SWI` por ley de potencia en √(k/φ) con los seis niveles de
+presión capilar de la planilla de la cátedra (o A y B manuales), bandera `SW_LT_SWI` (Sw < Swi − tolerancia) y tabla
+`SWI_ZONES` por zona. Entradas `PERM` y `PHIE`, `SW` opcional; roles `SWI` y `SW_LT_SWI` declarados por el módulo;
+`SWI` se dibuja punteada sobre `SW` en la pista «Porosidad · Sw» de fábrica. El motor también trae el ajuste log–log
+(`fitSwiPowerLaw`) y el de la presión de desplazamiento (`fitDisplacementPressure`), sin pantalla todavía. Los
+coeficientes son dato de la cátedra y valen en su rango de √(k/φ). Tests: `tests/petro-swi-pc.test.ts` (valores de mano
+y de numpy, `scripts/qa/swi-pc-reference.py`) y `tests/modules-swi-pc.test.ts` (módulo con el motor).

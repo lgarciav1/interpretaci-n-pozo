@@ -31,6 +31,7 @@ import swArchie from './sw-archie';
 import swSimandoux from './sw-simandoux';
 import swIndonesia from './sw-indonesia';
 import bvwSh from './bvw-sh';
+import swiPc from './swi-pc';
 import permTimur from './perm-timur';
 import permCoates from './perm-coates';
 import nmrFluids from './nmr-fluids';
@@ -73,6 +74,7 @@ export const MODULES = [
   swSimandoux,
   swIndonesia,
   bvwSh,
+  swiPc,
   permTimur,
   permCoates,
   nmrFluids,
