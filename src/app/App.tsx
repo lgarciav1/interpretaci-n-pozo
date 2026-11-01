@@ -11,6 +11,7 @@ import { useLayoutEffect, useRef, useSyncExternalStore, type RefObject } from 'r
 import { CommandLayer, IconButton, ResizeHandle, Toaster, useUiScaleFactor } from '../ui';
 import './commands';
 import { LoadWellDialog } from './components/LoadWellDialog';
+import { DigitizerWorkspace } from './digitizer/DigitizerWorkspace';
 import { WellPanel } from './components/WellPanel';
 import { QcReportDialog, SnapshotsDialog } from './shell/Dialogs';
 import { Dock } from './shell/Dock';
@@ -102,6 +103,7 @@ export function App() {
   const dockCollapsed = useUi((s) => s.readingMode || s.layout.dockCollapsed);
   const setLayout = useUi((s) => s.setLayout);
   const loadDialog = useUi((s) => s.loadDialog);
+  const digitizerOpen = useUi((s) => s.digitizerOpen);
   const setUi = useUi((s) => s.set);
   // «Armar pistas»: el catálogo ocupa la columna izquierda (no le quita ancho al perfil). docs/decisiones/0016.
   const building = useUi((s) => s.trackBuilder);
@@ -172,6 +174,7 @@ export function App() {
         )}
       </div>
 
+      {digitizerOpen && <DigitizerWorkspace onClose={() => setUi({ digitizerOpen: false })} />}
       {loadDialog && <LoadWellDialog onClose={() => setUi({ loadDialog: null })} {...(loadDialog.source ? { initialSource: loadDialog.source } : {})} />}
       <SnapshotsDialog />
       <ExportDialog />
