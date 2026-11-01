@@ -13,7 +13,7 @@ import type { Diagnostic } from '../engine/graph';
 import type { TableValue } from '../module';
 import { layoutZones, type Zone } from '../well';
 
-export type MetricId = 'netRes' | 'netPay' | 'phi' | 'sw' | 'vsh' | 'k' | 'ooip' | 'ogip';
+export type MetricId = 'netSand' | 'netRes' | 'netPay' | 'phi' | 'sw' | 'vsh' | 'k' | 'ooip' | 'ogip';
 
 export interface MetricDef {
   id: MetricId;
@@ -30,6 +30,7 @@ export interface MetricDef {
 }
 
 export const SUMMARY_METRICS: readonly MetricDef[] = [
+  { id: 'netSand', label: 'Arena', title: 'Espesor de arena neta (solo Vsh)', unit: 'm', digits: 1, pct: true, column: 'netSand' },
   { id: 'netRes', label: 'Neto res.', title: 'Espesor neto de reservorio', unit: 'm', digits: 1, pct: true, column: 'netRes' },
   { id: 'netPay', label: 'Neto pay', title: 'Espesor neto pay', unit: 'm', digits: 1, pct: true, column: 'netPay' },
   { id: 'phi', label: 'φe', title: 'Porosidad efectiva media del pay', unit: 'v/v', digits: 3, pct: false, column: 'phiPay' },

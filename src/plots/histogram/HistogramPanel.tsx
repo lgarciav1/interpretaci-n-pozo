@@ -13,7 +13,7 @@ import type { HiddenCurve } from '../../core/toolString';
 import { HISTOGRAM_BINS, type HistogramConfig } from '../../core/plots';
 import { Button, Checkbox, DataTable, EmptyState, IconButton, NumberField, curveStyle, ensureContrast, fillColor, formatNumber, useThemeTokens } from '../../ui';
 import { ControlGroup, CurveSelect, DriverCallout, HiddenCurveState, ScaleControl, SelectionSummary, ZoneFilterChips } from '../controls';
-import { CUTOFF_PASSES, cutoffParamFor, cutoffScope, normalizeCutoff, paramStep, resolveCutoffLine, type CutoffParamKey } from '../cutoffs';
+import { CUTOFF_PASSES, cutoffParamFor, cutoffScope, guideStep, normalizeCutoff, resolveCutoffLine, type CutoffParamKey } from '../cutoffs';
 import { formatParam, grGuides, grWrite, inactiveDriver, paramChangeLabel, paramOfGuide, plotParamValue, plotScope, PLOT_PARAMS, type ParamWrite } from '../params';
 import { depthRuns, effectiveScale, hiddenCurveOfKey, keyForRole, plotCurveOptions, resolvePlotCurve, zoneFilter } from '../data';
 import { clearPlotSelection, getPlotLink, makeSelection, setPlotLink, setPlotSelection } from '../link';
@@ -149,13 +149,16 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams,
           id: line.id,
           axis: 'x' as const,
           value: line.value,
-          color: line.param ? theme.color.error : theme.color.accent,
-          dash: line.param ? [] : [6, 4],
+          // Corte de k desactivado (0054): gris punteado; arrastrarlo lo activa.
+          color: line.inactive ? theme.color.textSubtle : line.param ? theme.color.error : theme.color.accent,
+          dash: line.param && !line.inactive ? [] : [6, 4],
           width: 1.75,
           draggable: true,
-          ...(line.param ? { step: paramStep(line.param) } : {}),
+          ...guideStep(line.param),
           label: `${line.title} · ${fmt(line.value)}`,
-          ...(split && split.n > 0
+          ...(line.inactive
+            ? { detail: 'Arrastrá para activar el corte' }
+            : split && split.n > 0
             ? { detail: passSide ? `Pasa ${formatNumber(passSide === 'below' ? split.below : split.above, { digits: 0 })} % de las muestras` : `${formatNumber(split.below, { digits: 0 })} % ≤ · ${formatNumber(split.above, { digits: 0 })} % >` }
             : {}),
         },
@@ -299,7 +302,7 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams,
             <ControlGroup title="Cutoff">
               {line ? (
                 <div className="plot-row">
-                  <span className={`plot-cut-swatch${line.param ? ' is-real' : ''}`} aria-hidden="true" />
+                  <span className={`plot-cut-swatch${line.param && !line.inactive ? ' is-real' : ''}`} aria-hidden="true" />
                   <span className="plot-row__label num">
                     {line.title} · {fmt(line.value)}
                   </span>
@@ -311,7 +314,9 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams,
                 </Button>
               )}
               <p className="plot-hint">
-                {param
+                {line?.inactive
+                  ? 'El corte de permeabilidad está desactivado: arrastrar la línea lo activa y recalcula el reservorio y el pay. Con una sola zona filtrada, solo en esa zona.'
+                  : param
                   ? `Es el cutoff del módulo de cutoffs: arrastrarlo recalcula el pay. Con una sola zona filtrada cambia el de esa zona.`
                   : 'Línea libre: no cambia la petrofísica. Arrastrala o movela con las flechas desde su manija.'}
               </p>

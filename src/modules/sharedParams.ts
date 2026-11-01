@@ -119,7 +119,7 @@ export const SHARED_PARAMS = {
   // Cutoffs (los usan el módulo de cutoffs y el barrido de sensibilidad)
   vshCutoff: param.number({
     label: 'Vsh máxima',
-    tooltip: 'Por encima de este volumen de arcilla la roca no es reservorio.',
+    tooltip: 'Por encima de este volumen de arcilla la roca no es arena neta ni reservorio.',
     default: 0.4,
     min: 0,
     max: 1,
@@ -147,6 +147,25 @@ export const SHARED_PARAMS = {
     max: 1,
     step: 0.01,
     unit: 'v/v',
+    scope: 'zone',
+    shared: true,
+  }),
+  // Corte de permeabilidad (0054): desactivado por defecto, así los proyectos anteriores dan los mismos espesores.
+  permCutoffOn: param.boolean({
+    label: 'Corte de permeabilidad',
+    tooltip: 'Exige además una permeabilidad mínima para que la roca sea reservorio neto (permeable). Desactivado, la permeabilidad no interviene.',
+    default: false,
+    scope: 'zone',
+    shared: true,
+  }),
+  permCutoff: param.number({
+    label: 'Permeabilidad mínima',
+    tooltip: 'Con el corte activo, por debajo de esta permeabilidad la roca no es reservorio. Usual: 0,1 mD para gas y 1 mD para petróleo.',
+    default: 1,
+    min: 0.001,
+    max: 1000,
+    unit: 'mD',
+    scale: 'log',
     scope: 'zone',
     shared: true,
   }),

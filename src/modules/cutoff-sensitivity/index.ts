@@ -13,7 +13,7 @@
  */
 import { defineModule, input, output, type TableCell } from '../../core/module';
 import { param } from '../../core/params';
-import { netReservoirFlag, type Cutoffs } from '../../petro/cutoffs';
+import { netReservoirFlagK, type Cutoffs } from '../../petro/cutoffs';
 import { cutoffSweep, sweepThresholds, type SweepCurves, type SweepGrid, type SweepVariable } from '../../petro/sensitivity';
 import { zoneInPlace } from '../../petro/volumetrics';
 import { SHARED_PARAMS } from '../sharedParams';
@@ -42,11 +42,14 @@ export default defineModule({
     vsh: input.curve('VSH'),
     phi: input.curve('PHIE'),
     sw: input.curve('SW'),
+    perm: input.optionalCurve('PERM', { label: 'Permeabilidad (solo para el corte de k)' }),
   },
   params: {
     vshCutoff: SHARED_PARAMS.vshCutoff,
     phiCutoff: SHARED_PARAMS.phiCutoff,
     swCutoff: SHARED_PARAMS.swCutoff,
+    permCutoffOn: SHARED_PARAMS.permCutoffOn,
+    permCutoff: SHARED_PARAMS.permCutoff,
     area: SHARED_PARAMS.area,
     fluid: SHARED_PARAMS.fluid,
     bo: SHARED_PARAMS.bo,
@@ -83,13 +86,15 @@ export default defineModule({
   compute({ n, thickness, inputs, params, zones, paramsFor }) {
     const steps = Math.round(params.steps);
     const rows: Record<string, TableCell>[] = [];
-    const cutoffsOf = (p: { vshCutoff: number; phiCutoff: number; swCutoff: number }): Cutoffs => ({
+    // El corte de k (0054), si está activo, es un corte fijo más: no se barre.
+    const cutoffsOf = (p: { vshCutoff: number; phiCutoff: number; swCutoff: number; permCutoffOn: boolean; permCutoff: number }): Cutoffs => ({
       vshMax: p.vshCutoff,
       phiMin: p.phiCutoff,
       swMax: p.swCutoff,
+      ...(p.permCutoffOn && Number.isFinite(p.permCutoff) ? { permMin: p.permCutoff } : {}),
     });
     const sweep = (c: Cutoffs, v: SweepVariable, grid: SweepGrid, start: number, end: number): SweepCurves =>
-      cutoffSweep(inputs.vsh, inputs.phi, inputs.sw, thickness, c, v, grid, [{ start, end }]);
+      cutoffSweep(inputs.vsh, inputs.phi, inputs.sw, thickness, c, v, grid, [{ start, end }], inputs.perm);
 
     type Vals = Record<'netRes' | 'netPay' | 'noDataPay' | 'hphiSh' | 'ooip' | 'ogip', number | null>;
     const EMPTY: Vals = { netRes: null, netPay: null, noDataPay: null, hphiSh: null, ooip: null, ogip: null };
@@ -126,7 +131,8 @@ export default defineModule({
     const classified = zones.map((z) => {
       const c = cutoffsOf(paramsFor(z.id));
       for (let i = z.start; i < z.end; i++) {
-        if (!Number.isNaN(netReservoirFlag(inputs.vsh[i]!, inputs.phi[i]!, c.vshMax, c.phiMin))) return true;
+        const k = inputs.perm ? inputs.perm[i]! : NaN;
+        if (!Number.isNaN(netReservoirFlagK(inputs.vsh[i]!, inputs.phi[i]!, k, c.vshMax, c.phiMin, c.permMin ?? NaN))) return true;
       }
       return false;
     });
@@ -229,6 +235,6 @@ export default defineModule({
       'Asquith, G. y Krygowski, D. (2004). Basic Well Log Analysis, 2.ª ed. AAPG Methods in Exploration 16.',
     ],
     notes:
-      'Grillas fijas: Vsh de 0 a 1, porosidad de 0 a 0,4 y Sw de 0 a 1. El total suma las zonas en cada umbral (cada zona con sus otros dos cortes). Además de la grilla se evalúa el cutoff vigente exacto de cada zona, que coincide con el sumario y el volumétrico.',
+      'Grillas fijas: Vsh de 0 a 1, porosidad de 0 a 0,4 y Sw de 0 a 1. El total suma las zonas en cada umbral (cada zona con sus otros dos cortes). Además de la grilla se evalúa el cutoff vigente exacto de cada zona, que coincide con el sumario y el volumétrico. Si el corte de permeabilidad está activo se aplica fijo en todos los umbrales (no se barre).',
   },
 });

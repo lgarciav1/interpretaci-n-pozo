@@ -99,6 +99,12 @@ function ZoneCardView({ card, phi, sw, phiScale, swScale, colors }: { card: Zone
       </span>
       <span className="zc-body">
         <dl className="zc-stats">
+          {card.netSand !== null && (
+            <>
+              <dt>Arena neta</dt>
+              <dd className="num">{m(card.netSand)} m</dd>
+            </>
+          )}
           <dt>Neto reservorio</dt>
           <dd className="num">{m(card.netRes)} m</dd>
           <dt>Neto pay</dt>

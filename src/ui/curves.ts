@@ -91,6 +91,8 @@ export const CURVE_PALETTE: Readonly<Record<RoleId, CurvePaletteEntry>> = {
   R35: { light: '#7c3aed', dark: '#b28cff', line: 'dashed', width: 1.25 },
   ROCK_TYPE: { light: '#3e4989', dark: '#5b7fc4', line: 'solid', kind: 'band' },
   PERM: { light: '#c2410c', dark: '#ff9a5c', line: 'solid', width: 1.5 },
+  // Arena neta (rol del módulo de cutoffs, 0054): tostado de arena, menos saturado que el reservorio neto (oro).
+  NET_SAND: { light: '#c9ad7f', dark: '#9c8662', line: 'solid', kind: 'band' },
   NET_RES: { light: '#e9b949', dark: '#d8a83a', line: 'solid', kind: 'band' },
   NET_PAY: { light: '#d9534f', dark: '#e0605b', line: 'solid', kind: 'band' },
   LITHO: { light: '#8b939d', dark: '#6b737e', line: 'solid', kind: 'band' },

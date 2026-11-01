@@ -13,8 +13,8 @@ const val = (c: TableCell | undefined): number | null => (typeof c === 'number' 
 const fmt = (c: TableCell | undefined, digits: number) => formatNumber(val(c), { digits });
 const isTotal = (r: Row) => r.zone === 'Total';
 
-function numCol(key: string, header: string, digits: number): Column<Row> {
-  return { key, header, align: 'num', render: (r) => fmt(r[key], digits) };
+function numCol(key: string, header: string, digits: number, title?: string): Column<Row> {
+  return { key, header: title ? <span title={title}>{header}</span> : header, ...(title ? { title } : {}), align: 'num', render: (r) => fmt(r[key], digits) };
 }
 const zoneCol: Column<Row> = {
   key: 'zone',
@@ -54,6 +54,8 @@ function ZoneSummaryPanel({ module, result }: ModulePanelProps) {
   }
   const total = rows.find(isTotal);
   const hasGap = rows.some((r) => payGap(r) !== null);
+  // Arena neta (0054): solo si la bandera llegó (un NET_RES ajeno al módulo de cutoffs no la trae).
+  const hasSand = rows.some((r) => val(r.netSand) !== null);
   const rowProps = (r: Row) => ({ 'data-total': isTotal(r) ? '' : undefined });
 
   return (
@@ -95,7 +97,16 @@ function ZoneSummaryPanel({ module, result }: ModulePanelProps) {
           rows={rows}
           rowKey={(r, i) => `${String(r.zone)}-${i}`}
           rowProps={rowProps}
-          columns={[zoneCol, numCol('gross', 'Bruto', 1), numCol('netRes', 'Neto res.', 1), numCol('netPay', 'Neto pay', 1), numCol('ntgPay', 'N/G pay', 2), numCol('noData', 'Sin dato', 1), ...(hasGap ? [gapCol] : [])]}
+          columns={[
+            zoneCol,
+            numCol('gross', 'Bruto', 1),
+            ...(hasSand ? [numCol('netSand', 'Arena', 1, 'Arena neta: Vsh no mayor que el corte.')] : []),
+            numCol('netRes', 'Res.', 1, 'Reservorio neto (permeable): arena con porosidad y, si se usa, permeabilidad sobre el corte.'),
+            numCol('netPay', 'Pay', 1, 'Pay neto (útil): reservorio con Sw no mayor que el corte.'),
+            numCol('ntgPay', 'N/G pay', 2),
+            numCol('noData', 'Sin dato', 1),
+            ...(hasGap ? [gapCol] : []),
+          ]}
         />
       </section>
 
@@ -119,7 +130,9 @@ function ZoneSummaryPanel({ module, result }: ModulePanelProps) {
         />
       </section>
       {hasGap && <p className="zsum-note">Sin dato pay: reservorio al que le falta Sw. No se cuenta como no pay; los promedios y el h·φ·Sh usan el resto.</p>}
-      <p className="zsum-note">Sw ponderada por volumen poral. La tabla completa (reservorio, kh, h·φ) está en Resultados.</p>
+      <p className="zsum-note">
+        {hasSand ? 'Arena neta ⊇ reservorio neto (permeable) ⊇ pay neto (útil). ' : ''}Sw ponderada por volumen poral. La tabla completa (reservorio, kh, h·φ) está en Resultados.
+      </p>
     </div>
   );
 }
