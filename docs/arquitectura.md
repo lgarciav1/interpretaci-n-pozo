@@ -651,6 +651,10 @@ Decisión: [`docs/decisiones/0023-calibracion-con-corona.md`](decisiones/0023-ca
   (`src/modules/core-calibration/tpRi.ts`) arman los conjuntos, rotulados «Datos del TP» (no sintéticos), con la
   profundidad del Excel ya en profundidad del perfil y los 12 puntos RI individuales descartados por defecto. Tests:
   `tests/tp-datos-corona.test.ts`.
+- **Presiones MDT y SCAL del TP embebidos** ([`0057`](decisiones/0057-mdt-y-scal-del-tp-embebidos.md)): las 58
+  pruebas de la hoja MDT (`tpMdtSet`, `src/modules/mdt/tp.ts`, botón «Cargar presiones del TP», sin gradientes
+  automáticos) y las 8 muestras de la hoja SCAL en el panel «SCAL» del módulo `swi-pc`. Tests:
+  `tests/tp-datos-mdt-scal.test.ts`.
 
 ## Tipos de roca (fase 8, función P)
 
@@ -675,6 +679,8 @@ Saturación) sobre el motor puro `src/petro/swiPc.ts`: curva `SWI` por ley de po
 presión capilar de la planilla de la cátedra (o A y B manuales), bandera `SW_LT_SWI` (Sw < Swi − tolerancia) y tabla
 `SWI_ZONES` por zona. Entradas `PERM` y `PHIE`, `SW` opcional; roles `SWI` y `SW_LT_SWI` declarados por el módulo;
 `SWI` se dibuja punteada sobre `SW` en la pista «Porosidad · Sw» de fábrica. El motor también trae el ajuste log–log
-(`fitSwiPowerLaw`) y el de la presión de desplazamiento (`fitDisplacementPressure`), sin pantalla todavía. Los
+(`fitSwiPowerLaw`) y el de la presión de desplazamiento (`fitDisplacementPressure`); el panel «SCAL» del dock
+(`src/modules/swi-pc/dock.tsx`, [`0057`](decisiones/0057-mdt-y-scal-del-tp-embebidos.md)) muestra los datos SCAL del TP,
+ese ajuste, las seis curvas con su rango y «Usar nivel N». Los
 coeficientes son dato de la cátedra y valen en su rango de √(k/φ). Tests: `tests/petro-swi-pc.test.ts` (valores de mano
 y de numpy, `scripts/qa/swi-pc-reference.py`) y `tests/modules-swi-pc.test.ts` (módulo con el motor).
