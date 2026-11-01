@@ -54,6 +54,7 @@ import electrosequences from './electrosequences';
 import clayTyping from './clay-typing';
 import mineralInversion from './mineral-inversion';
 import lithologyIndices from './lithology-indices';
+import clayDistribution from './clay-distribution';
 import preparation from './preparation';
 import { SHARED_PARAMS } from './sharedParams';
 
@@ -99,6 +100,7 @@ export const MODULES = [
   clayTyping,
   mineralInversion,
   lithologyIndices,
+  clayDistribution,
   passeyToc,
   syntheticSeismogram,
   sedColumn,
