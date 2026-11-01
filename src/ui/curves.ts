@@ -88,6 +88,12 @@ export const CURVE_PALETTE: Readonly<Record<RoleId, CurvePaletteEntry>> = {
   // Calibración con corona (fase 8, N): ámbar, distinta de RHOB (rojo), VSH (marrón) y PERM (naranja)
   RHOMAA: { light: '#a16207', dark: '#f2c14e', line: 'solid', width: 1.5 },
   FZI: { light: '#0f766e', dark: '#2dd4bf', line: 'solid', width: 1.25 },
+  // Índices de litología (0059): M toma el violeta del sónico, N el azul del neutrón, Umaa el magenta del PEF y Th/K
+  // un ocre distinto del torio (verde azulado) y del potasio (rosa). Trazo raya-punto: son derivadas, no medidas.
+  M: { light: '#6d28d9', dark: '#c4a1ff', line: 'dashdot', width: 1.25 },
+  N: { light: '#1d4ed8', dark: '#7aa7ff', line: 'dashdot', width: 1.25 },
+  UMAA: { light: '#a21caf', dark: '#f08cf5', line: 'solid', width: 1.25 },
+  THK: { light: '#b45309', dark: '#f4a957', line: 'solid', width: 1.25 },
   R35: { light: '#7c3aed', dark: '#b28cff', line: 'dashed', width: 1.25 },
   ROCK_TYPE: { light: '#3e4989', dark: '#5b7fc4', line: 'solid', kind: 'band' },
   PERM: { light: '#c2410c', dark: '#ff9a5c', line: 'solid', width: 1.5 },

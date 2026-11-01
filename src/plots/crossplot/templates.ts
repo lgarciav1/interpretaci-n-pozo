@@ -8,6 +8,7 @@
  */
 import type { CrossplotTemplateId } from '../../core/plots';
 import { CLAY_REGIONS, MINERALS, mineralMixLine } from '../../petro/mineralogy';
+import { LITH1_BOXES, LITHOLOGY_MATRICES, MAIN_MATRICES, UMAA_CHART_POINTS, UMAA_CHART_RANGE, UMAA_TRIANGLE, boxVertices, mnPoint, porosityLine, ternaryGrid, type LithologyMatrix, type MatrixId, type MineralBox } from '../../petro/lithologyIndices';
 import type { XYLineLayer, XYPointLayer, XYPolygonLayer } from '../xy/layers';
 
 // ── densidad–neutrón ──────────────────────────────────────────────────────────────────────────────────────────
@@ -154,11 +155,23 @@ export interface CrossplotTemplate {
   y: TemplateAxis;
   /** Rol para colorear (si el pozo lo tiene); si no, por zona. */
   colorRole?: string;
+  /** Sección del menú de plantillas. */
+  group: 'lithology' | 'fluids';
+  /** Colorear por zona al aplicarla (plantillas de minerales, sin un rol natural para el color). */
+  zoneColor?: boolean;
+  /** De dónde salen las curvas derivadas de los ejes: se agrega al motivo cuando faltan. */
+  needs?: string;
 }
+
+export const TEMPLATE_GROUPS: readonly { id: CrossplotTemplate['group']; label: string }[] = [
+  { id: 'lithology', label: 'Litología y mineralogía' },
+  { id: 'fluids', label: 'Porosidad y fluidos' },
+];
 
 export const CROSSPLOT_TEMPLATE_DEFS: readonly CrossplotTemplate[] = [
   {
     id: 'density-neutron',
+    group: 'lithology',
     label: 'Densidad–neutrón',
     description: 'RHOB contra NPHI con las líneas de arenisca, caliza y dolomía',
     x: { role: 'NPHI', scale: 'linear', range: [-0.05, 0.45] },
@@ -167,6 +180,7 @@ export const CROSSPLOT_TEMPLATE_DEFS: readonly CrossplotTemplate[] = [
   },
   {
     id: 'pickett',
+    group: 'fluids',
     label: 'Pickett',
     description: 'Rt contra φ en log–log con las líneas de Sw de Archie (a, m, n y Rw del proyecto)',
     x: { role: 'RT', scale: 'log' },
@@ -175,6 +189,7 @@ export const CROSSPLOT_TEMPLATE_DEFS: readonly CrossplotTemplate[] = [
   },
   {
     id: 'phi-sw',
+    group: 'fluids',
     label: 'φ–Sw (Buckles)',
     description: 'Sw contra φ con las hipérbolas de volumen de agua constante',
     x: { role: 'PHIE', scale: 'linear', range: [0, 0.4] },
@@ -183,6 +198,7 @@ export const CROSSPLOT_TEMPLATE_DEFS: readonly CrossplotTemplate[] = [
   },
   {
     id: 'gr-rt',
+    group: 'fluids',
     label: 'GR–Rt',
     description: 'Rt contra GR con las lecturas de arena limpia y de arcilla',
     x: { role: 'GR', scale: 'linear' },
@@ -190,6 +206,7 @@ export const CROSSPLOT_TEMPLATE_DEFS: readonly CrossplotTemplate[] = [
   },
   {
     id: 'nmr-dn',
+    group: 'fluids',
     label: 'RMN vs. densidad–neutrón',
     description: 'PHIE de RMN contra PHIE de densidad–neutrón con la recta 1:1 y el umbral de déficit',
     x: { role: 'PHIE', scale: 'linear', range: [NMR_DN_RANGE[0], NMR_DN_RANGE[1]] },
@@ -198,6 +215,8 @@ export const CROSSPLOT_TEMPLATE_DEFS: readonly CrossplotTemplate[] = [
   },
   {
     id: 'th-k',
+    group: 'lithology',
+    zoneColor: true,
     label: 'Torio–potasio',
     description: 'Minerales arcillosos orientativos y cocientes Th/K',
     x: { role: 'POTA', scale: 'linear', range: [0, 6] },
@@ -205,10 +224,69 @@ export const CROSSPLOT_TEMPLATE_DEFS: readonly CrossplotTemplate[] = [
   },
   {
     id: 'pe-density',
+    group: 'lithology',
+    zoneColor: true,
     label: 'PE–densidad',
     description: 'Puntos minerales y mezcla matriz–agua dulce',
     x: { role: 'PEF', scale: 'linear', range: [0, 8] },
     y: { role: 'RHOB', scale: 'linear', range: [1.3, 3.2] },
+  },
+  {
+    id: 'sonic-neutron',
+    group: 'lithology',
+    label: 'Sónico–neutrón',
+    description: 'DT contra NPHI con las rectas de arenisca, caliza y dolomía (Wyllie)',
+    x: { role: 'NPHI', scale: 'linear', range: [-0.05, 0.45] },
+    y: { role: 'DT', scale: 'linear', range: [40, 140] },
+    colorRole: 'GR',
+  },
+  {
+    id: 'density-sonic',
+    group: 'lithology',
+    label: 'Densidad–sónico',
+    description: 'RHOB contra DT con las rectas de arenisca, caliza y dolomía (Wyllie)',
+    x: { role: 'DT', scale: 'linear', range: [40, 140] },
+    y: { role: 'RHOB', scale: 'linear', reversed: true, range: [1.9, 3] },
+    colorRole: 'GR',
+  },
+  {
+    id: 'm-n',
+    group: 'lithology',
+    label: 'M–N',
+    description: 'M contra N con los puntos de cuarzo, calcita, dolomita y evaporitas',
+    x: { role: 'N', scale: 'linear', range: [0.25, 0.8] },
+    y: { role: 'M', scale: 'linear', range: [0.4, 1.1] },
+    colorRole: 'GR',
+    needs: 'M y N las calcula «Índices de litología» con RHOB, NPHI y DT.',
+  },
+  {
+    id: 'rhomaa-umaa',
+    group: 'lithology',
+    label: 'Identificación de matriz',
+    description: 'ρmaa contra Umaa con el triángulo cuarzo–calcita–dolomita y su grilla de porcentajes',
+    x: { role: 'UMAA', scale: 'linear', range: [UMAA_CHART_RANGE.u[0], UMAA_CHART_RANGE.u[1]] },
+    y: { role: 'RHOMAA', scale: 'linear', reversed: true, range: [UMAA_CHART_RANGE.rho[0], UMAA_CHART_RANGE.rho[1]] },
+    colorRole: 'GR',
+    needs: 'Umaa la calcula «Índices de litología» con RHOB, PEF y PHIT; ρmaa, «Densidad de matriz aparente» con RHOB y PHIT.',
+  },
+  {
+    id: 'pe-k',
+    group: 'lithology',
+    label: 'PEF–potasio',
+    description: 'PEF contra K con las cajas orientativas de minerales arcillosos y micas',
+    x: { role: 'POTA', scale: 'linear', range: [0, 10] },
+    y: { role: 'PEF', scale: 'linear', range: [0, 10] },
+    zoneColor: true,
+  },
+  {
+    id: 'pe-thk',
+    group: 'lithology',
+    label: 'PEF–Th/K',
+    description: 'PEF contra Th/K (log) con las cajas orientativas de minerales arcillosos y micas',
+    x: { role: 'THK', scale: 'log', range: [0.1, 100] },
+    y: { role: 'PEF', scale: 'linear', range: [0, 10] },
+    zoneColor: true,
+    needs: 'Th/K la calcula «Índices de litología» con THOR y POTA.',
   },
 ];
 
@@ -260,4 +338,174 @@ export function mineralogyTemplateLayers(
 /** Rango ampliado para minerales pesados: se deriva de la tabla y no agrega constantes petrofísicas. */
 export function mineralogyFullRange(): { xRange: [number, number]; yRange: [number, number] } {
   return { xRange: [0, Math.ceil(Math.max(...MINERALS.map((mineral) => mineral.pe)) * 1.05)], yRange: [1, Math.ceil(Math.max(...MINERALS.map((mineral) => mineral.rho)) * 1.05 * 10) / 10] };
+}
+
+// ── plantillas de determinación de litologías (Clase 8; docs/decisiones/0059) ──────────────────────────────────
+
+export type LithologyTemplateId = 'sonic-neutron' | 'density-sonic' | 'm-n' | 'rhomaa-umaa' | 'pe-k' | 'pe-thk';
+export const LITHOLOGY_TEMPLATE_IDS: readonly LithologyTemplateId[] = ['sonic-neutron', 'density-sonic', 'm-n', 'rhomaa-umaa', 'pe-k', 'pe-thk'];
+export const isLithologyTemplate = (id: CrossplotTemplateId | null): id is LithologyTemplateId => !!id && (LITHOLOGY_TEMPLATE_IDS as readonly string[]).includes(id);
+
+/** Colores de las matrices (el panel pasa los rellenos de litología del tema; por defecto, los de `MINERALS`). */
+export type MatrixColors = Record<MatrixId, string> & { guide: string };
+
+const mineralColor = (id: string) => MINERALS.find((m) => m.id === id)?.color ?? '#78828f';
+export const DEFAULT_MATRIX_COLORS: MatrixColors = {
+  quartz: mineralColor('quartz'), calcite: mineralColor('calcite'), dolomite: mineralColor('dolomite'),
+  anhydrite: mineralColor('anhydrite'), halite: mineralColor('halite'), gypsum: mineralColor('gypsum'),
+  'k-feldspar': mineralColor('k-feldspar'), guide: '#78828f',
+};
+
+/** Nombre de la litología de cada matriz principal en las rectas de porosidad (como en densidad–neutrón). */
+const ROCK_LABEL: Partial<Record<MatrixId, string>> = { quartz: 'Arenisca', calcite: 'Caliza', dolomite: 'Dolomía' };
+
+/** Rótulo fijo junto a un punto: una «línea» de un solo punto (no se dibuja; el rótulo va a su derecha). */
+function pointLabel(id: string, x: number, y: number, text: string, color: string): XYLineLayer {
+  return { id: `label-${id}`, x: [x], y: [y], color, label: text, labelAt: 'start' };
+}
+
+/**
+ * Flecha en datos (cuerpo + punta) con la punta proporcional al rango de los ejes, para que se vea igual en x e y.
+ * Se usa en la carta ρmaa–Umaa (sal, gas, baritina, minerales pesados).
+ */
+export function arrowPath(from: [number, number], to: [number, number], span: [number, number], head = 0.022): { x: number[]; y: number[] } {
+  const [sx, sy] = span;
+  const dx = (to[0] - from[0]) / sx;
+  const dy = (to[1] - from[1]) / sy;
+  const len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len;
+  const uy = dy / len;
+  const wing = (sign: number): [number, number] => [to[0] + (-ux * 0.8 + sign * uy * 0.5) * head * sx, to[1] + (-uy * 0.8 - sign * ux * 0.5) * head * sy];
+  const [lx, ly] = wing(1);
+  const [rx, ry] = wing(-1);
+  return { x: [from[0], to[0], lx, to[0], rx], y: [from[1], to[1], ly, to[1], ry] };
+}
+
+const LITH1_COLORS: Record<string, string> = {
+  glauconite: '#22c55e', biotite: '#0ea5e9', chlorite: '#14b8a6', illite: '#ef4444',
+  'mixed-layer': '#fb923c', montmorillonite: '#a78bfa', kaolinite: '#eab308', muscovite: '#60a5fa',
+};
+
+/** Dónde va el rótulo de cada caja (las chicas, afuera; las grandes, adentro). */
+type BoxLabelAt = 'above' | 'below' | 'inside' | 'right';
+const PE_K_LABELS: Record<string, BoxLabelAt> = { glauconite: 'inside', chlorite: 'right', kaolinite: 'right', montmorillonite: 'above' };
+const PE_THK_LABELS: Record<string, BoxLabelAt> = { glauconite: 'inside', 'mixed-layer': 'inside', montmorillonite: 'below' };
+
+function boxLayers(axis: 'k' | 'thk', contrast: (c: string) => string): XYPolygonLayer[] {
+  const out: XYPolygonLayer[] = [];
+  const where = axis === 'k' ? PE_K_LABELS : PE_THK_LABELS;
+  const log = axis === 'thk';
+  for (const box of LITH1_BOXES as readonly MineralBox[]) {
+    const x = box[axis];
+    if (!x) continue;
+    const cx = log ? Math.sqrt(x[0] * x[1]) : (x[0] + x[1]) / 2;
+    const cy = (box.pe[0] + box.pe[1]) / 2;
+    const at = where[box.id] ?? 'above';
+    const labelPosition: [number, number] = at === 'inside' ? [cx, cy] : at === 'below' ? [cx, box.pe[0] - 0.3] : at === 'right' ? [x[1] + 0.75, cy] : [cx, box.pe[1] + 0.3];
+    out.push({
+      id: `lith1-${box.id}`, name: box.label, vertices: boxVertices(x, box.pe), color: contrast(LITH1_COLORS[box.id] ?? '#78828f'),
+      fillAlpha: box.id === 'mixed-layer' ? 0.06 : 0.16, label: box.label, labelPosition,
+    });
+  }
+  return out;
+}
+
+/**
+ * Capas de las seis plantillas de litología: rectas de porosidad (Wyllie), puntos y triángulos de matrices, grilla de
+ * porcentajes y cajas de minerales. `colors` y `contrast` vienen del tema; los datos, de `src/petro/lithologyIndices.ts`.
+ */
+export function lithologyTemplateLayers(
+  id: LithologyTemplateId,
+  colors: MatrixColors = DEFAULT_MATRIX_COLORS,
+  contrast: (color: string) => string = (color) => color,
+): { polygons: XYPolygonLayer[]; lines: XYLineLayer[]; points: XYPointLayer[]; info: string } {
+  const lines: XYLineLayer[] = [];
+  const points: XYPointLayer[] = [];
+  const polygons: XYPolygonLayer[] = [];
+  const mineralPoint = (m: LithologyMatrix, x: number, y: number, detail: string) => {
+    const color = colors[m.id];
+    points.push({ id: `matrix-${m.id}`, name: m.label, x: [x], y: [y], color, radius: 4.5, interactive: true, label: () => `${m.label} · ${detail}` });
+    lines.push(pointLabel(m.id, x, y, m.label, color));
+  };
+
+  if (id === 'sonic-neutron' || id === 'density-sonic') {
+    for (const m of MAIN_MATRICES) {
+      const l = porosityLine(m);
+      const color = colors[m.id];
+      const x = id === 'sonic-neutron' ? l.nphi : l.dt;
+      const y = id === 'sonic-neutron' ? l.dt : l.rhob;
+      // Rótulo en la punta de la matriz en densidad–sónico (las rectas convergen hacia el fluido y los rótulos del otro
+      // extremo se pisan); en sónico–neutrón, en la punta de alta porosidad (las matrices están juntas abajo).
+      lines.push({ id: `por-${m.id}`, name: ROCK_LABEL[m.id], x, y, color, width: 1.5, label: ROCK_LABEL[m.id], labelAt: id === 'density-sonic' ? 'start' : 'end' });
+      // Marcas cada 0,1 de porosidad (la de 0 es el punto de matriz).
+      const ticks = l.phi.map((p, k) => (Math.abs(p * 10 - Math.round(p * 10)) < 1e-6 ? k : -1)).filter((k) => k >= 0);
+      points.push({ id: `por-ticks-${m.id}`, x: ticks.map((k) => x[k]!), y: ticks.map((k) => y[k]!), color, radius: 2.6 });
+    }
+    const others: readonly MatrixId[] = id === 'sonic-neutron' ? ['anhydrite', 'halite'] : ['anhydrite', 'halite', 'gypsum'];
+    for (const mid of others) {
+      const m = LITHOLOGY_MATRICES.find((x) => x.id === mid)!;
+      if (id === 'sonic-neutron') mineralPoint(m, m.phiN, m.dt, `NPHI ${m.phiN} · Δt ${m.dt} µs/ft`);
+      else mineralPoint(m, m.dt, m.rho, `Δt ${m.dt} µs/ft · densidad ${m.rho} g/cm³`);
+    }
+    return {
+      polygons, lines, points,
+      info: id === 'sonic-neutron'
+        ? 'Rectas de Wyllie con agua dulce (Δt del fluido 189 µs/ft) y matrices del Appendix B; marcas cada 0,1 de porosidad, neutrón en unidades de caliza. Arriba de ~25 % de porosidad la carta del fabricante se curva: leer la porosidad con ±0,03. La arcilla corre los puntos hacia Δt y neutrón altos.'
+        : 'Rectas de Wyllie con agua dulce (Δt del fluido 189 µs/ft, densidad 1,0 g/cm³) y matrices del Appendix B; marcas cada 0,1 de porosidad. Arenisca y caliza casi se superponen: esta carta separa mal cuarzo de calcita y sí distingue dolomía y evaporitas. La arcilla y la falta de compactación corren los puntos hacia Δt alto.',
+    };
+  }
+
+  if (id === 'm-n') {
+    const shown = LITHOLOGY_MATRICES.filter((m) => m.id !== 'k-feldspar');
+    const mn = new Map(shown.map((m) => [m.id, mnPoint(m)]));
+    const tri = MAIN_MATRICES.map((m) => mn.get(m.id)!);
+    lines.push({ id: 'mn-triangle', name: 'Cuarzo–calcita–dolomita', x: [...tri.map((p) => p.n), tri[0]!.n], y: [...tri.map((p) => p.m), tri[0]!.m], color: colors.guide, width: 1.5 });
+    for (const m of shown) {
+      const p = mn.get(m.id)!;
+      mineralPoint(m, p.n, p.m, `N ${p.n.toFixed(3)} · M ${p.m.toFixed(3)}`);
+    }
+    return {
+      polygons, lines, points,
+      info: 'Puntos de matriz con agua dulce (matrices del Appendix B): M y N no dependen de la porosidad. La porosidad secundaria corre los puntos hacia arriba, el gas hacia arriba y a la derecha, la arcilla hacia abajo. La sal queda fuera del rango (N ≈ 0,99; M ≈ 1,17).',
+    };
+  }
+
+  if (id === 'rhomaa-umaa') {
+    const span: [number, number] = [UMAA_CHART_RANGE.u[1] - UMAA_CHART_RANGE.u[0], UMAA_CHART_RANGE.rho[1] - UMAA_CHART_RANGE.rho[0]];
+    for (const g of ternaryGrid(0.2)) {
+      lines.push({ id: `grid-${g.component}-${g.fraction}`, x: g.u, y: g.rho, color: colors[g.component], width: 0.75, dash: [3, 3] });
+    }
+    const v = UMAA_TRIANGLE;
+    lines.push({ id: 'umaa-triangle', name: 'Cuarzo–calcita–dolomita', x: [...v.map((p) => p.u), v[0]!.u], y: [...v.map((p) => p.rho), v[0]!.rho], color: colors.guide, width: 1.5 });
+    for (const p of v) {
+      const color = colors[p.id];
+      points.push({ id: `umaa-${p.id}`, name: p.label, x: [p.u], y: [p.rho], color, radius: 4.5, interactive: true, label: () => `${p.label} · Umaa ${p.u} b/cm³ · ρmaa ${p.rho} g/cm³` });
+      lines.push(pointLabel(`umaa-${p.id}`, p.u, p.rho, p.label, color));
+    }
+    for (const p of UMAA_CHART_POINTS) {
+      const color = p.id === 'anhydrite' ? colors.anhydrite : p.id === 'k-feldspar' ? colors['k-feldspar'] : contrast(mineralColor(p.id));
+      points.push({ id: `umaa-${p.id}`, name: p.label, x: [p.u], y: [p.rho], color, radius: 4, interactive: true, label: () => `${p.label} (leído de la carta) · Umaa ${p.u} · ρmaa ${p.rho}` });
+      lines.push(pointLabel(`umaa-${p.id}`, p.u, p.rho, p.label, color));
+    }
+    const arrow = (key: string, from: [number, number], to: [number, number], label: string) =>
+      lines.push({ id: `arrow-${key}`, ...arrowPath(from, to, span), color: colors.guide, width: 1.25, label, labelAt: 'start' });
+    // Flechas de la carta (slide 27): posiciones leídas, orientativas.
+    arrow('salt', [9.45, 2.36], [9.45, 2.23], 'Sal');
+    arrow('gas', [7.6, 2.52], [7.3, 2.4], 'Gas');
+    arrow('barite', [15.2, 2.81], [16.9, 2.81], 'Baritina');
+    arrow('heavy', [15.2, 2.91], [16.9, 2.95], 'Minerales pesados');
+    return {
+      polygons, lines, points,
+      info: 'Triángulo cuarzo–calcita–dolomita con grilla cada 20 %; feldespato, arcillas y anhidrita leídos de la carta (orientativos). Umaa y ρmaa usan la porosidad total: el gas sube los puntos y la baritina del lodo los lleva a la derecha.',
+    };
+  }
+
+  // PEF contra K o contra Th/K: cajas de Lith-1.
+  polygons.push(...boxLayers(id === 'pe-k' ? 'k' : 'thk', contrast));
+  return {
+    polygons, lines, points,
+    info: id === 'pe-k'
+      ? 'Cajas orientativas de Lith-1 (ex CP-18): rangos de K leídos de la carta y de PEF de la hoja CROSSPLOT de la cátedra. Límites SIN VERIFICAR. La baritina del lodo sube el PEF de todas las muestras.'
+      : 'Cajas orientativas de Lith-1 (ex CP-18) de la hoja CROSSPLOT de la cátedra: límites SIN VERIFICAR y superpuestos (capas mixtas incluye montmorillonita). La baritina del lodo sube el PEF de todas las muestras.',
+  };
 }

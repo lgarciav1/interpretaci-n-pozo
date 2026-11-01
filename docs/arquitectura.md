@@ -553,6 +553,18 @@ Decisión: [`docs/decisiones/0021-graficos-conectados-y-pickett.md`](decisiones/
 - Ampliaciones aditivas de `src/plots/xy/`: `selectTool`/`onSelectLasso`/`selectionShapes`, `emphasis`, `markedBins`/
   `onBarClick`, `onEscape`, `XYHandle.labelOnActive`, `XYPointLayer.ring`, `XYLineLayer.preview` (no sale en la figura).
 
+### Crossplots de determinación de litologías (Clase 8)
+
+Decisión: [`docs/decisiones/0059-crossplots-de-litologia.md`](decisiones/0059-crossplots-de-litologia.md).
+
+- Seis plantillas más (`sonic-neutron`, `density-sonic`, `m-n`, `rhomaa-umaa`, `pe-k`, `pe-thk`) con el mismo patrón que
+  `th-k` y `pe-density`: id en `CROSSPLOT_TEMPLATES`, definición en `CROSSPLOT_TEMPLATE_DEFS` (ahora con `group`, `zoneColor`
+  y `needs`) y capas puras en `lithologyTemplateLayers` (`src/plots/crossplot/templates.ts`) con los datos de
+  `src/petro/lithologyIndices.ts`. El menú las agrupa en «Litología y mineralogía» y «Porosidad y fluidos» y muestra el
+  motivo de las que no se pueden armar; una curva derivada que existe pero quedó sin dato también deshabilita la plantilla.
+- Módulo `lithology-indices` (Geología): M, N, Umaa y Th/K por muestra (roles `M`, `N`, `UMAA`, `THK`);
+  ρmaa sigue saliendo de `core-calibration`.
+
 ## Perfil radial de invasión (fase 8b)
 
 Decisión: [`docs/decisiones/0020-perfil-radial-de-invasion.md`](decisiones/0020-perfil-radial-de-invasion.md).

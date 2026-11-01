@@ -46,7 +46,8 @@ import { CROSSPLOT_PROVIDER_ID, crossplotSeries, crossplotSeriesKey, parseCrossp
 import { fitWaterLine, WATER_FIT_DEFAULTS, ownPickettParams, parseWaterHandle, waterLineDragWrites, waterLineNudgeWrites, ownValuesNotice, pickettByZone, zonesWithOwnPickett, type WaterFit } from './pickett';
 import { matrixParamsOf, matrixPointOf, projectMatrixLine, representativeTemperature, rwAtFormation, snapMatrixToLithology, waterLineHandles, waterLineRt } from './drag';
 import { crossplotTemplatePatch } from './applyTemplate';
-import { BVW_LINES, CROSSPLOT_TEMPLATE_DEFS, DN_LITHOLOGIES, PICKETT_SW, bvwLine, densityNeutronLine, nmrDnLines, pickettLine, mineralogyTemplateLayers, mineralogyFullRange, templateDef, type ArchieParams } from './templates';
+import { BVW_LINES, CROSSPLOT_TEMPLATE_DEFS, DN_LITHOLOGIES, PICKETT_SW, TEMPLATE_GROUPS, bvwLine, densityNeutronLine, isLithologyTemplate, lithologyTemplateLayers, nmrDnLines, pickettLine, mineralogyTemplateLayers, mineralogyFullRange, templateDef, type ArchieParams, type MatrixColors } from './templates';
+import { UMAA_CHART_RANGE } from '../../petro/lithologyIndices';
 import '../plots.css';
 
 export interface CrossplotPanelProps {
@@ -519,6 +520,28 @@ function templateDrawing(id: CrossplotTemplateId | null, t: TemplateContext): Te
     out.lines.push(...layers.lines);
     out.points.push(...layers.points);
     out.info = layers.info;
+  } else if (isLithologyTemplate(id)) {
+    const lith = (f: 'sand' | 'limestone' | 'dolomite' | 'anhydrite' | 'salt') => c(fillColor(f, theme.name).color);
+    const colors: MatrixColors = {
+      quartz: lith('sand'), calcite: lith('limestone'), dolomite: lith('dolomite'), anhydrite: lith('anhydrite'), halite: lith('salt'),
+      gypsum: c('#f9a8d4'), 'k-feldspar': c('#f472b6'), guide: c(theme.color.textMuted),
+    };
+    const layers = lithologyTemplateLayers(id, colors, c);
+    out.polygons.push(...layers.polygons);
+    out.lines.push(...layers.lines);
+    out.points.push(...layers.points);
+    out.info = layers.info;
+    // Umaa fuera de la carta (típico con baritina en el lodo): decir cuántos puntos quedan afuera.
+    if (id === 'rhomaa-umaa' && t.cx.role === 'UMAA') {
+      let n = 0;
+      let right = 0;
+      for (const v of t.cx.data) {
+        if (!Number.isFinite(v)) continue;
+        n++;
+        if (v > UMAA_CHART_RANGE.u[1]) right++;
+      }
+      if (n && right / n > 0.05) out.info = `El ${pct((100 * right) / n)} de las muestras tiene Umaa mayor que ${UMAA_CHART_RANGE.u[1]}, a la derecha de la calcita: PEF alto, típico de baritina en el lodo (no es la matriz). «Ver toda la nube» las muestra. ${layers.info}`;
+    }
   } else if (id === 'nmr-dn') {
     const tol = plotParamValue(params, PLOT_PARAMS.nmrTolerance, scope.zoneId);
     const l = nmrDnLines(tol);
@@ -544,6 +567,15 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
   };
   const [dragging, setDragging] = useState<{ id: string; x: number; y: number } | null>(null);
   const options = useMemo(() => plotCurveOptions(ctx), [ctx]);
+  // Motivo corto de cada plantilla que no se puede armar con este pozo (para el menú).
+  const templateAvailability = useMemo(() => {
+    const m = new Map<CrossplotTemplateId, string>();
+    for (const t of CROSSPLOT_TEMPLATE_DEFS) {
+      const r = crossplotTemplatePatch(ctx, t.id);
+      if (!r.ok) m.set(t.id, r.reason);
+    }
+    return m;
+  }, [ctx]);
   const depth = ctx.well.depth.values;
   const zones = ctx.interpretation.zones;
 
@@ -882,12 +914,15 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
 
   const colorValue = config.color.kind === 'curve' ? config.color.curve : config.color.kind === 'zone' ? '__zone' : '__none';
   const tplDef = templateDef(config.template);
-  const templateItems: MenuEntry[] = CROSSPLOT_TEMPLATE_DEFS.map((t) => {
-    // Plantilla cuyos ejes oculta la sarta: sigue en el menú (al elegirla, el aviso dice qué herramienta prender).
-    const r = ctx.hidden ? crossplotTemplatePatch(ctx, t.id) : null;
-    const off = r && !r.ok && r.hidden ? r.hidden : null;
-    return { id: t.id, label: t.label, description: off ? `${t.description} · ${off.mnemonic} oculta por la sarta` : t.description, icon: config.template === t.id ? 'check' : undefined, onSelect: () => applyTemplate(t.id) };
-  });
+  // Por secciones (litología y mineralogía; porosidad y fluidos). Una plantilla sin sus curvas sigue en el menú con el
+  // motivo (al elegirla, el aviso explica qué falta o qué herramienta prender).
+  const templateItems: MenuEntry[] = TEMPLATE_GROUPS.flatMap((g): MenuEntry[] => [
+    { type: 'label', id: `group-${g.id}`, label: g.label },
+    ...CROSSPLOT_TEMPLATE_DEFS.filter((t) => t.group === g.id).map((t): MenuEntry => {
+      const r = templateAvailability.get(t.id);
+      return { id: t.id, label: t.label, description: r ? `${t.description} · ${r}` : t.description, icon: config.template === t.id ? 'check' : undefined, onSelect: () => applyTemplate(t.id) };
+    }),
+  ]);
   const trendItems: MenuEntry[] = MODELS.map((m) => ({ id: m, label: MODEL_LABEL[m], onSelect: () => addTrend(m) }));
   const n = cloud?.idx.length ?? 0;
 
@@ -1047,6 +1082,8 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
                   <Badge tone="accent">{tplDef.label}</Badge>
                   {config.template === 'pe-density' && <Button size="sm" variant="ghost" onClick={() => onChange(mineralogyFullRange(), 'Ver todos los minerales de PE–densidad')}>Ver todos los minerales</Button>}
                   {config.template === 'pe-density' && <Button size="sm" variant="ghost" onClick={() => onChange({ xRange: [0, 8], yRange: [1.3, 3.2] }, 'Ver minerales principales de PE–densidad')}>Rango principal</Button>}
+                  {config.template === 'rhomaa-umaa' && <Button size="sm" variant="ghost" onClick={() => onChange({ xRange: undefined }, 'Ver toda la nube de ρmaa–Umaa')}>Ver toda la nube</Button>}
+                  {config.template === 'rhomaa-umaa' && <Button size="sm" variant="ghost" onClick={() => onChange({ xRange: [...UMAA_CHART_RANGE.u], yRange: [...UMAA_CHART_RANGE.rho] }, 'Volver al rango de la carta ρmaa–Umaa')}>Rango de la carta</Button>}
                   {tpl.readouts.length > 0 && <span className="plot-muted"> {tpl.pickett.length > 1 || tpl.pickett[0]?.key ? 'una recta por zona' : pscope.zoneId ? pscope.text : 'global'}</span>}
                 </div>
                 {tpl.readouts.length > 0 && (
