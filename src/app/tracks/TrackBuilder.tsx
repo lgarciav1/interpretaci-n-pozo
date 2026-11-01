@@ -1,3 +1,4 @@
+import { effectiveWell } from '../preparation/data';
 /**
  * Panel «Armar pistas» (docs/decisiones/0016, D1–D2 y D6): plantillas, búsqueda y catálogo de herramientas, curvas y
  * pistas especiales. Se arrastra a una pista del visor (agregar) o a un espacio entre pistas (pista nueva); sin
@@ -122,7 +123,7 @@ export function TrackBuilderSlot() {
   const entry = useProject(selectActiveEntry);
   const result = useResults((s) => s.result);
   const editor = useTrackUi((s) => s.editor);
-  const well = entry?.well ?? null;
+  const well = entry ? effectiveWell(entry.well, result) : null;
   const computed = useMemo(() => (well ? computedCurves(result, well) : []), [result, well]);
   if (!well || !editor) {
     return (
@@ -349,4 +350,5 @@ export function TrackBuilder({ workspace, well, computed, overlays, editor }: Tr
     </aside>
   );
 }
+
 

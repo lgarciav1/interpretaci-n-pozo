@@ -1,7 +1,7 @@
+import { entryContext } from '../preparation/data';
 /**
  * Diálogo «Exportar»: datos del pozo, figuras e informe automático imprimible.
  */
-import { entryEngineContext } from '../../core/engine/context';
 import { useMemo, useState } from 'react';
 import { Button, Callout, Checkbox, Dialog, Field, SegmentedControl, Select } from '../../ui';
 import { FORMAT_LABEL, type DepthUnit, type ExportFormat } from '../../io/export';
@@ -43,7 +43,7 @@ export function ExportDialog() {
   const figure = useFigureForm(open && kind === 'figure');
   const report = useReportForm(open && kind === 'report');
 
-  const sources = useMemo(() => (open && entry ? exportSources(entry.well, result, alternatives,entryEngineContext(entry)) : null), [open, entry, result, alternatives]);
+  const sources = useMemo(() => (open && entry ? exportSources(entry.well, result, alternatives,entryContext(entry)) : null), [open, entry, result, alternatives]);
   if (!open || !entry || !sources) return null;
 
   const close = () => setUi({ exportOpen: false });
@@ -173,6 +173,7 @@ export function ExportDialog() {
 
         {group('Curvas medidas', measured, 'El pozo no tiene curvas medidas.')}
         {prepared.length > 0 && group('Curvas preparadas', prepared, '')}
+        {prepared.some(c => c.id.startsWith('q:')) && <p className="ui-hint">Calidad (QC): 0 = conservada; 1 = faltante original; 2 = excluida; 3 = faltante original y excluida.</p>}
         {group('Curvas calculadas', computed, 'Todavía no hay curvas calculadas: se agregan cuando el motor termina de calcular.')}
         {sources.alternatives > 0 && (
           <Checkbox

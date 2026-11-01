@@ -8,9 +8,11 @@
  *   profundidad de otro. Además se ignora cualquier resultado cuyo pozo no sea el activo.
  */
 import { createInProcessClient } from '../core/engine/client';
-import { resolveDataContext } from '../core/preparation/projection';
+import { toEngineWell } from '../core/engine/engine';
+import { entryPreparationPlan } from '../core/state/preparation';
+import { materializePreparation } from '../core/preparation/plan';
 import { EngineSupervisor, type WorkerLike } from '../core/engine/supervisor';
-import { entryEngineContext, sameComputation, sameContext, type EngineContext } from '../core/engine/context';
+import { sameComputation, sameContext, type EngineContext } from '../core/engine/context';
 import type { Registry } from '../core/registry';
 import type { Well } from '../core/well';
 import EngineWorker from './engine.worker?worker&inline';
@@ -43,7 +45,13 @@ export function startEngineBridge(registry: Registry): EngineSupervisor {
     switch (e.type) {
       case 'result': {
         const active = selectActiveEntry(useProject.getState());
-        if (active && sameContext(e.result.context,entryEngineContext(active))) useResults.setState({ result: e.result, error: null });
+        if (active) try {
+          const plan = entryPreparationPlan(useProject.getState().project, active, registry);
+          if (sameContext(e.result.context, plan.context)) {
+            if (e.result.preparation) materializePreparation(active.well, e.result.preparation, e.result.context, registry);
+            useResults.setState({ result: e.result, error: null });
+          }
+        } catch (error) { useResults.setState({ result: null, error: String(error) }); }
         break;
       }
       case 'reset':
@@ -67,18 +75,24 @@ export function startEngineBridge(registry: Registry): EngineSupervisor {
   const sync = () => {
     const entry = selectActiveEntry(useProject.getState());
     if (!entry) { expected=null;lastWell=null;useResults.setState({result:null,error:null,busy:false});return; }
-    const data = resolveDataContext(entry.well, entry.interpretation, registry, entry.inputRevisionId ?? null);
-    const context=data.context;
-    if(sameContext(context,expected)){lastWell=entry.well;return;}
+    let plan;
+    try { plan = entryPreparationPlan(useProject.getState().project, entry, registry); }
+    catch (error) { supervisor.cancel(); expected = null; lastWell = null; useResults.setState({ result: null, busy: false, error: error instanceof Error ? error.message : String(error) }); return; }
+    const context=plan.context;
+    if(sameContext(context,expected)){
+      const current = useResults.getState().result;
+      if (current?.preparation && current.preparation.plan.stateKey !== plan.stateKey) useResults.setState({ result: { ...current, preparation: { ...current.preparation, plan } } });
+      lastWell=entry.well;return;
+    }
     const old=useResults.getState().result;
     // Laboratorio/adquisición sin consumidores del motor: mismo engineKey permite conservar todas
     // las salidas y solo volver a vincular el contexto. Nunca se ejecuta ni duplica el cálculo.
-    const rebound=old && sameComputation(old.context,context) ? {...old,context} : null;
+    const rebound=old && sameComputation(old.context,context) ? {...old,context,...(old.preparation ? { preparation: { ...old.preparation, plan } } : {})} : null;
     useResults.setState({result:rebound,error:null});
-    const inputsChanged=!lastWell || entry.well.id!==lastWell.id || entry.well.depth!==lastWell.depth || entry.well.curves!==lastWell.curves || expected?.inputRevisionId!==context.inputRevisionId;
+    const inputsChanged=!lastWell || entry.well.id!==lastWell.id || entry.well.depth!==lastWell.depth || entry.well.curves!==lastWell.curves || expected?.inputRevisionId!==context.inputRevisionId || expected?.preparationKey !== context.preparationKey;
     expected=context;lastWell=entry.well;
-    if(inputsChanged)supervisor.syncWell(data.engineWell,context);
-    if(!rebound)supervisor.run(entry.interpretation,context);
+    if(inputsChanged)supervisor.syncWell(toEngineWell(entry.well),context);
+    if(!rebound)supervisor.run(entry.interpretation,context, entry.interpretation.preparation?.nodes.length ? plan : undefined);
   };
   useProject.subscribe(sync);
   sync();

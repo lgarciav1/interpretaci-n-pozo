@@ -1,3 +1,5 @@
+import { effectiveWell } from '../preparation/data';
+import { entryContext } from '../preparation/data';
 /**
  * Exportar datos del pozo: arma las columnas y el sumario desde el proyecto y el último resultado del motor, escribe el
  * archivo (src/io/export, puro) y lo descarga con el mismo patrón que `saveProject`. Sin React.
@@ -5,7 +7,7 @@
  * Cada tipo de exportación es una entrada de `EXPORT_KINDS` con su propia función de armado: `data` (este archivo) y
  * `figure` (`figureActions.ts`, fase 6c-2). El diálogo elige el tipo.
  */
-import { contextMatchesWell, entryEngineContext, sameContext, type EngineContext } from '../../core/engine/context';
+import { contextMatchesWell, sameContext, type EngineContext } from '../../core/engine/context';
 import type { ClientResult } from '../../core/engine/client';
 import type { Well, Zone } from '../../core/well';
 import {
@@ -21,6 +23,8 @@ import {
   type SummaryColumn,
 } from '../../io/export';
 import { registry } from '../../modules';
+import { selectDataCurves } from '../../core/preparation/projection';
+import type { PreparedPayload } from '../../core/preparation/plan';
 import { toast } from '../../ui';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useResults } from '../store/results';
@@ -43,13 +47,26 @@ export interface ExportSources {
   alternatives: number;
   summary: ExportSummary | null;
 }
+const qualityColumns = new WeakMap<PreparedPayload, Float64Array>();
 
 /** Lo que se puede exportar del pozo activo con el resultado vigente (el resultado de otro pozo no se usa). */
 export function exportSources(well: Well, result: ClientResult | null, includeAlternatives: boolean, context?:EngineContext): ExportSources {
+  if (context && !sameContext(result?.context, context)) result = null;
+  well = effectiveWell(well, result);
   const outputs = result && contextMatchesWell(result.context,{id:well.id,depth:well.depth.values,curves:well.curves}) && (!context || sameContext(result.context,context)) ? result.outputs : null;
   const moduleName = (id: string) => registry.get(id)?.name ?? id;
+  const eligible = result?.preparation ? new Set(selectDataCurves(well.curves, result.preparation.plan, registry.tools).eligible.map(c => c.id)) : null;
+  const exportWell = eligible ? { ...well, curves: well.curves.filter(c => c.origin.kind !== 'prepared' || eligible.has(c.id)) } : well;
+  const columns = buildExportColumns(exportWell, outputs, { includeAlternatives, moduleName });
+  if (outputs && result?.preparation) for (const p of result.preparation.artifacts) {
+    if (!eligible?.has(p.id)) continue;
+    let data = qualityColumns.get(p);
+    if (!data) { data = Float64Array.from(p.quality); qualityColumns.set(p, data); }
+    const a = result.preparation.plan.artifacts.find(a => a.id === p.id)!;
+    columns.push({ id: `q:${p.id}`, mnemonic: `${a.mnemonic}_QC`, unit: 'unitless', data, origin: 'prepared', description: 'Calidad de preparación: 0=conservada; 1=faltante original; 2=excluida; 3=faltante original y excluida' });
+  }
   return {
-    columns: buildExportColumns(well, outputs, { includeAlternatives, moduleName }),
+    columns,
     alternatives: countAlternatives(well, outputs),
     summary: extractSummary(outputs, summaryColumns()),
   };
@@ -101,7 +118,7 @@ export function exportData(req: DataExportRequest): boolean {
   const entry = selectActiveEntry(useProject.getState());
   if (!entry) return false;
   try {
-    const { file, samples } = buildDataExport(entry.well, entry.interpretation.zones, useResults.getState().result, req,entryEngineContext(entry));
+    const { file, samples } = buildDataExport(entry.well, entry.interpretation.zones, useResults.getState().result, req,entryContext(entry));
     downloadFile(file);
     toast({ title: 'Datos exportados', description: `${file.name} · ${samples.toLocaleString('es-AR')} muestras · ${(file.bytes.length / 1024).toLocaleString('es-AR', { maximumFractionDigits: 0 })} kB`, tone: 'ok' });
     return true;

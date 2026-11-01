@@ -32,12 +32,15 @@ const inputKeys = new WeakMap<readonly EngineCurve[], {
   depth: Float64Array;
   key: string;
 }>();
+export function curveInputKey(wellId: string, depthKey: string, curves: readonly (Pick<EngineCurve, 'id' | 'mnemonic' | 'role' | 'unit'> & { provenance: CurveProvenance })[]): string {
+  return JSON.stringify([wellId, depthKey, curves.map(c => [c.id, c.mnemonic, c.role, c.unit, c.provenance])]);
+}
 export function wellInputKey(well: EngineWell): string {
   const hit = inputKeys.get(well.curves);
   if (hit?.id === well.id && hit.depth === well.depth)
     return hit.key;
   const depthKey = `depth:${identityKey(well.depth)}`;
-  const key = JSON.stringify([well.id, depthKey, well.curves.map((c) => [c.id, c.mnemonic, c.role, c.unit, curveProvenance(c, depthKey)])]);
+  const key = curveInputKey(well.id, depthKey, well.curves.map(c => ({ ...c, provenance: curveProvenance(c, depthKey) })));
   inputKeys.set(well.curves, { id: well.id, depth: well.depth, key });
   return key;
 }

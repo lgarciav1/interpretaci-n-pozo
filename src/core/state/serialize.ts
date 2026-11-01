@@ -15,7 +15,7 @@ import { sanitizeToolString } from '../toolString';
 import { sanitizeTrends } from '../trends';
 import { createWell, type Curve, type Well } from '../well';
 import { emptyProgress, type FlowProgress, type Project, type Snapshot } from './project';
-import { containsInputRevisions, enableProjectInputRevisions } from './inputRevisions';
+import { containsInputRevisions, enableProjectInputRevisions, projectInputState } from './inputRevisions';
 import { encodeArray, decodeArray, defaultCodec, type CodecChoice, type EncodedArray } from './archive/arrayCodec';
 import { ArchiveLimitError, archiveLimits, checkFileSize, DecodeBudget, type ArchiveLimits } from './archive/limits';
 import { readProjectV7, REVISION_PROJECT_VERSION, serializeProjectV7, type RecoveryResult } from './archive/projectV7';
@@ -77,6 +77,7 @@ export interface ProjectFile {
 // Proyecto
 
 export async function serializeProject(project: Project, opts: { codec?: CodecChoice; savedAt?: string; version?: 6 | 7 } = {}): Promise<string> {
+  if ([...project.wells, ...project.snapshots].some(e => e.interpretation.preparation !== undefined)) projectInputState(project);
   if (project.wells.some(e => e.well.curves.some(c => c.origin.kind === 'prepared' || c.provenance))) throw new Error('La proyección preparada no se guarda como datos originales.');
   const version = opts.version ?? (containsInputRevisions(project) ? REVISION_PROJECT_VERSION : PROJECT_VERSION);
   if (version === REVISION_PROJECT_VERSION) return serializeProjectV7(project, opts.codec ?? defaultCodec(), opts.savedAt ?? new Date().toISOString());
@@ -237,6 +238,7 @@ export async function deserializeProject(text: string, opts: DeserializeOptions 
   const warn = opts.onWarning ?? ((m: string) => console.warn(`Proyecto: ${m}`));
   /** Tendencias y decisiones sobre puntos validadas al abrir: lo inválido se descarta con aviso (como `display`). */
   const cleanInterp = (i: Interpretation, where: string): Interpretation => {
+    if (i.preparation !== undefined) throw new Error('Una receta de preparación requiere un archivo con revisiones de entradas.');
     const { toolString: rawToolString, ...rest } = i;
     const toolString = sanitizeToolString(rawToolString, where, warn);
     return {

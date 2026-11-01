@@ -1,3 +1,4 @@
+import type { PreparationPlan } from '../preparation/plan';
 /**
  * Supervisor del motor (hilo principal): elige dónde corre el motor y lo mantiene vivo.
  *
@@ -49,6 +50,7 @@ export class EngineSupervisor {
   private lastContext: EngineContext | undefined;
   private protocolRestarts = 0;
   private protocolFailed = false;
+  private lastPreparation: PreparationPlan | undefined;
   private lastInterp: Interpretation | null = null;
   private readonly listeners = new Set<(e: SupervisorEvent) => void>();
 
@@ -78,11 +80,14 @@ export class EngineSupervisor {
     if (isNew) this.emit({ type: 'reset', wellId: well.id, gen });
   }
 
-  run(interpretation: Interpretation, context?: EngineContext): void {
+  cancel(): void { this.client.cancel(); }
+
+  run(interpretation: Interpretation, context?: EngineContext, preparation?: PreparationPlan): void {
+    this.lastPreparation = preparation;
     if(this.reviveProtocol() && this.lastWell)this.client.syncWell(this.lastWell,context ?? this.lastContext);
     if (context && !sameContext(context,this.lastContext)) this.protocolRestarts=0;
     this.lastInterp = interpretation; this.lastContext=context ?? this.lastContext;
-    this.client.run(interpretation,context);
+    this.client.run(interpretation,context,preparation);
   }
 
   dispose(): void {
@@ -121,7 +126,7 @@ export class EngineSupervisor {
     this.options.log?.(`Se reinicia el motor por un resultado incoherente: ${message}`);
     if (this.mode === 'worker') this.startWorker(); else this.startInProcess('recuperación de protocolo');
     if (this.lastWell) this.client.syncWell(this.lastWell,this.lastContext);
-    if (this.lastInterp) this.client.run(this.lastInterp,this.lastContext);
+    if (this.lastInterp) this.client.run(this.lastInterp,this.lastContext,this.lastPreparation);
   }
 
   private startWorker(): void {
@@ -176,7 +181,7 @@ export class EngineSupervisor {
     }
     // Reenviar el estado al motor nuevo. No se emite 'reset': es el mismo pozo y la misma profundidad.
     if (this.lastWell) this.client.syncWell(this.lastWell,this.lastContext);
-    if (this.lastInterp) this.client.run(this.lastInterp,this.lastContext);
+    if (this.lastInterp) this.client.run(this.lastInterp,this.lastContext,this.lastPreparation);
   }
 }
 

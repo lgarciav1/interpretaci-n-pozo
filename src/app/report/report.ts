@@ -1,4 +1,8 @@
-import { contextMatchesWell, engineDecisionKey, wellInputKey } from '../../core/engine/context';
+import { effectiveWell } from '../preparation/data';
+import { contextMatchesWell, engineDecisionKey, sameContext, wellInputKey } from '../../core/engine/context';
+import { planPreparation } from '../../core/preparation/plan';
+import { toEngineWell } from '../../core/engine/engine';
+import { maskQualityCounts } from '../../core/preparation/quality';
 import type { ClientResult } from '../../core/engine/client';
 import type { Interpretation } from '../../core/interpretation';
 import type { TableCell, TableColumn, TableValue } from '../../core/module';
@@ -34,6 +38,12 @@ function paramText(spec: ParamSpec, value: ParamValue): string {
 }
 /** Copia los textos y tablas de una corrida; no calcula petrofísica ni conserva arrays del motor. */
 export function buildReportModel(well: Well, interpretation: Interpretation, result: ClientResult | null, date = new Date(), catalog: Registry = registry): ReportModel {
+  const originals = well;
+  if (result?.preparation) {
+    try { if (!sameContext(result.context, planPreparation(toEngineWell(well), interpretation, result.context.inputRevisionId, catalog, result.preparation.plan.bindings).context)) result = null; }
+    catch { result = null; }
+  } else if (interpretation.preparation?.nodes.length) result = null;
+  well = effectiveWell(well, result);
   if(result && (!contextMatchesWell(result.context,{id:well.id,depth:well.depth.values,curves:well.curves}) || result.context.engineKey !== wellInputKey({id:well.id,depth:well.depth.values,curves:well.curves}) + '|' + engineDecisionKey(interpretation)))result=null;
   const current = result?.wellId === well.id ? result : null;
   const zones = interpretation.zones.map(({ id, name, top, base, kind }) => ({ id, name, top, base, kind }));
@@ -45,7 +55,12 @@ export function buildReportModel(well: Well, interpretation: Interpretation, res
     return { title: spec.label, columns: spec.columns.map((c) => ({ ...c })), rows: (out.value as TableValue).rows.map((r) => ({ ...r })) };
   };
   const warnings = current?.diagnostics.map((d) => `${d.level === 'error' ? 'Error' : d.level === 'warning' ? 'Advertencia' : 'Información'}${d.moduleId ? ` · ${catalog.get(d.moduleId)?.name ?? d.moduleId}` : ''}: ${d.message}`) ?? ['No hay resultados vigentes para este pozo.'];
-  const qc = runQc(well, { roles: catalog.roles });
+  const qc = runQc(originals, { roles: catalog.roles });
+  for (const p of current?.preparation?.artifacts ?? []) {
+    const a = current!.preparation!.plan.artifacts.find(a => a.id === p.id)!;
+    const counts = maskQualityCounts(p.quality);
+    warnings.push(`Preparación · ${a.mnemonic}: ${counts.newlyExcluded} mediciones excluidas; ${counts.originallyMissing} faltantes originales. Intervalos MD con extremos incluidos: ${a.ranges.map(r => `${number(r.top)}–${number(r.base)} m`).join(', ')}. Los originales se conservan; el control de calidad describe las mediciones originales.`);
+  }
   warnings.push(`Control de calidad de registros: ${qc.status === 'ok' ? 'sin alertas relevantes' : qc.status === 'bad' ? 'datos con problemas importantes' : 'hay advertencias'}.`);
   for (const curve of qc.curves) for (const reason of curve.reasons) warnings.push(`Calidad · ${curve.mnemonic}: ${reason.message}`);
   if (!qc.borehole) warnings.push('Sin caliper asignado: no se puede evaluar el estado del pozo ni los posibles errores de contacto de las herramientas de patín.');

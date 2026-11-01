@@ -1,9 +1,13 @@
+import { preparationViewCurves } from '../preparation/view';
+import { usePreparationUi } from '../preparation/store';
+import { effectiveWell } from '../preparation/data';
+import { entryContext } from '../preparation/data';
 /**
  * Lo que la app le da a la exportación de figuras: el contexto del pozo activo (pistas, curvas calculadas, zonas, sumario,
  * superposiciones en modo figura) y el motor de raster del navegador (canvas fuera de pantalla). Conecta los stores con
  * `figureRender.ts`, que no los conoce. docs/decisiones/0012-exportacion-de-figuras.md.
  */
-import { entryEngineContext, sameContext } from '../../core/engine/context';
+import { sameContext } from '../../core/engine/context';
 import type { Well } from '../../core/well';
 import { rgbaToRgb } from '../../io/export/figures/pdf';
 import type { TextMeasure } from '../../io/export/figures/svg';
@@ -41,13 +45,15 @@ export function figureTracks(well: Well) {
   const display = project.display;
   const workspace = useUi.getState().workspace;
   const entry=project.wells.find(e=>e.well===well);
-  const result=useResults.getState().result;
-  const computed = computedCurves(entry && result && sameContext(result.context,entryEngineContext(entry)) ? result : null, well);
+  const candidateResult=useResults.getState().result;
+  const result = entry && candidateResult && sameContext(candidateResult.context, entryContext(entry)) ? candidateResult : null;
+  well = effectiveWell(well, result);
+  const computed = computedCurves(entry && result && sameContext(result.context,entryContext(entry)) ? result : null, well);
   // Como en pantalla: sin las curvas de herramientas apagadas en la sarta (0032).
-  const interpretation = project.wells.find((e) => e.well === well)?.interpretation;
+  const interpretation = entry?.interpretation;
   return resolveTracks(
     withOverlayTracks(layoutFor(workspace, display.layouts), FIGURE_OVERLAYS, workspace, { well, ...(display.overlays ? { settings: display.overlays } : {}) }),
-    { depth: well.depth.values, curves: visibleCurves(well, interpretation), computed, catalog: registry.roles, sources: interpretation?.sources },
+    { depth: well.depth.values, curves: preparationViewCurves(visibleCurves(well, interpretation), interpretation, result, usePreparationUi.getState().compareOriginals), computed, catalog: registry.roles, sources: interpretation?.sources },
     { roles: display.roles, ...(display.curves[well.id] ? { curves: display.curves[well.id] } : {}) },
   );
 }
@@ -56,17 +62,18 @@ export function figureTracks(well: Well) {
 export function viewerFigureContext(measure: TextMeasure): ViewerFigureContext | null {
   const entry = selectActiveEntry(useProject.getState());
   if (!entry) return null;
-  const { well, interpretation } = entry;
+  const { well: originalWell, interpretation } = entry;
   const candidate = useResults.getState().result;
-  const result = candidate && sameContext(candidate.context,entryEngineContext(entry)) ? candidate : null;
+  const result = candidate && sameContext(candidate.context,entryContext(entry)) ? candidate : null;
+  const well = effectiveWell(originalWell, result);
   const computed = computedCurves(result, well);
   const zones = interpretation.zones.map((z) => ({ id: z.id, name: z.name, top: z.top, base: z.base, color: z.color }));
   const stored = useQc.getState().entries[well.id];
-  const qc = stored && stored.well.depth === well.depth && stored.well.curves === well.curves ? stored.report : computeQc(well);
+  const qc = stored && stored.well.depth === originalWell.depth && stored.well.curves === originalWell.curves ? stored.report : computeQc(originalWell);
   const data: ViewerData = { wellId: well.id, depth: well.depth.values, zones, selectedZoneId: null, qc: visibleQc(qc, well, interpretation), well, interpretation, computed, tables: computedTables(result, well) };
   return {
     well,
-    tracks: figureTracks(well),
+    tracks: figureTracks(originalWell),
     depth: well.depth.values,
     data,
     overlays: FIGURE_OVERLAYS,

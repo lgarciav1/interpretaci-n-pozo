@@ -35,6 +35,23 @@ const vshOf = (e: RunEntry) => {
 };
 
 describe('IsolatedRunner', () => {
+  it('evicta por bytes aunque no llegue al límite de entradas y conserva el resultado en uso', async () => {
+    const r = new IsolatedRunner(() => new EngineSupervisor({ createInProcess: () => createInProcessClient(registry) }), 6, 64);
+    const release = r.acquire('a', w, withOffset(1));
+    await settled(r, 'a'); release();
+    r.acquire('b', w, withOffset(2));
+    expect(vshOf(await settled(r, 'b'))).toEqual([12, 22, 32, 42]);
+    expect(r.get('a')).toBeUndefined(); expect(r.get('b')?.status).toBe('ready');
+  });
+  it('la última vista previa tiene prioridad sobre snapshots pendientes sin mezclar sus resultados', async () => {
+    const r = makeRunner();
+    r.acquire('active', w, withOffset(1));
+    r.acquire('snapshot', w, withOffset(2));
+    r.acquire('preparation-preview:latest', w, withOffset(3));
+    expect(vshOf(await settled(r, 'preparation-preview:latest'))).toEqual([13, 23, 33, 43]);
+    expect(r.get('snapshot')?.status).toBe('pending');
+    expect(vshOf(await settled(r, 'snapshot'))).toEqual([12, 22, 32, 42]);
+  });
   it('cada resultado corresponde a su pedido aunque se pidan varios seguidos', async () => {
     const r = makeRunner();
     const i1 = withOffset(1);
@@ -75,3 +92,4 @@ describe('IsolatedRunner', () => {
     expect(runKey('s', copy, { id: w.id, depth: w.depth, curves: w.curves })).not.toBe(k);
   });
 });
+

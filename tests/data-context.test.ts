@@ -170,6 +170,7 @@ describe('selección preparada estricta y consumidores', () => {
     expect(curves.find(c => c.curveId === id)?.origin).toBe('prepared');
     expect(curves.find(c => c.curveId === 'GR')?.alternative).toBe(true);
     const series = plotContextOf(data.well, i, []);
+    expect(curveSeriesProvider.list(series).some(s => s.key === 'r:GR' && s.group === 'Interpretación')).toBe(true);
     expect(curveSeriesProvider.resolve(series, 'r:GR')?.y).toBe(a.data);
     expect(curveSeriesProvider.resolve(series, 'm:GR')?.y).toBe(well.curves[0]!.data);
     const exported = buildExportColumns(data.well, null);

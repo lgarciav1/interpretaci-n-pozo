@@ -1,5 +1,6 @@
 /** Pedido aislado resuelto desde la revisión del snapshot, nunca desde un respaldo activo. */
-import { resolveDataContext } from '../../core/preparation/projection';
+import { entryPreparationPlan } from '../../core/state/preparation';
+import { toEngineWell } from '../../core/engine/engine';
 import { registry } from '../../modules';
 import { resolveSnapshotInputs } from '../../core/state/inputRevisions';
 import type { Project, Snapshot } from '../../core/state/project';
@@ -8,12 +9,13 @@ import { runKey } from './runner';
 
 export function snapshotRunRequest(project: Project, snapshot: Snapshot) {
   const inputs = resolveSnapshotInputs(project, snapshot);
-  const data = resolveDataContext(inputs.well, inputs.interpretation, registry, inputs.inputRevisionId);
-  const context=data.context;
+  const plan = entryPreparationPlan(project, { well: inputs.well, interpretation: inputs.interpretation, ...(inputs.inputRevisionId ? { inputRevisionId: inputs.inputRevisionId } : {}), progress: { marks: {} } }, registry);
+  const context=plan.context;
   return {
     ...inputs,
     key: runKey(snapshot.id, inputs.interpretation, { id: inputs.well.id, depth: inputs.well.depth.values, curves: inputs.well.curves }, inputs.inputRevisionId,context),
-    engineWell: data.engineWell,
+    engineWell: toEngineWell(inputs.well),
+    preparation: inputs.interpretation.preparation?.nodes.length ? plan : undefined,
     context,
   };
 }

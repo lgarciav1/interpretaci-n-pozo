@@ -4,6 +4,7 @@ import { addInitialInputRevision, emptyInputRevisions, reviseInputRevision, vali
 import type { Interpretation } from '../interpretation';
 import type { Well } from '../well';
 import type { Project, Snapshot } from './project';
+import { preparationBindings } from '../preparation/bindings';
 
 export type RevisionStampFactory = (wellId: string, state: InputRevisionState) => RevisionStamp;
 export const defaultRevisionStamp: RevisionStampFactory = (_wellId, state) => newInputRevisionStamp(state.revisions);
@@ -22,7 +23,10 @@ export function containsInputRevisions(value: unknown): boolean {
 
 /** Valida grafo, aliases exactos de Well y todos los snapshots; null es el modo legado. */
 export function projectInputState(project: Project): InputRevisionState | null {
-  if (!containsInputRevisions(project)) return null;
+  if (!containsInputRevisions(project)) {
+    if ([...project.wells, ...project.snapshots].some(e => e.interpretation.preparation !== undefined)) throw new Error('La preparación requiere revisiones de entradas.');
+    return null;
+  }
   if (!project.inputRevisions) throw new Error('El proyecto refiere a revisiones pero no contiene su almacén.');
   const active: Record<string, string> = Object.create(null) as Record<string, string>;
   const wells = new Set<string>();
@@ -37,11 +41,13 @@ export function projectInputState(project: Project): InputRevisionState | null {
   }
   const state = Object.freeze({ revisions: project.inputRevisions, activeByWell: Object.freeze(active) });
   validateInputRevisionState(state);
+  for (const entry of project.wells) preparationBindings(entry.interpretation, entry.well.id, state.revisions);
   const snapshots = new Set<string>();
   for (const snapshot of project.snapshots) {
     if (snapshots.has(snapshot.id)) throw new Error('Hay ids de snapshot repetidos.');
     snapshots.add(snapshot.id);
     checkSnapshotRevision(project.inputRevisions, snapshot);
+    preparationBindings(snapshot.interpretation, snapshot.wellId, state.revisions);
     if (!wells.has(snapshot.wellId)) throw new Error('Un snapshot refiere a un pozo inexistente.');
   }
   return state;

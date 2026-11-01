@@ -1,12 +1,12 @@
 # ADR 0035: proyección efectiva y contexto de laboratorio
 
-Fecha: 2026-10-30. Estado: P2b, continuación de ADR 0034 sobre PR #43. No habilita un editor ni métodos de corrección.
+Fecha: 2026-10-30. Estado: P2b implementado, continuación de ADR 0034 sobre PR #43. La integración P3a del editor de exclusiones manuales está definida en ADR 0036; no se habilitan correcciones físicas.
 
 ## Una proyección, originales intactos
 
 `resolveDataContext` recibe el Well importado, interpretación, registro y revisión explícita. Sin artefactos conserva el Well, lista de curvas, arrays y claves del motor anteriores. El puente principal y el pedido aislado de snapshots usan este servicio; el motor y los selectores del visor/plots/figuras usan su filtro `selectDataCurves`. La disponibilidad de módulos conserva el mismo criterio de fuentes y herramientas.
 
-La API también acepta un lote de `PreparedArtifact` **ya evaluados**, todavía sin productor en la UI. Valida ids únicos, colisiones, revisión, índice, unidades/dimensiones, largos de datos/calidad, padres/versiones y ciclos. Resuelve dependencias topológicamente aunque el lote venga en otro orden; conserva el orden del lote para presentación. Publica el lote completo o lanza un error sin alterar el proyecto. No aplica fórmulas ni admite métodos científicos por recibir un artefacto.
+La API también acepta un lote de `PreparedArtifact` **ya evaluados**, sin productor de UI en P2b; el productor de máscaras manuales P3a está en ADR 0036. Valida ids únicos, colisiones, revisión, índice, unidades/dimensiones, largos de datos/calidad, padres/versiones y ciclos. Resuelve dependencias topológicamente aunque el lote venga en otro orden; conserva el orden del lote para presentación. Publica el lote completo o lanza un error sin alterar el proyecto. No aplica fórmulas ni admite métodos científicos por recibir un artefacto.
 
 Cada artefacto contiene firma de receta/método/alcance suministrada por el evaluador, referencias versionadas a padres, Float64Array y Uint16Array de calidad alineados al índice maestro. La semántica de los flags, el ledger de efectos y el evaluador de recetas pertenecen a P3. Esta API no sustituye esa validación científica. Los arrays prestados son inmutables por contrato, igual que los originales; no impide escrituras que eludan las APIs.
 
@@ -20,7 +20,7 @@ Las alternativas preparadas no se eligen por defecto. Si se elige una explícita
 
 La ascendencia de originales se atribuye con el ToolCatalog vigente; es una clasificación por rol/mnemónico, no una declaración de fabricante, modelo ni corrección adquirida. Una salida preparada hereda la unión de herramientas de todos sus padres. Su rol/mnemónico de salida no puede cambiar esa ascendencia. Apagar cualquier ancestro, o dejarlo fuera del plan, excluye el artefacto del motor, visor y plots. Las curvas sin herramienta atribuible mantienen ascendencia vacía, sin afirmar independencia física. El wire legado de originales puede conservar ascendencia vacía; la preparación obtiene sus padres del mapa atribuido del contexto, no de una afirmación externa de ascendencia.
 
-El visor identifica preparadas, conserva acceso explícito al original y sigue la elegida para rellenos. Las series por rol respetan una selección preparada sin fallback; las series por id mantienen comparación explícita. LAS, CSV/XLSX y los modelos de informe aceptan la proyección y sus resultados coherentes; las columnas preparadas se distinguen de las medidas. Los exportadores de datos conservan el acceso existente a los originales, incluso si la sarta los oculta. ML recibe la misma fuente resuelta por el grafo, sin modificar modelos ni ecuaciones. Aún no hay publicación de artefactos hacia los stores de la aplicación: esa conexión requiere el evaluador y su paquete atómico en P3.
+El visor identifica preparadas, conserva acceso explícito al original y sigue la elegida para rellenos. Las series por rol respetan una selección preparada sin fallback; las series por id mantienen comparación explícita. LAS, CSV/XLSX y los modelos de informe aceptan la proyección y sus resultados coherentes; las columnas preparadas se distinguen de las medidas. Los exportadores de datos conservan el acceso existente a los originales, incluso si la sarta los oculta. ML recibe la misma fuente resuelta por el grafo, sin modificar modelos ni ecuaciones. P2b no publicaba artefactos hacia los stores. P3a conecta el evaluador y el paquete atómico según ADR 0036.
 
 ## Identidad y laboratorio
 
@@ -32,4 +32,4 @@ No se agrega un ajuste DRX ni un botón de aceptación. P3 debe consumir estas c
 
 ## Trabajo siguiente
 
-P3: unión tipada/versionada de recetas, semántica de calidad, evaluación de exclusión/restauración no destructiva, previsualización aislada, publicación de artefactos con resultados, persistencia de decisiones, undo/redo y comparación original/preparada. Debe completar límites de memoria/cancelación y validación del método antes de habilitarlo. Después: alineación/limpieza adicionales, carga/emparejado/calibración DRX y correcciones físicas según datos disponibles. No se declaran resueltos #31 ni #32.
+P3a concreta la receta mask v1, calidad, exclusión/restauración, previsualización, publicación, persistencia, undo/redo y comparación en ADR 0036, con presupuesto y cancelación de máscaras. Continúan pendientes métodos automáticos y su admisión científica, encadenamiento de operaciones desde la UI y las operaciones de profundidad. Después: alineación/limpieza adicionales, carga/emparejado/calibración DRX y correcciones físicas según datos disponibles. No se declaran resueltos #31 ni #32.

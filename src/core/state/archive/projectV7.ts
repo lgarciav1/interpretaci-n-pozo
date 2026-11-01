@@ -1,6 +1,7 @@
 /** Archivo de revisiones: una representación por Well, arrays compartidos por hash de bytes LE. */
 import { sanitizeDisplay, type DisplaySettings } from '../../display';
 import type { Interpretation } from '../../interpretation';
+import { validatePreparation } from '../../preparation/state';
 import { isNumericColumn, sanitizePointSetDecisions, type PointSet } from '../../pointSets';
 import { sanitizeToolString } from '../../toolString';
 import { sanitizeTrends } from '../../trends';
@@ -50,7 +51,8 @@ function jsonData(value: unknown): void {
   for (const v of Object.values(requireObject(value, 'Datos JSON'))) jsonData(v);
 }
 function interpretation(raw: unknown): Interpretation {
-  const i = requireShape(raw, 'Interpretación', ['zones','params','sources','compare','disabled','trends','pointSets'], ['toolString']);
+  const i = requireShape(raw, 'Interpretación', ['zones','params','sources','compare','disabled','trends','pointSets'], ['toolString','preparation']);
+  if (own(i, 'preparation')) validatePreparation(i.preparation);
   jsonData(i);
   requireArray(i.zones, 'Zonas');
   const ids = new Set<string>();

@@ -1,3 +1,4 @@
+import { effectiveWell } from '../preparation/data';
 /**
  * Panel «Tendencias» del dock (docs/decisiones/0008-tendencias-y-gradientes.md, D7): lista de las tendencias del
  * pozo activo y detalle de la seleccionada (curva, modelo, ecuación, R², n, puntos fuera del ajuste y gradientes en
@@ -45,7 +46,7 @@ export function TrendsPanel() {
   const tool = useTrendsUi((s) => s.tool);
   const setUi = useTrendsUi((s) => s.set);
   const theme = useThemeTokens();
-  const well = entry?.well ?? null;
+  const well = entry ? effectiveWell(entry.well, result) : null;
   const interp = entry?.interpretation ?? null;
   const computed = computedCurves(result, well);
 
@@ -376,3 +377,4 @@ function TrendDetail({ row, color, options, zones, paletteTheme }: DetailProps) 
     </section>
   );
 }
+

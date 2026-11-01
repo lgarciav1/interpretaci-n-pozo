@@ -1,3 +1,5 @@
+import { effectiveWell } from '../preparation/data';
+import { useResults } from '../store/results';
 /**
  * Conexión de la sarta de perfilaje (docs/decisiones/0032) con la interfaz: curvas que ve el visor y disponibilidad de
  * módulos del pozo activo, con caché por identidad (curvas del pozo, estado de la sarta, módulos desactivados, fuentes) para que
@@ -64,7 +66,8 @@ export function toolStringView(well: Well, interpretation: Interpretation): Tool
 /** Sarta y disponibilidad del pozo activo (null sin pozo). Barato: `toolStringView` cachea por identidad. */
 export function useToolStringView(): ToolStringView | null {
   const entry = useProject(selectActiveEntry);
-  return entry ? toolStringView(entry.well, entry.interpretation) : null;
+  const result = useResults(s => s.result);
+  return entry ? toolStringView(effectiveWell(entry.well, result), entry.interpretation) : null;
 }
 
 /** Rótulo corto del estado de disponibilidad (insignias del panel de módulos). */

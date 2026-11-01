@@ -1,3 +1,6 @@
+import { preparationViewCurves } from '../preparation/view';
+import { usePreparationUi } from '../preparation/store';
+import { effectiveWell } from '../preparation/data';
 /**
  * Lugar del visor multipista: conecta los stores (proyecto, resultados del motor, calidad, interfaz) con el
  * componente `WellViewer` de src/viewer, que no conoce stores. Decisión: docs/decisiones/0005-visor-multipista.md.
@@ -95,8 +98,8 @@ export function ViewerSlot() {
   const building = useUi((s) => s.trackBuilder);
   const dragPayload = useLayoutDrag((s) => s.payload);
   const dragTarget = useLayoutDrag((s) => s.target);
-  const well = entry?.well ?? null;
-  const qc = useWellQc(well);
+  const well = entry ? effectiveWell(entry.well, result) : null;
+  const qc = useWellQc(entry?.well ?? null);
   // Selección compartida con los gráficos (0021): ficha en la barra con «Limpiar».
   const plotSelection = usePlotSelection(well?.depth.values);
   const interpretation = entry?.interpretation;
@@ -104,7 +107,8 @@ export function ViewerSlot() {
   const computed = useMemo(() => (well ? computedCurves(result, well) : []), [result, well]);
   // Sarta (docs/decisiones/0032): las curvas de herramientas apagadas no se ven (filtro; las pistas no cambian).
   const toolString = interpretation?.toolString;
-  const curves = useMemo(() => (well ? visibleCurves(well, { toolString }) : []), [well, toolString]);
+  const compareOriginals = usePreparationUi(s => s.compareOriginals);
+  const curves = useMemo(() => (well ? preparationViewCurves(visibleCurves(well, { toolString }), interpretation, result, compareOriginals) : []), [well, toolString, interpretation, result, compareOriginals]);
   // Pistas propias con escala según los datos (presiones MDT) y los ajustes guardados (unidad).
   const layoutSpec = useMemo(
     () => (well ? withOverlayTracks(layoutFor(workspace, display.layouts), OVERLAYS, workspace, { well, ...(display.overlays ? { settings: display.overlays } : {}) }) : []),
@@ -134,10 +138,10 @@ export function ViewerSlot() {
   const curtain = useMemo<ViewerCurtain | null>(() => {
     if (!well || !curtainSnap || !curtainResult || !curtainWell || curtainIssue) return null;
     // El lado «antes» con la sarta del snapshot (sus curvas medidas son las que veía ese cálculo).
-    const beforeCurves = visibleCurves(curtainWell, curtainSnap.interpretation);
+    const beforeCurves = preparationViewCurves(visibleCurves(curtainWell, curtainSnap.interpretation), curtainSnap.interpretation, curtainResult, compareOriginals);
     const before = resolveTracks(layoutSpec, { depth: curtainWell.depth.values, curves: beforeCurves, computed: computedCurves(curtainResult, curtainWell), catalog: registry.roles, sources: curtainSnap.interpretation.sources }, overrides, { keepEmpty: true });
     return { before: alignCurtainTracks(tracks, before), beforeLabel: `Antes: ${curtainSnap.name}`, afterLabel: 'Después: actual' };
-  }, [well, curtainSnap, curtainResult, curtainWell, curtainIssue, layoutSpec, overrides, tracks]);
+  }, [well, curtainSnap, curtainResult, curtainWell, curtainIssue, layoutSpec, overrides, tracks, compareOriginals]);
 
   // «Armar pistas» (docs/decisiones/0016): acciones sobre las pistas que se ven, publicadas para el panel.
   const editor = useMemo(() => (well ? createLayoutEditor({ workspace, overlays: OVERLAYS, displayed: tracks, curves }) : null), [well, workspace, tracks, curves]);
