@@ -20,6 +20,7 @@ import { DropLayer, ResizeEdge, type ViewerLayoutEditing } from './layoutEdit';
 import { PointerGestures, type HitResult } from './interaction';
 import { Minimap, type MinimapHandle } from './MinimapView';
 import { pickMinimapCurve } from './minimap';
+import { RangeNavigator } from './RangeNavigator';
 import { guard, type OverlayHit, type OverlayPointer, type ViewerData, type ViewerOverlay } from './overlay';
 import { formatDepth, formatReadout, nearestIndex, valueAt } from './readout';
 import { overlayTracks, overlayViewport, stackFillColor, ViewerRenderer, type FrameInput } from './render';
@@ -1156,7 +1157,22 @@ export function WellViewer(props: WellViewerProps) {
         <div className="wv-toolbar__start">{toolbarStart}</div>
         <div className="wv-toolbar__end">
           {toolbarEnd}
-          <span className="wv-toolbar__range num" ref={rangeRef} aria-label="Tramo visible" />
+          <RangeNavigator key={wellKey} rangeRef={rangeRef} fit={fit}
+            getWindow={() => {
+              const vp = vpRef.current;
+              const lim = limRef.current;
+              if (!vp || !lim || draggingRef.current) return null;
+              return { top: Math.max(lim.min, vp.top), base: Math.min(lim.max, baseOf(vp)), min: lim.min, max: lim.max, minimumSpan: vp.height / lim.maxPxPerM };
+            }}
+            show={(range) => {
+              const vp = vpRef.current;
+              const lim = limRef.current;
+              if (!vp || !lim || draggingRef.current) return null;
+              stopReveal();
+              const next = showRange(lim, vp.height, range.top, range.base);
+              setViewport(next);
+              return { top: next.top, base: baseOf(next) };
+            }} />
           <span className="wv-toolbar__scale num" ref={scaleRef} title="Escala vertical a 96 ppp" />
           <div className="wv-toolbar__zoom" role="group" aria-label="Zoom">
             <IconButton icon="zoom-out" size="sm" label="Alejar" hint="−" onClick={() => zoom(1 / ZOOM_STEP)} />
@@ -1367,3 +1383,4 @@ export function WellViewer(props: WellViewerProps) {
     </div>
   );
 }
+
