@@ -261,6 +261,10 @@ export function buildWell(
       throw new Error(`La unidad '${unit}' de la curva '${col.name}' no es compatible con el rol ${role}.`);
     }
     let id = (m.id || col.name).trim();
+    if (id.startsWith('prep:')) {
+      warnings.push(`El id '${id}' está reservado para preparación: se importa como 'import:${id}'.`);
+      id = `import:${id}`;
+    }
     if (ids.has(id)) {
       let k = 2;
       while (ids.has(`${id}_${k}`)) k++;
@@ -299,3 +303,4 @@ function headerText(table: RawTable, key: string): string | undefined {
   const v = table.header[key]?.value;
   return v === undefined || String(v).trim() === '' ? undefined : String(v).trim();
 }
+

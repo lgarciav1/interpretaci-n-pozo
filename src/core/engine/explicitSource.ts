@@ -10,9 +10,11 @@ import { portOf } from '../module';
 import type { Registry } from '../registry';
 import type { RoleId } from '../roles';
 import { getUnit, type UnitId } from '../units';
+import type { CurveProvenance } from './context';
 
 /** Lo que hace falta saber de una curva del pozo para validar una fuente explícita. */
 export interface ExplicitCurveMeta {
+  provenance?: CurveProvenance;
   mnemonic: string;
   role: RoleId | null;
   /** Si falta, no se valida la dimensión. */
@@ -34,7 +36,8 @@ export function validateExplicitSource(
     // Con otro rol se admite, pero tiene que ser la misma magnitud (no se puede usar una densidad como Rt).
     const expected = getUnit(registry.roles.unitOf(port));
     const actual = c.unit !== undefined ? getUnit(c.unit) : undefined;
-    if (c.role !== port && expected && actual && actual.dimension !== expected.dimension) {
+    if (c.provenance?.origin === 'prepared' && (!expected || !actual)) return `La curva preparada '${c.mnemonic}' no tiene una unidad verificable para ${port}.`;
+    if ((c.role !== port || c.provenance?.origin === 'prepared') && expected && actual && actual.dimension !== expected.dimension) {
       return `La curva '${c.mnemonic}' (${actual.label}) no puede ser ${port}: se esperaba una magnitud en ${expected.label}.`;
     }
     return null;
@@ -45,3 +48,4 @@ export function validateExplicitSource(
   if (!Object.values(m.outputs).some((s) => portOf(s) === port)) return `El módulo '${m.name}' no produce ${port}.`;
   return null;
 }
+

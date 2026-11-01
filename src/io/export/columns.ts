@@ -31,9 +31,9 @@ export function buildExportColumns(well: Well, outputs: readonly ExportOutput[] 
     id: `m:${c.id}`,
     mnemonic: c.mnemonic || c.id,
     unit: c.unit,
-    ...(c.description ? { description: c.description } : {}),
+    ...(c.origin.kind === 'prepared' ? { description: `Preparada${c.description ? ' · ' + c.description : ''}` } : c.description ? { description: c.description } : {}),
     data: c.data,
-    origin: 'measured' as const,
+    origin: c.origin.kind === 'prepared' ? 'prepared' as const : 'measured' as const,
   }));
   const n = well.depth.values.length;
   const name = options.moduleName ?? ((id: string) => id);
@@ -72,3 +72,4 @@ export function extractSummary(
   if (!rows || rows.length === 0) return null;
   return { columns, rows };
 }
+

@@ -47,6 +47,7 @@ export function ExportDialog() {
   if (!open || !entry || !sources) return null;
 
   const close = () => setUi({ exportOpen: false });
+  const prepared = sources.columns.filter((c) => c.origin === 'prepared');
   const measured = sources.columns.filter((c) => c.origin === 'measured');
   const computed = sources.columns.filter((c) => c.origin === 'computed');
   const selected = sources.columns.filter((c) => !off.has(c.id));
@@ -171,6 +172,7 @@ export function ExportDialog() {
         </div>
 
         {group('Curvas medidas', measured, 'El pozo no tiene curvas medidas.')}
+        {prepared.length > 0 && group('Curvas preparadas', prepared, '')}
         {group('Curvas calculadas', computed, 'Todavía no hay curvas calculadas: se agregan cuando el motor termina de calcular.')}
         {sources.alternatives > 0 && (
           <Checkbox

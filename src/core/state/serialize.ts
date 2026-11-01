@@ -77,6 +77,7 @@ export interface ProjectFile {
 // Proyecto
 
 export async function serializeProject(project: Project, opts: { codec?: CodecChoice; savedAt?: string; version?: 6 | 7 } = {}): Promise<string> {
+  if (project.wells.some(e => e.well.curves.some(c => c.origin.kind === 'prepared' || c.provenance))) throw new Error('La proyección preparada no se guarda como datos originales.');
   const version = opts.version ?? (containsInputRevisions(project) ? REVISION_PROJECT_VERSION : PROJECT_VERSION);
   if (version === REVISION_PROJECT_VERSION) return serializeProjectV7(project, opts.codec ?? defaultCodec(), opts.savedAt ?? new Date().toISOString());
   if (version !== 6) throw new Error('Versión de escritura no admitida.');
@@ -247,6 +248,7 @@ export async function deserializeProject(text: string, opts: DeserializeOptions 
   };
   const wells = await Promise.all(
     project.wells.map(async ({ well, interpretation, progress }) => {
+      if (well.curves.some(c => c.origin?.kind === 'prepared' || c.provenance)) throw new Error('El archivo contiene una proyección preparada como datos originales.');
       const depth = await decodeArray(well.depth.values, budget);
       const curves: Curve[] = await Promise.all(well.curves.map(async (c) => ({ ...c, data: await decodeArray(c.data, budget) })));
       const where = `Pozo '${well.name}'`;

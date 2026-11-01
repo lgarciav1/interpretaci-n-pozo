@@ -16,6 +16,8 @@ import type { Interpretation, SourceRef } from './interpretation';
 import { groupMin, portOf, unmetInputGroup, type AnyModule, type InputGroupSpec } from './module';
 import type { RoleCatalog, RoleId } from './roles';
 import type { ToolCatalog, ToolCurveRef, ToolDef } from './tools';
+import { ancestorToolIds } from './tools';
+import { isPreparedSource } from './preparation/source';
 import type { UnitId } from './units';
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -89,22 +91,12 @@ export interface ResolvedToolString {
 
 const EMPTY_SET: ReadonlySet<string> = new Set();
 
-/** Herramienta que registró cada curva con rol (las que no tienen herramienta no figuran). */
-function attribute(curves: readonly ToolCurveRef[], tools: ToolCatalog): Map<string, ToolDef> {
-  const owner = new Map<string, ToolDef>();
-  for (const c of curves) {
-    const t = tools.ownerOf(c);
-    if (t) owner.set(c.id, t);
-  }
-  return owner;
-}
-
 /** Ids de las herramientas con datos en el pozo, por orden típico en la sarta (la sarta «de datos» sin ajustes). */
 export function derivedToolIds(curves: readonly ToolCurveRef[], tools: ToolCatalog): string[] {
-  const present = new Set([...attribute(curves, tools).values()]);
+  const present = new Set(curves.flatMap(c => ancestorToolIds(c, tools)));
   return tools
     .all()
-    .filter((t) => present.has(t))
+    .filter((t) => present.has(t.id))
     .slice()
     .sort((a, b) => a.typicalOrder - b.typicalOrder)
     .map((t) => t.id);
@@ -123,13 +115,12 @@ function applyOrder(ids: readonly string[], order: readonly string[]): string[] 
 /** Arma la sarta que se ve, con las curvas de cada herramienta y las que quedan fuera del cálculo y del visor. */
 export function resolveToolString(curves: readonly ToolCurveRef[], state: ToolStringState | undefined, tools: ToolCatalog): ResolvedToolString {
   const s = state ?? (DEFAULT_TOOL_STRING as ToolStringState);
-  const owner = attribute(curves, tools);
   const curvesOf = new Map<string, ToolCurveRef[]>();
   const uncontrolled: string[] = [];
   for (const c of curves) {
-    const t = owner.get(c.id);
-    if (!t) uncontrolled.push(c.id);
-    else curvesOf.set(t.id, [...(curvesOf.get(t.id) ?? []), c]);
+    const ancestors = ancestorToolIds(c, tools);
+    if (!ancestors.length) uncontrolled.push(c.id);
+    for (const id of ancestors) curvesOf.set(id, [...(curvesOf.get(id) ?? []), c]);
   }
   const off = new Set(offIdsOf(s));
   const ids =
@@ -144,7 +135,7 @@ export function resolveToolString(curves: readonly ToolCurveRef[], state: ToolSt
   });
   const visibleTools = new Set(entries.filter((e) => e.on).map((e) => e.tool.id));
   const excluded = new Set<string>();
-  for (const [curveId, t] of owner) if (!visibleTools.has(t.id)) excluded.add(curveId);
+  for (const c of curves) if (ancestorToolIds(c, tools).some(id => !visibleTools.has(id))) excluded.add(c.id);
   const inString = new Set(ids);
   const outsidePlan = s.mode === 'planning' ? [...curvesOf.keys()].filter((id) => !inString.has(id)) : [];
   return { mode: s.mode, entries, excluded: excluded.size ? excluded : EMPTY_SET, uncontrolled, outsidePlan };
@@ -152,7 +143,7 @@ export function resolveToolString(curves: readonly ToolCurveRef[], state: ToolSt
 
 /** Curvas fuera del cálculo y del visor (rápido: vacío sin tocar nada si el estado es el de por defecto). */
 export function excludedCurveIds(curves: readonly ToolCurveRef[], state: ToolStringState | undefined, tools: ToolCatalog): ReadonlySet<string> {
-  if (isDefaultToolString(state)) return EMPTY_SET;
+  if (isDefaultToolString(state) && !curves.some(c => c.provenance?.origin === 'prepared')) return EMPTY_SET;
   return resolveToolString(curves, state, tools).excluded;
 }
 
@@ -183,14 +174,14 @@ const NO_HIDDEN: ReadonlyMap<string, HiddenCurve> = new Map();
  * lista de curvas: «RHOB está oculta: la herramienta Densidad está apagada en la sarta»). Mismo criterio que `excluded`.
  */
 export function hiddenCurves(curves: readonly ToolCurveRef[], state: ToolStringState | undefined, tools: ToolCatalog): ReadonlyMap<string, HiddenCurve> {
-  if (isDefaultToolString(state)) return NO_HIDDEN;
+  if (isDefaultToolString(state) && !curves.some(c => c.provenance?.origin === 'prepared')) return NO_HIDDEN;
   const resolved = resolveToolString(curves, state, tools);
   if (!resolved.excluded.size) return NO_HIDDEN;
   const inString = new Set(resolved.entries.map((e) => e.tool.id));
   const out = new Map<string, HiddenCurve>();
   for (const c of curves) {
     if (!resolved.excluded.has(c.id)) continue;
-    const t = tools.ownerOf(c);
+    const t = ancestorToolIds(c, tools).map(id => tools.get(id)).find(t => t && !resolved.entries.some(e => e.tool.id === t.id && e.on));
     if (!t) continue;
     out.set(c.id, { curveId: c.id, mnemonic: c.mnemonic, role: c.role, toolId: t.id, toolName: t.name, reason: inString.has(t.id) ? 'off' : 'outside-plan' });
   }
@@ -247,6 +238,7 @@ export interface MissingNeed {
 
 export interface ModuleAvailability {
   moduleId: string;
+  blockedPreparedPorts?: string[];
   status: AvailabilityStatus;
   /** Entradas obligatorias directas que no quedan cubiertas (puertos), con la sarta (planificada, si corresponde). */
   missingInputs: string[];
@@ -309,6 +301,7 @@ type Src = string;
 interface Explicit {
   curve: ReadonlySet<string>;
   module: ReadonlyMap<string, string>;
+  blocked: ReadonlySet<string>;
 }
 
 function explicitChoices(
@@ -316,18 +309,23 @@ function explicitChoices(
   visible: readonly AvailabilityCurve[],
   sources: Readonly<Record<string, SourceRef>> | undefined,
   disabled: ReadonlySet<string>,
+  allCurves: readonly AvailabilityCurve[],
 ): Explicit {
   const curve = new Set<string>();
   const module = new Map<string, string>();
-  if (!sources) return { curve, module };
+  const blocked = new Set<string>();
+  if (!sources) return { curve, module, blocked };
   const byId = new Map(visible.map((c) => [c.id, c]));
   for (const [port, ref] of Object.entries(sources)) {
     // Una curva de una herramienta apagada no está en `visible`: queda en suspenso y el motor usa la fuente por defecto.
-    if (validateExplicitSource(registry, byId, disabled, port, ref)) continue;
+    if (validateExplicitSource(registry, byId, disabled, port, ref)) {
+      if (isPreparedSource(ref) && ref.kind === 'curve' && !allCurves.some(c => c.id === ref.curveId && c.provenance?.origin !== 'prepared')) blocked.add(port);
+      continue;
+    }
     if (ref.kind === 'curve') curve.add(port);
     else module.set(port, ref.moduleId);
   }
-  return { curve, module };
+  return { curve, module, blocked };
 }
 
 interface Closure {
@@ -351,6 +349,7 @@ interface Closure {
 function closure(modules: readonly AnyModule[], covered: ReadonlySet<string>, disabled: ReadonlySet<string>, explicit: Explicit): Closure {
   const candidates = new Map<string, Src[]>();
   const add = (port: string, s: Src) => {
+    if (explicit.blocked.has(port)) return;
     const list = candidates.get(port);
     if (!list) candidates.set(port, [s]);
     else if (!list.includes(s)) list.push(s);
@@ -396,6 +395,7 @@ function closure(modules: readonly AnyModule[], covered: ReadonlySet<string>, di
   // 3. Lo que corre con esas fuentes.
   const runsWith = (s: Src | null, done: ReadonlySet<string>) => s !== null && (s === DATA || done.has(s));
   const available = fixpoint((m, done) => {
+    if (Object.values(m.inputs).some(spec => explicit.blocked.has(portOf(spec)))) return false;
     const runs = (port: string) => runsWith(sourceFor(port, m.id), done);
     return Object.values(m.inputs).every((spec) => spec.optional || runs(portOf(spec))) && !unmetInputGroup(m, (k) => !!m.inputs[k] && runs(portOf(m.inputs[k]!)));
   });
@@ -418,6 +418,7 @@ function makeNeedFinder(registry: AvailabilityRegistry, cl: Closure, disabled: R
   const memo = new Map<string, string[]>();
   const need = (port: string, visiting: ReadonlySet<string>): string[] | null => {
     if (cl.covers(port)) return [];
+    if (explicit.blocked.has(port)) return null;
     const hit = memo.get(port);
     if (hit) return hit;
     const forced = explicit.module.get(port);
@@ -487,8 +488,8 @@ export function moduleAvailability(
   const disabled = new Set(opts.disabled ?? []);
   const visible = resolved.excluded.size ? curves.filter((c) => !resolved.excluded.has(c.id)) : curves;
   const realCovered = new Set<string>();
-  for (const c of visible) if (c.role) realCovered.add(c.role);
-  const explicit = explicitChoices(registry, visible, opts.sources, disabled);
+  for (const c of visible) if (c.role && c.provenance?.origin !== 'prepared') realCovered.add(c.role);
+  const explicit = explicitChoices(registry, visible, opts.sources, disabled, curves);
   const real = closure(registry.modules, realCovered, disabled, explicit);
   const planning = resolved.mode === 'planning';
   const hypo = planning ? closure(registry.modules, new Set([...realCovered, ...rolesOfEntries(resolved.entries)]), disabled, explicit) : real;
@@ -552,7 +553,8 @@ export function moduleAvailability(
       continue;
     }
     const { missing, needs, groups } = leafNeeds(m, hypo, needHypo);
-    modules.set(m.id, { moduleId: m.id, status: 'unavailable', missingInputs: missing, needs, toolsWithoutData: [], missingGroups: groups });
+    const blockedPreparedPorts = Object.values(m.inputs).map(portOf).filter(port => explicit.blocked.has(port));
+    modules.set(m.id, { moduleId: m.id, status: 'unavailable', missingInputs: missing, needs, toolsWithoutData: [], missingGroups: groups, ...(blockedPreparedPorts.length ? { blockedPreparedPorts } : {}) });
   }
   return { mode: resolved.mode, modules, covered: real.ports };
 }
@@ -589,6 +591,7 @@ export function modulesEnabledBy(
 
 /** Motivo en español, sin ecuaciones, de por qué un módulo no está disponible ('' si lo está). */
 export function availabilityReason(av: ModuleAvailability, ctx: { tools: ToolCatalog; roles: RoleCatalog; resolved: ResolvedToolString }): string {
+  if (av.blockedPreparedPorts?.length) return `La fuente preparada de ${av.blockedPreparedPorts.join(', ')} no está disponible. Revisá la preparación o elegí otra fuente.`;
   const { tools, roles, resolved } = ctx;
   const name = (id: string) => tools.get(id)?.name ?? id;
   const what = (port: string) => {
@@ -677,3 +680,4 @@ export function sanitizeToolString(raw: unknown, where: string, warn: (m: string
   };
   return isDefaultToolString(state) ? undefined : state;
 }
+

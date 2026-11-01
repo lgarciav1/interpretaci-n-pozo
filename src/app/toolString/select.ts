@@ -4,7 +4,8 @@
  * los memos de React no se rompan en cada render. La lógica está en `src/core/toolString.ts`.
  */
 import type { Interpretation } from '../../core/interpretation';
-import { availabilityReason, filterCurvesByToolString, moduleAvailability, resolveToolString, type AvailabilityReport, type ModuleAvailability, type ResolvedToolString } from '../../core/toolString';
+import { availabilityReason, moduleAvailability, resolveToolString, type AvailabilityReport, type ModuleAvailability, type ResolvedToolString } from '../../core/toolString';
+import { selectDataCurves } from '../../core/preparation/projection';
 import type { Curve, Well } from '../../core/well';
 import { registry } from '../../modules';
 import { selectActiveEntry, useProject } from '../store/project';
@@ -17,10 +18,9 @@ const visibleCache = new WeakMap<readonly Curve[], { state: Interpretation['tool
  */
 export function visibleCurves(well: Well, interpretation: Pick<Interpretation, 'toolString'> | undefined): readonly Curve[] {
   const state = interpretation?.toolString;
-  if (!state) return well.curves;
   const hit = visibleCache.get(well.curves);
   if (hit && hit.state === state) return hit.curves;
-  const curves = filterCurvesByToolString(well.curves, state, registry.tools);
+  const curves = selectDataCurves(well.curves, interpretation, registry.tools).eligible;
   visibleCache.set(well.curves, { state, curves });
   return curves;
 }
@@ -74,3 +74,4 @@ export const AVAILABILITY_LABEL = {
   unavailable: 'no disponible',
   disabled: 'desactivado',
 } as const;
+

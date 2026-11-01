@@ -1,6 +1,6 @@
 # ADR 0034: contexto científico y recuperación del protocolo
 
-Fecha: 2026-10-30. Estado: P2a implementado; continúa ADR 0033/D5 y masterplan #33 sobre PR #42. No habilita preparación ni DRX. El planificador de proyección efectiva, SourceRef de preparación y calibrationKey quedan en P2b.
+Fecha: 2026-10-30. Estado: P2a implementado; continúa ADR 0033/D5 y masterplan #33 sobre PR #42. No habilita preparación ni DRX. La proyección de artefactos evaluados, las fuentes preparadas y calibrationKey se concretan en ADR 0035 (P2b); el evaluador de recetas queda en P3.
 
 ## Identidad y alcance
 
@@ -32,4 +32,7 @@ Se copian entradas por el canal, sin transferir sus buffers activos. Las salidas
 
 ## Evidencia y trabajo siguiente
 
-Ver docs/validacion/2026-10-30-contexto-motor.md para suite, fallos inyectados en Worker y regresiones. Este paso cierra identidad/publicación/resync P2a. P2b debe concretar el planificador compartido de proyección (motor, visor, plots y exportaciones), consumidores de preparación, fuentes preparadas explícitas y dependencias/calibrationKey de laboratorio antes de habilitar preparación o calibración.
+Ver docs/validacion/2026-10-30-contexto-motor.md para suite, fallos inyectados en Worker y regresiones. Este paso cierra identidad/publicación/resync P2a. ADR 0035 concreta P2b para artefactos ya evaluados y consumidores. P3 debe agregar el evaluador y la publicación de artefactos antes de habilitar preparación o calibración en la UI.
+
+
+Actualización P2b (2026-10-30): ADR 0035 concreta la proyección de artefactos ya evaluados, las fuentes preparadas estrictas y la clave separada de laboratorio. El caso identidad mantiene este contrato. Evaluador, recetas persistidas y publicación de artefactos hacia los stores siguen en P3.

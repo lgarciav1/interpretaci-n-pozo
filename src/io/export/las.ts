@@ -34,7 +34,7 @@ export function writeLas(input: ExportInput): string {
     out.push(line(m, e.unit ? unitText(e.unit) : '', safeValue(e.value), oneLine(e.description ?? '')));
   }
   out.push('~CURVE INFORMATION', line('DEPT', u, '', 'DEPTH'));
-  for (const c of p.columns) out.push(line(c.name, c.unit, '', c.description || (c.origin === 'computed' ? 'CALCULATED' : '')));
+  for (const c of p.columns) out.push(line(c.name, c.unit, '', c.description || (c.origin === 'computed' ? 'CALCULATED' : c.origin === 'prepared' ? 'PREPARED' : '')));
   out.push('~A  ' + ['DEPT', ...p.columns.map((c) => c.name)].map((s) => s.padStart(10)).join(' '));
 
   const n = p.depth.length;
@@ -48,3 +48,4 @@ export function writeLas(input: ExportInput): string {
   }
   return out.join('\n') + '\n';
 }
+

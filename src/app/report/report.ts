@@ -1,4 +1,4 @@
-import { contextMatchesWell, engineContext, sameComputation } from '../../core/engine/context';
+import { contextMatchesWell, engineDecisionKey, wellInputKey } from '../../core/engine/context';
 import type { ClientResult } from '../../core/engine/client';
 import type { Interpretation } from '../../core/interpretation';
 import type { TableCell, TableColumn, TableValue } from '../../core/module';
@@ -34,7 +34,7 @@ function paramText(spec: ParamSpec, value: ParamValue): string {
 }
 /** Copia los textos y tablas de una corrida; no calcula petrofísica ni conserva arrays del motor. */
 export function buildReportModel(well: Well, interpretation: Interpretation, result: ClientResult | null, date = new Date(), catalog: Registry = registry): ReportModel {
-  if(result && (!contextMatchesWell(result.context,{id:well.id,depth:well.depth.values,curves:well.curves}) || !sameComputation(result.context,engineContext({id:well.id,depth:well.depth.values,curves:well.curves},interpretation))))result=null;
+  if(result && (!contextMatchesWell(result.context,{id:well.id,depth:well.depth.values,curves:well.curves}) || result.context.engineKey !== wellInputKey({id:well.id,depth:well.depth.values,curves:well.curves}) + '|' + engineDecisionKey(interpretation)))result=null;
   const current = result?.wellId === well.id ? result : null;
   const zones = interpretation.zones.map(({ id, name, top, base, kind }) => ({ id, name, top, base, kind }));
   const table = (port: string): ReportTable | null => {

@@ -109,7 +109,7 @@ export function CurveEditor({ wellId, curve, anchorRef, onClose }: CurveEditorPr
             {curve.name}
           </span>
           <span className="ce__sub">
-            {curve.alternative ? 'Alternativa · ' : curve.origin === 'computed' ? 'Calculada · ' : ''}
+            {curve.alternative ? 'Alternativa · ' : curve.origin === 'computed' ? 'Calculada · ' : curve.origin === 'prepared' ? 'Preparada · ' : ''}
             {roleLabel ?? 'sin rol'}
             {unit ? ` · ${unit}` : ''}
           </span>
@@ -251,3 +251,4 @@ export function CurveEditor({ wellId, curve, anchorRef, onClose }: CurveEditorPr
     </Popover>
   );
 }
+

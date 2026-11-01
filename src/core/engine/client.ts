@@ -3,7 +3,7 @@ import { emptyInterpretation, type Interpretation } from '../interpretation';
 import type { Registry } from '../registry';
 import type { EngineOptions, EngineRunResult, EngineWell, OutputRecord } from './engine';
 import type { Endpoint, FromEngine, ToEngine, WireCurve } from './protocol';
-import { curveProvenance, engineContext, sameContext, validContext, type EngineContext } from './context';
+import { contextMatchesWell, curveProvenance, engineContext, engineDecisionKey, wellInputKey, sameContext, validContext, type EngineContext } from './context';
 import { serveEngine } from './serve';
 export interface ClientResult extends EngineRunResult {
   context: EngineContext;
@@ -64,7 +64,8 @@ export class EngineClient {
   } {
     const nextContext=context ?? engineContext(well,this.latest?.interpretation ?? emptyInterpretation());
     if(!validContext(nextContext)||nextContext.wellId!==well.id)throw new Error('Contexto científico inválido.');
-    const isNew = well.id !== this.well?.id || well.depth !== this.well?.depth;
+    if (well.curves.some(c => c.provenance?.origin === 'prepared') && (nextContext.preparationKey === 'identity' || !contextMatchesWell(nextContext, well))) throw new Error('La proyección preparada no coincide con su contexto validado.');
+    const isNew = well.id !== this.well?.id || well.depth !== this.well?.depth || nextContext.preparationKey !== this.desired?.preparationKey;
     if (isNew) {
       this.gen = ++lastGen;
       this.sentData.clear();
@@ -100,6 +101,7 @@ export class EngineClient {
     if (!request.context)
       throw new Error('Primero se debe sincronizar un pozo.');
     this.checkContext(request.context);
+    if (this.well.curves.some(c => c.provenance?.origin === 'prepared') && request.context.engineKey !== wellInputKey(this.well) + '|' + engineDecisionKey(interpretation)) throw new Error('El cálculo preparado no coincide con su contexto.');
     const next = request as Request;
     this.latest = next;
     this.desired = next.context;
@@ -113,7 +115,8 @@ export class EngineClient {
   }
   dispose(): void { this.stopped = true; this.endpoint.removeEventListener('message', this.onMessage); this.listeners.clear(); this.cleanup(); }
   private checkContext(context: EngineContext): void { if (!validContext(context) || context.wellId !== this.well?.id)
-    throw new Error('Contexto científico inválido.'); }
+    throw new Error('Contexto científico inválido.');
+    if (this.well?.curves.some(c => c.provenance?.origin === 'prepared') && (context.preparationKey === 'identity' || !contextMatchesWell(context, this.well))) throw new Error('La proyección preparada no coincide con su contexto validado.'); }
   private sendWell(full: boolean): void {
     const well = this.well!, context = this.desired!;
     const curves: WireCurve[] = well.curves.map(c => {
