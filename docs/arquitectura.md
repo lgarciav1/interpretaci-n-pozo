@@ -65,9 +65,11 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 | `src/modules/<id>/<x>.worker-only.ts`, `<x>.main-thread.ts` | dependencia pesada que solo corre en el worker y su sustituto sin ella para el hilo principal (ver «Archivos solo-worker») | no |
 | `src/modules/<id>/panel.tsx` | panel a medida (opcional) | sí |
 | `src/modules/<id>/overlay.ts`, `draw.ts` | superposiciones del visor (opcional, `overlays: ViewerOverlay[]`): dibujo, arrastre, pista propia; `draw.ts` (opcional): dibujo en canvas de un panel o una figura del módulo que usa `ui/` y `plots/` (perfil radial, 0020). El worker no los importa y `tests/modules.test.ts` los excluye de la regla de pureza | no (canvas) |
-| `src/modules/index.ts` | **el registro** (una línea por módulo) | no |
+| `src/modules/index.ts` | **el registro** (una línea por módulo): `MODULES` (nodos del motor) y `PANEL_MODULES` (módulos de panel, sin puertos ni cálculo en el motor: identidad, categoría y `docs` para Ecuaciones, 0058) | no |
+| `src/modules/preparation/` | «Preparar datos» (0058): definición de panel pura (`index.ts`), panel del dock (`dock.tsx`, `PreparationPanel.tsx`: tarjetas de curva, tubería, gráfico antes/después, herramientas, pestañas DRX/ambiente/MGT/corridas/guardadas), acción de la paleta (`commands.ts`), lógica pura de la tubería y las banderas (`pipeline.ts`, `flags.ts`) y dibujo (`draw.ts`). Los cálculos están en `src/core/preparation/` | `.tsx` sí |
 | `src/modules/sharedParams.ts` | catálogo canónico de parámetros compartidos | no |
 | `src/app/` | arranque, worker (`engine.worker.ts`), puente con el motor, stores (`store/viewer.ts`: cursor y tramo visible), descubrimiento de superposiciones (`viewerOverlays.ts`), pantallas | sí |
+| `src/app/preparation/` | lo de la app sobre la preparación (0058): proyección de datos preparados que usan visor, gráficos, exportación, informe y snapshots (`data.ts`), curvas del visor con «Comparar» (`view.ts`), preferencia de vista y pedido de apertura (`store.ts`) y `openPreparation` (`open.ts`). La interfaz es del módulo `src/modules/preparation/` | sí |
 | `src/app/shell/` | armazón: barra superior, flujo guiado, inspector, dock (`dockPanels.tsx`: una entrada por panel), `ViewerSlot` (conecta stores con el visor: edición de zonas, modo marcar zona, encabezado, «Armar pistas»), `viewerOverlayList.ts` (superposiciones del visor de la app), `CurveEditor` (editor de escalas), diálogos | sí |
 | `src/app/tracks/` | «Armar pistas» (0016): panel con el catálogo (`TrackBuilder.tsx`), plantillas y diálogos (`Templates.tsx`), arrastre con eventos de puntero (`dnd.ts`) y acciones que traducen gestos a recetas con `commit` (`actions.ts`) | sí |
 | `src/app/toolString/` | sarta en la interfaz (0032, 0033): curvas visibles y disponibilidad del pozo activo con caché (`select.ts`), lista de la columna izquierda (`ToolStringPanel.tsx`), vista 3D (`ToolStringView.tsx`) con la escena como descripción pura (`scene.ts`, sin three ni DOM, testeada), la columna litológica del pozo para la formación (`formation.ts`, pura) y su dibujo con three.js (`render3d.ts`), ficha (`ToolSheetCard.tsx`) y atajos en la paleta (`commands.ts`) | `scene.ts` no |
@@ -236,6 +238,12 @@ params: { grClean: SHARED_PARAMS.grClean, grShale: SHARED_PARAMS.grShale },
 
 Si el módulo no encaja en ninguna categoría conocida, declarala en el propio módulo, sin tocar el núcleo:
 `category: 'sedimentology', categoryLabel: 'Sedimentología'`.
+
+**Módulo de panel** (una herramienta de la interfaz que no es nodo del motor, p. ej. «Preparar datos»): `index.ts`
+con `definePanelModule({ id, name, category, workspace, docs })` (sin `inputs`, `outputs`, `params` ni `compute`) y una
+línea en `PANEL_MODULES`. El registro valida identidad, categoría y `docs`; aparece en Ecuaciones y su interfaz va en
+los archivos descubiertos de la carpeta (`dock.tsx`, `commands.ts`, `overlay.ts`…). Decisión:
+[`0058`](decisiones/0058-preparacion-como-modulo.md).
 
 Opcional: un panel a medida en `src/modules/<id>/panel.tsx` que exporte
 `export const panel: ModulePanel = { moduleId: '<id>', component: MiPanel }` (contrato en `src/ui/modulePanel.ts`).
@@ -678,3 +686,15 @@ presión capilar de la planilla de la cátedra (o A y B manuales), bandera `SW_L
 (`fitSwiPowerLaw`) y el de la presión de desplazamiento (`fitDisplacementPressure`), sin pantalla todavía. Los
 coeficientes son dato de la cátedra y valen en su rango de √(k/φ). Tests: `tests/petro-swi-pc.test.ts` (valores de mano
 y de numpy, `scripts/qa/swi-pc-reference.py`) y `tests/modules-swi-pc.test.ts` (módulo con el motor).
+
+## Preparar datos (módulo de panel)
+
+Decisión: [`docs/decisiones/0058-preparacion-como-modulo.md`](decisiones/0058-preparacion-como-modulo.md). La
+preparación (exclusión, espurios, interpolación, mediana, alineación, corridas, DRX y calibración GR, diagnóstico
+ambiental, MGT) es el módulo de panel `preparation`: pestaña «Preparar datos» del dock, abierta desde la columna
+izquierda, la paleta («Abrir Preparar datos») o la tarjeta del paso Calidad (`openPreparation`). Flujo: tarjeta de
+curva → herramienta (sliders sobre un borrador) → vista previa viva con el motor aislado de snapshots → «Aplicar» (un
+`commit`, un deshacer). La tubería (`pipeline.ts`) muestra las etapas en el orden del motor con conteos que salen de
+las banderas `Quality`; el gráfico antes/después y la barra de los ocho bits se dibujan en canvas (`draw.ts`). La lógica
+y el formato v7 viven en `src/core/preparation/` y `src/core/state/`, sin cambios. Tests:
+`tests/modules-preparation.test.ts`, `tests/preparation-panel.test.ts`, `tests/preparation-open.test.ts`.
