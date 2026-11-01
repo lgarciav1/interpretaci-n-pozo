@@ -1,0 +1,50 @@
+{
+  "errors": [],
+  "cases": [
+    {
+      "method": "linear",
+      "fixed": "clean",
+      "value": 25,
+      "applied": [
+        25,
+        135
+      ],
+      "version": 2
+    },
+    {
+      "method": "linear",
+      "fixed": "shale",
+      "value": 135,
+      "applied": [
+        25,
+        135
+      ],
+      "version": 2
+    },
+    {
+      "method": "clavier",
+      "fixed": "clean",
+      "value": 25,
+      "applied": [
+        25,
+        135
+      ],
+      "version": 2
+    }
+  ],
+  "checks": [
+    "both-extremes admission remains blocked",
+    "off-grid external value rejected",
+    "external declaration required",
+    "comma decimal entry",
+    "fixed unchanged raw applied folds",
+    "isolated preview no main run",
+    "reference change invalidates proposal",
+    "zonal application",
+    "originals cutoffs sources other zones intact",
+    "undo redo",
+    "reopen provenance",
+    "snapshot restores parameters and external reference",
+    "future record preserved"
+  ]
+}

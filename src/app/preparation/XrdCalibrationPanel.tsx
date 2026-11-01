@@ -16,7 +16,10 @@ import {
   type GrCalibrationProposal,
 } from "../../core/preparation/xrdCalibration";
 import type { XrdComparisonRecord } from "../../core/preparation/xrdEvidence";
-import { DEFAULT_GR_POLICY } from "../../petro/xrdCalibration";
+import {
+  DEFAULT_GR_POLICY,
+  DEFAULT_FIXED_GR_POLICY,
+} from "../../petro/xrdCalibration";
 import { VSH_METHODS, type VshMethod } from "../../petro/vsh";
 import { applyGrCalibration } from "../../core/state/xrdCalibration";
 import { calibrationPreviewRequest } from "./calibrationPreview";
@@ -70,6 +73,14 @@ export function XrdCalibrationPanel({
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [draft, setDraft] = useState<Draft | null>(null);
+  const [fitMode, setFitMode] = useState<"both" | "clean" | "shale">("both"),
+    [fixedValue, setFixedValue] = useState(""),
+    [fixedReference, setFixedReference] = useState(""),
+    [fixedUncertainty, setFixedUncertainty] = useState(""),
+    [fixedNote, setFixedNote] = useState(""),
+    [fixedConfirmed, setFixedConfirmed] = useState(false);
+  const policy =
+    fitMode === "both" ? DEFAULT_GR_POLICY : DEFAULT_FIXED_GR_POLICY;
   const baseline = useResults((s) => s.result);
   const draftKey = JSON.stringify([
     method,
@@ -80,6 +91,12 @@ export function XrdCalibrationPanel({
     reference,
     confirmed,
     allowEstimated,
+    fitMode,
+    fixedValue,
+    fixedReference,
+    fixedUncertainty,
+    fixedNote,
+    fixedConfirmed,
     comparison.evidence.inputDigest,
   ]);
   const task = useRef(0),
@@ -178,6 +195,77 @@ export function XrdCalibrationPanel({
           }))}
         />
       </Field>
+      <Field label="Modo de ajuste GR">
+        <Select
+          aria-label="Modo de ajuste GR"
+          value={fitMode}
+          onChange={(v) => {
+            setFitMode(v as typeof fitMode);
+            setFixedConfirmed(false);
+          }}
+          options={[
+            { value: "both", label: "Estimar ambos extremos" },
+            {
+              value: "clean",
+              label: "Fijar arena limpia externa; estimar lutita",
+            },
+            {
+              value: "shale",
+              label: "Fijar lutita externa; estimar arena limpia",
+            },
+          ]}
+        />
+      </Field>
+      {fitMode !== "both" && (
+        <section aria-label="Extremo GR externo">
+          <p>
+            El valor fijo es una hipótesis externa aplicable a esta zona. Se
+            conserva exactamente, incluso en los ajustes de validación; su
+            variación cero no significa incertidumbre cero.
+          </p>
+          <Field label="Valor GR externo fijo (gAPI)">
+            <TextField
+              aria-label="Valor GR externo fijo (gAPI)"
+              value={fixedValue}
+              onChange={(v) => {
+                setFixedValue(v);
+                setFixedConfirmed(false);
+              }}
+              inputMode="decimal"
+            />
+          </Field>
+          <Field label="Referencia del extremo GR externo">
+            <TextField
+              aria-label="Referencia del extremo GR externo"
+              value={fixedReference}
+              onChange={(v) => {
+                setFixedReference(v);
+                setFixedConfirmed(false);
+              }}
+            />
+          </Field>
+          <Field label="Incertidumbre absoluta del extremo externo (gAPI, opcional)">
+            <TextField
+              aria-label="Incertidumbre absoluta del extremo externo (gAPI, opcional)"
+              value={fixedUncertainty}
+              onChange={setFixedUncertainty}
+              inputMode="decimal"
+            />
+          </Field>
+          <Field label="Significado de la incertidumbre externa">
+            <TextField
+              aria-label="Significado de la incertidumbre externa"
+              value={fixedNote}
+              onChange={setFixedNote}
+            />
+          </Field>
+          <Checkbox
+            checked={fixedConfirmed}
+            onChange={setFixedConfirmed}
+            label="Declaro que el extremo fijo procede de evidencia externa aplicable a esta zona"
+          />
+        </section>
+      )}
       <Field label="Arcillas del extremo limpio (fracción de sólidos)">
         <TextField
           aria-label="Arcillas del extremo limpio (fracción de sólidos)"
@@ -221,20 +309,26 @@ export function XrdCalibrationPanel({
       <details>
         <summary>Puertas de admisión declaradas</summary>
         <p>
-          Al menos 12 localizaciones agrupadas; rango del proxy ≥0,6, rango GR
-          ≥20 gAPI, correlación positiva ≥0,6 y soporte ≤0,2/≥0,8. Tres bloques
-          de profundidad separados; mínimo seis localizaciones de entrenamiento
-          y dos de validación por bloque. RMSE ≤0,1, sesgo absoluto ≤0,05 y
-          variación de extremos ≤20 gAPI. Réplicas con diferencia de proxy
-          &gt;0,15 se excluyen. Separación de agrupación: 1 m. Incertidumbre
-          absoluta informada sumada ≤0,05 en fracción de la base original;
-          incertidumbre relativa de densidad ≤0,1. Son filtros de admisión
-          versionados, no intervalos de confianza. Incertidumbre no informada
-          sigue desconocida.
+          Al menos {policy.minLocations} localizaciones agrupadas; rango del
+          proxy ≥{policy.minRange}, rango GR ≥{policy.minGrRange} gAPI y
+          correlación positiva ≥{policy.minCorrelation}.{" "}
+          {fitMode === "both"
+            ? "Se requiere soporte ≤0,2/≥0,8 de ambos extremos."
+            : fitMode === "clean"
+              ? "El extremo libre lutítico exige soporte ≥0,8."
+              : "El extremo libre limpio exige soporte ≤0,2."}{" "}
+          Tres bloques de profundidad separados; mínimo seis localizaciones de
+          entrenamiento y dos de validación por bloque. RMSE ≤0,1, sesgo
+          absoluto ≤0,05 y variación de extremos ≤20 gAPI. Réplicas con
+          diferencia de proxy &gt;0,15 se excluyen. Separación de agrupación: 1
+          m. Incertidumbre absoluta informada sumada ≤0,05 en fracción de la
+          base original; incertidumbre relativa de densidad ≤0,1. Son filtros de
+          admisión versionados, no intervalos de confianza. Incertidumbre no
+          informada sigue desconocida.
         </p>
       </details>
       <Button
-        disabled={busy || !confirmed}
+        disabled={busy || !confirmed || (fitMode !== "both" && !fixedConfirmed)}
         onClick={async () => {
           const token = ++task.current;
           setBusy(true);
@@ -242,7 +336,23 @@ export function XrdCalibrationPanel({
           setDraft(null);
           try {
             const config = {
-              version: 1 as const,
+              version: fitMode === "both" ? (1 as const) : (2 as const),
+              ...(fitMode === "both"
+                ? {}
+                : {
+                    fixed: {
+                      end: fitMode,
+                      value: number(fixedValue),
+                      externalDeclared: true as const,
+                      reference: fixedReference.trim(),
+                      ...(fixedUncertainty.trim()
+                        ? { uncertainty: number(fixedUncertainty) }
+                        : {}),
+                      ...(fixedNote.trim()
+                        ? { uncertaintyNote: fixedNote.trim() }
+                        : {}),
+                    },
+                  }),
               method,
               zoneId,
               clayClean: number(clean),
@@ -251,7 +361,7 @@ export function XrdCalibrationPanel({
               independentReference: reference.trim(),
               independenceDeclared: true as const,
               policy: {
-                ...DEFAULT_GR_POLICY,
+                ...policy,
                 allowEstimatedGR: allowEstimated,
               },
             };
@@ -335,17 +445,40 @@ export function XrdCalibrationPanel({
             </thead>
             <tbody>
               <tr>
-                <td>Arena limpia</td>
+                <td>
+                  Arena limpia
+                  {current.proposal.config.fixed?.end === "clean"
+                    ? " · externo fijo"
+                    : ""}
+                </td>
                 <td>{display(current.proposal.fit.raw.clean)}</td>
                 <td>{display(current.proposal.fit.applied.clean)}</td>
               </tr>
               <tr>
-                <td>Lutita</td>
+                <td>
+                  Lutita
+                  {current.proposal.config.fixed?.end === "shale"
+                    ? " · externo fijo"
+                    : ""}
+                </td>
                 <td>{display(current.proposal.fit.raw.shale)}</td>
                 <td>{display(current.proposal.fit.applied.shale)}</td>
               </tr>
             </tbody>
           </table>
+          {current.proposal.config.fixed && (
+            <p role="status">
+              Extremo externo conservado: {current.proposal.config.fixed.value}{" "}
+              gAPI. Referencia: {current.proposal.config.fixed.reference}.
+              Incertidumbre:{" "}
+              {current.proposal.config.fixed.uncertainty === undefined
+                ? "no informada"
+                : `${current.proposal.config.fixed.uncertainty} gAPI`}
+              .{" "}
+              {current.proposal.config.fixed.uncertaintyNote ??
+                "Sin propagación estadística de incertidumbre."}
+            </p>
+          )}
           <p>
             RMSE del proxy tras redondear:{" "}
             {display(current.proposal.fit.metrics.rmse)}; sesgo:{" "}
@@ -469,6 +602,19 @@ export function XrdCalibrationHistory({
               {p.fit.applied.shale} gAPI; RMSE {display(p.fit.metrics.rmse)}.{" "}
               {p.config.relationship} Referencia:{" "}
               {p.config.independentReference}
+              {p.config.fixed && (
+                <>
+                  {" "}
+                  Extremo{" "}
+                  {p.config.fixed.end === "clean" ? "limpio" : "lutítico"}{" "}
+                  externo: {p.config.fixed.value} gAPI;{" "}
+                  {p.config.fixed.reference}; incertidumbre{" "}
+                  {p.config.fixed.uncertainty === undefined
+                    ? "no informada"
+                    : `${p.config.fixed.uncertainty} gAPI`}
+                  . {p.config.fixed.uncertaintyNote ?? ""}
+                </>
+              )}
             </p>
           );
         } catch (e) {

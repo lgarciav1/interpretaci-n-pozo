@@ -1,0 +1,310 @@
+{
+  "version": 1,
+  "methodVersion": "xrd-gr-v1",
+  "config": {
+    "version": 1,
+    "method": "linear",
+    "zoneId": "z",
+    "clayClean": 0,
+    "clayShale": 1,
+    "relationship": "Proxy sint\u00e9tico conocido de Vsh a partir de minerales de s\u00f3lidos, solo para Zona QA.",
+    "independentReference": "Laboratorio sint\u00e9tico independiente: fixture Python con valores conocidos de GR.",
+    "independenceDeclared": true,
+    "policy": {
+      "minLocations": 12,
+      "minRange": 0.6,
+      "minGrRange": 20,
+      "minCorrelation": 0.6,
+      "cleanSupportMax": 0.2,
+      "shaleSupportMin": 0.8,
+      "blocks": 3,
+      "minTraining": 6,
+      "minValidation": 2,
+      "maxRMSE": 0.1,
+      "maxBias": 0.05,
+      "maxEndpointSpread": 20,
+      "separationM": 1,
+      "maxReplicaSpread": 0.15,
+      "maxReportedUncertainty": 0.05,
+      "maxRelativeDensityUncertainty": 0.1,
+      "allowEstimatedGR": false
+    }
+  },
+  "comparison": {
+    "version": 1,
+    "config": {
+      "curveId": "gr",
+      "target": "native",
+      "maxGapM": 1,
+      "minCoverage": 0.8,
+      "shiftM": 0,
+      "densities": {}
+    },
+    "evidence": {
+      "method": "xrd-pairs-v1",
+      "inputRevisionId": "input-96ec09121e87123d6c255617cdd5e7d6",
+      "inputDigest": "5037e981ad8d2db66554a2a3e2cc7d33029eddcf6b709f8d4f4ac409733aa608",
+      "resultDigest": "e6e5d32b1cb02a99fa748b0fdab4443c26c65d160d20a8a9d3d6eeca6bf982c5",
+      "createdAt": "2026-10-31T05:10:13.150Z",
+      "source": {
+        "mnemonic": "GR",
+        "unit": "gAPI",
+        "role": "GR"
+      },
+      "rows": 20,
+      "usable": 19
+    }
+  },
+  "before": {
+    "grClean": 50,
+    "grShale": 160,
+    "vsh.method": "linear"
+  },
+  "fit": {
+    "method": "linear",
+    "raw": {
+      "clean": 24.99999999999998,
+      "shale": 135.00000000000003
+    },
+    "applied": {
+      "clean": 25,
+      "shale": 135
+    },
+    "metrics": {
+      "rmse": 0,
+      "bias": 0,
+      "grRMSE": 7.105427357601002e-15
+    },
+    "validation": {
+      "rmse": 0,
+      "bias": 0,
+      "grRMSE": 7.105427357601002e-15
+    },
+    "locations": 18,
+    "range": [
+      0.05,
+      0.95
+    ],
+    "endpointSpread": {
+      "clean": 7.105427357601002e-15,
+      "shale": 2.842170943040401e-14
+    },
+    "folds": [
+      {
+        "training": 12,
+        "validation": 6,
+        "endpoints": {
+          "clean": 24.999999999999986,
+          "shale": 135
+        }
+      },
+      {
+        "training": 12,
+        "validation": 6,
+        "endpoints": {
+          "clean": 24.999999999999986,
+          "shale": 135
+        }
+      },
+      {
+        "training": 12,
+        "validation": 6,
+        "endpoints": {
+          "clean": 24.999999999999986,
+          "shale": 135
+        }
+      }
+    ],
+    "reasons": [],
+    "admitted": true
+  },
+  "locations": [
+    {
+      "top": 10,
+      "base": 10,
+      "depth": 10,
+      "gr": 30.5,
+      "target": 0.05,
+      "ids": [
+        "S0",
+        "S0-rep"
+      ]
+    },
+    {
+      "top": 20,
+      "base": 20,
+      "depth": 20,
+      "gr": 47,
+      "target": 0.2,
+      "ids": [
+        "S1"
+      ]
+    },
+    {
+      "top": 30,
+      "base": 30,
+      "depth": 30,
+      "gr": 69,
+      "target": 0.4,
+      "ids": [
+        "S2"
+      ]
+    },
+    {
+      "top": 40,
+      "base": 40,
+      "depth": 40,
+      "gr": 91,
+      "target": 0.6,
+      "ids": [
+        "S3"
+      ]
+    },
+    {
+      "top": 50,
+      "base": 50,
+      "depth": 50,
+      "gr": 113,
+      "target": 0.8,
+      "ids": [
+        "S4"
+      ]
+    },
+    {
+      "top": 60,
+      "base": 60,
+      "depth": 60,
+      "gr": 129.5,
+      "target": 0.95,
+      "ids": [
+        "S5"
+      ]
+    },
+    {
+      "top": 70,
+      "base": 70,
+      "depth": 70,
+      "gr": 30.5,
+      "target": 0.05,
+      "ids": [
+        "S6"
+      ]
+    },
+    {
+      "top": 80,
+      "base": 80,
+      "depth": 80,
+      "gr": 47,
+      "target": 0.2,
+      "ids": [
+        "S7"
+      ]
+    },
+    {
+      "top": 90,
+      "base": 90,
+      "depth": 90,
+      "gr": 69,
+      "target": 0.4,
+      "ids": [
+        "S8"
+      ]
+    },
+    {
+      "top": 100,
+      "base": 100,
+      "depth": 100,
+      "gr": 91,
+      "target": 0.6,
+      "ids": [
+        "S9"
+      ]
+    },
+    {
+      "top": 110,
+      "base": 110,
+      "depth": 110,
+      "gr": 113,
+      "target": 0.8,
+      "ids": [
+        "S10"
+      ]
+    },
+    {
+      "top": 120,
+      "base": 120,
+      "depth": 120,
+      "gr": 129.5,
+      "target": 0.95,
+      "ids": [
+        "S11"
+      ]
+    },
+    {
+      "top": 130,
+      "base": 130,
+      "depth": 130,
+      "gr": 30.5,
+      "target": 0.05,
+      "ids": [
+        "S12"
+      ]
+    },
+    {
+      "top": 140,
+      "base": 140,
+      "depth": 140,
+      "gr": 47,
+      "target": 0.2,
+      "ids": [
+        "S13"
+      ]
+    },
+    {
+      "top": 150,
+      "base": 150,
+      "depth": 150,
+      "gr": 69,
+      "target": 0.4,
+      "ids": [
+        "S14"
+      ]
+    },
+    {
+      "top": 160,
+      "base": 160,
+      "depth": 160,
+      "gr": 91,
+      "target": 0.6,
+      "ids": [
+        "S15"
+      ]
+    },
+    {
+      "top": 170,
+      "base": 170,
+      "depth": 170,
+      "gr": 113,
+      "target": 0.8,
+      "ids": [
+        "S16"
+      ]
+    },
+    {
+      "top": 180,
+      "base": 180,
+      "depth": 180,
+      "gr": 129.5,
+      "target": 0.95,
+      "ids": [
+        "S17"
+      ]
+    }
+  ],
+  "exclusions": [
+    {
+      "id": "CENSURADA",
+      "reason": "Composici\u00f3n incompleta o censurada; no se completa con ceros."
+    }
+  ]
+}

@@ -6,6 +6,8 @@ import { planGraph } from "../engine/graph";
 import { VSH_METHODS, type VshMethod } from "../../petro/vsh";
 import {
   fitGrCalibration,
+  validateFixedGrEndpoint,
+  type FixedGrEndpoint,
   validateGrPolicy,
   type CalibrationFit,
   type CalibrationPolicy,
@@ -20,8 +22,15 @@ import {
 import { xrdContract } from "./xrd";
 
 export const XRD_CALIBRATION_SETTING = "xrd:gr-calibration";
+export interface ExternalGrEndpoint extends FixedGrEndpoint {
+  externalDeclared: true;
+  reference: string;
+  uncertainty?: number;
+  uncertaintyNote?: string;
+}
 export interface GrCalibrationConfig {
-  version: 1;
+  version: 1 | 2;
+  fixed?: ExternalGrEndpoint;
   method: VshMethod;
   zoneId: string;
   clayClean: number;
@@ -32,8 +41,8 @@ export interface GrCalibrationConfig {
   policy: CalibrationPolicy;
 }
 export interface GrCalibrationProposal {
-  version: 1;
-  methodVersion: "xrd-gr-v1";
+  version: 1 | 2;
+  methodVersion: "xrd-gr-v1" | "xrd-gr-fixed-v1";
   config: GrCalibrationConfig;
   comparison: XrdComparisonRecord;
   before: Record<string, number | string | boolean>;
@@ -62,10 +71,11 @@ export function validateCalibrationConfig(c: GrCalibrationConfig) {
         "independentReference",
         "independenceDeclared",
         "policy",
+        ...(c.version === 2 ? ["fixed"] : []),
       ]
         .sort()
         .join("|") ||
-    c.version !== 1 ||
+    ![1, 2].includes(c.version) ||
     c.independenceDeclared !== true ||
     !VSH_METHODS.includes(c.method) ||
     typeof c.zoneId !== "string" ||
@@ -85,6 +95,41 @@ export function validateCalibrationConfig(c: GrCalibrationConfig) {
       "Declará zona, relación de arcillas con el proxy de Vsh y evidencia independiente del ensayo.",
     );
   validateGrPolicy(c.policy);
+  if (c.version === 2) {
+    const f = c.fixed;
+    if (
+      !f ||
+      Object.keys(f).some(
+        (k) =>
+          ![
+            "end",
+            "value",
+            "externalDeclared",
+            "reference",
+            "uncertainty",
+            "uncertaintyNote",
+          ].includes(k),
+      ) ||
+      !["clean", "shale"].includes(f.end) ||
+      f.externalDeclared !== true ||
+      !Number.isFinite(f.value) ||
+      typeof f.reference !== "string" ||
+      f.reference.trim().length < 12 ||
+      f.reference.length > 4000 ||
+      (f.uncertainty !== undefined &&
+        (!Number.isFinite(f.uncertainty) ||
+          f.uncertainty < 0 ||
+          typeof f.uncertaintyNote !== "string" ||
+          !f.uncertaintyNote.trim())) ||
+      (f.uncertaintyNote !== undefined &&
+        (typeof f.uncertaintyNote !== "string" ||
+          !f.uncertaintyNote.trim() ||
+          f.uncertaintyNote.length > 2000))
+    )
+      throw new Error(
+        "Declará extremo externo, referencia y significado de su incertidumbre si se informa.",
+      );
+  }
 }
 export function grBounds(registry: Registry): GrBounds {
   const get = (key: string) => {
@@ -139,6 +184,7 @@ export async function proposeGrCalibration(
       "Acotá el ensayo a 2048 muestras para esta calibración; no se truncan datos.",
     );
   validateCalibrationConfig(config);
+  if (config.fixed) validateFixedGrEndpoint(config.fixed, grBounds(registry));
   validateCalibrationChain(data, i, registry, comparisonConfig.curveId);
   const zone = i.zones.find((z) => z.id === config.zoneId);
   if (!zone) throw new Error("La zona de calibración ya no existe.");
@@ -252,7 +298,17 @@ export async function proposeGrCalibration(
       config.policy.separationM +
       Math.max(...locations.map((p) => p.base - p.top)),
     checkpoint,
+    config.fixed,
   );
+  if (
+    config.fixed?.uncertainty !== undefined &&
+    config.fixed.uncertainty > config.policy.maxEndpointSpread
+  ) {
+    fit.reasons.push(
+      "Incertidumbre declarada del extremo externo excede el umbral en gAPI.",
+    );
+    fit.admitted = false;
+  }
   if (
     Object.values(comparisonConfig.densities).some(
       (d) =>
@@ -264,8 +320,8 @@ export async function proposeGrCalibration(
     fit.admitted = false;
   }
   return {
-    version: 1,
-    methodVersion: "xrd-gr-v1",
+    version: config.version,
+    methodVersion: config.fixed ? "xrd-gr-fixed-v1" : "xrd-gr-v1",
     config,
     comparison: comparison.record,
     before: Object.fromEntries(
@@ -286,12 +342,31 @@ export function readGrCalibration(raw: unknown): GrCalibrationProposal | null {
   if (typeof raw !== "string" || raw.length > 200000)
     throw new Error("Evidencia de calibración GR inválida.");
   const p = JSON.parse(raw) as GrCalibrationProposal;
-  if (p.version !== 1 || p.methodVersion !== "xrd-gr-v1")
+  if (
+    ![1, 2].includes(p.version) ||
+    (p.version === 1
+      ? p.methodVersion !== "xrd-gr-v1"
+      : p.methodVersion !== "xrd-gr-fixed-v1") ||
+    p.config?.version !== p.version
+  )
     throw new Error(
       "Versión de calibración GR desconocida; se conserva sin aplicar.",
     );
   validateCalibrationConfig(p.config);
   readXrdRecord(JSON.stringify(p.comparison));
+  if (p.config.fixed) {
+    const f = p.config.fixed;
+    if (
+      p.fit?.fixed?.end !== f.end ||
+      p.fit.fixed.value !== f.value ||
+      p.fit.raw[f.end] !== f.value ||
+      p.fit.applied[f.end] !== f.value ||
+      p.fit.folds.some((fold) => fold.endpoints[f.end] !== f.value) ||
+      p.fit.endpointSpread[f.end] !== 0
+    )
+      throw new Error("La propuesta no conserva el extremo externo declarado.");
+  } else if (p.fit?.fixed)
+    throw new Error("Restricción inesperada en una propuesta de dos extremos.");
   if (
     !p.fit?.admitted ||
     !p.fit.validation ||
