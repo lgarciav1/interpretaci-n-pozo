@@ -1,0 +1,24 @@
+{
+  "errors": [],
+  "validSamples": 5,
+  "excludedSamples": 5,
+  "reservoirDeltaM": 10,
+  "payDeltaM": 9,
+  "checks": [
+    "explicit manual decision",
+    "off-step rejected",
+    "comma decimal",
+    "inclusive threshold and replicas",
+    "censoring gaps excluded and crossing zones",
+    "isolated preview no main run",
+    "control invalidation",
+    "preview leaves Project unchanged",
+    "zonal threshold and evidence one undo redo",
+    "GR sources other zones originals unchanged",
+    "new browser history",
+    "changed snapshot restored",
+    "future metadata preserved without execution",
+    "offline without Worker/SubtleCrypto",
+    "missing PHIE/Sw is unknown impact"
+  ]
+}
