@@ -60,7 +60,7 @@ export const PETROPHYSICS_FLOW: readonly FlowStepDef[] = [
   { id: 'rw', label: 'Rw', title: 'Temperatura y Rw', kind: 'modules', categories: ['water'], ports: ['RW', 'RWA', 'TEMP'], targets: ['RW'], hint: 'Fijá la temperatura de formación y obtené Rw: conocida, desde el SP o por Rwa.' },
   { id: 'saturation', label: 'Saturación', short: 'Sat.', title: 'Saturación de agua', kind: 'modules', categories: ['saturation'], targets: ['SW'], hint: 'Elegí el modelo de saturación y sus exponentes.' },
   { id: 'permeability', label: 'Permeabilidad', short: 'Perm.', title: 'Permeabilidad', kind: 'modules', categories: ['permeability'], targets: ['PERM'], hint: 'Estimá la permeabilidad con Timur o Timur–Coates (RMN).' },
-  { id: 'cutoffs', label: 'Cutoffs', title: 'Cutoffs', kind: 'modules', categories: ['cutoffs'], targets: ['NET_PAY'], hint: 'Fijá los cortes de Vsh, φ y Sw para reservorio y pay netos; mirá cuánto cambia el pay con cada uno.' },
+  { id: 'cutoffs', label: 'Cutoffs', title: 'Cutoffs', kind: 'modules', categories: ['cutoffs'], targets: ['NET_PAY'], hint: 'Fijá los cortes de Vsh (arena neta), φ y, si querés, k (reservorio neto) y Sw (pay neto); mirá cuánto cambia el pay con cada uno.' },
   { id: 'summary', label: 'Sumario', short: 'Sum.', title: 'Sumario por zona', kind: 'modules', categories: ['summary'], targets: ['ZONE_SUMMARY'], hint: 'Revisá espesores, N/G, φ y Sw promedio por zona y exportalo.' },
   { id: 'volumetrics', label: 'Volumen', short: 'Vol.', title: 'Volumen in situ', kind: 'modules', categories: ['volumetrics'], targets: ['OOIP', 'OGIP'], hint: 'Cargá área, factor de volumen y fluido por zona para estimar el petróleo y el gas in situ.' },
 ];

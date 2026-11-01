@@ -362,6 +362,9 @@ Decisión y catálogo completo: [`docs/decisiones/0007-modulos-fase-6a.md`](deci
   temperatura) → `sw-*` → `bvw-sh`, `perm-*` → `cutoffs` (banderas) → `zone-summary` (tabla + valores por zona) →
   `volumetrics` (OOIP/OGIP por zona y total, m³ estándar; tabla en SI y en unidades de campo). `cutoff-sensitivity`
   produce el barrido de cada cutoff en una tabla oculta que dibuja su panel.
+- Espesores netos anidados (arena neta → reservorio neto/permeable → pay neto/útil) y corte opcional de permeabilidad
+  (`permCutoffOn` + `permCutoff`, desactivado por defecto; `cutoffs` lee `PERM` como entrada opcional y publica
+  además `NET_SAND`, rol declarado por el propio módulo): [`docs/decisiones/0054-cutoff-de-permeabilidad-y-arena-neta.md`](decisiones/0054-cutoff-de-permeabilidad-y-arena-neta.md).
 - Los parámetros comunes (a, m, n, Rsh, Δt matriz, Rmf, cutoffs, área, Bo, Bg, fluido) están en `SHARED_PARAMS`.
 - Unidades agregadas: múltiplos de volumen (Mm³, MMm³, Mbbl, MMbbl, MMscf, Bcf), `m3/m3`, gradiente de temperatura.
 

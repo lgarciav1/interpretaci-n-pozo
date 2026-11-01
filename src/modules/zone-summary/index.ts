@@ -1,5 +1,6 @@
 /**
- * Módulo de sumario por zona — espesores netos, promedios y h·φ·Sh. Ver 0007, C21 y D3/D6.
+ * Módulo de sumario por zona — espesores netos (arena, reservorio y pay; 0054), promedios y h·φ·Sh. Ver 0007, C21 y
+ * D3/D6.
  * Consume curvas (los promedios ponderados necesitan las muestras) y publica una tabla para leer y valores por zona
  * (neto pay y h·φ·Sh) que consume el volumétrico. Datos faltantes (D6): una zona sin muestras o sin ninguna muestra
  * clasificada (0 o 1) da NaN en los valores por zona, no 0; una zona con reservorio pero sin Sw en todo él también
@@ -29,12 +30,14 @@ const PAY_GAP_WARN = 0.05;
 export default defineModule({
   id: 'zone-summary',
   name: 'Sumario por zona',
-  description: 'Espesor bruto y neto, relación neto/bruto, porosidad, saturación de agua y arcillosidad promedio por zona y en total.',
+  description: 'Espesor bruto, arena neta, reservorio neto y pay neto, relación neto/bruto, porosidad, saturación de agua y arcillosidad promedio por zona y en total.',
   category: 'summary',
   workspace: 'petrophysics',
   inputs: {
     netRes: input.curve('NET_RES'),
     netPay: input.curve('NET_PAY'),
+    // Arena neta (0054): opcional, así un NET_RES/NET_PAY que no venga del módulo de cutoffs sigue sirviendo.
+    netSand: input.optionalCurve('NET_SAND'),
     phi: input.curve('PHIE'),
     sw: input.curve('SW'),
     vsh: input.optionalCurve('VSH'),
@@ -50,8 +53,10 @@ export default defineModule({
         { key: 'top', label: 'Tope', unit: 'm' },
         { key: 'base', label: 'Base', unit: 'm' },
         { key: 'gross', label: 'Bruto', unit: 'm' },
-        { key: 'netRes', label: 'Neto reservorio', unit: 'm' },
-        { key: 'netPay', label: 'Neto pay', unit: 'm' },
+        { key: 'netSand', label: 'Arena neta', unit: 'm' },
+        { key: 'netRes', label: 'Reservorio neto (permeable)', unit: 'm' },
+        { key: 'netPay', label: 'Pay neto (útil)', unit: 'm' },
+        { key: 'ntgSand', label: 'N/G arena', unit: 'v/v' },
         { key: 'ntgRes', label: 'N/G reservorio', unit: 'v/v' },
         { key: 'ntgPay', label: 'N/G pay', unit: 'v/v' },
         { key: 'phiRes', label: 'φ reservorio', unit: 'v/v' },
@@ -77,6 +82,7 @@ export default defineModule({
       thickness,
       netRes: inputs.netRes,
       netPay: inputs.netPay,
+      ...(inputs.netSand ? { netSand: inputs.netSand } : {}),
       phi: inputs.phi,
       sw: inputs.sw,
       vsh: inputs.vsh,
@@ -95,8 +101,10 @@ export default defineModule({
       top: num(top),
       base: num(base),
       gross: num(s.gross),
+      netSand: num(s.netSand),
       netRes: num(s.netRes),
       netPay: num(s.netPay),
+      ntgSand: num(s.ntgSand),
       ntgRes: num(s.ntgRes),
       ntgPay: num(s.ntgPay),
       phiRes: num(s.phiRes),
@@ -151,7 +159,7 @@ export default defineModule({
   },
   docs: {
     summary:
-      'Sumario por zona de lo que dejan los cutoffs: espesor bruto, neto de reservorio y de pay, relación neto/bruto, porosidad y saturación de agua promedio, arcillosidad y permeabilidad del pay, capacidad de flujo y espesor equivalente de hidrocarburo.',
+      'Sumario por zona de lo que dejan los cutoffs: espesor bruto, arena neta (solo Vsh), reservorio neto o permeable (además φ y, si se usa, k) y pay neto o útil (además Sw), relación neto/bruto, porosidad y saturación de agua promedio, arcillosidad y permeabilidad del pay, capacidad de flujo y espesor equivalente de hidrocarburo.',
     equations: [
       { latex: '\\bar\\phi = \\frac{\\sum h_i\\,\\phi_i}{\\sum h_i}', description: 'Sobre el espesor neto.' },
       { latex: '\\bar S_w = \\frac{\\sum h_i\\,\\phi_i\\,S_{w,i}}{\\sum h_i\\,\\phi_i}', description: 'Ponderada por volumen poral.' },
@@ -163,6 +171,6 @@ export default defineModule({
       'Worthington, P. F. y Cosentino, L. (2005). The role of cut-offs in integrated reservoir studies. SPE Reservoir Evaluation & Engineering 8(4).',
     ],
     notes:
-      'Las muestras sin Vsh o porosidad que ningún corte descarta no se pueden clasificar y se informan como «sin dato». El reservorio sin Sw cuenta en «sin dato pay»: no se cuenta como no pay; si toda la zona carece de Sw, el pay queda sin dato. El total se calcula desde las sumas de todas las zonas, no promediando promedios; las muestras fuera de toda zona no cuentan.',
+      'Los tres espesores netos están anidados: pay ≤ reservorio ≤ arena ≤ bruto. Las muestras sin Vsh o porosidad que ningún corte descarta no se pueden clasificar y se informan como «sin dato». El reservorio sin Sw cuenta en «sin dato pay»: no se cuenta como no pay; si toda la zona carece de Sw, el pay queda sin dato. El total se calcula desde las sumas de todas las zonas, no promediando promedios; las muestras fuera de toda zona no cuentan.',
   },
 });

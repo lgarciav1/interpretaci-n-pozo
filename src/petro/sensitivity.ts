@@ -19,10 +19,14 @@
  * umbral. j* se busca comparando contra el mismo t_j que devuelve `sweepThresholds` (nunca con una división), de
  * modo que una muestra exactamente sobre un umbral queda del lado correcto del borde.
  *
+ * Corte de permeabilidad (0054): si `cutoffs.permMin` es finito es un corte FIJO más (no se barre): una muestra con
+ * k < k_min o sin k nunca es reservorio en ningún umbral (0 o «sin dato», igual que en `netFlagsInto`); sin `perm`
+ * se trata como faltante en todas. Sin `permMin` la permeabilidad no interviene.
+ *
  * Referencias: Worthington, P.F. y Cosentino, L. (2005), "The role of cut-offs in integrated reservoir studies",
  * SPE Reservoir Evaluation & Engineering 8(4); Asquith y Krygowski (2004).
  */
-import type { Cutoffs } from './cutoffs';
+import { hasPermCutoff, type Cutoffs } from './cutoffs';
 
 export type SweepVariable = 'vsh' | 'phi' | 'sw';
 
@@ -97,6 +101,7 @@ function lastAtMost(t: Float64Array, v: number, min: number, dx: number): number
  * @param variable  corte a barrer
  * @param grid      grilla de umbrales (steps ≥ 2, min < max)
  * @param ranges    tramos [start, end) que se suman (una zona, o todas para el total)
+ * @param perm      permeabilidad (mD), solo para el corte fijo de k (`cutoffs.permMin`)
  */
 export function cutoffSweep(
   vsh: ArrayLike<number>,
@@ -107,11 +112,14 @@ export function cutoffSweep(
   variable: SweepVariable,
   grid: SweepGrid,
   ranges: readonly { start: number; end: number }[],
+  perm?: ArrayLike<number>,
 ): SweepCurves {
   const t = sweepThresholds(grid);
   const steps = t.length;
   const dx = (grid.max - grid.min) / (steps - 1);
   const { vshMax, phiMin, swMax } = cutoffs;
+  const permMin = hasPermCutoff(cutoffs) ? cutoffs.permMin : NaN;
+  const kCut = Number.isFinite(permMin);
 
   // Bins: índice del primer (≤) o último (φ ≥) umbral en que la muestra pasa.
   const binRes = new Float64Array(steps);
@@ -132,6 +140,7 @@ export function cutoffSweep(
       const p = phi[i]!;
       const w = sw[i]!;
       if (Number.isNaN(v) || Number.isNaN(p)) continue; // NET_RES = NaN: no cuenta en ningún umbral
+      if (kCut && !((perm ? perm[i]! : NaN) >= permMin)) continue; // k bajo (0) o sin k (NaN): nunca reservorio
       const h = thickness[i]!;
       const hphiSh = h * p * (1 - w);
 
