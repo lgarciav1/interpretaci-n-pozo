@@ -322,12 +322,14 @@ function calibParam(moduleId: string, key: string, spec: ParamSpec): CalibParam 
   return { spec, storage: paramStorageKey(moduleId, key, spec) };
 }
 
-/** ρma y ρf de la porosidad por densidad; a y m de Archie (compartidos por Archie, Simandoux, Indonesia y el Pickett). */
+/** ρma y ρf de la porosidad por densidad; a, m y n de Archie (compartidos por Archie, Simandoux, Indonesia y el Pickett). */
 export const CALIB_PARAMS = {
   rhoMa: calibParam('phi-density', 'rhoMa', phiDensity.params.rhoMa),
   rhoFl: calibParam('phi-density', 'rhoFl', phiDensity.params.rhoFl),
   a: calibParam('sw-archie', 'a', SHARED_PARAMS.a),
   m: calibParam('sw-archie', 'm', SHARED_PARAMS.m),
+  /** Exponente de saturación, compartido por los mismos modelos (0053). */
+  n: calibParam('sw-archie', 'n', SHARED_PARAMS.n),
   /** Del propio módulo: ρf de ρmaa y Vsh máxima de las muestras limpias (valor por zona y m desde el perfil). */
   rhomaaFl: calibParam(CORE_CALIBRATION_ID, 'rhoFl', coreCalibration.params.rhoFl),
   vshMax: calibParam(CORE_CALIBRATION_ID, 'vshMax', coreCalibration.params.vshMax),
@@ -404,6 +406,44 @@ export function applyCementation(project: Project, wellId: string, fit: { m: num
   if (fit.a !== undefined) {
     const a = roundedParam(CALIB_PARAMS.a, fit.a);
     if (Number.isFinite(a)) p = setParam(p, wellId, CALIB_PARAMS.a.storage, a, zoneId);
+  }
+  return p;
+}
+
+/**
+ * «Aplicar n»: exponente de saturación compartido por los modelos de Sw (global o de una zona), desde el ensayo de
+ * índice de resistividad de corona (0053). Una receta. Fuera del rango del control no se escribe nada.
+ */
+export function applySaturation(project: Project, wellId: string, n: number, zoneId: string | null): Project {
+  if (!fitsParam(CALIB_PARAMS.n, n)) return project;
+  const v = roundedParam(CALIB_PARAMS.n, n);
+  if (!Number.isFinite(v)) return project;
+  return setParam(project, wellId, CALIB_PARAMS.n.storage, v, zoneId);
+}
+
+/** a, m y n de Archie calibrados con corona (a y m del factor de formación, n del índice de resistividad). */
+export interface ArchieFromCore {
+  a: number;
+  m: number;
+  n: number;
+}
+
+/** ¿Los tres caben en el rango de sus controles? (si uno no, «Aplicar a, m y n» no escribe ninguno). */
+export function archieFits(v: ArchieFromCore): boolean {
+  return fitsParam(CALIB_PARAMS.a, v.a) && fitsParam(CALIB_PARAMS.m, v.m) && fitsParam(CALIB_PARAMS.n, v.n);
+}
+
+/**
+ * «Aplicar a, m y n»: los tres exponentes de Archie en UNA receta (un solo Ctrl+Z), global o de una zona. Si alguno
+ * cae fuera del rango de su control no se escribe nada: acotar uno dejaría un trío que no es el calibrado.
+ */
+export function applyArchie(project: Project, wellId: string, v: ArchieFromCore, zoneId: string | null): Project {
+  if (!archieFits(v)) return project;
+  let p = project;
+  for (const [param, value] of [[CALIB_PARAMS.a, v.a], [CALIB_PARAMS.m, v.m], [CALIB_PARAMS.n, v.n]] as const) {
+    const r = roundedParam(param, value);
+    if (!Number.isFinite(r)) return project;
+    p = setParam(p, wellId, param.storage, r, zoneId);
   }
   return p;
 }

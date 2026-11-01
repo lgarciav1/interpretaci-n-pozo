@@ -7,6 +7,9 @@
  *                  histograma; «Aplicar ρma» a la porosidad por densidad (global o de una zona; un Ctrl+Z).
  *   Exponente m    desde F de los plugs (a fija y libre) y desde Rt en zonas acuíferas (mediana de m por muestra), con
  *                  el gráfico log–log F–φ; «Aplicar m» a los modelos de Sw.
+ *   Exponente n    desde el ensayo de índice de resistividad (RI–Sw) de los plugs, con el gráfico log–log RI–Sw, n por
+ *                  plug y «Aplicar n»; resumen «Archie desde corona» con «Aplicar a, m y n» (una receta). Ver
+ *                  `saturationSection.tsx` y docs/decisiones/0053.
  *
  * Gráficos del x–y base (`src/plots/xy/`), temas claro y oscuro por tokens. Todo cambio va por `commit`. Se descubre
  * solo (`src/modules/<id>/dock.tsx`).
@@ -65,6 +68,9 @@ import {
   WINDOW_OPTIONS,
   zonesWithOwnValue,
 } from './model';
+import { KPI, Legend } from './parts';
+import { riSets } from './saturation';
+import { loadRiExample, SaturationSection } from './saturationSection';
 import './calibration.css';
 
 const f2 = (v: number | null | undefined) => formatNumber(v, { digits: 2 });
@@ -88,31 +94,6 @@ const scopeText = (zones: readonly Zone[], zoneId: string | null) => {
   return z ? `la zona ${z.name}` : 'todo el pozo';
 };
 
-function KPI({ label, value, unit, title, tone }: { label: string; value: string; unit?: string; title?: string; tone?: 'muted' }) {
-  return (
-    <div className="ccal-kpi" title={title}>
-      <div className="ccal-kpi__label">{label}</div>
-      <div className={`ccal-kpi__value num${tone ? ' is-muted' : ''}`}>
-        {value}
-        {unit && <span className="ccal-kpi__unit"> {unit}</span>}
-      </div>
-    </div>
-  );
-}
-
-function Legend({ items }: { items: { color: string; label: string; dash?: boolean; dot?: boolean }[] }) {
-  return (
-    <div className="ccal-legend">
-      {items.map((it) => (
-        <span key={it.label} className="ccal-legend__item">
-          <span className={`ccal-legend__mark${it.dot ? ' is-dot' : ''}${it.dash ? ' is-dash' : ''}`} style={{ ['--mark' as string]: it.color }} aria-hidden="true" />
-          {it.label}
-        </span>
-      ))}
-    </div>
-  );
-}
-
 // ── panel ──────────────────────────────────────────────────────────────────────────────────────────────────
 
 export function CalibrationPanel() {
@@ -126,13 +107,14 @@ export function CalibrationPanel() {
     return <EmptyState size="sm" icon="layers" title="Sin pozo" description="Cargá un pozo y sus plugs de corona para calibrar el perfil." />;
   }
   const sets = coreSets(well.pointSets);
-  if (sets.length === 0) {
+  const hasRi = riSets(well.pointSets).length > 0;
+  if (sets.length === 0 && !hasRi) {
     return (
       <EmptyState
         size="sm"
         icon="layers"
         title="Sin plugs de corona"
-        description="La calibración compara el perfil con los plugs ya puestos en profundidad: porosidad del perfil contra la de corona, densidad de matriz y exponente de cementación. Cargá los plugs en el panel Corona o usá los de ejemplo."
+        description="La calibración compara el perfil con los plugs ya puestos en profundidad: porosidad del perfil contra la de corona, densidad de matriz y exponentes de Archie (m desde el factor de formación, n desde el índice de resistividad). Cargá los plugs en el panel Corona o usá los de ejemplo."
         actions={
           <>
             <Button variant="primary" icon="layers" onClick={() => useUi.getState().set({ dockTab: CORE_DOCK_ID })}>
@@ -141,9 +123,32 @@ export function CalibrationPanel() {
             <Button icon="play" onClick={loadExample} title="Plugs inventados para practicar sobre el pozo del TP: no son mediciones del pozo">
               Usar plugs de ejemplo
             </Button>
+            <Button variant="ghost" icon="play" onClick={loadRiExample} title="Ensayo de índice de resistividad inventado para practicar: no son mediciones del pozo">
+              Usar ensayo RI–Sw de ejemplo
+            </Button>
           </>
         }
       />
+    );
+  }
+  if (sets.length === 0) {
+    // Solo el ensayo de índice de resistividad: n se calibra igual; a y m esperan los plugs con factor de formación.
+    const validOnly = scopePick && scopePick.wellId === well.id && (scopePick.zoneId === '' || interp.zones.some((z) => z.id === scopePick.zoneId));
+    const zoneOnly = validOnly ? scopePick!.zoneId || null : null;
+    return (
+      <div className="ccal">
+        <div className="ccal-bar">
+          <span className="ccal-bar__hint">Sin plugs de corona: solo el exponente de saturación desde el índice de resistividad.</span>
+          <button type="button" className="ccal-link ccal-bar__hint" onClick={() => useUi.getState().set({ dockTab: CORE_DOCK_ID })}>
+            Cargar plugs en Corona
+          </button>
+          <span className="shell-spacer" />
+          <ScopeField interp={interp} zoneId={zoneOnly} onScope={(z) => setScopePick({ wellId: well.id, zoneId: z ?? '' })} />
+        </div>
+        <div className="ccal-body is-single">
+          <SaturationSection wellSets={well.pointSets} interp={interp} zoneId={zoneOnly} coreSet={null} scope={{ zones: interp.zones, zoneId: zoneOnly }} />
+        </div>
+      </div>
     );
   }
   const set = sets.find((s) => s.id === picked) ?? sets[0]!;
@@ -178,8 +183,25 @@ export function CalibrationPanel() {
         <PorositySection set={set} well={well} interp={interp} ctx={ctx} scope={scope} />
         <DensitySection set={set} well={well} interp={interp} ctx={ctx} zoneId={zoneId} scope={scope} />
         <CementationSection set={set} well={well} interp={interp} ctx={ctx} zoneId={zoneId} scope={scope} />
+        <SaturationSection wellSets={well.pointSets} interp={interp} zoneId={zoneId} coreSet={set} scope={scope} />
       </div>
     </div>
+  );
+}
+
+/** «Aplicar en»: alcance de las recetas (todo el pozo o una zona). */
+function ScopeField({ interp, zoneId, onScope }: { interp: Interpretation; zoneId: string | null; onScope(z: string | null): void }) {
+  return (
+    <label className="ccal-field">
+      <span>Aplicar en</span>
+      <Select
+        size="sm"
+        aria-label="Alcance de Aplicar: todo el pozo o una zona"
+        value={zoneId ?? ''}
+        options={[{ value: '', label: 'Todo el pozo' }, ...interp.zones.map((z) => ({ value: z.id, label: `Zona ${z.name}` }))]}
+        onChange={(v) => onScope(v || null)}
+      />
+    </label>
   );
 }
 
@@ -234,16 +256,7 @@ function CalibrationBar({
         </span>
       )}
       <span className="shell-spacer" />
-      <label className="ccal-field">
-        <span>Aplicar en</span>
-        <Select
-          size="sm"
-          aria-label="Alcance de Aplicar: todo el pozo o una zona"
-          value={zoneId ?? ''}
-          options={[{ value: '', label: 'Todo el pozo' }, ...interp.zones.map((z) => ({ value: z.id, label: `Zona ${z.name}` }))]}
-          onChange={(v) => onScope(v || null)}
-        />
-      </label>
+      <ScopeField interp={interp} zoneId={zoneId} onScope={onScope} />
       <span
         className={`ccal-bar__count num${zone && count.inScope === 0 ? ' is-empty' : ''}`}
         role="status"

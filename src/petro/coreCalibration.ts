@@ -1,6 +1,6 @@
 /**
  * Calibración del perfil con corona (función N): emparejamiento plug–perfil, estadística de calibración de φ,
- * densidad de matriz desde corona, densidad de matriz aparente y exponente de cementación.
+ * densidad de matriz desde corona, densidad de matriz aparente, exponente de cementación y exponente de saturación.
  *
  * Unidades: φ y Sw en v/v (fracción, NO %); densidades en g/cc; resistividades en ohm·m; profundidades en m (misma
  * escala para plugs y perfil: la profundidad CORREGIDA de los plugs, ver `shiftedDepth` y docs/decisiones/0010).
@@ -15,6 +15,8 @@
  *   ρma que reproduce φ corona      ρma = ρf + Σdᵢ² / Σ dᵢ(1 − φcᵢ),   dᵢ = ρbᵢ − ρf     (solución cerrada)
  *   Archie                          F = a / φ^m   ⇒   ln F = ln a − m·ln φ
  *   m por plug (zona acuífera)      m = ln(a·Rw / Rt) / ln φ
+ *   Índice de resistividad          RI = Rt / Ro = Sw^(−n)   ⇒   ln RI = −n·ln Sw   (por el origen o con ordenada)
+ *   n puntual de un plug            n = −ln RI / ln Sw
  *
  * Referencias: Asquith y Krygowski (2004), "Basic Well Log Analysis", AAPG Methods in Exploration 16, cap. 4
  * (porosidad densidad, ρmaa) y cap. 5 (Archie; valores de Humble a = 0,62, m = 2,15); Bateman, R.M. (1985),
@@ -570,4 +572,123 @@ export function cementationExponentFromRtInto(
 ): Float64Array {
   for (let i = start; i < end; i++) out[i] = cementationExponentFromRt(phi[i]!, rt[i]!, rw, a);
   return out;
+}
+
+// ── exponente de saturación n (ensayo de índice de resistividad) ─────────────────────────────────────────────────
+
+/**
+ * Índice de resistividad RI = Rt / Ro (Rt: resistividad del plug parcialmente saturado, Ro: la del mismo plug 100 %
+ * saturado de agua; mismas unidades). NaN si alguna no es positiva y finita.
+ */
+export function resistivityIndex(rt: number, ro: number): number {
+  if (!(rt > 0) || !(ro > 0) || rt === Infinity || ro === Infinity) return NaN;
+  return rt / ro;
+}
+
+export interface SaturationFit {
+  /** Exponente de saturación (positivo: la convención de la app; el laboratorio suele informar la pendiente, −n). */
+  n: number;
+  /** RI extrapolado a Sw = 1 (1 en el ajuste por el origen; e^ordenada en el ajuste libre). */
+  intercept: number;
+  /** 1 − SSE/SST de ln RI (SST centrada). Por el origen puede ser negativo: la recta no tiene libre la ordenada. */
+  r2: number;
+  /** Raíz del error cuadrático medio de log10 RI (factor multiplicativo del residuo: 10^rmse). */
+  rmseLog10RI: number;
+  /** Puntos usados. */
+  count: number;
+}
+
+export interface SaturationResult {
+  /** Puntos válidos: Sw ∈ (0, 1] y RI > 0 finitos. */
+  count: number;
+  /** Por el origen (RI = 1 en Sw = 1): ln RI = −n·ln Sw. null sin puntos o si todos tienen Sw = 1. RECOMENDADO. */
+  origin: SaturationFit | null;
+  /** Con ordenada: ln RI = b − n·ln Sw. null si count < 3 o ln Sw constante. */
+  free: SaturationFit | null;
+}
+
+/**
+ * Exponente de saturación n desde el ensayo de índice de resistividad (desaturación de plugs, pares Sw–RI).
+ *
+ * Archie:  RI = Rt/Ro = Sw^(−n)   ⇒   ln RI = −n·ln Sw.
+ *   por el origen:  la recta pasa por (Sw = 1, RI = 1), que es la definición de RI (Rt = Ro con la roca saturada):
+ *                   n = − Σ xᵢyᵢ / Σ xᵢ²,   xᵢ = ln Swᵢ,   yᵢ = ln RIᵢ
+ *   libre:          recta con ordenada,  n = −Sxy/Sxx,   b = ȳ + n·x̄   (con count ≥ 3 y varianza de ln Sw > 0)
+ * Se recomienda el ajuste por el origen: es el que respeta la física del ensayo; una ordenada distinta de 0 indica
+ * error en Ro, conducción por arcillas o mojabilidad mixta, no un n distinto. Los puntos con Sw = 1 son válidos (entran
+ * en el R² y el RMSE) pero no pesan en la pendiente por el origen. Los resultados (ln o log10) son iguales.
+ * Convención de signo: n se devuelve positivo; el laboratorio suele informar la pendiente de log RI contra log Sw,
+ * que es −n.
+ *
+ * @param sw saturación de agua de cada paso (v/v), se usan los Sw ∈ (0, 1]
+ * @param ri índice de resistividad de cada paso (> 0), p. ej. de `resistivityIndex`
+ */
+export function fitSaturationExponent(sw: ArrayLike<number>, ri: ArrayLike<number>): SaturationResult {
+  const len = Math.min(sw.length, ri.length);
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (let i = 0; i < len; i++) {
+    const s = sw[i]!;
+    const r = ri[i]!;
+    if (!(s > 0 && s <= 1) || !(r > 0) || r === Infinity) continue;
+    xs.push(Math.log(s));
+    ys.push(Math.log(r));
+  }
+  const count = xs.length;
+  if (count === 0) return { count: 0, origin: null, free: null };
+
+  let my = 0;
+  for (const y of ys) my += y;
+  my /= count;
+  const finish = (n: number, b: number): SaturationFit => {
+    let sse = 0;
+    let sst = 0;
+    for (let i = 0; i < count; i++) {
+      const e = ys[i]! - (b - n * xs[i]!);
+      sse += e * e;
+      sst += (ys[i]! - my) * (ys[i]! - my);
+    }
+    return { n, intercept: Math.exp(b), r2: sst > 0 ? 1 - sse / sst : NaN, rmseLog10RI: Math.sqrt(sse / count) / Math.LN10, count };
+  };
+
+  let sxy0 = 0;
+  let sxx0 = 0;
+  for (let i = 0; i < count; i++) {
+    sxy0 += xs[i]! * ys[i]!;
+    sxx0 += xs[i]! * xs[i]!;
+  }
+  const origin = sxx0 > 0 ? finish(-sxy0 / sxx0, 0) : null;
+
+  let free: SaturationFit | null = null;
+  if (count >= 3) {
+    let mx = 0;
+    for (const x of xs) mx += x;
+    mx /= count;
+    let sxx = 0;
+    let sxy = 0;
+    for (let i = 0; i < count; i++) {
+      sxx += (xs[i]! - mx) * (xs[i]! - mx);
+      sxy += (xs[i]! - mx) * (ys[i]! - my);
+    }
+    if (sxx > 0 && sxx > 1e-20 * count * mx * mx) {
+      const n = -sxy / sxx;
+      free = finish(n, my + n * mx);
+    }
+  }
+  return { count, origin, free };
+}
+
+/**
+ * Exponente de saturación puntual de un plug (un solo paso de desaturación):
+ *
+ *   RI = Sw^(−n)   ⇒   n = −ln RI / ln Sw
+ *
+ * Es lo mismo que el ajuste por el origen con un único punto. Guardas: Sw ∉ (0, 1) (con Sw = 1 no hay pendiente),
+ * RI ≤ 0 o no finito → NaN. Valores fuera de ~1,5–3 sugieren un Ro mal medido o mojabilidad al petróleo; no se recortan.
+ * @param sw saturación de agua del paso (v/v)
+ * @param ri índice de resistividad del paso (Rt/Ro)
+ */
+export function saturationExponentPerPlug(sw: number, ri: number): number {
+  if (!(sw > 0 && sw < 1) || !(ri > 0) || ri === Infinity) return NaN;
+  return -Math.log(ri) / Math.log(sw);
 }

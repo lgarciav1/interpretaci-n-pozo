@@ -12,7 +12,8 @@ histograma y crossplot libre (0014), parámetros elegidos sobre los gráficos (0
 indicadores automáticos (0017), los modelos de Sw lado a lado, las fichas de zona y la paleta de comandos (0018), el
 módulo de RMN con su pista y su crossplot (0019, `0019-rmn.md`), capacidad de flujo, incertidumbre y lectura automática
 (0019, `0019-reservorio-e-incertidumbre.md`), el perfil radial de invasión (0020), los gráficos conectados al perfil
-con el Pickett interactivo (0021), el informe automático (0022), la calibración con corona (0023) y la sarta de
+con el Pickett interactivo (0021), el informe automático (0022), la calibración con corona (0023; n desde el índice de
+resistividad en 0053) y la sarta de
 perfilaje (0032) con su configurador y vista 3D (0033).
 Este documento resume cómo encajan las piezas y cómo agregar un módulo.
 
@@ -636,6 +637,11 @@ Decisión: [`docs/decisiones/0023-calibracion-con-corona.md`](decisiones/0023-ca
   con m = 1,85 (otra semilla: el resto del ejemplo no cambia).
 - Tests: `tests/modules-8n-core-calibration.test.ts` (módulo, cadena con el motor en el demo y el TP, modelo del panel,
   lector y ejemplo).
+- **Exponente de saturación n** ([`0053`](decisiones/0053-exponente-de-saturacion-desde-corona.md)): conjunto de
+  puntos `core-ri` (pasos RI–Sw por plug, lector `src/io/coreRi.ts`), ajuste por el origen (recomendado) y libre en
+  `src/petro/coreCalibration.ts`, sección «Exponente de saturación n» del panel con n por plug, «Aplicar n» y el resumen
+  «Archie desde corona» con «Aplicar a, m y n» en una receta. Tests: `tests/petro-exponente-saturacion.test.ts` y
+  `tests/modules-core-ri.test.ts`.
 
 ## Tipos de roca (fase 8, función P)
 
