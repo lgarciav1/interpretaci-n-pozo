@@ -2,6 +2,8 @@
 
 `pozo_tp_perfiles.csv` contiene solo los perfiles medidos del pozo, extraídos de la hoja **Datos** de `TP_interpretacion_de_Pozo.xlsx`. No incluye ninguna curva interpretada.
 
+**Alcance acordado para el TP (2026-11-01):** trabajar con estos datos y el material disponible de la cátedra. Modelo de herramienta, lodo y procesado que no puedan verificarse permanecen desconocidos; no bloquean la interpretación de las curvas entregadas. Se documentan límites/supuestos y se dejan fuera las correcciones que requieren esos datos. MGT es opcional y conserva sus requisitos. El [diagnóstico ambiental integrado](../docs/decisiones/0051-diagnostico-ambiental-con-datos-del-tp.md) revisa originales y permite explorar el modelo radial como hipótesis explícita.
+
 - 5.810 muestras, de 7633,26 a 8518,55 m, cada 0,1524 m (medio pie).
 - Separador: coma. Decimal: punto. Celda vacía = sin dato.
 

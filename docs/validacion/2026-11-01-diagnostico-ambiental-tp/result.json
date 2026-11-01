@@ -1,0 +1,28 @@
+{
+  "errors": [],
+  "tpTotals": {
+    "samples": 5810,
+    "invalidCaliper": 189,
+    "geometryPairs": 5621,
+    "washout": 71,
+    "belowBit": 4550,
+    "pePairs": 5810,
+    "suspectPe": 5559,
+    "resistivityTriples": 5810,
+    "separated": 3882,
+    "firstReviewIndex": 0
+  },
+  "checks": [
+    "real TP with unknown acquisition",
+    "zone denominators and aggregation",
+    "read-only compatibility table",
+    "explicit radial hypothesis with observations/model/residual",
+    "criteria sensitivity and invalid input",
+    "inclusive range and empty range without stale inspection",
+    "Project unchanged",
+    "ambiguous caliper requires selection",
+    "two resistivities have no valid triple",
+    "JSON includes provenance and assumptions",
+    "offline without Worker/SubtleCrypto"
+  ]
+}
