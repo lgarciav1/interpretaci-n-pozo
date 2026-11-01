@@ -12,7 +12,7 @@ import type { Project, WellEntry } from "../../core/state/project";
 import { registry } from "../../modules";
 import { unitLabel } from "../../core/units";
 import { Button, Callout, Checkbox, Field, Select, TextField } from "../../ui";
-import { useProject } from "../store/project";
+import { useProject } from "../../app/store/project";
 import { MgtPanel } from "./MgtPanel";
 
 function AcquisitionEditor({
@@ -354,8 +354,8 @@ export function EnvironmentPanel({
   );
   const run = acquisition.runs.find((r) => r.curveIds.includes(curveId));
   return (
-    <details>
-      <summary>Correcciones ambientales · catálogo y adquisición</summary>
+    <section className="prep-legacy" aria-label="Correcciones ambientales">
+      <h3>Correcciones ambientales · catálogo y adquisición</h3>
       <p>
         Relevamiento de {curve.mnemonic}. Las familias generales permanecen
         pendientes de admisión; registrar datos no las habilita. La excepción
@@ -431,6 +431,6 @@ export function EnvironmentPanel({
         entry={entry}
         curveId={curveId}
       />
-    </details>
+    </section>
   );
 }

@@ -1,4 +1,3 @@
-import { PreparationDialog } from './preparation/PreparationDialog';
 /**
  * Armazón de la app (docs/decisiones/0004-sistema-de-diseno.md, D6):
  * barra superior · flujo guiado · [pozo/curvas/zonas | visor + dock | inspector del paso].
@@ -174,7 +173,6 @@ export function App() {
       </div>
 
       {loadDialog && <LoadWellDialog onClose={() => setUi({ loadDialog: null })} {...(loadDialog.source ? { initialSource: loadDialog.source } : {})} />}
-      <PreparationDialog />
       <SnapshotsDialog />
       <ExportDialog />
       <QcReportDialog />

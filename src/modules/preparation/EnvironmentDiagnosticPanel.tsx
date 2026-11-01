@@ -30,7 +30,7 @@ import {
   TextField,
   formatNumber,
 } from "../../ui";
-import { downloadFile } from "../export/exportActions";
+import { downloadFile } from "../../app/export/exportActions";
 
 const number = (s: string) =>
   s.trim() ? Number(s.trim().replace(",", ".")) : NaN;
@@ -54,12 +54,12 @@ export function EnvironmentDiagnosticPanel(props: {
   top: number;
   base: number;
 }) {
-  const [open, setOpen] = useState(false);
+  // Pestaña del panel (0058): se monta solo cuando está a la vista, así el diagnóstico no corre de más.
   return (
-    <details onToggle={(event) => setOpen(event.currentTarget.open)}>
-      <summary>Diagnóstico ambiental con datos disponibles</summary>
-      {open && <DiagnosticReview key={props.entry.well.id} {...props} />}
-    </details>
+    <section className="prep-legacy" aria-label="Diagnóstico ambiental con datos disponibles">
+      <h3>Diagnóstico ambiental con datos disponibles</h3>
+      <DiagnosticReview key={props.entry.well.id} {...props} />
+    </section>
   );
 }
 

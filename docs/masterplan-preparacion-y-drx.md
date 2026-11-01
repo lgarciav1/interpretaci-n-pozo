@@ -454,7 +454,8 @@ Separar equivalencia numérica y binaria: ida/vuelta de datos originales debe co
 | src/io/xrd.ts | Lectura y mapeo DRX; reutiliza tabla CSV/xlsx. |
 | src/petro/xrdCalibration.ts | Emparejado/ajuste y métricas, reutilizando funciones IGR/Vsh existentes. |
 | src/modules/xrd-calibration/ | Panel, superposición, documentación y comandos; sin lógica científica en JSX. |
-| src/app/preparation/ | Editor, preview, comparación y conexión con stores. |
+| src/modules/preparation/ | Módulo de panel «Preparar datos» (0058): panel del dock, herramientas, vista previa y pestañas. |
+| src/app/preparation/ | Proyección de datos preparados para la app, comparación en el visor y apertura del panel. |
 | tests/preparation/, tests/io/xrd.test.ts | Casos científicos y de integración. |
 | docs/decisiones/ | ADR de contexto, persistencia, DRX y cada método científico. |
 

@@ -21,9 +21,9 @@ import {
 } from "../../core/preparation/xrdCutoff";
 import { applyXrdCutoff, previewXrdCutoff } from "../../core/state/xrdCutoff";
 import { registry } from "../../modules";
-import { snapshotRunner } from "../snapshots/snapshotEngine";
-import { useProject } from "../store/project";
-import { useResults } from "../store/results";
+import { snapshotRunner } from "../../app/snapshots/snapshotEngine";
+import { useProject } from "../../app/store/project";
+import { useResults } from "../../app/store/results";
 import { Button, Callout, Checkbox, Field, Select, TextField } from "../../ui";
 import { calibrationPreviewRequest } from "./calibrationPreview";
 

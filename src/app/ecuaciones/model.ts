@@ -72,7 +72,10 @@ function haystackOf(name: string, categoryLabel: string, docs: ModuleDocs): stri
   return fold([name, categoryLabel, docs.summary, docs.notes ?? '', ...docs.equations.flatMap((e) => [e.latex, e.description ?? ''])].join('\n'));
 }
 
-/** Entradas en el orden de presentación: por categoría (orden del registro) y, dentro, por orden del registro. */
+/**
+ * Entradas en el orden de presentación: por categoría (orden del registro) y, dentro, por orden del registro: módulos
+ * del motor, módulos de panel (0058) y extras.
+ */
 export function buildEquationEntries(registry: Registry, extras: readonly ExtraDocs[] = []): EquationEntry[] {
   const out: EquationEntry[] = [];
   for (const m of registry.modules) {
@@ -86,6 +89,10 @@ export function buildEquationEntries(registry: Registry, extras: readonly ExtraD
       params: Object.entries(m.params).map(([k, s]) => paramRow(k, s)),
       haystack: haystackOf(m.name, categoryLabel, m.docs),
     });
+  }
+  for (const x of registry.panels) {
+    const categoryLabel = registry.categoryLabel(x.category);
+    out.push({ id: x.id, name: x.name, categoryId: x.category, categoryLabel, docs: x.docs, params: [], haystack: haystackOf(x.name, categoryLabel, x.docs) });
   }
   for (const x of extras) {
     const categoryLabel = registry.categoryLabel(x.category);

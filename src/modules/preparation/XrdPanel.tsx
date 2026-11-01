@@ -29,9 +29,9 @@ import { makeId, type Project, type WellEntry } from "../../core/state/project";
 import { sameContext } from "../../core/engine/context";
 import { resolveDataContext } from "../../core/preparation/projection";
 import { registry } from "../../modules";
-import { preparedData } from "./data";
-import { useResults } from "../store/results";
-import { useProject } from "../store/project";
+import { preparedData } from "../../app/preparation/data";
+import { useResults } from "../../app/store/results";
+import { useProject } from "../../app/store/project";
 import { Button, Callout, Checkbox, Field, Select, TextField } from "../../ui";
 
 const decimal = (value: string) =>
@@ -188,8 +188,8 @@ export function XrdPanel({
     setPreview(null);
   };
   return (
-    <details>
-      <summary>DRX · carga y comparación diagnóstica</summary>
+    <section className="prep-legacy" aria-label="DRX">
+      <h3>DRX · carga y comparación diagnóstica</h3>
       <section aria-label="Diagnóstico DRX">
         <p>
           DRX mide minerales: contenido de arcillas y Vsh son magnitudes
@@ -912,6 +912,6 @@ export function XrdPanel({
         )}
         {error && <Callout tone="error">{error}</Callout>}
       </section>
-    </details>
+    </section>
   );
 }

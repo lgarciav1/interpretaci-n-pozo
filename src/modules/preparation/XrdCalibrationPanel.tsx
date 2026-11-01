@@ -26,9 +26,9 @@ import { calibrationPreviewRequest } from "./calibrationPreview";
 import { sameContext } from "../../core/engine/context";
 import type { ClientResult } from "../../core/engine/client";
 import { registry } from "../../modules";
-import { snapshotRunner } from "../snapshots/snapshotEngine";
-import { useProject } from "../store/project";
-import { useResults } from "../store/results";
+import { snapshotRunner } from "../../app/snapshots/snapshotEngine";
+import { useProject } from "../../app/store/project";
+import { useResults } from "../../app/store/results";
 import { Button, Callout, Checkbox, Field, Select, TextField } from "../../ui";
 const number = (s: string) =>
   s.trim() ? Number(s.trim().replace(",", ".")) : NaN;

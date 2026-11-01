@@ -1,4 +1,4 @@
-import { usePreparationUi } from '../preparation/store';
+import { openPreparation } from '../preparation/open';
 /**
  * Columna izquierda: pozo, curvas medidas (con su semáforo de calidad), resumen del control de calidad,
  * curvas calculadas y zonas. El detalle de calidad vive en el paso Calidad del inspector y en el informe.
@@ -188,7 +188,7 @@ export function WellPanel() {
         )}
       </Section>
 
-      <div><Button size="sm" icon="filter" onClick={() => usePreparationUi.setState({ wellId: well.id })}>Preparar datos</Button></div>
+      <div><Button size="sm" icon="filter" onClick={() => openPreparation()}>Preparar datos</Button></div>
       <Section title="Curvas medidas" meta={shown.length === well.curves.length ? well.curves.length : `${shown.length} de ${well.curves.length}`}>
         {well.curves.length === 0 ? (
           <EmptyState size="sm" icon="curve" title="Sin curvas" description="El archivo no trajo curvas. Volvé a cargarlo revisando el mapeo de columnas." />

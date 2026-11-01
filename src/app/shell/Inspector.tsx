@@ -17,6 +17,7 @@ import { useResults } from '../store/results';
 import { useUi } from '../store/ui';
 import { showSwModels } from '../tracks/swModels';
 import { AVAILABILITY_LABEL, useToolStringView } from '../toolString/select';
+import { openPreparation } from '../preparation/open';
 
 /** Valor de `activeStepId` cuando se eligió un módulo que no pertenece a ningún paso. */
 export const FREE_MODULE_VIEW = '@module';
@@ -198,6 +199,7 @@ function QcView({ state }: { state: StepState }) {
           ))}
         </div>
       )}
+      <PreparationCard issues={issues.length} prepared={entry?.interpretation.preparation?.nodes.length ?? 0} firstIssue={issues[0]?.curveId ?? null} />
       <div className="inspector-row">
         <Button icon="table" onClick={() => setUi({ qcReportOpen: true })}>
           Ver informe completo
@@ -209,6 +211,26 @@ function QcView({ state }: { state: StepState }) {
         )}
       </div>
     </div>
+  );
+}
+
+/** Tarjeta del paso Calidad que lleva al panel «Preparar datos» del dock (0058): no es un paso más del flujo. */
+function PreparationCard({ issues, prepared, firstIssue }: { issues: number; prepared: number; firstIssue: string | null }) {
+  return (
+    <section className="qc-prep-card" aria-label="Preparar datos">
+      <div className="qc-prep-card__text">
+        <strong className="qc-prep-card__title">Preparar datos</strong>
+        <span className="qc-prep-card__desc">
+          {issues > 0
+            ? `${issues === 1 ? 'Una curva tiene' : `${issues} curvas tienen`} observaciones: excluí tramos o espurios, interpolá huecos, filtrá o alineá, con vista previa.`
+            : 'Excluí tramos o espurios, interpolá huecos, filtrá o alineá, con vista previa y el original guardado.'}
+          {prepared > 0 && ` ${prepared === 1 ? 'Hay una curva preparada' : `Hay ${prepared} curvas preparadas`}.`}
+        </span>
+      </div>
+      <Button size="sm" iconRight="arrow-right" onClick={() => openPreparation(firstIssue)}>
+        Abrir Preparar datos
+      </Button>
+    </section>
   );
 }
 
