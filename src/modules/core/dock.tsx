@@ -2,8 +2,8 @@
  * Panel «Corona» del dock (docs/decisiones/0010-datos-de-corona.md, D7): plugs (incluir o descartar), puesta en
  * profundidad corona–perfil (desplazamiento por corona, sugerido por correlación con su curva r y «Usar sugerido") y
  * crossplot k–φ (gráfico x–y base de `src/plots/xy/`) con el modelo k–φ (una tendencia exponencial), su ecuación, R²
- * y «Aplicar al pozo» hacia el módulo del motor `perm-core`. Estado vacío con «Cargar plugs» y «Usar plugs de
- * ejemplo». Todo cambio va por `commit` (Ctrl+Z). Se descubre solo (`src/modules/<id>/dock.tsx`).
+ * y «Aplicar al pozo» hacia el módulo del motor `perm-core`. Estado vacío con «Cargar plugs», «Cargar corona del TP»
+ * (datos reales del laboratorio, embebidos: docs/decisiones/0056) y «Usar plugs de ejemplo». Todo cambio va por `commit` (Ctrl+Z). Se descubre solo (`src/modules/<id>/dock.tsx`).
  */
 import { useMemo, useState, type ReactNode } from 'react';
 import type { Interpretation } from '../../core/interpretation';
@@ -29,6 +29,7 @@ import { resolveSeries } from '../../app/trends/providers';
 import { useTrendsUi } from '../../app/trends/store';
 import { addCoreExample, exampleCoreSet, kphiTrendSpec } from './example';
 import { LoadCoreDialog } from './LoadCoreDialog';
+import { addTpCore, isTpCoreSet, TP_CORE_VIEW, tpCoreSet } from './tp';
 import {
   applyKPhiModel,
   COL,
@@ -102,6 +103,35 @@ export function loadExample(): void {
   useUi.getState().set({ dockTab: CORE_DOCK_ID });
 }
 
+/**
+ * Carga los plugs reales del TP (embebidos) con su modelo k–φ, ya en profundidad del perfil. Si el pozo ya los tiene,
+ * no los duplica: avisa y muestra el panel. También lo usa el panel «Calibración».
+ */
+export function loadTpCore(): void {
+  const entry = activeWellEntry(useProject.getState().project);
+  if (!entry) return;
+  const showTp = () => {
+    useTrendsUi.getState().requestRange(TP_CORE_VIEW[0], TP_CORE_VIEW[1]);
+    useUi.getState().set({ dockTab: CORE_DOCK_ID });
+  };
+  if (entry.well.pointSets.some(isTpCoreSet)) {
+    toast({ tone: 'info', title: 'La corona del TP ya está cargada', description: 'Para volver a cargarla desde cero, borrá primero el conjunto con el botón de la papelera.' });
+    showTp();
+    return;
+  }
+  const set = tpCoreSet(makeId('corona'));
+  const runs = pointTexts(set, COL.run) ?? [];
+  const n1 = runs.filter((r) => r === '1').length;
+  const withF = Array.from(pointNumbers(set, COL.ff) ?? []).filter(Number.isFinite).length;
+  useProject.getState().commit('Cargar corona del TP', (p) => addTpCore(p, entry.well.id, set, makeId('tend')));
+  toast({
+    tone: 'ok',
+    title: 'Corona del TP cargada (datos reales de laboratorio)',
+    description: `${set.pointIds.length} plugs medidos (${n1} en la corona 1 y ${runs.length - n1} en la corona 2), ${withF} con factor de formación. La profundidad es la del Excel de la cátedra, ya puesta en profundidad del perfil: desplazamiento 0.`,
+  });
+  showTp();
+}
+
 export function CorePanel() {
   const entry = useProject(selectActiveEntry);
   const [loading, setLoading] = useState(false);
@@ -109,7 +139,7 @@ export function CorePanel() {
   const [selected, setSelected] = useState<string | null>(null);
   const well = entry?.well ?? null;
   const interp = entry?.interpretation ?? null;
-  const dialog = loading && <LoadCoreDialog onClose={() => setLoading(false)} onExample={loadExample} />;
+  const dialog = loading && <LoadCoreDialog onClose={() => setLoading(false)} onExample={loadExample} onTp={loadTpCore} />;
   if (!entry || !well || !interp) {
     return <EmptyState size="sm" icon="layers" title="Sin pozo" description="Cargá un pozo para sumarle los datos de corona." />;
   }
@@ -127,7 +157,10 @@ export function CorePanel() {
               <Button variant="primary" icon="upload" onClick={() => setLoading(true)}>
                 Cargar plugs
               </Button>
-              <Button icon="play" onClick={loadExample} title="Plugs inventados para practicar sobre el pozo del TP: no son mediciones del pozo">
+              <Button icon="table" onClick={loadTpCore} title="151 plugs reales de las dos coronas del pozo del TP (laboratorio de la cátedra), embebidos en la app">
+                Cargar corona del TP
+              </Button>
+              <Button variant="ghost" icon="play" onClick={loadExample} title="Plugs inventados para practicar sobre el pozo del TP: no son mediciones del pozo">
                 Usar plugs de ejemplo
               </Button>
             </>
@@ -167,6 +200,11 @@ function CoreBar({ set, sets, onPick, onLoad }: { set: PointSet; sets: PointSet[
         {set.synthetic && (
           <Badge tone="warn" icon="warning" title="Plugs inventados para practicar: no son mediciones del pozo">
             Ejemplo sintético
+          </Badge>
+        )}
+        {isTpCoreSet(set) && (
+          <Badge tone="ok" icon="check-circle" title={`Mediciones reales del laboratorio: ${set.source}`}>
+            Datos del TP
           </Badge>
         )}
       </div>

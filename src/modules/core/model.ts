@@ -27,6 +27,11 @@ export const KPHI = 'kphi';
 /** Ajuste del conjunto: curva del perfil contra la que se correlaciona la φ de corona (rol o `m:<curva>`). */
 export const MATCH_CURVE_SETTING = 'matchCurve';
 export const DEFAULT_MATCH_CURVE = 'PHIE';
+/**
+ * Ajuste del conjunto: la profundidad del archivo YA es la del perfil (p. ej. los plugs del TP, corridos por la cátedra).
+ * Con él, un desplazamiento 0 cuenta como puesta en profundidad hecha (docs/decisiones/0056).
+ */
+export const DEPTH_ON_LOG_SETTING = 'depthOnLog';
 
 /** Columnas del conjunto (las llena `src/io/core.ts` y el ejemplo). */
 export const COL = { phi: 'phi', k: 'k', rhog: 'rhog', ff: 'ff', run: RUN_COLUMN, description: 'description' } as const;

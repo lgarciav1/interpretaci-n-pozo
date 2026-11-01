@@ -51,7 +51,7 @@ const PREVIEW_ROWS = 8;
 const nextPaint = () => new Promise<void>((r) => requestAnimationFrame(() => setTimeout(r, 0)));
 const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
-export function LoadRiDialog({ onClose, onExample }: { onClose: () => void; onExample?: () => void }) {
+export function LoadRiDialog({ onClose, onExample, onTp }: { onClose: () => void; onExample?: () => void; onTp?: () => void }) {
   const commit = useProject((s) => s.commit);
   const [step, setStep] = useState<Step>('source');
   const [busy, setBusy] = useState<string | null>(null);
@@ -230,11 +230,31 @@ export function LoadRiDialog({ onClose, onExample }: { onClose: () => void; onEx
             title="Arrastrá la tabla del ensayo acá o hacé clic para elegirla"
             description="Excel (.xlsx), CSV o LAS: una fila por paso de desaturación con la saturación de agua (fracción o %) y el índice de resistividad (o Rt y Ro), y si los hay el id del plug y su profundidad. Las columnas se reconocen por su nombre; en el paso siguiente podés corregirlas."
           />
+          {(onTp || onExample) && (
+            <div className="lw-or" aria-hidden="true">
+              <span>o</span>
+            </div>
+          )}
+          {onTp && (
+            <div className="lw-tp">
+              <div className="lw-tp__text">
+                <div className="lw-tp__title">Índice de resistividad del TP · datos de laboratorio</div>
+                <div className="ui-text-muted">El ensayo real de la hoja IRSummary: los 586 pares Sw–RI compuestos y el punto final de los 12 plugs (estos, descartados al cargar porque ya están en el compuesto). Vienen incluidos en la app.</div>
+              </div>
+              <Button
+                icon="table"
+                onClick={() => {
+                  onTp();
+                  onClose();
+                }}
+                disabled={!!busy}
+              >
+                Cargar RI del TP
+              </Button>
+            </div>
+          )}
           {onExample && (
             <>
-              <div className="lw-or" aria-hidden="true">
-                <span>o</span>
-              </div>
               <div className="lw-tp">
                 <div className="lw-tp__text">
                   <div className="lw-tp__title">Índice de resistividad de ejemplo · sintético</div>
