@@ -121,6 +121,8 @@
 /* El botón del ajuste puede ocupar dos renglones en el panel aparte angosto. */
 .plot-water > .ui-btn { height: auto; min-height: var(--btn-h); white-space: normal; text-align: center; padding-block: var(--space-1); }
 .plot-hint--warn { color: var(--color-warn-text); }
+/* Resumen de una línea de una plantilla (Thomas–Stieber, 0061): lo que dice la nube, antes de las acciones. */
+.plot-summary { margin: 0; font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--color-text); line-height: var(--leading-normal); overflow-wrap: anywhere; }
 .plot-params dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; color: var(--color-text); }
 .plot-swatch { display: inline-block; width: calc(10px * var(--ui-scale)); height: calc(3px * var(--ui-scale)); border-radius: 2px; background: var(--swatch, var(--color-accent)); flex: none; }
 .plot-swatch.is-diamond { width: calc(8px * var(--ui-scale)); height: calc(8px * var(--ui-scale)); transform: rotate(45deg); border-radius: 1px; }

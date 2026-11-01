@@ -10,6 +10,7 @@ import type { CrossplotTemplateId } from '../../core/plots';
 import { CLAY_REGIONS, MINERALS, mineralMixLine } from '../../petro/mineralogy';
 import { LITH1_BOXES, LITHOLOGY_MATRICES, MAIN_MATRICES, UMAA_CHART_POINTS, UMAA_CHART_RANGE, UMAA_TRIANGLE, boxVertices, mnPoint, porosityLine, ternaryGrid, type LithologyMatrix, type MatrixId, type MineralBox } from '../../petro/lithologyIndices';
 import type { XYLineLayer, XYPointLayer, XYPolygonLayer } from '../xy/layers';
+import { thomasStieberGeometry } from '../../petro/clayDistribution';
 
 // ── densidad–neutrón ──────────────────────────────────────────────────────────────────────────────────────────
 
@@ -288,6 +289,16 @@ export const CROSSPLOT_TEMPLATE_DEFS: readonly CrossplotTemplate[] = [
     zoneColor: true,
     needs: 'Th/K la calcula «Índices de litología» con THOR y POTA.',
   },
+  {
+    id: 'thomas-stieber',
+    group: 'lithology',
+    label: 'Thomas–Stieber',
+    description: 'Porosidad total contra Vsh: arcilla laminar, dispersa o estructural, con los extremos arrastrables',
+    x: { role: 'VSH', scale: 'linear', range: [0, 1] },
+    y: { role: 'PHIT', scale: 'linear', range: [0, 0.5] },
+    colorRole: 'GR',
+    needs: 'VSH lo calcula «Volumen de arcilla» y PHIT, «Porosidad total» (densidad–neutrón).',
+  },
 ];
 
 export const templateDef = (id: CrossplotTemplateId | null): CrossplotTemplate | undefined => CROSSPLOT_TEMPLATE_DEFS.find((t) => t.id === id);
@@ -508,4 +519,61 @@ export function lithologyTemplateLayers(
       ? 'Cajas orientativas de Lith-1 (ex CP-18): rangos de K leídos de la carta y de PEF de la hoja CROSSPLOT de la cátedra. Límites SIN VERIFICAR. La baritina del lodo sube el PEF de todas las muestras.'
       : 'Cajas orientativas de Lith-1 (ex CP-18) de la hoja CROSSPLOT de la cátedra: límites SIN VERIFICAR y superpuestos (capas mixtas incluye montmorillonita). La baritina del lodo sube el PEF de todas las muestras.',
   };
+}
+
+// ── Thomas–Stieber (distribución de la arcilla; docs/decisiones/0061) ─────────────────────────────────────────
+
+/** Colores del diagrama: región A (dispersa), región B (estructural), la diagonal laminar y la banda. */
+export interface ThomasStieberColors {
+  dispersed: string;
+  structural: string;
+  laminated: string;
+  band: string;
+}
+
+export const DEFAULT_THOMAS_STIEBER_COLORS: ThomasStieberColors = { dispersed: '#0f8b6f', structural: '#b7791f', laminated: '#2b2f36', band: '#78828f' };
+
+/**
+ * Capas del diagrama de Thomas–Stieber para los extremos dados: las regiones A y B (rellenas y rotuladas), las cinco
+ * rectas con su rótulo junto al tramo (como la slide 14) y la banda laminar (±tolerancia, punteada). Vacío si los
+ * extremos no son válidos (0 < φsh < φsand < 1). La matemática está en `src/petro/clayDistribution.ts`.
+ */
+export function thomasStieberLayers(phiSand: number, phiShale: number, tolerance: number, colors: ThomasStieberColors = DEFAULT_THOMAS_STIEBER_COLORS): { polygons: XYPolygonLayer[]; lines: XYLineLayer[] } {
+  const g = thomasStieberGeometry(phiSand, phiShale);
+  if (!g) return { polygons: [], lines: [] };
+  const centroid = (v: [number, number][]): [number, number] => [v.reduce((a, p) => a + p[0], 0) / v.length, v.reduce((a, p) => a + p[1], 0) / v.length];
+  const polygons: XYPolygonLayer[] = [
+    { id: 'ts-region-a', name: 'Región A · arcilla dispersa', vertices: g.regionA, color: colors.dispersed, fillAlpha: 0.12, width: 0.001 },
+    { id: 'ts-region-b', name: 'Región B · arcilla estructural', vertices: g.regionB, color: colors.structural, fillAlpha: 0.12, width: 0.001 },
+  ];
+  // Rótulos de las regiones como rótulos de línea (con fondo, encima de la nube), cerca del centro de cada triángulo.
+  const [ax, ay] = centroid(g.regionA);
+  const [bx, by] = centroid(g.regionB);
+  const regionLabels: XYLineLayer[] = [
+    { id: 'ts-region-a-label', x: [ax - 0.06], y: [ay], color: colors.dispersed, label: 'A · arcilla dispersa', labelAt: 'start' },
+    { id: 'ts-region-b-label', x: [bx - 0.06], y: [by], color: colors.structural, label: 'B · arcilla estructural', labelAt: 'start' },
+  ];
+  /** Punto a una fracción `t` del tramo (para el rótulo de la recta). */
+  const at = (l: { x: number[]; y: number[] }, t: number): [number, number] => [l.x[0]! + t * (l.x[1]! - l.x[0]!), l.y[0]! + t * (l.y[1]! - l.y[0]!)];
+  const seg = (id: string, name: string, l: { x: number[]; y: number[] }, color: string, label: string, t: number, width = 1.6): XYLineLayer[] => {
+    const [lx, ly] = at(l, t);
+    return [
+      { id: `ts-${id}`, name, x: l.x, y: l.y, color, width },
+      // Rótulo junto al tramo: una «línea» de un solo punto (no se dibuja; el rótulo va a su derecha).
+      { id: `ts-${id}-label`, x: [lx], y: [ly], color, label, labelAt: 'start' },
+    ];
+  };
+  const lines: XYLineLayer[] = [
+    ...seg('dispersed-pore', 'Dispersa · relleno de poros', g.dispersedPoreFilling, colors.dispersed, 'Dispersa · relleno de poros', 0.5),
+    ...seg('dispersed-grain', 'Dispersa · reemplazo de granos', g.dispersedGrainReplacing, colors.dispersed, 'Dispersa · reemplazo de granos', 0.3),
+    ...seg('structural-grain', 'Estructural · reemplazo de granos', g.structuralGrainReplacing, colors.structural, 'Estructural · reemplazo de granos', 0.35),
+    ...seg('structural-pore', 'Estructural · relleno de poros', g.structuralPoreFilling, colors.structural, 'Estructural · relleno de poros', 0.35),
+    ...seg('laminated', 'Laminada', g.laminated, colors.laminated, 'Laminada', 0.45, 2.25),
+    ...regionLabels,
+  ];
+  const tol = Math.max(0, tolerance);
+  if (tol > 0) {
+    for (const s of [1, -1]) lines.push({ id: `ts-band-${s > 0 ? 'up' : 'down'}`, name: s > 0 ? 'Banda laminar' : undefined, x: [0, 1], y: [phiSand + s * tol, phiShale + s * tol], color: colors.band, width: 1, dash: [4, 4] });
+  }
+  return { polygons, lines };
 }

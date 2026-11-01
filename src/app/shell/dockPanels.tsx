@@ -43,7 +43,7 @@ function displayFor(unit: UnitId | undefined, values: readonly unknown[]): Displ
     const to: UnitId = max >= 1e9 ? 'MMm3' : 'Mm3';
     return { unit: to, digits: to === 'MMm3' ? 2 : 1, value: (v) => (typeof v === 'number' ? convert(v, 'm3', to) : v) };
   }
-  const digits = unit === 'm' || unit === 'mD' || unit === 'Mm3' ? 1 : unit === 'MMm3' || unit === 'MMbbl' || unit === 'Bcf' || unit === 'km2' ? 2 : 3;
+  const digits = unit === 'm' || unit === 'mD' || unit === 'Mm3' || unit === '%' ? 1 : unit === 'MMm3' || unit === 'MMbbl' || unit === 'Bcf' || unit === 'km2' ? 2 : 3;
   return { unit, digits, value: (v) => v };
 }
 
@@ -159,8 +159,13 @@ function ResultsPanel() {
                 key: c.key,
                 header: `${c.label}${unitSuffix(c.unit)}`,
                 align: c.kind === 'text' ? 'left' : 'num',
-                render: (r: Record<string, unknown>) =>
-                  c.kind === 'text' ? String(r[c.key] ?? '') : flashCells ? <Flash value={r[c.key]}>{num(r[c.key], displayFor(c.unit, []).digits)}</Flash> : <span className="dock-flash">{num(r[c.key], displayFor(c.unit, []).digits)}</span>,
+                render: (r: Record<string, unknown>) => {
+                  if (c.kind === 'text') return String(r[c.key] ?? '');
+                  // Conteos (enteros sin unidad) sin decimales: «599», no «599,000».
+                  const v = r[c.key];
+                  const d = !c.unit && typeof v === 'number' && Number.isInteger(v) ? 0 : displayFor(c.unit, []).digits;
+                  return flashCells ? <Flash value={v}>{num(v, d)}</Flash> : <span className="dock-flash">{num(v, d)}</span>;
+                },
               }))}
             />
           </Section>

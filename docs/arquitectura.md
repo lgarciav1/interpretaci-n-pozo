@@ -573,6 +573,22 @@ Decisión: [`docs/decisiones/0059-crossplots-de-litologia.md`](decisiones/0059-c
 - Módulo `lithology-indices` (Geología): M, N, Umaa y Th/K por muestra (roles `M`, `N`, `UMAA`, `THK`);
   ρmaa sigue saliendo de `core-calibration`.
 
+### Distribución de la arcilla: Thomas–Stieber (Clase 8)
+
+Decisión: [`docs/decisiones/0061-distribucion-de-arcilla-thomas-stieber.md`](decisiones/0061-distribucion-de-arcilla-thomas-stieber.md).
+
+- Motor puro `src/petro/clayDistribution.ts`: las cinco rectas y los dos vértices del diagrama como funciones de
+  (φsand, φsh), clasificación por muestra (laminar / dispersa / estructural / sin clasificar, banda laminar ±τ) y
+  estimación de los extremos de los datos. Tests: `tests/petro-thomas-stieber.test.ts`.
+- Módulo `clay-distribution` (categoría Arcilla, Petrofísica y Geología): entradas VSH y PHIT, parámetros por zona
+  `phiSand`, `phiShale` y `bandTolerance`; salidas la curva de código `CLAY_DIST` (rol propio) y la tabla por zona
+  `CLAY_DIST_ZONES`. Tests: `tests/modules-clay-distribution.test.ts`.
+- Plantilla `thomas-stieber` del crossplot libre (sección «Litología y mineralogía»): los extremos son manijas que se
+  arrastran en vertical y escriben los parámetros del módulo (`PLOT_PARAMS.phiSand`/`phiShale`, `clayEndpointWrite`,
+  un Ctrl+Z por gesto, 0015); «Estimar de los datos» escribe los dos en un `commit`. Mientras el motor recalcula, el
+  panel conserva la última curva de un eje calculado (si no, el gráfico se desmontaba en medio del arrastre). Tests:
+  `tests/plots/thomas-stieber.test.ts`; navegador: `scripts/qa/thomas-stieber.cjs`.
+
 ## Perfil radial de invasión (fase 8b)
 
 Decisión: [`docs/decisiones/0020-perfil-radial-de-invasion.md`](decisiones/0020-perfil-radial-de-invasion.md).

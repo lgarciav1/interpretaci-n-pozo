@@ -24,7 +24,7 @@ describe('línea base clásica del TP', () => {
     expect(layoutFor('geology', opened.display.layouts)).toBe(BUILTIN_LAYOUTS.geology);
   });
 
-  it('conserva los once grupos clásicos y las 51 curvas del recolector para quien elige esa vista', () => {
+  it('conserva los once grupos clásicos y las 52 curvas del recolector para quien elige esa vista', () => {
     const { well, zones } = readWellFile(csvText, 'pozo_tp_perfiles.csv');
     const p = addWell(createProject('Base TP'), well, zones);
     const result = computeOnce(registry, toEngineWell(well), p.wells[0]!.interpretation);
@@ -33,8 +33,9 @@ describe('línea base clásica del TP', () => {
       : []);
     const tracks = resolveTracks(layoutFor('petrophysics', p.display.layouts), { depth: well.depth.values, curves: well.curves, computed, catalog: registry.roles });
     expect(tracks.map((t) => t.id)).toEqual(['correlation', 'depth', 'resistivity', 'porosity', 'sonic', 'computed', 'saturation', 'volumetric', 'permeability', 'flags', 'indicators']);
-    // 47 de la línea base + M, N, Umaa y Th/K de «Índices de litología» (0059): el recolector suma los módulos nuevos.
-    expect(tracks.find((t) => t.id === 'computed')!.curves).toHaveLength(51);
+    // 47 de la línea base + M, N, Umaa y Th/K de «Índices de litología» (0059) + la distribución de la arcilla de
+    // Thomas–Stieber (0061): el recolector suma los módulos nuevos.
+    expect(tracks.find((t) => t.id === 'computed')!.curves).toHaveLength(52);
     expect(tracks.find((t) => t.id === 'porosity')!.curves.map((c) => c.role)).toEqual(['PEF', 'NPHI', 'RHOB']);
   });
 });

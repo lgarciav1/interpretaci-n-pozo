@@ -81,7 +81,8 @@ describe('flujo guiado', () => {
   it('los módulos reales del registro caen en sus pasos', () => {
     const mods = registry.modules.map(toFlowModule);
     const byStep = Object.fromEntries(PETROPHYSICS_FLOW.map((s) => [s.id, stepModules(s, mods).map((m) => m.id)]));
-    expect(byStep['shale']).toEqual(['igr', 'vsh']);
+    // Thomas–Stieber (0061) es de la categoría arcilla: orienta el modelo de Sw según la distribución de la arcilla.
+    expect(byStep['shale']).toEqual(['igr', 'vsh', 'clay-distribution']);
     expect(byStep['porosity']).toEqual(expect.arrayContaining(['phi-density', 'phi-neutron', 'phi-sonic-raymer', 'phit', 'phie-vsh', 'phie-shale-corrected']));
     expect(byStep['rw']).toEqual(expect.arrayContaining(['temp-gradient', 'rw-manual']));
     expect(byStep['saturation']).toEqual(expect.arrayContaining(['sw-archie', 'sw-simandoux', 'sw-indonesia', 'bvw-sh']));

@@ -97,8 +97,8 @@ describe('plantilla φ–Sw (BVW constante)', () => {
 });
 
 describe('definición de plantillas', () => {
-  it('las trece con sus roles y escalas (las seis de litología de 0059 al final)', () => {
-    expect(CROSSPLOT_TEMPLATE_DEFS.map((t) => t.id)).toEqual(['density-neutron', 'pickett', 'phi-sw', 'gr-rt', 'nmr-dn', 'th-k', 'pe-density', 'sonic-neutron', 'density-sonic', 'm-n', 'rhomaa-umaa', 'pe-k', 'pe-thk']);
+  it('las catorce con sus roles y escalas (las seis de litología de 0059 y Thomas–Stieber de 0061 al final)', () => {
+    expect(CROSSPLOT_TEMPLATE_DEFS.map((t) => t.id)).toEqual(['density-neutron', 'pickett', 'phi-sw', 'gr-rt', 'nmr-dn', 'th-k', 'pe-density', 'sonic-neutron', 'density-sonic', 'm-n', 'rhomaa-umaa', 'pe-k', 'pe-thk', 'thomas-stieber']);
     const dn = CROSSPLOT_TEMPLATE_DEFS[0]!;
     expect([dn.x.role, dn.y.role, dn.y.reversed]).toEqual(['NPHI', 'RHOB', true]);
     const pk = CROSSPLOT_TEMPLATE_DEFS[1]!;

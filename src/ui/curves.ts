@@ -94,6 +94,8 @@ export const CURVE_PALETTE: Readonly<Record<RoleId, CurvePaletteEntry>> = {
   N: { light: '#1d4ed8', dark: '#7aa7ff', line: 'dashdot', width: 1.25 },
   UMAA: { light: '#a21caf', dark: '#f08cf5', line: 'solid', width: 1.25 },
   THK: { light: '#b45309', dark: '#f4a957', line: 'solid', width: 1.25 },
+  // Distribución de la arcilla (0061): el marrón de VSH, más oscuro, en raya-punto (código 0–3, derivado).
+  CLAY_DIST: { light: '#6b4423', dark: '#e0b07a', line: 'dashdot', width: 1.25 },
   R35: { light: '#7c3aed', dark: '#b28cff', line: 'dashed', width: 1.25 },
   ROCK_TYPE: { light: '#3e4989', dark: '#5b7fc4', line: 'solid', kind: 'band' },
   PERM: { light: '#c2410c', dark: '#ff9a5c', line: 'solid', width: 1.5 },

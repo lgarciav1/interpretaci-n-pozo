@@ -9,6 +9,7 @@
 import type { SourceRef } from '../core/interpretation';
 import { paramScope, paramStorageKey, type NumberParamSpec, type ParamSpec, type ParamState, type ParamValue } from '../core/params';
 import type { Zone } from '../core/well';
+import clayDistribution from '../modules/clay-distribution';
 import nmrFluids from '../modules/nmr-fluids';
 import phiDensity from '../modules/phi-density';
 import phiNeutron from '../modules/phi-neutron';
@@ -51,6 +52,11 @@ export const PLOT_PARAMS = {
   n: plotParam('sw-archie', 'n', SHARED_PARAMS.n, 'n'),
   /** Solo lectura (recta del umbral de déficit en la plantilla RMN vs. densidad–neutrón, 0019). */
   nmrTolerance: plotParam('nmr-fluids', 'tolerance', nmrFluids.params.tolerance, 'Tolerancia RMN'),
+  /** Extremos del diagrama de Thomas–Stieber (0061): se arrastran en vertical sobre Vsh = 0 y Vsh = 1. */
+  phiSand: plotParam('clay-distribution', 'phiSand', clayDistribution.params.phiSand, 'φ arena'),
+  phiShale: plotParam('clay-distribution', 'phiShale', clayDistribution.params.phiShale, 'φ lutita'),
+  /** Solo lectura (ancho de la banda laminar de Thomas–Stieber). */
+  clayBand: plotParam('clay-distribution', 'bandTolerance', clayDistribution.params.bandTolerance, 'Banda laminar'),
 } as const;
 
 /** Clave de almacenamiento de «Corregir por temperatura» de `rw-manual` (booleano). */
@@ -200,4 +206,39 @@ export function grWrite(which: 'grClean' | 'grShale', value: number, params: Par
   const other = plotParamValue(params, PLOT_PARAMS[which === 'grClean' ? 'grShale' : 'grClean'], scope.zoneId);
   const v = normalizeGr(which, value, other);
   return Number.isFinite(v) ? paramWrite(PLOT_PARAMS[which], v, scope) : null;
+}
+
+// ── extremos de Thomas–Stieber (0061) ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * φ de la arena limpia o de la lutita movida: rango y paso del parámetro, y además la de la lutita queda al menos un
+ * paso por debajo de la de la arena (si se cruzaran, el diagrama se daría vuelta y el motor dejaría la zona sin dato).
+ */
+export function normalizeClayEndpoint(which: 'phiSand' | 'phiShale', v: number, other: number): number {
+  const p = PLOT_PARAMS[which];
+  const step = p.spec.step ?? 0.005;
+  const n = normalizeParam(p.spec, v);
+  if (!Number.isFinite(n)) return NaN;
+  return which === 'phiSand' ? Math.max(n, normalizeParam(p.spec, other + step)) : Math.min(n, normalizeParam(p.spec, other - step));
+}
+
+/** Extremo de Thomas–Stieber movido (arrastre o flechas) → escritura en el alcance, o null si el valor no sirve. */
+export function clayEndpointWrite(which: 'phiSand' | 'phiShale', value: number, params: ParamState, scope: PlotScope): ParamWrite | null {
+  const other = plotParamValue(params, PLOT_PARAMS[which === 'phiSand' ? 'phiShale' : 'phiSand'], scope.zoneId);
+  const v = normalizeClayEndpoint(which, value, other);
+  return Number.isFinite(v) ? paramWrite(PLOT_PARAMS[which], v, scope) : null;
+}
+
+/**
+ * «Estimar de los datos»: las dos escrituras de un par propuesto (redondeadas al paso; la lutita por debajo de la
+ * arena), en un solo `commit`. Vacío si el par no sirve o ya es el vigente.
+ */
+export function clayEstimateWrites(phiSand: number, phiShale: number, params: ParamState, scope: PlotScope): ParamWrite[] {
+  const s = normalizeParam(PLOT_PARAMS.phiSand.spec, phiSand);
+  const h = normalizeClayEndpoint('phiShale', phiShale, s);
+  if (!Number.isFinite(s) || !Number.isFinite(h) || !(h < s)) return [];
+  const out: ParamWrite[] = [];
+  if (Math.abs(s - plotParamValue(params, PLOT_PARAMS.phiSand, scope.zoneId)) > 1e-12) out.push(paramWrite(PLOT_PARAMS.phiSand, s, scope));
+  if (Math.abs(h - plotParamValue(params, PLOT_PARAMS.phiShale, scope.zoneId)) > 1e-12) out.push(paramWrite(PLOT_PARAMS.phiShale, h, scope));
+  return out;
 }
