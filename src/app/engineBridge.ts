@@ -10,7 +10,7 @@
 import { createInProcessClient } from '../core/engine/client';
 import { toEngineWell } from '../core/engine/engine';
 import { EngineSupervisor, type WorkerLike } from '../core/engine/supervisor';
-import { sameEngineInputs, type Interpretation } from '../core/interpretation';
+import { entryEngineContext, sameComputation, sameContext, type EngineContext } from '../core/engine/context';
 import type { Registry } from '../core/registry';
 import type { Well } from '../core/well';
 import EngineWorker from './engine.worker?worker&inline';
@@ -43,7 +43,7 @@ export function startEngineBridge(registry: Registry): EngineSupervisor {
     switch (e.type) {
       case 'result': {
         const active = selectActiveEntry(useProject.getState());
-        if (active && e.result.wellId === active.well.id) useResults.setState({ result: e.result, error: null });
+        if (active && sameContext(e.result.context,entryEngineContext(active))) useResults.setState({ result: e.result, error: null });
         break;
       }
       case 'reset':
@@ -63,26 +63,24 @@ export function startEngineBridge(registry: Registry): EngineSupervisor {
   useResults.setState({ mode: supervisor.currentMode });
 
   let lastWell: Well | null = null;
-  let lastInterp: Interpretation | null = null;
+  let expected: EngineContext | null = null;
   const sync = () => {
     const entry = selectActiveEntry(useProject.getState());
-    if (!entry) return;
-    // El motor solo lee id, profundidad y curvas: cargar o borrar un conjunto de puntos (presiones MDT) cambia el
-    // objeto pozo pero no pide sincronizar ni recalcular.
-    const w = entry.well;
-    if (!lastWell || w.id !== lastWell.id || w.depth !== lastWell.depth || w.curves !== lastWell.curves) {
-      lastWell = entry.well;
-      supervisor.syncWell(toEngineWell(entry.well));
-      lastInterp = null; // pozo nuevo o curvas cambiadas: recalcular
-    } else lastWell = w;
-    if (entry.interpretation !== lastInterp) {
-      // Solo cambió algo que el motor no lee (tendencias): no hace falta calcular.
-      const skip = lastInterp !== null && sameEngineInputs(lastInterp, entry.interpretation);
-      lastInterp = entry.interpretation;
-      if (!skip) supervisor.run(entry.interpretation);
-    }
+    if (!entry) { expected=null;lastWell=null;useResults.setState({result:null,error:null,busy:false});return; }
+    const context=entryEngineContext(entry);
+    if(sameContext(context,expected)){lastWell=entry.well;return;}
+    const old=useResults.getState().result;
+    // Laboratorio/adquisición sin consumidores del motor: mismo engineKey permite conservar todas
+    // las salidas y solo volver a vincular el contexto. Nunca se ejecuta ni duplica el cálculo.
+    const rebound=old && sameComputation(old.context,context) ? {...old,context} : null;
+    useResults.setState({result:rebound,error:null});
+    const inputsChanged=!lastWell || entry.well.id!==lastWell.id || entry.well.depth!==lastWell.depth || entry.well.curves!==lastWell.curves || expected?.inputRevisionId!==context.inputRevisionId;
+    expected=context;lastWell=entry.well;
+    if(inputsChanged)supervisor.syncWell(toEngineWell(entry.well),context);
+    if(!rebound)supervisor.run(entry.interpretation,context);
   };
   useProject.subscribe(sync);
   sync();
   return supervisor;
 }
+

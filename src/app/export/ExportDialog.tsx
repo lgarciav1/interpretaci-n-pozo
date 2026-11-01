@@ -1,6 +1,7 @@
 /**
  * Diálogo «Exportar»: datos del pozo, figuras e informe automático imprimible.
  */
+import { entryEngineContext } from '../../core/engine/context';
 import { useMemo, useState } from 'react';
 import { Button, Callout, Checkbox, Dialog, Field, SegmentedControl, Select } from '../../ui';
 import { FORMAT_LABEL, type DepthUnit, type ExportFormat } from '../../io/export';
@@ -42,7 +43,7 @@ export function ExportDialog() {
   const figure = useFigureForm(open && kind === 'figure');
   const report = useReportForm(open && kind === 'report');
 
-  const sources = useMemo(() => (open && entry ? exportSources(entry.well, result, alternatives) : null), [open, entry, result, alternatives]);
+  const sources = useMemo(() => (open && entry ? exportSources(entry.well, result, alternatives,entryEngineContext(entry)) : null), [open, entry, result, alternatives]);
   if (!open || !entry || !sources) return null;
 
   const close = () => setUi({ exportOpen: false });
@@ -199,3 +200,4 @@ export function ExportDialog() {
     </Dialog>
   );
 }
+

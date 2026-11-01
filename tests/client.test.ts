@@ -64,8 +64,9 @@ describe('cliente del motor', () => {
       });
     });
     // 1 en vuelo + 1 pendiente (el último): nunca 20 cálculos.
-    expect(results).toHaveLength(2);
-    expect(results[1]!.coalesced).toBe(18);
+    expect(results).toHaveLength(1); // El primer resultado ya fue superado y no se publica.
+    expect(results[0]!.coalesced).toBe(18);
+    expect(results[0]!.seq).toBe(2); // Solo el pedido inicial y el último llegaron al motor.
     expect((results.at(-1)!.outputs.find((o) => o.key === 'vsh:VSH')!.value as Float64Array)[0]).toBe(30);
   });
 
@@ -141,3 +142,4 @@ describe('cliente del motor', () => {
     expect(errors[0]).toMatch(/2 muestras y la profundidad 3/);
   });
 });
+

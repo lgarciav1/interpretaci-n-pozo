@@ -1,3 +1,4 @@
+import { contextMatchesWell, engineContext, sameComputation } from '../../core/engine/context';
 import type { ClientResult } from '../../core/engine/client';
 import type { Interpretation } from '../../core/interpretation';
 import type { TableCell, TableColumn, TableValue } from '../../core/module';
@@ -33,6 +34,7 @@ function paramText(spec: ParamSpec, value: ParamValue): string {
 }
 /** Copia los textos y tablas de una corrida; no calcula petrofísica ni conserva arrays del motor. */
 export function buildReportModel(well: Well, interpretation: Interpretation, result: ClientResult | null, date = new Date(), catalog: Registry = registry): ReportModel {
+  if(result && (!contextMatchesWell(result.context,{id:well.id,depth:well.depth.values,curves:well.curves}) || !sameComputation(result.context,engineContext({id:well.id,depth:well.depth.values,curves:well.curves},interpretation))))result=null;
   const current = result?.wellId === well.id ? result : null;
   const zones = interpretation.zones.map(({ id, name, top, base, kind }) => ({ id, name, top, base, kind }));
   const table = (port: string): ReportTable | null => {
@@ -89,3 +91,4 @@ export function reportHtml(model: ReportModel, figures: readonly ReportFigure[] 
   ${options.includeWarnings ? `<section><h2>Advertencias y limitaciones</h2><ul>${model.warnings.map((w) => `<li>${e(w)}</li>`).join('')}</ul></section>` : ''}
   ${figures.map((f) => { if (!/^data:image\/(?:png|svg\+xml);base64,[A-Za-z0-9+/=]+$/.test(f.dataUrl)) throw new Error('La figura del informe debe ser una imagen incrustada.'); return `<section class="figure"><h2>${e(f.title)}</h2><figure><img src="${f.dataUrl}" alt="${e(f.title)}"><figcaption>${e(f.caption)}</figcaption></figure></section>`; }).join('')}<footer>Interpretación de registros de pozo · FIUBA · Copia del estado al generar el informe. No se recalcula al abrirlo.</footer></main></body></html>`;
 }
+

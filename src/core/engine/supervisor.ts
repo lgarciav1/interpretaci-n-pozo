@@ -10,6 +10,7 @@
  *
  * Recuerda el último pozo y la última interpretación pedidos; no depende de React ni del DOM.
  */
+import { sameContext, type EngineContext } from './context';
 import type { Interpretation } from '../interpretation';
 import { EngineClient, type ClientEvent } from './client';
 import type { EngineWell } from './engine';
@@ -45,6 +46,9 @@ export class EngineSupervisor {
   private mode: EngineMode = 'in-process';
   private restarts = 0;
   private lastWell: EngineWell | null = null;
+  private lastContext: EngineContext | undefined;
+  private protocolRestarts = 0;
+  private protocolFailed = false;
   private lastInterp: Interpretation | null = null;
   private readonly listeners = new Set<(e: SupervisorEvent) => void>();
 
@@ -66,15 +70,19 @@ export class EngineSupervisor {
     return () => this.listeners.delete(listener);
   }
 
-  syncWell(well: EngineWell): void {
-    this.lastWell = well;
-    const { gen, isNew } = this.client.syncWell(well);
+  syncWell(well: EngineWell, context?: EngineContext): void {
+    this.reviveProtocol();
+    if (context && !sameContext(context,this.lastContext)) this.protocolRestarts=0;
+    this.lastWell = well; this.lastContext=context;
+    const { gen, isNew } = this.client.syncWell(well,context);
     if (isNew) this.emit({ type: 'reset', wellId: well.id, gen });
   }
 
-  run(interpretation: Interpretation): void {
-    this.lastInterp = interpretation;
-    this.client.run(interpretation);
+  run(interpretation: Interpretation, context?: EngineContext): void {
+    if(this.reviveProtocol() && this.lastWell)this.client.syncWell(this.lastWell,context ?? this.lastContext);
+    if (context && !sameContext(context,this.lastContext)) this.protocolRestarts=0;
+    this.lastInterp = interpretation; this.lastContext=context ?? this.lastContext;
+    this.client.run(interpretation,context);
   }
 
   dispose(): void {
@@ -89,8 +97,31 @@ export class EngineSupervisor {
   private attach(client: EngineClient, mode: EngineMode, reason?: string): void {
     this.client = client;
     this.mode = mode;
-    client.subscribe((e) => this.emit(e));
+    client.subscribe((e) => {
+      if (e.type === 'protocol-error') { this.onProtocolFailure(e.message); return; }
+      this.emit(e);
+    });
     this.emit({ type: 'mode', mode, ...(reason ? { reason } : {}) });
+  }
+
+  private reviveProtocol(): boolean {
+    if(!this.protocolFailed)return false;
+    this.protocolFailed=false;this.protocolRestarts=0;
+    if(this.mode==='worker')this.startWorker();else this.startInProcess('nuevo pedido tras error de protocolo');
+    return true;
+  }
+  private onProtocolFailure(message: string): void {
+    this.client.dispose();
+    if (this.protocolRestarts++ >= 1) {
+      this.protocolFailed=true;
+      this.emit({type:'error',message:`No se pudo recuperar un resultado completo del motor: ${message}`});
+      this.emit({type:'busy',busy:false});
+      return;
+    }
+    this.options.log?.(`Se reinicia el motor por un resultado incoherente: ${message}`);
+    if (this.mode === 'worker') this.startWorker(); else this.startInProcess('recuperación de protocolo');
+    if (this.lastWell) this.client.syncWell(this.lastWell,this.lastContext);
+    if (this.lastInterp) this.client.run(this.lastInterp,this.lastContext);
   }
 
   private startWorker(): void {
@@ -144,11 +175,12 @@ export class EngineSupervisor {
       this.startInProcess(reason);
     }
     // Reenviar el estado al motor nuevo. No se emite 'reset': es el mismo pozo y la misma profundidad.
-    if (this.lastWell) this.client.syncWell(this.lastWell);
-    if (this.lastInterp) this.client.run(this.lastInterp);
+    if (this.lastWell) this.client.syncWell(this.lastWell,this.lastContext);
+    if (this.lastInterp) this.client.run(this.lastInterp,this.lastContext);
   }
 }
 
 function describe(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
+
