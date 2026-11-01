@@ -4,7 +4,7 @@
 
 - Estado: arquitectura y secuencia de implementación, con avances en ramas de revisión detallados al final. **No implica que las funciones nuevas estén disponibles en main; ningún PR de esta secuencia fue integrado.**
 
-- **Avance actual (2026-11-01): P7a implementada para revisión en [PR #58](https://github.com/lgarciav1/interpretaci-n-pozo/pull/58), apilado sobre P6/#57.** Diagnóstico ambiental integrado con el CSV real del TP, hipótesis radial explícita y exportación reproducible. P5 sigue cerrada según sección 39; P8 queda pendiente para la entrega completa. Ver sección 43.
+- **Avance actual (2026-11-01): entrega P8 implementada para revisión en [PR #59](https://github.com/lgarciav1/interpretaci-n-pozo/pull/59), apilado sobre P7a/#58.** Manual autónomo, informe trazable, paquete reproducible y recorridos TP/sintético/offline verificados. **P8 no se marca cerrada: falta verificar file://, bloqueado administrativamente en el navegador de ejecución.** Ver sección 44.
 
 - **Criterio acordado para el TP:** trabajar con los datos disponibles; modelo/condiciones/procesado inaccesibles permanecen desconocidos y no bloquean la interpretación de las curvas entregadas. Las correcciones que requieren esos datos quedan fuera del alcance actual del TP. No se relajan las puertas científicas de los métodos.
 
@@ -1062,3 +1062,22 @@ El CSV real aporta 5810 muestras: 189 calipers bajo mínimo, 71 ensanchamientos 
 Validación: **2885 pruebas / 170 archivos**, typecheck y build aprobados. Chromium verifica adquisición desconocida, zonas/tramos, criterios, selección ambigua, exportación con procedencia y Project serializado exactamente idéntico antes/después de toda la revisión. Offline sin Worker/SubtleCrypto conserva recuentos e hipótesis radial. HTML **5776176 bytes**, SHA-256 `a96c08ae2765dcb594096fddf066f53ef6a7cbf8fda41d6549d392b2c7917941`. Sin nuevas dependencias ni cambios de formatos persistidos.
 
 **Pendiente:** P8, flujo completo de entrega/informe/manual y regresión final con el material disponible. El inventario general de correcciones P7 sigue ampliable; este PR no afirma implementar los métodos excluidos por falta de datos. Se conservan las puertas originales de las secciones 8/13. #58 abierto para revisión; ningún PR integrado, main en `4f187f6a8d585475efc79b18ed89194b432a2116`.
+
+
+## 44. P8: entrega implementada y puerta file:// pendiente (2026-11-01)
+
+[PR #59](https://github.com/lgarciav1/interpretaci-n-pozo/pull/59), apilado sobre #58, commit `7c86d7a9d8fcde3780541e16457d340f5b019968`. [ADR 0052](https://github.com/lgarciav1/interpretaci-n-pozo/blob/codex/cierre-entrega-p8/docs/decisiones/0052-entrega-manual-informe-y-validacion-p8.md), [manual autónomo](https://github.com/lgarciav1/interpretaci-n-pozo/blob/codex/cierre-entrega-p8/docs/manual-entrega.html) y [validación/reproducción](https://github.com/lgarciav1/interpretaci-n-pozo/blob/codex/cierre-entrega-p8/docs/validacion/2026-11-01-entrega-p8.md).
+
+**Terminado:** implementación de la entrega, manual integrado descargable offline, sección de preparación/laboratorio/alcance del informe, generación de paquete reproducible y recorridos con el CSV real y laboratorio sintético separado. Se conservan datos desconocidos y el alcance disponible del TP, sin afirmar interpretación académica final ni nuevas correcciones ambientales.
+
+El informe resume revisión/datum/adquisición, diagnóstico de originales con criterios predeterminados y soportes por zona, conjuntos DRX y registros históricos GR/cutoff con referencias/relación/métricas. Coincidencia de parámetros/revisión no se presenta como revalidación científica. Registros futuros/corruptos se informan y conservan. Se corrige la carrera de adquisición durante generación mediante comparación de inputRevisionId.
+
+**Recorrido TP:** 5810 muestras; exclusión revisada de NPHI=3,3172 a 8498,8908 m MD, original intacto, preparada faltante/QC2 y fuente explícita. Blobs, revisiones y parámetros originales iguales; undo/redo, snapshot tras retirar receta, nueva sesión y CSV idéntico. CSV/LAS/xlsx descargados; informe autónomo con figuras por zona y PDF de 42 páginas en esta selección, con texto verificado. Proyecto base con valores iniciales, no una resolución final de cátedra.
+
+**Recorrido sintético:** 201 muestras de perfil, 18 localizaciones DRX, GR 25/135 y cutoff 0,5 aplicados por APIs reales, referencias y métricas conservadas en informe. CSV/LAS/xlsx idénticos tras guardar/abrir con reloj fijado. Offline por HTTP, también sin Worker/SubtleCrypto, verifica proyecto preparado, datos, informe y manual. Suite completa: **2891 pruebas / 171 archivos**, typecheck/build y 13 pruebas enfocadas aprobados. Sin nuevas dependencias ni formatos persistidos.
+
+**Artefacto:** `dist/entrega-p8.zip`, **3009788 bytes**, SHA-256 `65d7d9290ef571aca60e8dcbced36d473b50fcd0d174f80ea5b5ff1e0fb6dceb`. Incluye aplicación, manual, CSV, TP base y ejemplo sintético separados, LEEME y manifiesto. Manifiesto con commit anterior y fuente limpia; tamaños/hashes verificados. Dos empaquetados de las mismas entradas producen los mismos bytes. HTML: **5796684 bytes**, SHA-256 `4743632e985f5ca7fd79a6c24c6ebad1f67102ef0265817c4e7611d190736349`. El build queda fuera de Git y se reproduce con los scripts/documentación de #59.
+
+**Pendiente único para cerrar P8:** apertura por file:// del mismo HTML. La navegación ordinaria a `file:///workspace/interpretacion/dist/index.html` devuelve `net::ERR_BLOCKED_BY_ADMINISTRATOR` antes de cargar el documento. No se elude la política; la prueba automatizada permanece bloqueada y se solicitó comprobar el mismo HTML al usuario en su navegador. La pregunta pendiente no se interpreta como aprobación ni resultado positivo. Se conserva íntegra la definición de terminado de las secciones 13/16 y la puerta científica de la sección 8.
+
+#59 abierto; main continúa `4f187f6a8d585475efc79b18ed89194b432a2116`, sin ningún merge. #31/#32 siguen abiertos, con pendientes generales fuera del alcance del TP y estado de revisión documentado.
