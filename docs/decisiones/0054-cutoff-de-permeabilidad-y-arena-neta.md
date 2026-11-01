@@ -26,7 +26,7 @@ neto (`NET_RES`) y pay neto (`NET_PAY`) y no admitía un corte de permeabilidad,
    conocida) ya descartan la muestra, es 0; si no, NaN («sin dato»). Si el pozo no tiene ninguna curva `PERM` (ni
    medida ni calculada por Timur, Coates o corona), todo lo que Vsh y φ no descartan queda sin dato y el módulo avisa
    nombrando las zonas. No se ignora el corte en silencio: el sumario lo muestra en «Sin dato».
-5. **Sumario.** `ZONE_SUMMARY` suma `netSand` («Arena neta») y `ntgSand` («N/G arena»); las columnas existentes
+5. **Sumario.** `ZONE_SUMMARY` suma `netSand` («Arena neta») y `ntgSand` («N/G arena») AL FINAL de la tabla, para no correr de lugar las columnas de los CSV/XLSX exportados; las columnas existentes
    conservan sus claves y su orden relativo, y cambian sus rótulos a «Reservorio neto (permeable)» y «Pay neto
    (útil)». `NET_SAND` es entrada opcional del sumario: un `NET_RES` que no venga del módulo de cutoffs sigue sirviendo
    (la arena queda en blanco). Las fichas de zona, la comparación de snapshots, el informe y las exportaciones leen la
