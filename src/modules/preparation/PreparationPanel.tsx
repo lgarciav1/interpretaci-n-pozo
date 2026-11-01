@@ -44,6 +44,7 @@ import { SuspectReview } from './SuspectReview';
 import { ToolShell, ToolTile } from './ToolCard';
 import type { DepthRange, DraftReport, Operation } from './types';
 import { XrdPanel } from './XrdPanel';
+import { PREPARATION_DOCK_ID } from './index';
 import './preparation.css';
 
 const subscribe = (cb: () => void) => snapshotRunner.subscribe(cb);
@@ -95,8 +96,24 @@ const clampRange = (r: DepthRange, w: DepthRange): DepthRange => {
   return base > top ? { top, base } : w;
 };
 
+/**
+ * Lo que el panel recuerda entre montajes (curva, vista, pestaña y tramo marcado, por pozo). El panel se monta solo con
+ * su pestaña a la vista —oculto no recalcula vistas previas ni redibuja—; las herramientas abiertas se descartan.
+ */
+interface Remembered {
+  wellId: string;
+  curveId: string;
+  view: DepthRange;
+  follow: boolean;
+  tab: string;
+  selection: DepthRange | null;
+}
+let remembered: Remembered | null = null;
+
 export function PreparationPanel() {
   const entry = useProject(selectActiveEntry);
+  const active = useUi((s) => s.dockTab === PREPARATION_DOCK_ID && !s.layout.dockCollapsed && !s.readingMode);
+  if (!active) return null;
   if (!entry) {
     return (
       <div className="prep prep--empty">
@@ -136,15 +153,20 @@ function Workspace({ wellId }: { wellId: string }) {
   const wellRange = useMemo<DepthRange>(() => ({ top: depth[0] ?? 0, base: depth[depth.length - 1] ?? 1 }), [depth]);
   const measured = useMemo(() => entry.well.curves.filter((c) => c.origin.kind === 'measured'), [entry.well.curves]);
 
+  const memory = remembered?.wellId === wellId ? remembered : null;
   const [curveId, setCurveId] = useState(() => {
     const asked = request?.curveId && measured.some((c) => c.id === request.curveId) ? request.curveId : null;
-    return asked ?? measured.find((c) => c.role === 'GR')?.id ?? measured[0]?.id ?? '';
+    const kept = memory && measured.some((c) => c.id === memory.curveId) ? memory.curveId : null;
+    return asked ?? kept ?? measured.find((c) => c.role === 'GR')?.id ?? measured[0]?.id ?? '';
   });
-  const [view, setView] = useState<DepthRange>(() => (visible ? clampRange(visible, wellRange) : wellRange));
-  const [follow, setFollow] = useState(false);
-  const [selection, setSelection] = useState<DepthRange | null>(null);
+  const [view, setView] = useState<DepthRange>(() => (memory ? clampRange(memory.view, wellRange) : visible ? clampRange(visible, wellRange) : wellRange));
+  const [follow, setFollow] = useState(memory?.follow ?? false);
+  const [selection, setSelection] = useState<DepthRange | null>(memory?.selection ?? null);
   const [tool, setTool] = useState<ToolId | null>(null);
-  const [tab, setTab] = useState('clean');
+  const [tab, setTab] = useState(memory?.tab ?? 'clean');
+  useEffect(() => {
+    remembered = { wellId, curveId, view, follow, tab, selection };
+  }, [wellId, curveId, view, follow, tab, selection]);
   const [runId, setRunId] = useState('');
   const [report, setReport] = useState<DraftReport | null>(null);
   const [proposal, setProposal] = useState<Proposal | null>(null);
@@ -515,7 +537,7 @@ function Workspace({ wellId }: { wellId: string }) {
                     <EmptyState size="sm" icon="fit-height" title="El tramo no tiene muestras" description="Elegí una zona, «Pozo completo» o «Usar tramo visible»." />
                   ) : (
                     <BeforeAfterChart
-                      height={250}
+                      height={290}
                       mnemonic={curve.mnemonic}
                       afterLabel={shownPreview ? 'Vista previa' : appliedPayload ? 'Preparada' : null}
                       depth={depth}

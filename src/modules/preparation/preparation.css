@@ -75,7 +75,7 @@ button.prep-pipe__node:hover { background: var(--color-surface-hover); }
 .is-preview > .prep-pipe__mark { background: var(--color-accent); color: var(--color-text-on-accent); border-color: transparent; }
 .is-blocked > .prep-pipe__mark { color: var(--color-warn-text); }
 .prep-pipe__text { display: flex; flex-direction: column; min-width: 0; }
-.prep-pipe__label { font-weight: var(--weight-semibold); font-size: var(--text-sm); white-space: nowrap; }
+.prep-pipe__label { font-weight: var(--weight-semibold); font-size: var(--text-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .prep-pipe__detail { color: var(--color-text-muted); font-size: var(--text-xs); line-height: var(--leading-tight); overflow-wrap: anywhere; }
 .is-done .prep-pipe__detail { color: var(--color-ok-text); }
 .is-preview .prep-pipe__detail { color: var(--color-accent-text); }

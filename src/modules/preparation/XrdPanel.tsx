@@ -188,8 +188,8 @@ export function XrdPanel({
     setPreview(null);
   };
   return (
-    <details>
-      <summary>DRX · carga y comparación diagnóstica</summary>
+    <section className="prep-legacy" aria-label="DRX">
+      <h3>DRX · carga y comparación diagnóstica</h3>
       <section aria-label="Diagnóstico DRX">
         <p>
           DRX mide minerales: contenido de arcillas y Vsh son magnitudes
@@ -912,6 +912,6 @@ export function XrdPanel({
         )}
         {error && <Callout tone="error">{error}</Callout>}
       </section>
-    </details>
+    </section>
   );
 }

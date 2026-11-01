@@ -127,7 +127,7 @@ export interface ChartLayout {
   width: number;
 }
 
-const LANE_PX = 10;
+const LANE_PX = 12;
 
 /** Medidas del gráfico (las comparte el manejo del puntero). */
 export function chartLayout(width: number, height: number, ui: number): ChartLayout {

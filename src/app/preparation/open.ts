@@ -5,6 +5,7 @@
  * curva.
  */
 import { PREPARATION_DOCK_ID } from '../../modules/preparation';
+import { getUiScaleFactor } from '../../ui';
 import { LAYOUT_LIMITS, useUi } from '../store/ui';
 import { usePreparationUi } from './store';
 
@@ -18,9 +19,10 @@ export function openPreparation(curveId: string | null = null): void {
   const ui = useUi.getState();
   ui.set({ dockTab: PREPARATION_DOCK_ID });
   // Despliega el dock (también sale del modo lectura) y, si está bajo o en automático, le da alto para el gráfico.
-  // Nunca más de la mitad larga de la ventana: el visor sigue a la vista.
+  // Nunca más del 55 % de la ventana: el visor sigue a la vista. El store guarda px de Compacto (× factor en pantalla).
   const { dockAuto, dockHeight } = ui.layout;
-  const want = Math.round(Math.min(PREPARATION_DOCK_HEIGHT, (typeof window === 'undefined' ? 900 : window.innerHeight) * 0.55));
+  const screen = typeof window === 'undefined' ? 900 : window.innerHeight;
+  const want = Math.round(Math.min(PREPARATION_DOCK_HEIGHT, (screen * 0.55) / getUiScaleFactor()));
   const grow = dockAuto || dockHeight < want;
   ui.setLayout({ dockCollapsed: false, ...(grow ? { dockAuto: false, dockHeight: Math.min(LAYOUT_LIMITS.dock.max, Math.max(dockHeight, want)) } : {}) });
 }
