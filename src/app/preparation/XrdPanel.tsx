@@ -1,4 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import {
+  XrdCalibrationPanel,
+  XrdCalibrationHistory,
+} from "./XrdCalibrationPanel";
+import { XrdLaboratory } from "./XrdLaboratory";
 import { parseTable, type RawTable } from "../../io";
 import { buildXrdSet, type XrdMapping } from "../../io/xrd";
 import {
@@ -263,6 +268,7 @@ export function XrdPanel({
             </Field>
             <Field label="Base composicional">
               <Select
+                aria-label="Base composicional DRX"
                 value={contract.basis}
                 onChange={(v) => {
                   change();
@@ -295,6 +301,7 @@ export function XrdPanel({
             </Field>
             <Field label="Escala de laboratorio">
               <Select
+                aria-label="Escala de laboratorio DRX"
                 value={contract.scale}
                 onChange={(v) => {
                   change();
@@ -348,6 +355,19 @@ export function XrdPanel({
               }}
               label="Confirmo referencia MD del mismo pozo y datum compartido para DRX"
             />
+            <Field label="Descripción de incertidumbre de laboratorio">
+              <TextField
+                aria-label="Descripción de incertidumbre de laboratorio"
+                value={contract.uncertaintyNote ?? ""}
+                onChange={(v) => {
+                  change();
+                  setContract((c) => {
+                    const { uncertaintyNote: _old, ...rest } = c;
+                    return v.trim() ? { ...rest, uncertaintyNote: v } : rest;
+                  });
+                }}
+              />
+            </Field>
             <p>
               Elegí las columnas minerales y clasificá explícitamente cuáles son
               arcillas. Vacío = no medido; ND = no detectado; BLD/LD = bajo
@@ -373,10 +393,52 @@ export function XrdPanel({
                         const minerals = { ...old.minerals };
                         if (v) minerals[id] = i;
                         else delete minerals[id];
-                        return { ...old, minerals };
+                        const uncertainties = { ...old.uncertainties },
+                          detectionLimits = { ...old.detectionLimits };
+                        if (!v) {
+                          delete uncertainties[id];
+                          delete detectionLimits[id];
+                        }
+                        return {
+                          ...old,
+                          minerals,
+                          uncertainties,
+                          detectionLimits,
+                        };
                       });
                     }}
                   />
+                  {m && (
+                    <div>
+                      {(["uncertainties", "detectionLimits"] as const).map(
+                        (key) => (
+                          <Field
+                            key={key}
+                            label={`${key === "uncertainties" ? "Incertidumbre" : "Límite de detección"} de ${col.name}`}
+                          >
+                            <Select
+                              aria-label={`${key} ${col.name}`}
+                              value={
+                                mapping[key]?.[id] === undefined
+                                  ? ""
+                                  : String(mapping[key]![id])
+                              }
+                              options={options}
+                              onChange={(v) => {
+                                change();
+                                setMapping((old) => {
+                                  const map = { ...old[key] };
+                                  if (v === "") delete map[id];
+                                  else map[id] = Number(v);
+                                  return { ...old, [key]: map };
+                                });
+                              }}
+                            />
+                          </Field>
+                        ),
+                      )}
+                    </div>
+                  )}
                   {m && (
                     <Checkbox
                       label={`${col.name} es mineral arcilloso`}
@@ -479,6 +541,12 @@ export function XrdPanel({
                 ]}
               />
             </Field>
+            {set && (
+              <>
+                <XrdLaboratory set={set} />
+                <XrdCalibrationHistory entry={entry} set={set} />
+              </>
+            )}
             {savedError && (
               <Callout tone="error">
                 {savedError} Se conserva el registro sin modificarlo.
@@ -630,7 +698,9 @@ export function XrdPanel({
                                 reference: densityReferences[m.id] ?? "",
                                 ...(densityUncertainties[m.id]?.trim()
                                   ? {
-                                      uncertainty: decimal(densityUncertainties[m.id]!),
+                                      uncertainty: decimal(
+                                        densityUncertainties[m.id]!,
+                                      ),
                                     }
                                   : {}),
                               },
@@ -775,6 +845,15 @@ export function XrdPanel({
                     sin propagación a intervalos de confianza. Guardar no aplica
                     calibración ni cambia cutoffs.
                   </p>
+                  {data && set && (
+                    <XrdCalibrationPanel
+                      project={project}
+                      entry={entry}
+                      set={set}
+                      data={data}
+                      comparison={comparison.record}
+                    />
+                  )}
                   <table className="prep-editor__table">
                     <caption>
                       Pares DRX · {comparison.rows.length} muestras (vista de

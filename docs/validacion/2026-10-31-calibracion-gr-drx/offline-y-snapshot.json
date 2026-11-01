@@ -1,0 +1,11 @@
+{
+  "errors": [],
+  "checks": [
+    "snapshot restores changed parameters and deleted evidence",
+    "offline compare fit preview and apply without Worker/SubtleCrypto"
+  ],
+  "knownGR": [
+    25,
+    135
+  ]
+}

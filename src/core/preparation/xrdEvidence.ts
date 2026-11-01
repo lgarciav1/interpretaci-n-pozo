@@ -375,6 +375,8 @@ export async function exportXrdComparisonCsv(
         ...contract.minerals.flatMap((m) => [
           `mineral:${m.id}:${m.name}`,
           `estado:${m.id}`,
+          `incertidumbre:${m.id}`,
+          `limite_deteccion:${m.id}`,
         ]),
       ]),
       ...rows.map(({ pair, composition }, i) =>
@@ -399,6 +401,12 @@ export async function exportXrdComparisonCsv(
             return [
               v === undefined || Number.isNaN(v) ? null : v,
               pointTexts(set, `status:${m.id}`)?.[i],
+              Number.isFinite(pointNumbers(set, `uncertainty:${m.id}`)?.[i])
+                ? pointNumbers(set, `uncertainty:${m.id}`)![i]
+                : null,
+              Number.isFinite(pointNumbers(set, `limit:${m.id}`)?.[i])
+                ? pointNumbers(set, `limit:${m.id}`)![i]
+                : null,
             ];
           }),
         ]),

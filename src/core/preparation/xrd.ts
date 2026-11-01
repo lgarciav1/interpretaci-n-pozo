@@ -25,6 +25,7 @@ export interface XrdContract {
   referenceId: string;
   datum: string;
   minerals: XrdMineral[];
+  uncertaintyNote?: string;
 }
 export type XrdStatus =
   "measured" | "not-measured" | "not-detected" | "below-detection";
@@ -33,7 +34,15 @@ export interface XrdSample {
   top: number;
   base?: number;
   run?: string;
-  values: Record<string, { value: number; status: XrdStatus }>;
+  values: Record<
+    string,
+    {
+      value: number;
+      status: XrdStatus;
+      uncertainty?: number;
+      detectionLimit?: number;
+    }
+  >;
 }
 export function validateXrdContract(c: XrdContract) {
   if (
@@ -52,6 +61,15 @@ export function validateXrdContract(c: XrdContract) {
   )
     throw new Error(
       "Contrato DRX inválido: declará base, escala, informe y tolerancia de cierre entre 0 y 0,1 (fracción).",
+    );
+  if (
+    c.uncertaintyNote !== undefined &&
+    (typeof c.uncertaintyNote !== "string" ||
+      !c.uncertaintyNote.trim() ||
+      c.uncertaintyNote.length > 2000)
+  )
+    throw new Error(
+      "Describí la incertidumbre absoluta informada por el laboratorio.",
     );
   const ids = new Set<string>();
   for (const m of c.minerals) {
@@ -100,6 +118,21 @@ export function createXrdSet(
     for (const m of contract.minerals) {
       const cell = s.values[m.id];
       if (
+        cell?.uncertainty !== undefined &&
+        (!Number.isFinite(cell.uncertainty) ||
+          cell.uncertainty < 0 ||
+          cell.uncertainty > (contract.scale === "percent" ? 100 : 1) ||
+          !contract.uncertaintyNote?.trim())
+      )
+        throw new Error(`Incertidumbre inválida o sin descripción en ${s.id}.`);
+      if (
+        cell?.detectionLimit !== undefined &&
+        (!Number.isFinite(cell.detectionLimit) ||
+          cell.detectionLimit <= 0 ||
+          cell.detectionLimit > (contract.scale === "percent" ? 100 : 1))
+      )
+        throw new Error(`Límite de detección inválido en ${s.id}.`);
+      if (
         !cell ||
         ![
           "measured",
@@ -138,6 +171,24 @@ export function createXrdSet(
           : "unitless",
       samples.map((s) => s.values[m.id]!.value),
     );
+    const unit =
+      contract.scale === "percent"
+        ? "%"
+        : contract.basis === "volume"
+          ? "v/v"
+          : "unitless";
+    if (samples.some((s) => s.values[m.id]!.uncertainty !== undefined))
+      columns[`uncertainty:${m.id}`] = numeric(
+        `Incertidumbre absoluta ${m.name}`,
+        unit,
+        samples.map((s) => s.values[m.id]!.uncertainty ?? NaN),
+      );
+    if (samples.some((s) => s.values[m.id]!.detectionLimit !== undefined))
+      columns[`limit:${m.id}`] = numeric(
+        `Límite de detección ${m.name}`,
+        unit,
+        samples.map((s) => s.values[m.id]!.detectionLimit ?? NaN),
+      );
     columns[`status:${m.id}`] = {
       label: `Estado ${m.name}`,
       values: samples.map((s) => s.values[m.id]!.status),
@@ -165,6 +216,33 @@ export function xrdContract(set: PointSet): XrdContract {
     );
   const c = JSON.parse(texts[0]!) as XrdContract;
   validateXrdContract(c);
+  const expectedUnit =
+    c.scale === "percent" ? "%" : c.basis === "volume" ? "v/v" : "unitless";
+  for (const m of c.minerals)
+    for (const prefix of ["uncertainty", "limit"]) {
+      const key = `${prefix}:${m.id}`;
+      if (!set.columns[key]) continue;
+      const values = pointNumbers(set, key);
+      if (
+        !values ||
+        !("unit" in set.columns[key]!) ||
+        set.columns[key]!.unit !== expectedUnit
+      )
+        throw new Error("Unidad o columna auxiliar DRX inválida.");
+      for (const value of values) {
+        if (Number.isNaN(value)) continue;
+        if (
+          !Number.isFinite(value) ||
+          value < 0 ||
+          (prefix === "limit" && value === 0) ||
+          value > (c.scale === "percent" ? 100 : 1) ||
+          (prefix === "uncertainty" && !c.uncertaintyNote?.trim())
+        )
+          throw new Error(
+            "Dato auxiliar DRX fuera de dominio o sin descripción.",
+          );
+      }
+    }
   contractCache.set(set, c);
   return c;
 }
