@@ -791,3 +791,5 @@ Decisión: [`docs/decisiones/0063-log-digitizer-interfaz.md`](decisiones/0063-lo
   mesa (imagen incrustada, calibración, trazas) se guarda aparte como JSON.
 - Verificación: `tests/digitizer-ui/`, `tests/modules-digitizer.test.ts` y el guion
   `scripts/qa/log-digitizer.cjs` (clics reales sobre el HTML construido).
+- Fase futura (propuesta, no implementada): lectura de PDF con pdf.js en la etapa de entrada, sin tocar el motor.
+  Ver [`0064`](decisiones/0064-log-digitizer-lectura-de-pdf.md).
