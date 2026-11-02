@@ -17,7 +17,8 @@ export interface DialogProps {
   headerExtra?: ReactNode;
   footer?: ReactNode;
   children?: ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  /** `full`: ventana completa con un margen chico (mesas de trabajo). */
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
   /** Si es false, Escape y el fondo no cierran (p. ej. mientras se procesa algo). */
   dismissible?: boolean;
   className?: string;

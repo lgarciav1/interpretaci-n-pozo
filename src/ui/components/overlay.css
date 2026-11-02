@@ -26,6 +26,9 @@
 .ui-dialog--md { max-width: calc(560px * var(--ui-scale)); }
 .ui-dialog--lg { max-width: calc(820px * var(--ui-scale)); }
 .ui-dialog--xl { max-width: calc(1080px * var(--ui-scale)); }
+/* Ventana completa (mesas de trabajo como el Log Digitizer): un margen chico y todo el alto. */
+.ui-dialog-backdrop:has(> .ui-dialog--full) { padding: var(--space-3); }
+.ui-dialog--full { max-width: none; height: calc(100vh - 2 * var(--space-3)); max-height: none; }
 .ui-dialog__head {
   display: flex;
   align-items: center;
