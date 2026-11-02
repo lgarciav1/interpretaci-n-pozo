@@ -26,6 +26,7 @@ import {
   Select,
   Tooltip,
   formatNumber,
+  listCommands,
   type Column,
   type SelectOption,
 } from '../../ui';
@@ -40,6 +41,21 @@ import { QcCounts, QcDot } from './Qc';
 import './well-panel.css';
 
 const fmt = (v: number, d = 2) => formatNumber(v, { digits: d });
+
+/**
+ * Acceso al Log Digitizer (docs/decisiones/0063) por el id de su acción de la paleta: la app no importa el módulo y
+ * el botón desaparece si el módulo no está.
+ */
+const DIGITIZER_COMMAND = 'digitizer:open';
+function DigitizerButton({ variant = 'secondary' }: { variant?: 'secondary' | 'ghost' }) {
+  const cmd = listCommands().find((c) => c.id === DIGITIZER_COMMAND);
+  if (!cmd?.run) return null;
+  return (
+    <Button size="sm" variant={variant} icon="pen" onClick={() => cmd.run?.()} data-testid="well-panel-digitizer">
+      Digitalizar registro
+    </Button>
+  );
+}
 
 export function WellPanel() {
   const entry = useProject(selectActiveEntry);
@@ -60,9 +76,12 @@ export function WellPanel() {
         title="No hay pozo cargado"
         description="Cargá un Excel, LAS o CSV, o usá los datos del TP."
         actions={
-          <Button size="sm" variant="primary" icon="upload" onClick={() => setUi({ loadDialog: {} })}>
-            Cargar pozo
-          </Button>
+          <>
+            <Button size="sm" variant="primary" icon="upload" onClick={() => setUi({ loadDialog: {} })}>
+              Cargar pozo
+            </Button>
+            <DigitizerButton variant="ghost" />
+          </>
         }
       />
     );
@@ -188,7 +207,7 @@ export function WellPanel() {
         )}
       </Section>
 
-      <div><Button size="sm" icon="filter" onClick={() => openPreparation()}>Preparar datos</Button></div>
+      <div className="well-panel__tools"><Button size="sm" icon="filter" onClick={() => openPreparation()}>Preparar datos</Button><DigitizerButton /></div>
       <Section title="Curvas medidas" meta={shown.length === well.curves.length ? well.curves.length : `${shown.length} de ${well.curves.length}`}>
         {well.curves.length === 0 ? (
           <EmptyState size="sm" icon="curve" title="Sin curvas" description="El archivo no trajo curvas. Volvé a cargarlo revisando el mapeo de columnas." />

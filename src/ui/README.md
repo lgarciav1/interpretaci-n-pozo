@@ -117,7 +117,7 @@ Escala por `devicePixelRatio`, redibuja al cambiar el tamaño (ResizeObserver), 
 | `Callout` | Mensaje en un panel (info, ok, warn, error con `role="alert"`), con título y acciones. |
 | `EmptyState` | Estado vacío: ícono, título, qué hacer y acciones. |
 | `Spinner` | Actividad (anunciada si tiene `label`). |
-| `Dialog` | Modal: foco atrapado, Escape/fondo cierran (salvo `dismissible={false}`), foco vuelve al disparador; `data-autofocus` para el foco inicial; `headerExtra`, `footer`, `size`. |
+| `Dialog` | Modal: foco atrapado, Escape/fondo cierran (salvo `dismissible={false}`), foco vuelve al disparador; `data-autofocus` para el foco inicial; `headerExtra`, `footer`, `size` (sm…xl, o `full`: ventana completa para mesas de trabajo como el Log Digitizer). |
 | `Popover` | Capa NO modal anclada a un elemento (`anchorRef`): `role="dialog"` con `label`, foco inicial en `[data-autofocus]` o el primer control, Tab circula adentro, Escape cierra y devuelve el foco al ancla, clic afuera cierra. Se reubica y gira si no entra. La usa el editor de escalas del visor. |
 | `ColorPicker` | Muestras (radiogroup con flechas; por defecto `CURVE_SWATCHES`, o `swatches`, p. ej. `ZONE_PALETTE`) + «Otro» con el selector nativo del sistema. Devuelve `#rrggbb`. |
 | `Menu` | Menú desplegable (flechas, letra inicial, Escape); ítems con ícono, descripción, atajo, separadores y rótulos. |
