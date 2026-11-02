@@ -7,7 +7,7 @@ import { buildMask } from '../../src/digitizer/color';
 import { rotateImage } from '../../src/digitizer/geometry';
 import { traceCurve } from '../../src/digitizer/tracing';
 import type { RasterImage } from '../../src/digitizer/types';
-import { evaluate } from './harness';
+import { evaluate, report } from './harness';
 import { renderLog } from './synth';
 
 const now = () => performance.now();
@@ -33,7 +33,7 @@ describe('rendimiento en una pista de 1.500 × 12.000 px', () => {
     const trace = traceCurve(mask);
     const t2 = now();
     const e = evaluate(log, 'GR', trace);
-    console.info(`[rendimiento] ${W}x${H}: máscara ${(t1 - t0).toFixed(0)} ms, trazado ${(t2 - t1).toFixed(0)} ms, total ${(t2 - t0).toFixed(0)} ms; cobertura ${(100 * e.coverage).toFixed(1)} %, RMS ${e.rmsPct.toFixed(3)} %`);
+    report(`[rendimiento] ${W}x${H}: máscara ${(t1 - t0).toFixed(0)} ms, trazado ${(t2 - t1).toFixed(0)} ms, total ${(t2 - t0).toFixed(0)} ms; cobertura ${(100 * e.coverage).toFixed(1)} %, RMS ${e.rmsPct.toFixed(3)} %`);
     expect(t2 - t0).toBeLessThan(3000);
     expect(e.coverage).toBeGreaterThan(0.99);
     expect(e.rmsPct).toBeLessThanOrEqual(1);
@@ -53,7 +53,7 @@ describe('rendimiento en una pista de 1.500 × 12.000 px', () => {
     const trace = traceCurve(mask);
     const dt = now() - t0;
     const e = evaluate(log, 'GR', trace);
-    console.info(`[rendimiento] modo oscuro: ${dt.toFixed(0)} ms; cobertura ${(100 * e.coverage).toFixed(1)} %, RMS ${e.rmsPct.toFixed(3)} %`);
+    report(`[rendimiento] modo oscuro: ${dt.toFixed(0)} ms; cobertura ${(100 * e.coverage).toFixed(1)} %, RMS ${e.rmsPct.toFixed(3)} %`);
     expect(dt).toBeLessThan(3000);
     expect(e.rmsPct).toBeLessThanOrEqual(1);
   });
@@ -63,7 +63,7 @@ describe('rendimiento en una pista de 1.500 × 12.000 px', () => {
     const t0 = now();
     const r = rotateImage(img, 0.02);
     const dt = now() - t0;
-    console.info(`[rendimiento] rotación 1500x12000: ${dt.toFixed(0)} ms`);
+    report(`[rendimiento] rotación 1500x12000: ${dt.toFixed(0)} ms`);
     expect(r.image.width).toBe(1500);
     expect(dt).toBeLessThan(5000);
   });

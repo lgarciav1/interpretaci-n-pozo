@@ -107,3 +107,9 @@ export function estimateLagRows(log: SynthLog, curveId: string, trace: TracedCur
   }
   return bestLag;
 }
+
+/** Imprime una línea de resultados en la salida estándar (Node); los números se anotan en docs/decisiones/0062. */
+export function report(line: string): void {
+  const g = globalThis as unknown as { process?: { stdout?: { write(s: string): void } } };
+  g.process?.stdout?.write(line + '\n');
+}

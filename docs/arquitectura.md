@@ -84,10 +84,12 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 | `src/app/trends/` | estado de interfaz de las tendencias (herramienta, selección), proveedores de los módulos (`providers.ts`), conexión con los stores (`actions.ts`) y panel «Tendencias» del dock | sí |
 | `src/modules/<id>/series.ts` | proveedores de series para tendencias (opcional, `seriesProviders: TrendSeriesProvider[]`): MDT, plugs de corona…; el worker no lo importa | no |
 | `src/modules/<id>/dock.tsx` | paneles del dock aportados por un módulo (opcional, `dockPanels: DockPanelDef[]`, contrato en `src/ui/dockPanel.ts`): «Presiones MDT», «Corona», «Histograma», «Crossplot», «Agua de formación» (0017: `formation-water`, con `model.ts` y `docs.ts` puros) | sí |
+| `src/digitizer/` | Log Digitizer, motor puro (0062): calibración de profundidad y valor, corrección geométrica (inclinación, homografía), color CIELAB y colores sugeridos, trazado por Viterbi (automático y guiado), muestreo, calidad, integración con el pozo y los exportadores LAS/CSV, sesión serializable y flujo `digitizeCurve`. Sin interfaz todavía (fase 2); del visor solo importa la escala (`viewer/scale.ts`) | no |
 | `ml` | fases siguientes (ver su README) | — |
 
 Un test (`tests/modules.test.ts`) falla si `core`, `petro` o una definición de módulo importan React, zustand o la
-interfaz.
+interfaz. Otro (`tests/digitizer/session.test.ts`) lo exige para `src/digitizer/` (sin DOM ni canvas; de `viewer/` solo
+`scale.ts`).
 
 ## Reglas que heredan todas las fases
 
@@ -755,3 +757,23 @@ ingresa el usuario: dos puntos (escala y corrimiento) o un punto (desplazamiento
 - Verificación: `tests/preparation-normalization.test.ts` (referencia numpy `scripts/qa/normalization-reference.py`,
   esquema v6, migración con el fixture `tests/fixtures/preparation-legacy-v1-v4.json` generado con el código anterior),
   `tests/preparation-normalization-panel.test.ts` y el guion de navegador `scripts/qa/normalization-panel.cjs`.
+
+## Log Digitizer: motor de digitalización de registros escaneados (fase 1)
+
+Decisión: [`docs/decisiones/0062-log-digitizer-motor.md`](decisiones/0062-log-digitizer-motor.md). Herramienta de
+**adquisición de datos** (no de cálculo petrofísico): convierte la imagen de un registro en curvas digitales que se
+importan a un pozo (`origin.kind = 'measured'`, fuente «Log Digitizer») o se exportan a LAS/CSV.
+
+- Motor puro en `src/digitizer/`, sin dependencias nuevas, sin DOM: la imagen entra como `RasterImage` (RGBA, igual que
+  `ImageData`) y todo sale en `Float64Array` y objetos simples (pensado para un Web Worker, con progreso y `AbortSignal`).
+- Flujo: geometría (`rotateImage`, `rectifyQuad`, `applyGeometry`) → calibración (`buildDepthCalibration`,
+  `ValueFrame` + `AxisScale` de `viewer/scale.ts`) → color (`suggestCurveColors`, máscaras) → `traceCurve` (Viterbi,
+  automático o guiado) → serie física (`traceToSeries`) → remuestreo (`resampleToUniform`, `resampleToIndex`) → calidad
+  (`assessQuality`) → pozo (`addDigitizedCurveToWell`, `createWellFromDigitized`) o archivo (`digitizedExportInput` →
+  `writeLas`/`writeCsv`). `digitizeCurve` encadena máscara → trazo → serie → calidad.
+- El índice de profundidad es común al pozo: la curva se remuestrea al índice existente (NaN fuera del tramo, sin
+  extrapolar) o se crea un pozo nuevo con índice uniforme.
+- La sesión (`DigitizerSession`: imagen por huella, geometría, calibración, curvas, trazos) es JSON puro y se guardará
+  aparte del proyecto (fase 2).
+- Verificación: `tests/digitizer/` (generador sintético con verdad conocida, caso realista con el GR y el AT90 del TP,
+  rendimiento en 1.500 × 12.000 px).

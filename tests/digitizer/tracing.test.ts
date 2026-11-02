@@ -30,7 +30,7 @@ const LONG = 60_000;
 const render = (curves: SynthCurve[], over: Partial<SynthLogOptions> = {}) => renderLog({ ...base, curves, gridRows: 40, gridCols: 10, seed: 1, ...over });
 
 describe('casos limpios: RMS del valor ≤ 1 % del rango y profundidad ≤ 1 px', () => {
-  it('trazo verde de 3 px con grilla y borde (medido: RMS 0,10 %, 0,60 px)', () => {
+  it('trazo verde de 3 px con grilla y borde (medido: RMS 0,017 %, 0,10 px, desfase 0 filas)', () => {
     const log = render([curve()]);
     const e = traceAndEvaluate(log, 'GR', colorGreen, region);
     expect(e.coverage).toBeGreaterThanOrEqual(0.99);
@@ -39,7 +39,7 @@ describe('casos limpios: RMS del valor ≤ 1 % del rango y profundidad ≤ 1 px'
     expect(e.n).toBe(2400);
   });
 
-  it('trazo negro (modo oscuro) con grilla y rótulos tipo texto dentro de la pista (medido: 0,10 %)', () => {
+  it('trazo negro (modo oscuro) con grilla y rótulos tipo texto dentro de la pista (medido: RMS 0,036 %, desfase 0 filas)', () => {
     const log = render([curve({ rgb: BLACK })], { textInside: 25, textOutside: 20 });
     const e = traceAndEvaluate(log, 'GR', { mode: 'dark' }, region);
     expect(e.coverage).toBeGreaterThanOrEqual(0.99);
@@ -47,7 +47,7 @@ describe('casos limpios: RMS del valor ≤ 1 % del rango y profundidad ≤ 1 px'
     expect(Math.abs(estimateLagRows(log, 'GR', e.trace))).toBeLessThanOrEqual(1);
   });
 
-  it('trazo de 1 px (medido: 0,02 %, 0,11 px)', () => {
+  it('trazo de 1 px (medido: 0,018 %, 0,11 px)', () => {
     const e = traceAndEvaluate(render([curve({ thickness: 1 })]), 'GR', colorGreen, region);
     expect(e.coverage).toBeGreaterThanOrEqual(0.99);
     expect(e.rmsPct).toBeLessThanOrEqual(1);
@@ -74,7 +74,7 @@ describe('casos limpios: RMS del valor ≤ 1 % del rango y profundidad ≤ 1 px'
 });
 
 describe('casos difíciles (se documenta el error y la cobertura)', () => {
-  it('curva punteada 18 px encendido / 10 apagado: se atraviesan los huecos (medido: cobertura 99,9 %, observada 83 %, RMS 0,18 %)', () => {
+  it('curva punteada 18 px encendido / 10 apagado: se atraviesan los huecos (medido: cobertura 99,9 %, observada 85,6 %, RMS 0,18 %)', () => {
     const e = traceAndEvaluate(render([curve({ dash: [18, 10] })]), 'GR', colorGreen, region);
     expect(e.coverage).toBeGreaterThanOrEqual(0.98);
     expect(e.observedFraction).toBeLessThan(0.95); // hay puntos interpolados y se marcan
@@ -100,7 +100,7 @@ describe('casos difíciles (se documenta el error y la cobertura)', () => {
     expect(ci / ni).toBeLessThan(0.5 * (co / no));
   });
 
-  it('ruido fuerte (desenfoque + gauss σ=25 + sal y pimienta 3 % + JPEG q=14 + 40 rótulos): negro y verde (medido: ≤ 0,14 %, cobertura 100 %)', { timeout: LONG }, () => {
+  it('ruido fuerte (desenfoque + gauss σ=25 + sal y pimienta 3 % + JPEG q=14 + 40 rótulos): negro y verde (medido: 0,11 % y 0,15 %, cobertura 100 %)', { timeout: LONG }, () => {
     const hard: Partial<SynthLogOptions> = { blur: true, noiseSigma: 25, saltPepper: 0.03, jpegQ: 14, textInside: 40, textOutside: 20, seed: 2 };
     const a = traceAndEvaluate(render([curve()], hard), 'GR', colorGreen, region);
     expect(a.coverage).toBeGreaterThanOrEqual(0.97);
@@ -110,14 +110,14 @@ describe('casos difíciles (se documenta el error y la cobertura)', () => {
     expect(b.rmsPct).toBeLessThanOrEqual(1);
   });
 
-  it('negra, punteada fina (2 px, 10/8) y con ruido fuerte (medido: cobertura 100 %, observada 77 %, RMS 0,20 %)', { timeout: LONG }, () => {
+  it('negra, punteada fina (2 px, 10/8) y con ruido fuerte (medido: cobertura 100 %, observada 81,5 %, RMS 0,42 %, error máx. 30 px en un punto)', { timeout: LONG }, () => {
     const hard: Partial<SynthLogOptions> = { blur: true, noiseSigma: 25, saltPepper: 0.03, jpegQ: 14, textInside: 40, seed: 2 };
     const e = traceAndEvaluate(render([curve({ rgb: BLACK, dash: [10, 8], thickness: 2 })], hard), 'GR', { mode: 'dark' }, region);
     expect(e.coverage).toBeGreaterThanOrEqual(0.95);
     expect(e.rmsPct).toBeLessThanOrEqual(1.5);
   });
 
-  it('cruce con otra curva de OTRO color dibujada encima: la tapada se recupera (medido: cobertura 100 %, observada 99,7 %, RMS 0,12 %)', () => {
+  it('cruce con otra curva de OTRO color dibujada encima: la tapada se recupera (medido: cobertura 100 %, RMS 0,042 %)', () => {
     const rt = curve({ id: 'RT', rgb: RED, valueAt: (d) => 75 + 50 * Math.cos(d / 5) });
     const log = render([curve(), rt]);
     const a = traceAndEvaluate(log, 'GR', colorGreen, region);
