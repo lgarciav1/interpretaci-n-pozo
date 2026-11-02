@@ -247,9 +247,34 @@ async function analyze(page, file, spec) {
         return best;
       };
       const out = { W, H, border: {}, grid: {}, color: {} };
-      for (const [key, y, x0, x1, base] of spec.border) out.border[key] = colCentroid(y, x0, x1, base);
-      for (const [key, x, y0, y1, base] of spec.grid) out.grid[key] = rowCentroid(x, y0, y1, base);
-      for (const [key, y, x0, x1, kind] of spec.color) out.color[key] = findColor(y, x0, x1, kind);
+      for (const [key, y, x0, x1, base] of spec.border ?? []) out.border[key] = colCentroid(y, x0, x1, base);
+      for (const [key, x, y0, y1, base] of spec.grid ?? []) out.grid[key] = rowCentroid(x, y0, y1, base);
+      for (const [key, y, x0, x1, kind] of spec.color ?? []) out.color[key] = findColor(y, x0, x1, kind);
+      // Corridas de píxeles más oscuros que `thr` a lo largo de una fila (columnas) o de una columna (filas): centros.
+      const runs = (n, get, thr) => {
+        const res = [];
+        let a = -1;
+        let sw = 0;
+        let sm = 0;
+        for (let i = 0; i <= n; i++) {
+          const v = i < n ? get(i) : 255;
+          if (v < thr) {
+            if (a < 0) a = i;
+            sm += (thr - v) * i;
+            sw += thr - v;
+          } else if (a >= 0) {
+            res.push(sm / sw);
+            a = -1;
+            sm = 0;
+            sw = 0;
+          }
+        }
+        return res;
+      };
+      out.colRuns = {};
+      out.rowRuns = {};
+      for (const [key, y, x0, x1, thr] of spec.colRuns ?? []) out.colRuns[key] = runs(x1 - x0, (i) => lum(x0 + i, y), thr).map((v) => v + x0);
+      for (const [key, x, y0, y1, thr] of spec.rowRuns ?? []) out.rowRuns[key] = runs(y1 - y0, (i) => lum(x, y0 + i), thr).map((v) => v + y0);
       return out;
     },
     { b64, spec },
@@ -400,6 +425,157 @@ async function analyze(page, file, spec) {
   await step(page, 'Revisión');
   await shot(page, 'revision-oscuro');
   await page.emulateMedia({ colorScheme: 'light' });
+
+
+  // ═══ (b) PNG exportado por la propia app (pozo del TP) ══════════════════════════════════════════════════════
+  await page.locator('.dz-desk .ui-dialog__head').getByRole('button', { name: 'Cerrar' }).click();
+  await page.waitForTimeout(300);
+  await page.getByRole('button', { name: 'Cargar pozo' }).first().click();
+  await page.waitForTimeout(300);
+  await page.getByRole('button', { name: /Cargar datos del TP/ }).click();
+  await page.waitForTimeout(1500);
+  await page.getByRole('button', { name: /Siguiente: control de calidad/ }).click();
+  await page.waitForTimeout(800);
+  await page.getByRole('dialog').getByRole('button', { name: /^Cargar$/ }).click();
+  await page.waitForTimeout(2500);
+  await page.keyboard.press('Control+e');
+  await page.waitForTimeout(500);
+  await page.getByRole('radio', { name: 'Figuras' }).or(page.getByRole('tab', { name: 'Figuras' })).first().click();
+  await page.waitForTimeout(400);
+  const zoneB = (await page.getByLabel('Tramo de la figura').locator('option', { hasText: 'Zona B' }).innerText()).trim();
+  await page.getByLabel('Tramo de la figura').selectOption({ label: zoneB });
+  await page.getByLabel('Escala vertical').selectOption('500');
+  await page.getByLabel('Resolución en puntos por pulgada').selectOption('150');
+  await page.waitForTimeout(500);
+  const fig = await download(page, () => page.getByRole('dialog').getByRole('button', { name: /^Exportar$/ }).click());
+  log('figura exportada', path.basename(fig), zoneB);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+
+  // Lo que mira la usuaria en la figura: bordes de la pista «Correlación» (en el encabezado, sobre blanco), las
+  // marcas de profundidad rotuladas (7730, 7740… m) y un píxel del GR verde.
+  const pre = await analyze(page, fig, { colRuns: [['head', 1600, 0, 400, 228]] });
+  const [bl, br] = pre.colRuns.head;
+  let ticks = [];
+  for (let x = Math.round(br) + 40; x < Math.round(br) + 200 && ticks.length === 0; x += 2) {
+    const a = await analyze(page, fig, { rowRuns: [['t', x, 2300, pre.H - 120, 140]] });
+    const t = a.rowRuns.t;
+    const gaps = t.slice(1).map((v, i) => v - t[i]);
+    if (t.length >= 12 && gaps.every((gp) => Math.abs(gp - gaps[0]) < 3)) ticks = t;
+  }
+  log('figura: bordes', bl.toFixed(1), br.toFixed(1), '· marcas', ticks.length, ticks.length ? `cada ${(ticks[1] - ticks[0]).toFixed(2)} px` : '');
+  await assert(ticks.length >= 12 && br - bl > 100, 'se ven los bordes de la pista y las marcas de profundidad');
+  const dataTop = ticks[0] - (ticks[1] - ticks[0]) * 0.4;
+  const dataBottom = ticks[ticks.length - 1] + (ticks[1] - ticks[0]) * 0.4;
+  const g = await analyze(page, fig, { color: [['green', Math.round((ticks[2] + ticks[3]) / 2), Math.round(bl) + 4, Math.round(br) - 4, 'green']] });
+  // El tramo de la Zona B empieza en 7725 m: la primera marca rotulada es 7730 m.
+  const firstLabel = 7730;
+
+  await page.locator('[data-testid="well-panel-digitizer"]').click();
+  await page.waitForTimeout(400);
+  await step(page, 'Imagen');
+  await page.setInputFiles('[data-testid="digitizer-image-input"]', fig);
+  await page.waitForFunction(() => document.querySelector('[data-testid="digitizer-canvas"]')?.dataset.viewport);
+  await page.waitForTimeout(500);
+  await side(page).getByRole('button', { name: 'Omitir' }).click();
+  await page.waitForTimeout(200);
+  const tieIdx = [0, 5, 10, ticks.length - 1];
+  for (const k of tieIdx) {
+    await clickImg(page, (bl + br) / 2, ticks[k]);
+    await page.keyboard.type(String(firstLabel + 10 * k));
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(80);
+  }
+  await page.waitForTimeout(200);
+  await assert(await side(page).getByText('Profundidad calibrada').isVisible(), 'figura: 4 amarres en las marcas rotuladas');
+  results.bResidual = (await side(page).locator('.dz-kv__row', { hasText: 'Residuo' }).innerText()).replace(/\s+/g, ' ');
+  results.bResolution = (await side(page).locator('.dz-kv__row', { hasText: 'Resolución' }).innerText()).replace(/\s+/g, ' ');
+  await step(page, 'Curvas');
+  await side(page).getByTestId('digitizer-new-curve').fill('GR');
+  await side(page).getByTestId('digitizer-new-curve').press('Enter');
+  await page.waitForTimeout(150);
+  await clickImg(page, bl, ticks[4]);
+  await clickImg(page, br, ticks[4]);
+  await clickImg(page, g.color.green.x, g.color.green.y);
+  await page.waitForTimeout(150);
+  // Región: solo el tramo con datos (afuera quedan el encabezado con la leyenda verde y el pie).
+  await page.keyboard.press('0');
+  await page.keyboard.press('-');
+  await page.keyboard.press('-');
+  await page.waitForTimeout(200);
+  await side(page).getByRole('button', { name: /Dibujar región/ }).click();
+  const ra = await ensureVisible(page, bl + 3, dataTop);
+  const rb = await toScreen(page, br - 2, dataBottom);
+  await page.mouse.move(ra.x, ra.y);
+  await page.mouse.down();
+  await page.mouse.move((ra.x + rb.x) / 2, (ra.y + rb.y) / 2, { steps: 4 });
+  await page.mouse.move(rb.x, rb.y, { steps: 4 });
+  await page.mouse.up();
+  await page.waitForTimeout(150);
+  await side(page).getByTestId('digitizer-trace').click();
+  await waitJob(page);
+  await page.keyboard.press('0');
+  await shot(page, 'figura-app-gr-claro');
+  await step(page, 'Revisión');
+  results.reviewFigGR = (await page.getByTestId('digitizer-review-GR').innerText()).replace(/\s+/g, ' ').slice(0, 300);
+  log('revisión figura', results.reviewFigGR);
+  await shot(page, 'figura-app-revision-claro');
+  await step(page, 'Importar');
+  const lasB = await download(page, () => side(page).getByTestId('digitizer-export-las').click());
+  const lb = readLas(fs.readFileSync(lasB, 'utf8'));
+  const csv = fs.readFileSync(path.join(ROOT, 'datos/pozo_tp_perfiles.csv'), 'utf8').trim().split(/\r?\n/);
+  const hdr = csv[0].split(',');
+  const zt = [];
+  const vt = [];
+  for (const line of csv.slice(1)) {
+    const c = line.split(',');
+    const d = Number(c[0]);
+    const v = c[hdr.indexOf('GR')] === '' ? NaN : Number(c[hdr.indexOf('GR')]);
+    if (d >= firstLabel && d <= firstLabel + 10 * (ticks.length - 1) && Number.isFinite(v)) {
+      zt.push(d);
+      vt.push(v);
+    }
+  }
+  results.b = { GR: compare(lb.col(lb.names[0]), lb.col('GR'), zt, vt, 150) };
+  log('(b) GR', JSON.stringify(results.b.GR));
+  await assert(results.b.GR.coverage > 0.9 && results.b.GR.pct < 5, 'figura de la app: GR con cobertura > 90 % y error < 5 % del rango');
+
+  // ═══ (c) al pozo activo, visor, deshacer/rehacer, guardar/abrir el proyecto, LAS releído ══════════════════
+  await side(page).getByTestId('digitizer-add-to-well').click();
+  await page.waitForTimeout(500);
+  await page.locator('.dz-desk .ui-dialog__head').getByRole('button', { name: 'Cerrar' }).click();
+  await page.waitForTimeout(800);
+  const leftCol = page.locator('.shell-side--left');
+  await assert(await leftCol.getByText('GR_DIG', { exact: true }).isVisible(), 'GR_DIG aparece entre las curvas medidas del pozo del TP');
+  await shot(page, 'pozo-con-gr-digitalizada-claro');
+  await page.keyboard.press('Control+z');
+  await page.waitForTimeout(500);
+  await assert((await leftCol.getByText('GR_DIG', { exact: true }).count()) === 0, 'Ctrl+Z en la app quita GR_DIG');
+  await page.keyboard.press('Control+Shift+z');
+  await page.waitForTimeout(500);
+  await assert(await leftCol.getByText('GR_DIG', { exact: true }).isVisible(), 'Ctrl+Mayús+Z la vuelve a agregar');
+  const proj = await download(page, () => page.keyboard.press('Control+s'));
+  results.projectBytes = fs.statSync(proj).size;
+  await page.reload();
+  await page.waitForTimeout(2000);
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.keyboard.press('Control+o')]);
+  await chooser.setFiles(proj);
+  await page.waitForTimeout(2500);
+  const wellSelect = leftCol.locator('select').first();
+  const opts = await wellSelect.locator('option').allInnerTexts();
+  const tp = opts.find((o) => /tp/i.test(o));
+  if (tp) await wellSelect.selectOption({ label: tp });
+  await page.waitForTimeout(800);
+  await assert(await leftCol.getByText('GR_DIG', { exact: true }).isVisible(), 'guardar y reabrir el proyecto conserva GR_DIG');
+  // LAS exportado por la mesa, releído por el lector de la app.
+  await page.getByRole('button', { name: 'Cargar pozo' }).first().click();
+  await page.waitForTimeout(300);
+  await page.setInputFiles('[data-testid="well-file-input"]', lasB);
+  await page.waitForTimeout(1500);
+  await shot(page, 'las-releido-claro');
+  const lwText = await page.getByRole('dialog').innerText();
+  await assert(/GR/.test(lwText) && !/no se pudo/i.test(lwText), 'el LAS exportado se relee con el lector de la app');
+  await page.keyboard.press('Escape');
 
   fs.writeFileSync(path.join(DL, 'results.json'), JSON.stringify(results, null, 2));
   log('errores de página:', errors.length ? errors.join('\n') : 'ninguno');
