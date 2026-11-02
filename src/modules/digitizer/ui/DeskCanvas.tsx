@@ -171,7 +171,11 @@ export function DeskCanvas() {
   useEffect(() => {
     const a = useDigitizer.subscribe(schedule);
     const b = useDeskView.subscribe((s, p) => {
-      if (s.vp !== p.vp) schedule();
+      if (s.vp === p.vp) return;
+      schedule();
+      // La vista queda en el DOM para pruebas automáticas (convertir puntos de la imagen a la pantalla).
+      const el = canvasRef.current;
+      if (el) el.dataset['viewport'] = `${s.vp.scale} ${s.vp.ox} ${s.vp.oy}`;
     });
     const c = subscribeTheme(schedule);
     const d = subscribeUiScale(schedule);
