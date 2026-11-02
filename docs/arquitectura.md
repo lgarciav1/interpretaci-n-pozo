@@ -84,7 +84,7 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 | `src/app/trends/` | estado de interfaz de las tendencias (herramienta, selección), proveedores de los módulos (`providers.ts`), conexión con los stores (`actions.ts`) y panel «Tendencias» del dock | sí |
 | `src/modules/<id>/series.ts` | proveedores de series para tendencias (opcional, `seriesProviders: TrendSeriesProvider[]`): MDT, plugs de corona…; el worker no lo importa | no |
 | `src/modules/<id>/dock.tsx` | paneles del dock aportados por un módulo (opcional, `dockPanels: DockPanelDef[]`, contrato en `src/ui/dockPanel.ts`): «Presiones MDT», «Corona», «Histograma», «Crossplot», «Agua de formación» (0017: `formation-water`, con `model.ts` y `docs.ts` puros) | sí |
-| `src/digitizer/` | Log Digitizer, motor puro (0062): calibración de profundidad y valor, corrección geométrica (inclinación, homografía), color CIELAB y colores sugeridos, trazado por Viterbi (automático y guiado), muestreo, calidad, integración con el pozo y los exportadores LAS/CSV, sesión serializable y flujo `digitizeCurve`. Sin interfaz todavía (fase 2); del visor solo importa la escala (`viewer/scale.ts`) | no |
+| `src/digitizer/` | Log Digitizer, motor puro (0062): calibración de profundidad y valor, corrección geométrica (inclinación, homografía), color CIELAB y colores sugeridos, trazado por Viterbi (automático y guiado), muestreo, calidad, integración con el pozo y los exportadores LAS/CSV, sesión serializable y flujo `digitizeCurve`. Del visor solo importa la escala (`viewer/scale.ts`). La interfaz es el módulo de panel `src/modules/digitizer/` (0063) | no |
 | `ml` | fases siguientes (ver su README) | — |
 
 Un test (`tests/modules.test.ts`) falla si `core`, `petro` o una definición de módulo importan React, zustand o la
@@ -777,3 +777,17 @@ importan a un pozo (`origin.kind = 'measured'`, fuente «Log Digitizer») o se e
   aparte del proyecto (fase 2).
 - Verificación: `tests/digitizer/` (generador sintético con verdad conocida, caso realista con el GR y el AT90 del TP,
   rendimiento en 1.500 × 12.000 px).
+
+## Log Digitizer: mesa de digitalización (fase 2)
+
+Decisión: [`docs/decisiones/0063-log-digitizer-interfaz.md`](decisiones/0063-log-digitizer-interfaz.md).
+
+- Módulo de panel `src/modules/digitizer/` (categoría «Adquisición de datos», `docs` en Ecuaciones) registrado en
+  `PANEL_MODULES`: pestaña del dock «Digitalizar», acción «Abrir Log Digitizer» y botón en «Datos del pozo» (por id de
+  acción). La mesa es un `Dialog size="full"` montado por la pestaña del dock; su estado (zustand) sobrevive a cerrarla.
+- Worker propio `digitizer.worker.ts` (`?worker&inline`) con progreso y cancelación (terminar el worker); camino sin
+  worker para Vitest.
+- Persistencia: la curva entra al proyecto como curva medida (v7 sin cambios, un `commit` deshacible); la sesión de la
+  mesa (imagen incrustada, calibración, trazas) se guarda aparte como JSON.
+- Verificación: `tests/digitizer-ui/`, `tests/modules-digitizer.test.ts` y el guion
+  `scripts/qa/log-digitizer.cjs` (clics reales sobre el HTML construido).
