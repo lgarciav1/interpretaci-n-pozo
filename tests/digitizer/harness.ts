@@ -24,7 +24,8 @@ export interface TraceEval {
 
 export function frameOf(log: SynthLog, curveId: string): ValueFrame {
   const c = log.options.curves.find((k) => k.id === curveId)!;
-  return { leftPx: log.options.left, rightPx: log.options.right, scale: c.scale };
+  const t = (log.options.tracks ?? [{ left: log.options.left, right: log.options.right }])[c.track ?? 0]!;
+  return { leftPx: t.left, rightPx: t.right, scale: c.scale };
 }
 
 /** Traza la curva `curveId` con máscara según `color` en `region` y la compara con la verdad (por fila). */

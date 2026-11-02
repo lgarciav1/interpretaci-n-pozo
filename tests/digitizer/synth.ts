@@ -236,6 +236,8 @@ export interface SynthCurve {
   depthRange?: [number, number];
   /** Filas [desde, hasta) en las que se omite el trazo (huecos, p. ej. tapado por texto). */
   gaps?: Array<[number, number]>;
+  /** Índice de la pista (de `tracks`) en la que se dibuja; por defecto 0. */
+  track?: number;
 }
 
 export interface SynthLogOptions {
@@ -244,6 +246,8 @@ export interface SynthLogOptions {
   /** Columnas de los bordes izquierdo y derecho de la pista (espacio de diseño). */
   left: number;
   right: number;
+  /** Pistas adicionales (por defecto solo la de left/right). Cada curva elige la suya con `track`. */
+  tracks?: Array<{ left: number; right: number }>;
   /** Profundidad (m) de la fila 0 y metros por fila. */
   topDepthM: number;
   dzMPerPx: number;
@@ -285,22 +289,27 @@ export function renderLog(o: SynthLogOptions): SynthLog {
   const depthAtRow = (y: number) => o.topDepthM + y * o.dzMPerPx;
   const line = (x1: number, y1: number, x2: number, y2: number, t: number, rgb: RGB) => drawPolyline(img, [[x1, y1], [x2, y2]], { thickness: t, rgb, ...(tf ? { tf } : {}) });
 
-  if (o.gridRows) {
-    for (let y = 0, k = 0; y < o.height; y += o.gridRows, k++) line(o.left, y, o.right, y, 1, k % 5 === 0 ? GRID_DARK : GRID_LIGHT);
-  }
-  if (o.gridCols) {
-    for (let k = 0; k <= o.gridCols; k++) {
-      const x = o.left + ((o.right - o.left) * k) / o.gridCols;
-      line(x, 0, x, o.height - 1, 1, k % 5 === 0 ? GRID_DARK : GRID_LIGHT);
+  const tracks = o.tracks ?? [{ left: o.left, right: o.right }];
+  for (const t of tracks) {
+    if (o.gridRows) {
+      for (let y = 0, k = 0; y < o.height; y += o.gridRows, k++) line(t.left, y, t.right, y, 1, k % 5 === 0 ? GRID_DARK : GRID_LIGHT);
     }
+    if (o.gridCols) {
+      for (let k = 0; k <= o.gridCols; k++) {
+        const x = t.left + ((t.right - t.left) * k) / o.gridCols;
+        line(x, 0, x, o.height - 1, 1, k % 5 === 0 ? GRID_DARK : GRID_LIGHT);
+      }
+    }
+    // borde de la pista
+    line(t.left, 0, t.left, o.height - 1, 2, [90, 90, 90]);
+    line(t.right, 0, t.right, o.height - 1, 2, [90, 90, 90]);
   }
-  // borde de la pista
-  line(o.left, 0, o.left, o.height - 1, 2, [90, 90, 90]);
-  line(o.right, 0, o.right, o.height - 1, 2, [90, 90, 90]);
 
+  const trackOf = (c: SynthCurve) => tracks[c.track ?? 0]!;
   const trueX = (id: string, y: number): number => {
     const c = o.curves.find((k) => k.id === id)!;
-    return o.left + valueToFraction(c.valueAt(depthAtRow(y)), c.scale) * (o.right - o.left);
+    const t = trackOf(c);
+    return t.left + valueToFraction(c.valueAt(depthAtRow(y)), c.scale) * (t.right - t.left);
   };
   for (const c of o.curves) {
     const every = c.every ?? 1;
