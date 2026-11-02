@@ -195,7 +195,7 @@ function Stage() {
       onDragLeave={() => setOver(false)}
       onDrop={onDrop}
     >
-      <StageToolbar />
+      {image && <StageToolbar />}
       {image ? (
         <DeskCanvas />
       ) : (

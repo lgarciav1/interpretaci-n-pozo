@@ -314,6 +314,7 @@ async function analyze(page, file, spec) {
   // Abrir la mesa por la paleta y cargar la imagen.
   await palette(page, 'Log Digitizer');
   await assert(await page.locator('.dz-desk').isVisible(), 'la mesa se abre con Ctrl+K «Log Digitizer»');
+  await page.waitForTimeout(500);
   await shot(page, 'mesa-vacia-claro');
   await page.setInputFiles('[data-testid="digitizer-image-input"]', SCAN);
   await page.waitForFunction(() => document.querySelector('[data-testid="digitizer-canvas"]')?.dataset.viewport);
@@ -387,6 +388,31 @@ async function analyze(page, file, spec) {
   await shot(page, 'curvas-gr-claro');
   await curve('NPHI', 0.45, -0.15, 'blue', 1500);
   await assert((await page.locator('.dz-curve').count()) === 2, 'dos curvas trazadas');
+
+  // Edición manual: borrar un tramo de NPHI arrastrando, deshacer y rehacer dentro de la mesa.
+  const rows = async () => Number((await page.locator('.dz-curve.is-selected .dz-curve__meta').innerText()).replace(/\D/g, ''));
+  const before = await rows();
+  await side(page).getByRole('button', { name: /Borrar tramo/ }).click();
+  const [ex, ey0] = H(400, 1200);
+  const e0 = await ensureVisible(page, ex, ey0);
+  const e1 = await toScreen(page, ex, ey0 + 100);
+  await page.mouse.move(e0.x, e0.y);
+  await page.mouse.down();
+  await page.mouse.move(e1.x, e1.y, { steps: 5 });
+  await page.mouse.up();
+  await page.waitForTimeout(150);
+  const erased = await rows();
+  await shot(page, 'edicion-borrar-claro');
+  await page.keyboard.press('Control+z');
+  await page.waitForTimeout(150);
+  const undone = await rows();
+  await page.keyboard.press('Control+Shift+z');
+  await page.waitForTimeout(150);
+  const redone = await rows();
+  log('edición: filas', before, '→ borrar', erased, '→ deshacer', undone, '→ rehacer', redone);
+  await assert(Math.abs(before - erased - 101) <= 2 && undone === before && redone === erased, 'borrar un tramo de ~100 filas, deshacer y rehacer dentro de la mesa');
+  await page.keyboard.press('Control+z');
+  await page.keyboard.press('Escape');
 
   // (5) Revisión
   await step(page, 'Revisión');
