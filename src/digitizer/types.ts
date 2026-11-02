@@ -92,8 +92,10 @@ export type CurveColorSpec =
       mode: 'color';
       /** Color del trazo (RGB 0–255), típicamente elegido con `suggestCurveColors`. */
       rgb: [number, number, number];
-      /** Tolerancia en ΔE*ab (CIE76). Por defecto 28. */
+      /** Tolerancia en ΔE*ab (CIE76) del color respecto de la mezcla fondo→trazo. Por defecto 28. */
       tolerance?: number;
+      /** Color del papel (RGB). Por defecto blanco; `suggestCurveColors` lo estima. */
+      background?: [number, number, number];
     }
   | {
       mode: 'dark';
@@ -131,6 +133,8 @@ export interface TraceSettings {
   maxGapRows: number;
   /** Escala (px) del costo cuadrático de salto horizontal entre filas: (salto / (sigma·√d))². */
   sigma: number;
+  /** Pendiente (px por fila) que NO se penaliza al atravesar un hueco: una curva empinada sigue siendo una curva. */
+  freeSlope: number;
   /** Salto horizontal máximo por fila (px) entre tramos consecutivos; más allá solo cabe reiniciar. */
   maxJump: number;
   /** Recompensa por fila explicada (el "valor" de cubrir una fila con trazo). */
