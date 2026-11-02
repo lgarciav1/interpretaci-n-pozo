@@ -5,7 +5,7 @@
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { valueAtX, type PixelPoint, type TraceMask } from '../../../digitizer';
-import { getThemeTokens, getUiScaleFactor, subscribeTheme, subscribeUiScale, toast } from '../../../ui';
+import { getThemeTokens, getUiScaleFactor, isTypingTarget, subscribeTheme, subscribeUiScale, toast } from '../../../ui';
 import { formatNumber } from '../../../ui/format';
 import { unitLabel } from '../../../core/units';
 import { calibrationOf, depthInImageUnit, draftId, frameOf, pickColorAt, updateCurve } from '../model/form';
@@ -295,6 +295,9 @@ export function DeskCanvas() {
 
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (e.button === 2) return;
+    // Un campo de texto con foco se tragaría los atajos (barra espaciadora, letras): el lienzo lo suelta.
+    const active = document.activeElement as HTMLElement | null;
+    if (active && isTypingTarget(active)) active.blur();
     const img = viewImage();
     if (!img) return;
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -353,7 +356,7 @@ export function DeskCanvas() {
         if (!c || !st.corrected) return;
         const r = pickColorAt(st.corrected, p.x, p.y);
         if (!r) {
-          toast({ title: 'Ahí solo hay papel', description: 'Hacé clic justo sobre el trazo de la curva (acercá el zoom si hace falta).', tone: 'warn' });
+          toast({ title: 'Ahí no hay un trazo', description: 'Solo hay papel o grilla clara. Hacé clic justo sobre el trazo de la curva (acercá el zoom si hace falta).', tone: 'warn' });
           return;
         }
         st.updateWork((w) => updateCurve(w, c.id, { color: r.spec }));
@@ -497,6 +500,8 @@ export function DeskCanvas() {
         aria-label="Imagen del registro. Rueda: zoom; arrastrar con la mano o con la barra espaciadora: desplazar."
         role="img"
         onPointerDown={onPointerDown}
+        // El clic en el lienzo no le quita el foco al panel (p. ej. al campo de profundidad del amarre recién marcado).
+        onMouseDown={(e) => e.preventDefault()}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}

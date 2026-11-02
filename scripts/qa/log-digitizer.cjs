@@ -28,6 +28,7 @@ const DL = fs.mkdtempSync(path.join(process.argv[5] || os.tmpdir(), 'pozo-digiti
 fs.mkdirSync(OUT, { recursive: true });
 const log = (...a) => console.log('·', ...a);
 let PAGE = null;
+const ERRORS = [];
 const assert = async (c, m) => {
   if (!c) {
     if (PAGE) await PAGE.screenshot({ path: `${OUT}/error.png` }).catch(() => {});
@@ -234,12 +235,14 @@ async function analyze(page, file, spec) {
         }
         return sw ? s / sw : NaN;
       };
-      const findColor = (y, x0, x1, kind) => {
+      const findColor = (y0, x0, x1, kind) => {
         let best = null;
+        // la usuaria apunta al centro del trazo: el píxel más saturado entre unas filas
+        for (let y = y0 - 12; y <= y0 + 12; y++)
         for (let x = x0; x <= x1; x++) {
           const [r, g, b] = px(x, y);
           const score = kind === 'green' ? g - (r + b) / 2 : kind === 'blue' ? b - (r + g) / 2 : 255 - (r + g + b) / 3;
-          if (!best || score > best.score) best = { x, score };
+          if (!best || score > best.score) best = { x, y, score };
         }
         return best;
       };
@@ -258,7 +261,7 @@ async function analyze(page, file, spec) {
   const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 }, acceptDownloads: true });
   const page = await ctx.newPage();
   PAGE = page;
-  const errors = [];
+  const errors = ERRORS;
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   await page.goto('file://' + path.join(ROOT, 'dist/index.html'));
@@ -347,7 +350,7 @@ async function analyze(page, file, spec) {
     // cuentagotas sobre un píxel de la curva
     const eye = side(page).getByRole('button', { name: /Cuentagotas/ });
     if ((await eye.getAttribute('aria-pressed')) !== 'true') await eye.click();
-    const [cx, cy] = H(look.color[colorKey].x, rowColor);
+    const [cx, cy] = H(look.color[colorKey].x, look.color[colorKey].y);
     await clickImg(page, cx, cy);
     await page.waitForTimeout(100);
     await side(page).getByTestId('digitizer-trace').click();
@@ -403,7 +406,9 @@ async function analyze(page, file, spec) {
   await browser.close();
   console.log(JSON.stringify(results, null, 2));
   if (errors.length) process.exit(1);
-})().catch((e) => {
+})().catch(async (e) => {
+  if (PAGE) await PAGE.screenshot({ path: `${OUT}/error.png` }).catch(() => {});
+  console.error('errores de página:', ERRORS.join('\n'));
   console.error(e);
   process.exit(1);
 });

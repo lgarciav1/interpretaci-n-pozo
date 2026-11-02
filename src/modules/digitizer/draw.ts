@@ -273,7 +273,10 @@ function drawDepth(ctx: CanvasRenderingContext2D, sc: DeskScene, t: ThemeTokens,
     ctx.restore();
     const text = pending ? '¿profundidad?' : `${formatNumber(tie.depth, { digits: 2 })} ${sc.tieUnit}`;
     ctx.font = canvasFont(BASE_TOKENS.text.xs, 600, ui);
-    pill(ctx, t, text, right + 12 * ui, sy, 'left', ui, color);
+    // A la derecha de la hoja si hay lugar; si no, adentro, contra el borde visible.
+    const tw = ctx.measureText(text).width + 10 * ui;
+    if (right + 12 * ui + tw < sc.width - 4) pill(ctx, t, text, right + 12 * ui, sy, 'left', ui, color);
+    else pill(ctx, t, text, Math.min(right, sc.width) - 8 * ui, sy - 12 * ui, 'right', ui, color);
   }
 }
 

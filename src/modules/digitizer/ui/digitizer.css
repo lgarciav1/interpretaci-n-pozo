@@ -34,7 +34,10 @@
   gap: var(--space-3);
 }
 .dz-side__scroll .ui-section { padding: 0; }
-.dz-side__scroll .ui-section + .ui-section { padding-top: var(--space-3); border-top: 1px solid var(--color-border-subtle); }
+.dz-side__scroll .ui-section__body { display: flex; flex-direction: column; gap: var(--space-2-5); }
+.dz-editor .ui-seg { flex: none; }
+.dz-side__scroll .ui-section { border-bottom: 0; }
+.dz-side__scroll .ui-section + .ui-section, .dz-editor > .ui-section:not(:first-child) { padding-top: var(--space-3); border-top: 1px solid var(--color-border-subtle); }
 
 .dz-intro { margin: 0; color: var(--color-text-muted); line-height: var(--leading-relaxed); }
 .dz-muted { margin: 0; color: var(--color-text-muted); font-size: var(--text-sm); line-height: var(--leading-normal); }
@@ -43,7 +46,7 @@
 .dz-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2) var(--space-3); align-items: end; }
 .dz-grid2 > * { min-width: 0; }
 .dz-spacer { flex: 1; }
-.dz-stat { margin: 0; color: var(--color-text-muted); }
+.dz-stat { margin: var(--space-1) 0 0; color: var(--color-text-muted); }
 .dz-stat strong { color: var(--color-text); }
 .dz-list { margin: 0; padding-left: var(--space-4); display: grid; gap: var(--space-1); }
 .dz-warn-line { margin: var(--space-1) 0 0; color: var(--color-warn-text); }

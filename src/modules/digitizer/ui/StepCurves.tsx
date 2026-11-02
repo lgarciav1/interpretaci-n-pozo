@@ -7,12 +7,16 @@ import { useState } from 'react';
 import { DEFAULT_COLOR_TOLERANCE, type CurveColorSpec } from '../../../digitizer';
 import { Badge, Button, Callout, Chip, Field, IconButton, NumberField, SegmentedControl, Section, Select, SliderField, Switch, TextField } from '../../../ui';
 import { suggestRole } from '../../../io/mnemonics';
+import { formatNumber } from '../../../ui/format';
 import { registry } from '../../index';
 import { cancelJob, showMask, suggestColors, traceCurve } from '../actions';
 import { calibrationOf, inkColor, newCurveDraft, rgbHex, scaleForRole, specOf, updateCurve, type CurveDraft } from '../model/form';
 import { tracedRows } from '../model/traceEdit';
 import { useDigitizer } from '../store';
 import { StepIntro, ToolButton, roleOptions, unitOptions } from './common';
+
+/** Valores de escala tal como se imprimen (0,45 · −0,15 · 2000), sin redondear a enteros. */
+const fmtScale = (v: number) => formatNumber(v, { significant: 6, grouping: false });
 
 const QUICK = ['GR', 'SP', 'CALI', 'NPHI', 'RHOB', 'DT', 'ILD', 'ILM', 'LLD', 'MSFL'];
 
@@ -23,7 +27,9 @@ export function CurveSwatchDot({ c }: { c: CurveDraft }) {
 
 function AddCurve() {
   const [name, setName] = useState('');
-  const add = (mnemonic: string) => {
+  const add = (mnemonic: string, from?: HTMLElement) => {
+    // El foco vuelve a la mesa: el próximo paso es hacer clic en el lienzo (y la barra espaciadora debe desplazar).
+    from?.blur();
     const m = mnemonic.trim().toUpperCase();
     if (!m) return;
     const st = useDigitizer.getState();
@@ -38,7 +44,7 @@ function AddCurve() {
   return (
     <div className="dz-add">
       <div className="dz-row">
-        <TextField size="sm" value={name} onChange={setName} placeholder="Mnemónico (GR, NPHI…)" aria-label="Mnemónico de la curva nueva" onKeyDown={(e) => e.key === 'Enter' && add(name)} data-testid="digitizer-new-curve" />
+        <TextField size="sm" value={name} onChange={setName} placeholder="Mnemónico (GR, NPHI…)" aria-label="Mnemónico de la curva nueva" onKeyDown={(e) => e.key === 'Enter' && add(name, e.currentTarget)} data-testid="digitizer-new-curve" />
         <Button size="sm" icon="plus" variant="primary" onClick={() => add(name || `CURVA${useDigitizer.getState().work.curves.length + 1}`)}>
           Agregar curva
         </Button>
@@ -124,7 +130,8 @@ function CurveEditor({ c }: { c: CurveDraft }) {
   const updateWork = useDigitizer((s) => s.updateWork);
   const corrected = useDigitizer((s) => s.corrected);
   const job = useDigitizer((s) => s.job);
-  const cal = useDigitizer((s) => calibrationOf(s.work).calibration);
+  // Solo si hay calibración (booleano: un selector que arma objetos nuevos dispararía renders sin fin).
+  const cal = useDigitizer((s) => calibrationOf(s.work).calibration !== null);
   const canUndo = useDigitizer((s) => s.past.length > 0);
   const canRedo = useDigitizer((s) => s.future.length > 0);
   const patch = (p: Partial<CurveDraft>) => updateWork((w) => updateCurve(w, c.id, p));
@@ -163,10 +170,10 @@ function CurveEditor({ c }: { c: CurveDraft }) {
         </div>
         <div className="dz-grid2">
           <Field label="Valor a la izquierda">
-            <NumberField size="sm" value={c.leftValue} min={-1e6} max={1e6} clampToRange={false} onChange={(v) => patch({ leftValue: v })} aria-label="Valor del borde izquierdo" unit={c.leftPx === null ? undefined : `x ${Math.round(c.leftPx)}`} />
+            <NumberField size="sm" value={c.leftValue} min={-1e6} max={1e6} clampToRange={false} format={fmtScale} onChange={(v) => patch({ leftValue: v })} aria-label="Valor del borde izquierdo" unit={c.leftPx === null ? undefined : `x ${Math.round(c.leftPx)}`} />
           </Field>
           <Field label="Valor a la derecha">
-            <NumberField size="sm" value={c.rightValue} min={-1e6} max={1e6} clampToRange={false} onChange={(v) => patch({ rightValue: v })} aria-label="Valor del borde derecho" unit={c.rightPx === null ? undefined : `x ${Math.round(c.rightPx)}`} />
+            <NumberField size="sm" value={c.rightValue} min={-1e6} max={1e6} clampToRange={false} format={fmtScale} onChange={(v) => patch({ rightValue: v })} aria-label="Valor del borde derecho" unit={c.rightPx === null ? undefined : `x ${Math.round(c.rightPx)}`} />
           </Field>
         </div>
         <div className="dz-row">

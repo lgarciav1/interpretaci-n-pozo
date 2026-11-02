@@ -224,7 +224,7 @@ export const rgbHex = (rgb: readonly [number, number, number]): string => `#${he
 /**
  * Cuentagotas: toma una ventana de (2r+1)² píxeles alrededor del clic y se queda con los más alejados del papel (al
  * menos el 60 % del contraste máximo, a lo sumo un cuarto de la ventana): el núcleo del trazo, no el anti-aliasing. Negro/gris oscuro (L* < 45 y croma < 25) → modo oscuro.
- * Devuelve null si en la ventana solo hay papel.
+ * Devuelve null si en la ventana solo hay papel o grilla clara.
  */
 export function pickColorAt(image: RasterImage, x: number, y: number, r = 3): { spec: CurveColorSpec; rgb: [number, number, number] } | null {
   const px: { rgb: [number, number, number]; d: number; L: number; C: number }[] = [];
@@ -243,7 +243,8 @@ export function pickColorAt(image: RasterImage, x: number, y: number, r = 3): { 
   }
   if (px.length === 0) return null;
   px.sort((p, q) => q.d - p.d);
-  if (px[0]!.d < 12) return null;
+  // Papel o grilla gris clara (contraste < 20 respecto del blanco): no es un trazo.
+  if (px[0]!.d < 20) return null;
   // Núcleo del trazo: los píxeles con al menos el 60 % del contraste máximo (a lo sumo un cuarto de la ventana).
   const core = px.filter((p) => p.d >= px[0]!.d * 0.6);
   const top = core.slice(0, Math.max(1, Math.ceil(px.length / 4)));

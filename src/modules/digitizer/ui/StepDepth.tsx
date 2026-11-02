@@ -13,7 +13,9 @@ function TieRow({ tie, index, estimate }: { tie: TieDraft; index: number; estima
   const [draft, setDraft] = useState<string | null>(null);
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    if (focus && tie.depth === null) ref.current?.focus();
+    if (!(focus && tie.depth === null)) return;
+    const id = requestAnimationFrame(() => ref.current?.focus());
+    return () => cancelAnimationFrame(id);
   }, [focus, tie.depth]);
   const commit = () => {
     if (draft === null) return;
@@ -44,6 +46,8 @@ function TieRow({ tie, index, estimate }: { tie: TieDraft; index: number; estima
           if (e.key === 'Enter') {
             commit();
             useDigitizer.getState().set({ focusTieId: null });
+            // Listo para el próximo amarre: el foco vuelve a la mesa (la barra espaciadora vuelve a desplazar).
+            e.currentTarget.blur();
           }
         }}
         style={{ width: 'calc(120px * var(--ui-scale))' }}
