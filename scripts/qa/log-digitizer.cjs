@@ -289,7 +289,7 @@ async function analyze(page, file, spec) {
   const errors = ERRORS;
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
-  await page.goto('file://' + path.join(ROOT, 'dist/index.html'));
+  await page.goto('file://' + path.join(ROOT, 'dist/index.html') + '?inicio=no');
   await page.waitForTimeout(1500);
 
   // ═══ (a) registro independiente ═══════════════════════════════════════════════════════════════════════════════

@@ -23,6 +23,8 @@ import { ViewerSlot } from './shell/ViewerSlot';
 import { TrackBuilderSlot } from './tracks/TrackBuilder';
 import { ToolStringPanel } from './toolString/ToolStringPanel';
 import { ToolStringView } from './toolString/ToolStringView';
+import { HomeRoot } from './home/HomeScreen';
+import { useHome } from './home/store';
 import { LAYOUT_LIMITS, shellSize, shellSizeCss, useUi, type ShellLayout, type ShellPart } from './store/ui';
 import './shell/shell.css';
 
@@ -39,6 +41,27 @@ function useShellVars(ref: RefObject<HTMLDivElement | null>): void {
     apply(useUi.getState().layout);
     return useUi.subscribe((s, prev) => {
       if (s.layout !== prev.layout) apply(s.layout);
+    });
+  }, [ref]);
+}
+
+/**
+ * Inicio (docs/decisiones/0065) es una capa encima: el armazón sigue montado e inerte debajo (no pierde el visor ni la
+ * disposición) y en el fundido final ya responde. El atributo se pone por suscripción, sin re-renderizar el armazón.
+ */
+function useHomeCover(ref: RefObject<HTMLDivElement | null>): void {
+  useLayoutEffect(() => {
+    const apply = (phase: string) => {
+      const el = ref.current;
+      if (!el) return;
+      const covered = phase === 'open' || phase === 'entering';
+      el.inert = covered;
+      if (covered) el.setAttribute('aria-hidden', 'true');
+      else el.removeAttribute('aria-hidden');
+    };
+    apply(useHome.getState().phase);
+    return useHome.subscribe((s, prev) => {
+      if (s.phase !== prev.phase) apply(s.phase);
     });
   }, [ref]);
 }
@@ -108,8 +131,10 @@ export function App() {
   // Sarta (docs/decisiones/0033): la lista ocupa la columna izquierda y la vista 3D tapa el centro (visor y dock
   // siguen montados debajo, inertes, para no perder la profundidad, el zoom ni la pestaña del dock).
   const toolStringOpen = useUi((s) => s.toolStringOpen);
+  useHomeCover(ref);
 
   return (
+    <>
     <div className={`shell${readingMode ? ' is-reading' : ''}`} ref={ref}>
       <TopBar />
       {!readingMode && <FlowBar />}
@@ -180,6 +205,8 @@ export function App() {
       <CommandLayer />
       <Toaster />
     </div>
+    <HomeRoot />
+    </>
   );
 }
 

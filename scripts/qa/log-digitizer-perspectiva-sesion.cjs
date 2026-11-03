@@ -212,7 +212,7 @@ const compareLas = (file) => {
   PAGE = page;
   page.on('pageerror', (e) => ERRORS.push(String(e)));
   page.on('console', (m) => m.type() === 'error' && ERRORS.push(m.text()));
-  await page.goto('file://' + path.join(ROOT(), 'dist/index.html'));
+  await page.goto('file://' + path.join(ROOT(), 'dist/index.html') + '?inicio=no');
   await page.waitForTimeout(1500);
 
   // Pozo del TP primero: la digitalizada de GR va a chocar con su rol (entra sin rol).

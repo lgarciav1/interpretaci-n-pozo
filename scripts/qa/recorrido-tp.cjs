@@ -56,7 +56,7 @@ const flat = (s) => s.replace(/\s+/g, ' ').trim();
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
-  await page.goto('file://' + ROOT + '/dist/index.html');
+  await page.goto('file://' + ROOT + '/dist/index.html?inicio=no');
   await page.waitForTimeout(1200);
   const tStart = Date.now();
 

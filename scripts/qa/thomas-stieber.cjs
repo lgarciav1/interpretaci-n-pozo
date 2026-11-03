@@ -131,7 +131,7 @@ async function resultsTable(page, tag) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
-  await page.goto('file://' + ROOT + '/dist/index.html');
+  await page.goto('file://' + ROOT + '/dist/index.html?inicio=no');
   await page.waitForTimeout(1500);
   try {
     // 1. Pozo sintético de demostración (el que abre la app).

@@ -27,7 +27,11 @@
   /* Contenedor: lo que hay adentro se compacta según el ancho de la barra (abajo), sin ensanchar la página. */
   container: topbar / inline-size;
 }
-.shell-brand { display: flex; align-items: center; gap: var(--space-2-5); white-space: nowrap; }
+.shell-brand { display: flex; align-items: center; gap: var(--space-2-5); margin: 0 0 0 calc(-1 * var(--space-1)); padding: var(--space-1) var(--space-2) var(--space-1) var(--space-1); border: 0; border-radius: var(--radius-md); background: none; color: inherit; font: inherit; white-space: nowrap; cursor: pointer; transition: background var(--dur-fast) var(--ease-standard); }
+.shell-brand:hover { background: var(--color-surface-hover); }
+.shell-brand:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+/* Con el nombre oculto (barra compacta) se lee «Inicio» junto a la marca (docs/decisiones/0065). */
+.shell-brand__home { display: none; color: var(--color-text-muted); font-size: var(--text-sm); font-weight: var(--weight-medium); }
 .shell-brand__name { font-size: var(--text-lg); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-tight); }
 .shell-context {
   display: flex;
@@ -86,7 +90,7 @@
  * ~1750 px (135 em); sin la marca y con el nombre del pozo recortado a ~110 px, ~1350 px (104 em); con las acciones en
  * ícono, ~1110 px (86 em). Los rótulos se ocultan solo a la vista: los botones conservan su nombre accesible y `title`.
  */
-@container topbar (max-width: 135em) { .shell-brand__name { display: none; } }
+@container topbar (max-width: 135em) { .shell-brand__name { display: none; } .shell-brand__home { display: inline; } }
 @container topbar (max-width: 104em) {
   .shell-actions .ui-btn:not(.ui-btn--primary) { position: relative; --btn-px: var(--space-2); }
   .shell-actions .ui-btn:not(.ui-btn--primary) .ui-btn__label,

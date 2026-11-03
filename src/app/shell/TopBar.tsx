@@ -13,6 +13,7 @@ import { useViewer } from '../store/viewer';
 import { IS_MAC, REDO_SHORTCUT, UNDO_SHORTCUT, redoChange, undoChange } from './historyActions';
 import { openProjectFile, saveProject } from './projectActions';
 import { openEquations } from '../ecuaciones/open';
+import { openHome } from '../home/actions';
 
 const WORKSPACE_ICON: Record<WorkspaceId, 'sliders' | 'mountain'> = { petrophysics: 'sliders', geology: 'mountain' };
 
@@ -81,10 +82,11 @@ export function TopBar() {
 
   return (
     <header className="shell-topbar">
-      <div className="shell-brand">
+      <button type="button" className="shell-brand" onClick={openHome} aria-label="Inicio" title="Inicio: la sarta en 3D y la entrada al pozo (el trabajo queda como está)" data-testid="open-home">
         <BrandMark />
         <span className="shell-brand__name">Interpretación de pozo</span>
-      </div>
+        <span className="shell-brand__home">Inicio</span>
+      </button>
       <nav className="shell-context" aria-label="Proyecto y pozo">
         <span className="shell-context__project" title="Proyecto">
           {projectName}
