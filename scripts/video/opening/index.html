@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Apertura</title>
+<style>
+  html,body{margin:0;width:1920px;height:1080px;overflow:hidden;background:#05060c;font-family:Inter,system-ui,sans-serif;color:#fff}
+  canvas{position:absolute;inset:0}
+  .layer{position:absolute;inset:0;pointer-events:none}
+  #vignette{background:radial-gradient(120% 90% at 50% 50%,transparent 55%,rgba(0,0,0,.55) 100%)}
+  #hud{position:absolute;right:72px;top:64px;text-align:right;font-variant-numeric:tabular-nums}
+  #hud .k{font:600 13px Inter;letter-spacing:.28em;opacity:.55;text-transform:uppercase}
+  #hud .v{font:300 54px 'Inter Display',Inter;letter-spacing:-.02em;margin:2px 0 14px}
+  #hud .v small{font-size:22px;opacity:.6;margin-left:6px}
+  #hud .gr{color:#4cd17f}
+  #zone{display:inline-flex;align-items:center;gap:10px;padding:8px 16px;border-radius:999px;background:rgba(255,255,255,.08);
+    font:600 15px Inter;letter-spacing:.18em}
+  #zone i{width:12px;height:12px;border-radius:3px;display:inline-block}
+  #note{position:absolute;left:80px;bottom:84px;max-width:720px}
+  #note .k{font:600 14px Inter;letter-spacing:.3em;opacity:.6;text-transform:uppercase;margin-bottom:12px}
+  #note .t{font:400 30px/1.35 Inter;letter-spacing:-.01em}
+  #note .t b{color:#4cd17f;font-weight:600}
+  #title{position:absolute;left:0;right:0;top:110px;text-align:center}
+  #title .logo{display:inline-grid;place-items:center;width:84px;height:84px;border-radius:22px;
+    background:linear-gradient(135deg,#6366f1,#4338ca);box-shadow:0 20px 70px rgba(99,102,241,.55);margin-bottom:26px}
+  #title h1{margin:0;font:800 150px/1 'Inter Display',Inter;letter-spacing:-.045em}
+  #title h1 span{display:inline-block}
+  #title p{margin:22px 0 0;font:400 32px Inter;opacity:.85;letter-spacing:-.01em}
+  #flash{background:#fff}
+  #black{background:#000}
+</style>
+</head>
+<body>
+<div id="vignette" class="layer"></div>
+<div id="hud" class="layer" style="left:auto;bottom:auto">
+  <div class="k">Profundidad</div><div class="v" id="dep">8.518<small>m</small></div>
+  <div class="k">Rayos gamma</div><div class="v gr" id="grv">—<small>gAPI</small></div>
+  <div id="zone"><i></i><span>ZONA E</span></div>
+</div>
+<div id="note" class="layer" style="right:auto;top:auto">
+  <div class="k">Fondo del pozo · 8.518 m</div>
+  <div class="t">Un perfil se registra <b>subiendo la herramienta</b> desde el fondo del pozo, muestra a muestra.</div>
+</div>
+<div id="title" class="layer" style="bottom:auto">
+  <div class="logo"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3c3 2 3 4 0 6s-3 4 0 6 3 4 0 6"/><path d="M15 3v18"/></svg></div>
+  <h1 id="h1"></h1>
+  <p id="tag">Interpretación de perfiles de pozo, de punta a punta.</p>
+</div>
+<div id="flash" class="layer"></div>
+<div id="black" class="layer"></div>
+<script type="importmap">{"imports":{"three":"./three.module.js"}}</script>
+<script type="module">
+import * as THREE from 'three';
+
+const W = 1920, H = 1080;
+const data = await (await fetch('gr.json')).json();
+const N = data.depth.length;
+const TD = data.depth[N - 1], TOP = data.depth[0];
+const TRACK = 16;               // ancho de la pista (0–150 gAPI)
+const ZM = 1;                   // unidades por metro
+const zOf = (depth) => (depth - TD) * ZM;            // fondo en z = 0, hacia la superficie z < 0
+const xOf = (gr) => (Math.min(150, Math.max(0, gr)) / 150) * TRACK - TRACK / 2;
+const ZONE_COLORS = { A: '#e8c872', B: '#9ec5e8', C: '#f2a65a', D: '#b8d98b', E: '#c9a3d9' };
+const GR_COLOR = new THREE.Color('#4cd17f');
+
+// ── Renderer, escena, cámara ───────────────────────────────────────────────────────────────
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(W, H); renderer.setPixelRatio(1);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+const FOG = new THREE.Color('#0a0d1f');
+scene.fog = new THREE.FogExp2(FOG, 0.0042);
+{ // cielo: degradé vertical
+  const c = document.createElement('canvas'); c.width = 4; c.height = 512;
+  const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 512);
+  gr.addColorStop(0, '#04050b'); gr.addColorStop(0.52, '#0b1030'); gr.addColorStop(0.62, '#1b1f4d'); gr.addColorStop(1, '#0a0d1f');
+  g.fillStyle = gr; g.fillRect(0, 0, 4, 512);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; scene.background = t;
+}
+const camera = new THREE.PerspectiveCamera(38, W / H, 0.5, 3000);
+scene.add(new THREE.HemisphereLight(0x9fb4ff, 0x0b0d18, 0.9));
+const key = new THREE.DirectionalLight(0xffffff, 2.2); key.position.set(-30, 60, 40); scene.add(key);
+const rim = new THREE.DirectionalLight(0x8ea2ff, 1.6); rim.position.set(40, 20, -60); scene.add(rim);
+
+// ── Suelo y pista ──────────────────────────────────────────────────────────────────────────
+const L = (TD - TOP) * ZM;
+{
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.MeshStandardMaterial({ color: 0x07091a, roughness: 1 }));
+  ground.rotation.x = -Math.PI / 2; ground.position.y = -0.05; scene.add(ground);
+  // grilla de fondo muy tenue (sensación de escala)
+  const grid = new THREE.GridHelper(4000, 200, 0x1a2050, 0x11163a); grid.position.y = -0.04; scene.add(grid);
+  // calzada de la pista
+  const road = new THREE.Mesh(new THREE.PlaneGeometry(TRACK + 1.2, L + 400), new THREE.MeshStandardMaterial({ color: 0x0f1430, roughness: 0.85, metalness: 0.1 }));
+  road.rotation.x = -Math.PI / 2; road.position.set(0, -0.02, -L / 2 + 100); scene.add(road);
+}
+// carriles: divisiones de la escala de GR
+function lineMat(color, opacity) { return new THREE.LineBasicMaterial({ color, transparent: true, opacity, fog: true }); }
+{
+  const pts = [];
+  for (let k = 0; k <= 5; k++) { const x = -TRACK / 2 + (k * TRACK) / 5; pts.push(x, 0.01, 200, x, 0.01, -L - 200); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+  scene.add(new THREE.LineSegments(g, lineMat(0x3a4690, 0.55)));
+  // bordes de la pista, más marcados
+  const e = [];
+  for (const x of [-TRACK / 2 - 0.6, TRACK / 2 + 0.6]) e.push(x, 0.015, 200, x, 0.015, -L - 200);
+  const ge = new THREE.BufferGeometry(); ge.setAttribute('position', new THREE.Float32BufferAttribute(e, 3));
+  scene.add(new THREE.LineSegments(ge, lineMat(0x8090ff, 0.8)));
+  // líneas de profundidad cada 5 m (tenues) y cada 25 m (marcadas)
+  const a = [], b = [];
+  for (let d = Math.ceil(TOP / 5) * 5; d <= TD; d += 5) {
+    const z = zOf(d), arr = d % 25 === 0 ? b : a;
+    arr.push(-TRACK / 2, 0.012, z, TRACK / 2, 0.012, z);
+  }
+  for (const [arr, c, o] of [[a, 0x29326e, 0.5], [b, 0x5865c8, 0.85]]) {
+    const g2 = new THREE.BufferGeometry(); g2.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3));
+    scene.add(new THREE.LineSegments(g2, lineMat(c, o)));
+  }
+}
+// pista de zonas, a la izquierda
+const zoneTops = [];
+{
+  let start = 0;
+  for (let i = 1; i <= N; i++) {
+    if (i === N || data.zone[i] !== data.zone[start]) {
+      const z0 = zOf(data.depth[start]), z1 = zOf(data.depth[i - 1]);
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(1.6, Math.abs(z1 - z0)),
+        new THREE.MeshBasicMaterial({ color: ZONE_COLORS[data.zone[start]], transparent: true, opacity: 0.85 }));
+      m.rotation.x = -Math.PI / 2; m.position.set(-TRACK / 2 - 2.0, 0.02, (z0 + z1) / 2); scene.add(m);
+      zoneTops.push({ zone: data.zone[start], top: data.depth[start], base: data.depth[i - 1] });
+      start = i;
+    }
+  }
+}
+// carteles: profundidad cada 50 m y letra de zona
+function textSprite(text, { size = 64, color = '#c9d1ff', weight = 600, bg = null, w = 512, h = 128, scale = 6 } = {}) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d');
+  if (bg) { g.fillStyle = bg; g.beginPath(); g.roundRect(4, 4, w - 8, h - 8, 26); g.fill(); }
+  g.font = `${weight} ${size}px Inter`; g.fillStyle = color; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(text, w / 2, h / 2 + 4);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, fog: true, depthWrite: false }));
+  s.scale.set(scale, (scale * h) / w, 1); return s;
+}
+for (let d = Math.ceil(TOP / 50) * 50; d <= TD; d += 50) {
+  const s = textSprite(d.toLocaleString('es-AR') + ' m', { size: 58, bg: 'rgba(20,26,70,.85)', color: '#dfe4ff', scale: 7 });
+  s.position.set(-TRACK / 2 - 8.5, 1.7, zOf(d)); scene.add(s);
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.2), new THREE.MeshBasicMaterial({ color: 0x5865c8 }));
+  post.position.set(-TRACK / 2 - 8.5, 0.6, zOf(d)); scene.add(post);
+}
+for (const zt of zoneTops) {
+  const s = textSprite(zt.zone, { size: 96, weight: 800, color: '#0b0d18', bg: ZONE_COLORS[zt.zone], w: 160, h: 160, scale: 3.2 });
+  s.position.set(-TRACK / 2 - 2.0, 2.2, zOf(zt.top) - 0.5); scene.add(s);
+}
+
+// ── Curva de GR: núcleo, halo y relleno arena/arcilla ──────────────────────────────────────
+const P = data.depth.map((d, i) => [xOf(data.gr[i] ?? 75), zOf(d)]);
+// la curva se dibuja desde el fondo: ordenar de fondo a tope
+P.reverse();
+const grRev = data.gr.slice().reverse();
+function ribbon(width, y) {
+  const pos = new Float32Array((N - 1) * 6 * 3);
+  for (let i = 0; i < N - 1; i++) {
+    const [x0, z0] = P[i], [x1, z1] = P[i + 1];
+    let dx = x1 - x0, dz = z1 - z0; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
+    const nx = -dz * width / 2, nz = dx * width / 2;
+    const v = [x0 - nx, z0 - nz, x0 + nx, z0 + nz, x1 + nx, z1 + nz, x0 - nx, z0 - nz, x1 + nx, z1 + nz, x1 - nx, z1 - nz];
+    for (let k = 0; k < 6; k++) { pos[(i * 6 + k) * 3] = v[k * 2]; pos[(i * 6 + k) * 3 + 1] = y; pos[(i * 6 + k) * 3 + 2] = v[k * 2 + 1]; }
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); return g;
+}
+const core = new THREE.Mesh(ribbon(0.16, 0.06), new THREE.MeshBasicMaterial({ color: 0xe9fff1, fog: false }));
+const glow1 = new THREE.Mesh(ribbon(0.55, 0.05), new THREE.MeshBasicMaterial({ color: GR_COLOR, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+const glow2 = new THREE.Mesh(ribbon(1.8, 0.04), new THREE.MeshBasicMaterial({ color: GR_COLOR, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+scene.add(glow2, glow1, core);
+// relleno: entre la curva y el corte de arcilla (75 gAPI); arena a la izquierda (amarillo), arcilla a la derecha (verde grisáceo)
+const CUT = xOf(75);
+const fill = (() => {
+  const pos = [], col = [];
+  const sand = new THREE.Color('#e8c872'), shale = new THREE.Color('#5d7a64');
+  for (let i = 0; i < N - 1; i++) {
+    const [x0, z0] = P[i], [x1, z1] = P[i + 1];
+    const c = (grRev[i] ?? 75) < 75 ? sand : shale;
+    const q = [CUT, z0, x0, z0, x1, z1, CUT, z0, x1, z1, CUT, z1];
+    for (let k = 0; k < 6; k++) { pos.push(q[k * 2], 0.025, q[k * 2 + 1]); col.push(c.r, c.g, c.b); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.32, side: THREE.DoubleSide, depthWrite: false }));
+})();
+scene.add(fill);
+// curva "fantasma" de lo que todavía no se registró: no se muestra (la ruta adelante está vacía, como en el pozo)
+
+// ── Herramienta (sarta estilizada, colores por familia de la app) ──────────────────────────
+const tool = new THREE.Group();
+{
+  const metal = new THREE.MeshStandardMaterial({ color: 0x8e97ad, metalness: 0.85, roughness: 0.28 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x2a3042, metalness: 0.7, roughness: 0.4 });
+  const R = 0.55;
+  const parts = [ // [largo, color de familia]
+    [3.2, '#4cd17f'], [2.6, '#4cd17f'], [4.2, '#f07167'], [1.8, '#9aa3b5'], [3.6, '#f4845f'], [3.4, '#b07cf0'], [4.6, '#5b8def'], [2.4, '#5b8def'],
+  ];
+  let z = 0;
+  const head = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.55, R, 1.6, 40), metal);
+  head.rotation.x = -Math.PI / 2; head.position.z = -0.8; tool.add(head); z = -1.6;
+  for (const [len, c] of parts) {
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(R, R, len - 0.25, 40), metal);
+    body.rotation.x = -Math.PI / 2; body.position.z = z - len / 2; tool.add(body);
+    const ringMat = new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 0.9, metalness: 0.2, roughness: 0.4 });
+    for (const off of [0.35, len - 0.6]) {
+      const ring = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.04, R * 1.04, 0.22, 40), ringMat);
+      ring.rotation.x = -Math.PI / 2; ring.position.z = z - off; tool.add(ring);
+    }
+    const joint = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.82, R * 0.82, 0.25, 32), dark);
+    joint.rotation.x = -Math.PI / 2; joint.position.z = z - len + 0.12; tool.add(joint);
+    z -= len;
+  }
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(R, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), metal);
+  nose.rotation.x = Math.PI / 2; nose.position.z = 0; tool.add(nose);
+  // cable hacia la superficie
+  const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 1200, 8), new THREE.MeshStandardMaterial({ color: 0x3a4157, metalness: 0.5, roughness: 0.5 }));
+  cable.rotation.x = -Math.PI / 2; cable.position.z = z - 600; tool.add(cable);
+  tool.userData.length = -z;
+}
+tool.position.y = 0.6;
+scene.add(tool);
+// sensor de GR (cerca de la cabeza, donde está la herramienta GR) y haz hacia la curva
+const SENSOR_OFFSET = 0.6;   // el sensor registra en la parte baja de la herramienta
+const pen = new THREE.Sprite(new THREE.SpriteMaterial({
+  map: (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+    const r = g.createRadialGradient(64, 64, 0, 64, 64, 64); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(0.2, 'rgba(120,255,170,.9)');
+    r.addColorStop(1, 'rgba(76,209,127,0)'); g.fillStyle = r; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c); })(),
+  blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, fog: false,
+}));
+pen.scale.set(2.6, 2.6, 1); scene.add(pen);
+const penLight = new THREE.PointLight(0x4cd17f, 30, 25, 1.6); scene.add(penLight);
+const beamGeo = new THREE.BufferGeometry(); beamGeo.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, 0], 3));
+const beam = new THREE.Line(beamGeo, new THREE.LineBasicMaterial({ color: 0x9dffc3, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, fog: false }));
+scene.add(beam);
+
+// ── Línea de tiempo ────────────────────────────────────────────────────────────────────────
+const DUR = 19.2;
+const clamp01 = (x) => Math.min(1, Math.max(0, x));
+const span = (t, a, b) => clamp01((t - a) / (b - a));
+const ease = (k) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
+const easeOut = (k) => 1 - Math.pow(1 - k, 3);
+const easeSine = (k) => (1 - Math.cos(Math.PI * k)) / 2;
+const lerp = (a, b, k) => a + (b - a) * k;
+// velocidad de subida (m/s) por tramos; se integra y se escala para llegar justo a la superficie
+const VK = [[0, 0], [1.4, 0], [2.8, 9], [6.0, 14], [8.5, 45], [10.5, 95], [13.5, 125], [15.2, 70], [16.2, 0], [DUR, 0]];
+const vAt = (t) => { for (let i = 1; i < VK.length; i++) if (t <= VK[i][0]) { const [t0, v0] = VK[i - 1], [t1, v1] = VK[i]; const k = (t - t0) / (t1 - t0); return lerp(v0, v1, (1 - Math.cos(Math.PI * k)) / 2); } return 0; };
+const STEPS = 4000, climbTab = new Float64Array(STEPS + 1);
+for (let i = 1; i <= STEPS; i++) climbTab[i] = climbTab[i - 1] + vAt((i - 0.5) * DUR / STEPS) * DUR / STEPS;
+const FINAL_CLIMB = L - 6;  // la herramienta termina justo bajo el tope del perfil
+const climb = (t) => { const f = clamp01(t / DUR) * STEPS, i = Math.floor(f), k = f - i; const v = climbTab[i] + (climbTab[Math.min(STEPS, i + 1)] - climbTab[i]) * k; return (v / climbTab[STEPS]) * FINAL_CLIMB; };
+
+const $ = (id) => document.getElementById(id);
+const fmt = (v) => v.toLocaleString('es-AR', { maximumFractionDigits: 0 });
+const title = 'fiubaLog';
+$('h1').innerHTML = [...title].map((c) => `<span>${c}</span>`).join('');
+const letters = [...$('h1').children];
+
+function cameraAt(t, frontZ) {
+  // Fase 1: cenital (pista de perfil clásica). Fase 2: se acuesta detrás de la herramienta.
+  // Fase 3: órbita lenta de drone alrededor de la herramienta mientras sube; termina del lado de la superficie,
+  // mirando hacia el fondo: todo el perfil registrado como una ruta al horizonte.
+  const tilt = ease(span(t, 5.2, 10.6));
+  const orbit = easeSine(span(t, 9.6, 18.0));
+  const reveal = easeSine(span(t, 12.4, 18.0));
+  const target = new THREE.Vector3(0, 0, frontZ + lerp(lerp(5, -26, tilt), 95, reveal));
+  const elev = lerp(lerp(Math.PI / 2, THREE.MathUtils.degToRad(16), tilt), THREE.MathUtils.degToRad(10), easeSine(span(t, 13.5, 18.0)));
+  let dist = lerp(lerp(lerp(92, 80, easeSine(span(t, 0, 5.6))), 74, tilt), 118, reveal);
+  dist *= 1 - 0.07 * easeSine(span(t, 16.8, 19.2));       // deriva final: la cámara nunca queda quieta
+  const az = Math.PI * 0.93 * orbit + 0.05 * easeSine(span(t, 17.0, 19.2));  // 0 = detrás (lado profundo)
+  const pos = new THREE.Vector3(
+    target.x + Math.sin(az) * Math.cos(elev) * dist,
+    target.y + Math.sin(elev) * dist,
+    target.z + Math.cos(az) * Math.cos(elev) * dist,
+  );
+  const crane = reveal;
+  camera.position.copy(pos);
+  // el vector "arriba" pasa de -Z (vista cenital, la superficie arriba en pantalla) a +Y sin saltos
+  const upK = span(elev, 1.2, 1.5707);
+  camera.up.set(0, 1 - upK, -upK).normalize();
+  camera.lookAt(target);
+  camera.fov = lerp(lerp(34, 44, tilt), 42, crane);
+  camera.updateProjectionMatrix();
+}
+
+window.renderAt = (t) => {
+  const c = climb(t);
+  const frontZ = -c;                      // frente de la herramienta
+  tool.position.z = frontZ;
+  const sensorZ = frontZ - SENSOR_OFFSET;
+  // cuántas muestras ya se registraron (desde el fondo)
+  const drawnDepth = TD - Math.max(0, -sensorZ) / ZM;
+  let n = 0; { let lo = 0, hi = N - 1; const zs = sensorZ; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (P[m][1] >= zs) lo = m; else hi = m - 1; } n = lo; }
+  const segs = Math.max(0, n);
+  for (const m of [core, glow1, glow2, fill]) m.geometry.setDrawRange(0, segs * 6);
+  const [px, pz] = P[Math.min(N - 1, n)];
+  pen.position.set(px, 0.3, pz); penLight.position.set(px, 2.2, pz);
+  const bp = beamGeo.attributes.position; bp.setXYZ(0, 0, 0.6, pz); bp.setXYZ(1, px, 0.08, pz); bp.needsUpdate = true;
+  const penOn = span(t, 1.3, 1.9);
+  pen.material.opacity = penOn; beam.material.opacity = 0.55 * penOn; penLight.intensity = 30 * penOn;
+  cameraAt(t, frontZ);
+  renderer.render(scene, camera);
+
+  // ── capas de texto ──
+  const grNow = grRev[Math.min(N - 1, n)];
+  const depthNow = Math.max(TOP, drawnDepth);
+  $('dep').innerHTML = `${fmt(depthNow)}<small>m</small>`;
+  $('grv').innerHTML = `${t < 1.6 ? '—' : fmt(grNow)}<small>gAPI</small>`;
+  const zNow = zoneTops.find((z) => depthNow >= z.top - 0.01 && depthNow <= z.base + 0.2) ?? zoneTops[zoneTops.length - 1];
+  $('zone').querySelector('i').style.background = ZONE_COLORS[zNow.zone];
+  $('zone').querySelector('span').textContent = 'ZONA ' + zNow.zone;
+  const hudO = span(t, 1.2, 2.2) * (1 - span(t, 15.0, 15.8));
+  $('hud').style.opacity = 0;  // sin HUD (pedido de la usuaria) $('hud').style.transform = `translateY(${(1 - easeOut(span(t, 1.2, 2.2))) * -14}px)`;
+  const noteIn = easeOut(span(t, 1.9, 3.0)), noteOut = span(t, 6.6, 7.4);
+  $('note').style.opacity = noteIn * (1 - noteOut);
+  $('note').style.transform = `translateY(${(1 - noteIn) * 24 - noteOut * 10}px)`;
+  // título: letras que suben con desenfoque, sobre la ruta iluminada
+  letters.forEach((s, i) => {
+    const k = easeOut(span(t, 16.7 + i * 0.06, 17.5 + i * 0.06));
+    s.style.opacity = k; s.style.transform = `translateY(${(1 - k) * 60}px)`; s.style.filter = `blur(${(1 - k) * 14}px)`;
+  });
+  const lk = easeOut(span(t, 16.4, 17.2));
+  $('title').querySelector('.logo').style.opacity = lk;
+  $('title').querySelector('.logo').style.transform = `scale(${0.6 + 0.4 * lk})`;
+  const tk = easeOut(span(t, 17.5, 18.3));
+  $('tag').style.opacity = tk; $('tag').style.transform = `translateY(${(1 - tk) * 16}px)`;
+  $('black').style.opacity = 1 - span(t, 0, 1.2);
+  $('flash').style.opacity = 0;
+};
+window.DUR = DUR;
+window.ready = true;
+window.renderAt(0);
+</script>
+</body>
+</html>

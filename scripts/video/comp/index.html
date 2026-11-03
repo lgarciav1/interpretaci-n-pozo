@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Compositor</title>
+<style>
+  html,body{margin:0;width:1920px;height:1080px;overflow:hidden;background:#05060c;font-family:Inter,system-ui,sans-serif;color:#fff}
+  canvas{position:absolute;inset:0}
+  .layer{position:absolute;inset:0;pointer-events:none}
+  #shade{background:linear-gradient(180deg,rgba(6,7,16,0) 52%,rgba(6,7,16,.78) 100%)}
+  #shadeL{background:linear-gradient(90deg,rgba(6,7,16,.86) 0%,rgba(6,7,16,.55) 34%,rgba(6,7,16,0) 58%)}
+  /* rótulo: kicker + título + bajada */
+  #lt{position:absolute;left:96px;bottom:92px;max-width:900px}
+  #lt .k{display:inline-flex;align-items:center;gap:12px;font:600 17px Inter;letter-spacing:.26em;text-transform:uppercase;color:#c7cbff}
+  #lt .k i{display:inline-block;width:34px;height:2px;background:#8b8ff8}
+  #lt h2{margin:14px 0 0;font:800 72px/1.02 'Inter Display',Inter;letter-spacing:-.035em}
+  #lt h2 span{display:inline-block;white-space:pre}
+  #lt p{margin:16px 0 0;font:400 27px/1.38 Inter;color:rgba(255,255,255,.86);max-width:820px}
+  /* tarjeta de capítulo */
+  #card{background:radial-gradient(1200px 700px at 30% 30%,#1d2160,#07081a 70%)}
+  #card .wrap{position:absolute;left:150px;top:50%;transform:translateY(-50%)}
+  #card .n{font:300 30px 'Inter Display',Inter;letter-spacing:.2em;color:#9aa0ff}
+  #card h1{margin:10px 0 0;font:800 132px/1 'Inter Display',Inter;letter-spacing:-.045em}
+  #card h1 span{display:inline-block;white-space:pre}
+  #card p{margin:24px 0 0;font:400 32px Inter;color:rgba(255,255,255,.8)}
+  #card .bar{position:absolute;left:0;bottom:0;height:6px;background:linear-gradient(90deg,#6366f1,#4cd17f)}
+  /* frase central */
+  #big{display:grid;place-items:center;text-align:center}
+  #big h1{margin:0;font:800 96px/1.05 'Inter Display',Inter;letter-spacing:-.04em;max-width:1500px}
+  #big h1 span{display:inline-block;white-space:pre}
+  #big p{margin:22px 0 0;font:400 30px Inter;color:rgba(255,255,255,.82)}
+  #black{background:#000}
+  #flash{background:#fff}
+  .mono{font-family:'JetBrains Mono','DejaVu Sans Mono',monospace}
+</style>
+</head>
+<body>
+<canvas id="cv" width="1920" height="1080"></canvas>
+<div id="shade" class="layer"></div>
+<div id="shadeL" class="layer"></div>
+<div id="lt" class="layer" style="right:auto;top:auto"><div class="k"><i></i><span id="ltk"></span></div><h2 id="lth"></h2><p id="ltp"></p></div>
+<div id="big" class="layer"><div><h1 id="bigh"></h1><p id="bigp"></p></div></div>
+<div id="card" class="layer"><div class="wrap"><div class="n" id="cardn"></div><h1 id="cardh"></h1><p id="cardp"></p></div><div class="bar" id="cardbar"></div></div>
+<div id="flash" class="layer"></div>
+<div id="black" class="layer"></div>
+<script>
+const W = 1920, H = 1080, FPS = 30;
+const cv = document.getElementById('cv'), g = cv.getContext('2d');
+g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+const $ = (id) => document.getElementById(id);
+const clamp01 = (x) => Math.min(1, Math.max(0, x));
+const span = (t, a, b) => clamp01((t - a) / (b - a));
+const ease = (k) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
+const easeOut = (k) => 1 - Math.pow(1 - k, 3);
+const easeOutExpo = (k) => (k >= 1 ? 1 : 1 - Math.pow(2, -10 * k));
+const sine = (k) => (1 - Math.cos(Math.PI * k)) / 2;
+const lerp = (a, b, k) => a + (b - a) * k;
+
+let TL = null;           // línea de tiempo (timeline.json)
+const cache = new Map(); // src → HTMLImageElement decodificada
+
+function loadImg(src) {
+  if (cache.has(src)) return cache.get(src);
+  const p = new Promise((res, rej) => { const im = new Image(); im.onload = () => im.decode().then(() => res(im), () => res(im)); im.onerror = () => rej(new Error('img ' + src)); im.src = src; });
+  cache.set(src, p);
+  if (cache.size > 40) cache.delete(cache.keys().next().value);
+  return p;
+}
+function camAt(clip, ts) {
+  const ks = clip.cam || [{ t: 0, x: W / 2, y: H / 2, z: 1 }];
+  if (ts <= ks[0].t) return ks[0];
+  for (let i = 1; i < ks.length; i++) if (ts <= ks[i].t) {
+    const a = ks[i - 1], b = ks[i], k = (b.ease === 'linear' ? (x) => x : ease)((ts - a.t) / (b.t - a.t));
+    return { x: lerp(a.x, b.x, k), y: lerp(a.y, b.y, k), z: lerp(a.z, b.z, k) };
+  }
+  return ks[ks.length - 1];
+}
+// Un clip: [start, end) en la línea de tiempo; fuente: carpeta + cuadro inicial; velocidad; cámara (en tiempo del clip).
+function frameSrc(clip, tc) {
+  const f = Math.min(clip.srcTo, clip.srcFrom + Math.floor(tc * FPS * (clip.speed || 1) + 1e-6));
+  return `/${clip.dir}/f${String(f).padStart(5, '0')}.${clip.ext || 'jpg'}`;
+}
+function drawLayer(im, cam, alpha, blur, extraZ = 1) {
+  const z = cam.z * extraZ;
+  const sw = im.naturalWidth, sh = im.naturalHeight, sc = W / sw;   // fuente → 1920
+  g.save();
+  g.globalAlpha = alpha;
+  g.filter = blur > 0.2 ? `blur(${blur.toFixed(1)}px)` : 'none';
+  g.translate(W / 2, H / 2); g.scale(z, z); g.translate(-cam.x, -cam.y);
+  g.drawImage(im, 0, 0, sw * sc, sh * sc);
+  g.restore();
+}
+function words(el, text, k, opts = {}) {
+  if (el.dataset.text !== text) { el.dataset.text = text; el.innerHTML = text.split(/(\s+)/).map((w) => `<span>${w}</span>`).join(''); }
+  const sp = [...el.children]; const stag = opts.stagger ?? 0.06, rise = opts.rise ?? 46;
+  sp.forEach((s, i) => {
+    const kk = easeOut(clamp01((k - i * stag) / 0.5));
+    s.style.opacity = kk; s.style.transform = `translateY(${(1 - kk) * rise}px)`; s.style.filter = `blur(${((1 - kk) * 12).toFixed(1)}px)`;
+  });
+}
+function textBlock(t, item, renderIn) {
+  // devuelve la fase: entrada 0→1 en [t0, t0+0.9]; salida en [t1-0.45, t1]
+  const kin = span(t, item.t0, item.t0 + 0.9), kout = span(t, item.t1 - 0.45, item.t1);
+  renderIn(kin, kout);
+}
+
+window.load = async (tl) => { TL = tl; window.DUR = tl.duration; return true; };
+window.renderAt = async (t) => {
+  g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#05060c'; g.fillRect(0, 0, W, H);
+  // ── clips activos (con transición de entrada) ──
+  const active = TL.clips.filter((c) => t >= c.start - (c.tin || 0) && t < c.end);
+  const loads = await Promise.all(active.map((c) => loadImg(frameSrc(c, Math.max(0, t - c.start)))));
+  active.forEach((c, i) => {
+    const tc = Math.max(0, t - c.start), cam = camAt(c, tc);
+    let alpha = 1, blur = 0, extraZ = 1;
+    const tin = c.tin || 0;
+    if (tin > 0 && t < c.start + tin * 0.0001 + tin) {
+      const k = clamp01((t - (c.start - tin)) / tin);
+      if (c.trans === 'zoom') { alpha = sine(k); blur = (1 - k) * 18; extraZ = 1 + (1 - easeOut(k)) * 0.12; }
+      else if (c.trans === 'cut') { alpha = 1; }
+      else { alpha = sine(k); }
+    }
+    if (c.trans === 'zoom' && tin > 0) {
+      // el clip saliente se aleja y se desenfoca mientras entra el nuevo
+    }
+    if (c.vignetteZoom) extraZ *= 1 + 0.02 * sine(span(tc, 0, c.end - c.start));
+    drawLayer(loads[i], cam, alpha, blur, extraZ);
+  });
+  // salida tipo "zoom" del clip anterior: blur creciente (aplicado si el siguiente lo pide)
+  // ── sombras para texto ──
+  const lt = TL.titles.find((x) => t >= x.t0 && t < x.t1);
+  // the shade fades on its own window (it starts before the title and ends after it): no jumps at the edges
+  const sh = TL.titles.find((x) => t >= x.t0 - 0.5 && t < x.t1 + 0.4);
+  const shadeK = sh ? Math.min(sine(span(t, sh.t0 - 0.5, sh.t0 + 0.4)), 1 - sine(span(t, sh.t1 - 0.3, sh.t1 + 0.4))) : 0;
+  $('shade').style.opacity = shadeK * (sh && sh.side ? 0.4 : 1);
+  $('shadeL').style.opacity = sh && sh.side ? shadeK : 0;
+  // ── rótulo ──
+  if (lt) {
+    textBlock(t, lt, (kin, kout) => {
+      $('lt').style.opacity = 1 - kout; $('lt').style.transform = `translateY(${-kout * 18}px)`;
+      $('lt').querySelector('.k').style.opacity = easeOut(kin);
+      $('lt').querySelector('.k i').style.width = `${34 * easeOutExpo(kin)}px`;
+      $('ltk').textContent = lt.kicker || '';
+      words($('lth'), lt.title, span(t, lt.t0 + 0.12, lt.t0 + 1.1));
+      $('ltp').textContent = lt.sub || '';
+      const kp = easeOut(span(t, lt.t0 + 0.55, lt.t0 + 1.25));
+      $('ltp').style.opacity = kp; $('ltp').style.transform = `translateY(${(1 - kp) * 14}px)`;
+    });
+  } else $('lt').style.opacity = 0;
+  // ── tarjeta de capítulo ──
+  const cd = TL.cards.find((x) => t >= x.t0 && t < x.t1);
+  if (cd) {
+    const kin = span(t, cd.t0, cd.t0 + 0.35), kout = span(t, cd.t1 - 0.35, cd.t1);
+    $('card').style.opacity = sine(kin) * (1 - sine(kout));
+    $('cardn').textContent = cd.n || ''; $('cardp').textContent = cd.sub || '';
+    words($('cardh'), cd.title, span(t, cd.t0 + 0.1, cd.t0 + 0.9), { rise: 70 });
+    const kp = easeOut(span(t, cd.t0 + 0.45, cd.t0 + 1.0)); $('cardp').style.opacity = kp;
+    $('cardn').style.opacity = easeOut(span(t, cd.t0 + 0.05, cd.t0 + 0.5));
+    $('cardbar').style.width = `${100 * span(t, cd.t0, cd.t1)}%`;
+    $('card').style.transform = `scale(${1 + 0.03 * span(t, cd.t0, cd.t1)})`;
+  } else $('card').style.opacity = 0;
+  // ── frase central ──
+  const bg = TL.bigs.find((x) => t >= x.t0 && t < x.t1);
+  if (bg) {
+    const kin = span(t, bg.t0, bg.t0 + 0.9), kout = span(t, bg.t1 - 0.5, bg.t1);
+    $('big').style.opacity = 1 - kout;
+    $('big').style.background = `rgba(5,6,12,${(bg.dim ?? 0.72) * sine(kin)})`;
+    words($('bigh'), bg.title, span(t, bg.t0 + 0.1, bg.t0 + 1.1), { rise: 60 });
+    $('bigp').textContent = bg.sub || '';
+    const kp = easeOut(span(t, bg.t0 + 0.7, bg.t0 + 1.4)); $('bigp').style.opacity = kp; $('bigp').style.transform = `translateY(${(1 - kp) * 14}px)`;
+  } else $('big').style.opacity = 0;
+  // ── fundidos globales ──
+  const fd = (TL.fades || []).find((x) => t >= x.t0 && t < x.t1);
+  $('black').style.opacity = fd ? (fd.dir === 'in' ? 1 - sine(span(t, fd.t0, fd.t1)) : sine(span(t, fd.t0, fd.t1))) : 0;
+  const fl = (TL.flashes || []).find((x) => t >= x.t && t < x.t + 0.5);
+  $('flash').style.opacity = fl ? (fl.amount ?? 0.85) * (1 - easeOut(span(t, fl.t, fl.t + 0.5))) : 0;
+  return true;
+};
+window.ready = true;
+</script>
+</body>
+</html>
