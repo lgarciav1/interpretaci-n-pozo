@@ -12,6 +12,8 @@
  * - Reutiliza por clave: un objeto se reconstruye solo si su primitiva cambió (al pasar el puntero cambian 2–5 piezas).
  * - Rótulos en HTML (nítidos, con los tokens del CSS) sobre el lienzo, reposicionados en cada cuadro.
  * - `dispose()` libera geometrías, materiales, texturas, el ambiente, controles y el contexto.
+ * - Extensible (docs/decisiones/0065): la pantalla de Inicio hereda esta clase (`src/app/home/showcase3d.ts`) con
+ *   `RendererOptions` (sin regla, cáscaras ni rótulos; fondo transparente; sin sombras) y mueve el grupo `content`.
  */
 import {
   ACESFilmicToneMapping,
@@ -64,6 +66,20 @@ export interface RendererCallbacks {
   onHover(pick: Pick | null, at: { x: number; y: number } | null): void;
   /** Clic sin arrastre: pieza tocada o null (vacío). */
   onPick(pick: Pick | null): void;
+  /** El navegador perdió el contexto WebGL (la vista deja de dibujar: quien la usa muestra la alternativa). */
+  onContextLost?(): void;
+}
+
+/** Variantes del dibujo (por defecto, la vista del configurador). */
+export interface RendererOptions {
+  /** Partes opcionales de la escena: regla, cáscaras con sus bandas y rótulos (por defecto, todas). */
+  parts?: { ruler?: boolean; shells?: boolean; labels?: boolean };
+  /** Tope de la densidad de píxeles (por defecto 2). */
+  maxPixelRatio?: number;
+  antialias?: boolean;
+  shadows?: boolean;
+  /** Fondo transparente: lo pinta el CSS de quien la usa. */
+  transparent?: boolean;
 }
 
 /** true si el navegador puede crear un contexto WebGL 2 (three.js lo exige desde r163). */
@@ -86,42 +102,52 @@ const KEY_DIR = new Vector3(0.42, 1.05, 0.95).normalize();
 const sig = (x: unknown) => JSON.stringify(x);
 
 export class ToolStringRenderer {
-  private readonly renderer: WebGLRenderer;
-  private readonly scene = new Scene();
-  private readonly camera = new PerspectiveCamera(FOV, 1, 1, 30000);
-  private readonly controls: OrbitControls;
-  private readonly key: DirectionalLight;
+  protected readonly renderer: WebGLRenderer;
+  protected readonly scene = new Scene();
+  /** Todo lo que describe la escena cuelga de este grupo (Inicio lo gira y lo acuesta; acá queda en el origen). */
+  protected readonly content = new Group();
+  protected readonly camera = new PerspectiveCamera(FOV, 1, 1, 30000);
+  protected readonly controls: OrbitControls;
+  protected readonly key: DirectionalLight;
+  protected readonly rim: DirectionalLight;
+  protected readonly fill: HemisphereLight;
   private readonly envMap: Texture;
-  private readonly objects = new Map<string, { object: Object3D; sig: string }>();
+  protected readonly objects = new Map<string, { object: Object3D; sig: string }>();
   private readonly pickables: Object3D[] = [];
   private readonly blockers: Object3D[] = [];
   private readonly labelsLayer: HTMLDivElement;
   private labels: { el: HTMLSpanElement; pos: Vector3; kind: string; w: number; h: number }[] = [];
   private readonly ro: ResizeObserver;
   private readonly raycaster = new Raycaster();
-  private desc: ToolStringScene | null = null;
+  protected desc: ToolStringScene | null = null;
   private frame = 0;
   private tween = 0;
   private hoverFrame = 0;
-  private size = { w: 1, h: 1 };
+  protected size = { w: 1, h: 1 };
   private down: { x: number; y: number } | null = null;
   private lastHover: string | null = null;
-  private disposed = false;
+  protected disposed = false;
   /** La usuaria movió la cámara desde la última vista inicial (entonces no se reencuadra sola). */
-  private userMoved = false;
+  protected userMoved = false;
   private boundsSig = '';
+  private readonly parts: Required<NonNullable<RendererOptions['parts']>>;
+  private readonly transparent: boolean;
 
   constructor(
-    private readonly container: HTMLElement,
-    private readonly cb: RendererCallbacks,
-    private readonly reducedMotion: () => boolean,
+    protected readonly container: HTMLElement,
+    protected readonly cb: RendererCallbacks,
+    protected readonly reducedMotion: () => boolean,
+    options: RendererOptions = {},
   ) {
-    this.renderer = new WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'default' });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.parts = { ruler: true, shells: true, labels: true, ...options.parts };
+    this.transparent = !!options.transparent;
+    this.renderer = new WebGLRenderer({ antialias: options.antialias ?? true, alpha: this.transparent, powerPreference: 'default' });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, options.maxPixelRatio ?? 2));
+    if (this.transparent) this.renderer.setClearColor(0x000000, 0);
     this.renderer.outputColorSpace = SRGBColorSpace;
     this.renderer.toneMapping = ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1;
-    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.enabled = options.shadows ?? true;
     this.renderer.shadowMap.type = PCFShadowMap;
     // La luz está fija en la escena: las sombras no cambian al mover la cámara (se piden en `setScene`).
     this.renderer.shadowMap.autoUpdate = false;
@@ -129,6 +155,7 @@ export class ToolStringRenderer {
     canvas.className = 'ts3d__canvas';
     canvas.setAttribute('aria-hidden', 'true');
     container.appendChild(canvas);
+    canvas.addEventListener('webglcontextlost', this.onContextLost);
     this.labelsLayer = document.createElement('div');
     this.labelsLayer.className = 'ts3d__labels';
     this.labelsLayer.setAttribute('aria-hidden', 'true');
@@ -143,7 +170,9 @@ export class ToolStringRenderer {
     this.scene.environment = this.envMap;
     this.scene.environmentIntensity = 0.75;
 
-    this.scene.add(new HemisphereLight(0xffffff, 0x8a7a66, 0.55));
+    this.scene.add(this.content);
+    this.fill = new HemisphereLight(0xffffff, 0x8a7a66, 0.55);
+    this.scene.add(this.fill);
     this.key = new DirectionalLight(0xffffff, 2.1);
     this.key.castShadow = true;
     this.key.shadow.mapSize.set(2048, 2048);
@@ -151,9 +180,9 @@ export class ToolStringRenderer {
     this.key.shadow.bias = -0.0004;
     this.key.shadow.normalBias = 0.6;
     this.scene.add(this.key, this.key.target);
-    const rim = new DirectionalLight(0xdfe8ff, 0.55);
-    rim.position.set(-300, 160, -260);
-    this.scene.add(rim);
+    this.rim = new DirectionalLight(0xdfe8ff, 0.55);
+    this.rim.position.set(-300, 160, -260);
+    this.scene.add(this.rim);
 
     this.controls = new OrbitControls(this.camera, canvas);
     this.controls.enableDamping = false;
@@ -183,7 +212,7 @@ export class ToolStringRenderer {
     const grew = bs !== this.boundsSig;
     this.boundsSig = bs;
     this.desc = desc;
-    this.scene.background = new Color(background);
+    this.scene.background = this.transparent ? null : new Color(background);
     let changed = false;
     const seen = new Set<string>();
     const put = (key: string, value: unknown, make: () => Object3D, pickable = false, blocker = false) => {
@@ -194,19 +223,21 @@ export class ToolStringRenderer {
       if (prev) this.remove(key, prev.object);
       const object = make();
       object.userData.key = key;
-      this.scene.add(object);
+      this.content.add(object);
       this.objects.set(key, { object, sig: s });
       if (pickable) this.pickables.push(object);
       if (blocker) this.blockers.push(object);
       changed = true;
     };
     put('env', desc.environment, () => environment(desc.environment), false, true);
-    put('ruler', desc.ruler, () => ruler(desc.ruler));
+    if (this.parts.ruler) put('ruler', desc.ruler, () => ruler(desc.ruler));
     for (const p of desc.primitives) put(p.key, p, () => primitive(p), !!p.pick);
-    // Cáscaras: de afuera hacia adentro (las de adentro se ven a través de las de afuera).
-    const shells = [...desc.shells].sort((a, b) => b.radius - a.radius);
-    shells.forEach((s, i) => put(s.key, { s, i }, () => shell(s, i)));
-    for (const b of desc.bands) put(b.key, b, () => band(b));
+    if (this.parts.shells) {
+      // Cáscaras: de afuera hacia adentro (las de adentro se ven a través de las de afuera).
+      const shells = [...desc.shells].sort((a, b) => b.radius - a.radius);
+      shells.forEach((s, i) => put(s.key, { s, i }, () => shell(s, i)));
+      for (const b of desc.bands) put(b.key, b, () => band(b));
+    }
     for (const [key, { object }] of [...this.objects]) {
       if (seen.has(key)) continue;
       this.remove(key, object);
@@ -216,7 +247,7 @@ export class ToolStringRenderer {
       this.placeKeyLight(desc);
       this.renderer.shadowMap.needsUpdate = true;
     }
-    this.buildLabels(desc);
+    if (this.parts.labels) this.buildLabels(desc);
     if (first || fit || (grew && !this.userMoved)) this.resetView(false);
     else this.requestRender();
   }
@@ -303,6 +334,7 @@ export class ToolStringRenderer {
     cancelAnimationFrame(this.hoverFrame);
     this.ro.disconnect();
     const canvas = this.renderer.domElement;
+    canvas.removeEventListener('webglcontextlost', this.onContextLost);
     canvas.removeEventListener('pointermove', this.onPointerMove);
     canvas.removeEventListener('pointerleave', this.onPointerLeave);
     canvas.removeEventListener('pointerdown', this.onPointerDown);
@@ -323,17 +355,23 @@ export class ToolStringRenderer {
   // ------------------------------------------------------------------------------------------------------------
   // Dibujo
 
-  private readonly requestRender = () => {
+  protected readonly requestRender = () => {
     if (this.frame || this.disposed) return;
     this.frame = requestAnimationFrame(() => {
       this.frame = 0;
-      this.renderer.render(this.scene, this.camera);
-      this.placeLabels();
+      this.draw();
     });
   };
 
+  /** Dibuja un cuadro ya (los bucles de animación de las clases hijas lo llaman en su propio cuadro). */
+  protected draw(): void {
+    if (this.disposed) return;
+    this.renderer.render(this.scene, this.camera);
+    this.placeLabels();
+  }
+
   /** Luz principal y su cámara de sombras: cubren la sarta y la formación cercana. */
-  private placeKeyLight(desc: ToolStringScene): void {
+  protected placeKeyLight(desc: ToolStringScene): void {
     const { min, max } = desc.bounds;
     const center = new Vector3(0, (min[1] + max[1]) / 2, 0);
     const half = Math.max(max[1] - min[1], (max[0] - min[0]) * 0.8) / 2 + 20;
@@ -350,7 +388,7 @@ export class ToolStringRenderer {
     this.key.target.updateMatrixWorld();
   }
 
-  private resize(): void {
+  protected resize(): void {
     const w = Math.max(1, this.container.clientWidth);
     const h = Math.max(1, this.container.clientHeight);
     if (w === this.size.w && h === this.size.h) return;
@@ -366,7 +404,7 @@ export class ToolStringRenderer {
   }
 
   private remove(key: string, object: Object3D): void {
-    this.scene.remove(object);
+    this.content.remove(object);
     disposeObject(object);
     this.objects.delete(key);
     const i = this.pickables.indexOf(object);
@@ -425,6 +463,15 @@ export class ToolStringRenderer {
 
   // ------------------------------------------------------------------------------------------------------------
   // Puntero
+
+  private readonly onContextLost = (e: Event) => {
+    // Sin `preventDefault`: no se intenta recuperar el contexto; quien usa la vista muestra su alternativa.
+    void e;
+    cancelAnimationFrame(this.frame);
+    cancelAnimationFrame(this.tween);
+    this.frame = this.tween = 0;
+    this.cb.onContextLost?.();
+  };
 
   private readonly onControlStart = () => {
     this.userMoved = true;

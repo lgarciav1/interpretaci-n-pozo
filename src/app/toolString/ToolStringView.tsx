@@ -7,37 +7,19 @@ import { effectiveWell } from '../preparation/data';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { registry } from '../../modules';
 import { Button, Callout, curveStyle, formatNumber, Icon, prefersReducedMotion, useResolvedTheme, useThemeTokens } from '../../ui';
-import { LITHOLOGY_FACIES_ID, PORT as FACIES_PORT } from '../../modules/lithology-facies/model';
-import type { ClientResult } from '../../core/engine/client';
-import type { Well } from '../../core/well';
-import { computedCurves } from '../computed';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useResults } from '../store/results';
 import { useUi } from '../store/ui';
 import { useViewer } from '../store/viewer';
-import { formationFromFacies, formationFromGr, type FormationColumn } from './formation';
 import { hasWebGL2, ToolStringRenderer } from './render3d';
 import { AXIAL_COMPRESSION, boreholeDiameter, buildToolStringScene, type Pick } from './scene';
 import { useToolStringView } from './select';
 import { useToolStringUi } from './store';
+import { wellColumn } from './wellColumn';
 import { ToolSheetCard } from './ToolSheetCard';
 import './toolString.css';
 
 type Hover = { text: string; x: number; y: number } | null;
-
-/**
- * Columna litológica del pozo para la formación (0033 D9): la litología sugerida si el motor la calculó, si no el GR
- * medido. Sale del pozo, no de la sarta: apagar una herramienta no cambia la roca.
- */
-function wellColumn(well: Well | undefined, result: ClientResult | null): FormationColumn | null {
-  if (!well) return null;
-  const depth = well.depth.values;
-  const facies = computedCurves(result, well).find((c) => c.moduleId === LITHOLOGY_FACIES_ID && c.port === FACIES_PORT.cls && c.active);
-  const fromFacies = facies && facies.data.length === depth.length ? formationFromFacies(depth, facies.data) : null;
-  if (fromFacies) return fromFacies;
-  const gr = well.curves.find((c) => c.role === 'GR' && c.origin.kind === 'measured');
-  return gr ? formationFromGr(depth, gr.data) : null;
-}
 
 const FORMATION_SOURCE_LABEL = { facies: 'litología sugerida (modelo de facies)', gr: 'GR (de arena limpia a lutita)' } as const;
 

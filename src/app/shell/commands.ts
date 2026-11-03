@@ -5,11 +5,11 @@
  * función, así los títulos y el estado se leen al abrir la paleta. También documenta los atajos que manejan otros
  * archivos (visor, deshacer) para la hoja «?».
  */
-import { addWell, activeWellEntry, setActiveWell } from '../../core/state/project';
+import { activeWellEntry, setActiveWell } from '../../core/state/project';
 import { createSnapshot } from '../../core/state/snapshots';
 import { WORKSPACES } from '../../core/workspaces';
 import { getThemePreference, setThemePreference, UI_SCALES, getUiScale, setUiScale, toast, type Command, type CommandSource } from '../../ui';
-import { syntheticWell } from '../demo/syntheticWell';
+import { DEMO_WELL_ID, loadDemoWell } from '../demo/loadDemo';
 import { STEP_STATUS_LABEL } from '../flow/flow';
 import { currentFlow, openStep } from '../flow/useFlow';
 import { useTrendsUi } from '../trends/store';
@@ -130,7 +130,7 @@ function historyCommands(): Command[] {
 function projectCommands(): Command[] {
   const s = useProject.getState();
   const wells = s.project.wells;
-  const demoLoaded = wells.some((w) => w.well.id === 'demo-sintetico');
+  const demoLoaded = wells.some((w) => w.well.id === DEMO_WELL_ID);
   return [
     { id: 'project:save', title: 'Guardar el proyecto', group: 'Proyecto', keywords: ['descargar', 'archivo', 'pozo.json'], icon: 'download', shortcut: { key: 's', mod: true }, run: () => void saveProject() },
     { id: 'project:open', title: 'Abrir un proyecto guardado…', group: 'Proyecto', keywords: ['cargar', 'archivo'], icon: 'folder', shortcut: { key: 'o', mod: true }, run: pickProjectFile },
@@ -158,15 +158,7 @@ function projectCommands(): Command[] {
       group: 'Pozo',
       keywords: ['demo', 'ejemplo', 'sintetico', 'prueba'],
       icon: 'well',
-      run: () => {
-        if (demoLoaded) {
-          useProject.getState().commit('Cambiar de pozo', (p) => setActiveWell(p, 'demo-sintetico'));
-          return;
-        }
-        const demo = syntheticWell();
-        useProject.getState().commit('Cargar el pozo de demostración', (p) => setActiveWell(addWell(p, demo.well, demo.zones), demo.well.id));
-        useUi.getState().set({ activeStepId: null, activeModuleId: null, editingZoneId: null });
-      },
+      run: loadDemoWell,
     },
     // Otro pozo del proyecto.
     ...wells
