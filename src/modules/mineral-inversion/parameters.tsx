@@ -28,7 +28,7 @@ export function MineralParameters({ module, interpretation, zoneId, setParam }: 
         const overridden = !!zoneId && interpretation.params.zones[zoneId]?.[storage] !== undefined;
         const canReset = overridden || (!zoneId && storage in interpretation.params.global);
         return <ParamControl key={key} name={storage} spec={spec} value={values[key]!} editable overridden={overridden}
-          onChange={v => setParam(key, v)} {...(canReset && entry ? { onReset: () => useProject.getState().commit(`Restablecer ${spec.label}`, p => clearParam(p, entry.well.id, storage, zoneId)), resetLabel: zoneId ? 'usar global' : 'por defecto' } : {})} />;
+          onChange={(v, opts) => setParam(key, v, opts)} {...(canReset && entry ? { onReset: () => useProject.getState().commit(`Restablecer ${spec.label}`, p => clearParam(p, entry.well.id, storage, zoneId)), resetLabel: zoneId ? 'usar global' : 'por defecto' } : {})} />;
       })}
     </div>
   </Section>;

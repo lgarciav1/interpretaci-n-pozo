@@ -29,7 +29,7 @@ function PasseyPanel({module,interpretation,zoneId,setParam,result}:ModulePanelP
         const storage=paramStorageKey(module.id,key,spec), scope=spec.scope==='zone'?zoneId:null;
         const overridden=!!scope && interpretation.params.zones[scope]?.[storage]!==undefined;
         const canReset=overridden || (!scope && storage in interpretation.params.global);
-        return <ParamControl key={key} name={storage} spec={spec} value={values[key]!} editable overridden={overridden} onChange={v=>setParam(key,v)} {...(canReset && entry ? {onReset:()=>useProject.getState().commit(`Restablecer ${spec.label}`,p=>clearParam(p,entry.well.id,storage,scope)),resetLabel:scope?'usar global':'por defecto'}:{})} />;
+        return <ParamControl key={key} name={storage} spec={spec} value={values[key]!} editable overridden={overridden} onChange={(v,opts)=>setParam(key,v,opts)} {...(canReset && entry ? {onReset:()=>useProject.getState().commit(`Restablecer ${spec.label}`,p=>clearParam(p,entry.well.id,storage,scope)),resetLabel:scope?'usar global':'por defecto'}:{})} />;
       })}</div>
       <Button size="sm" variant="secondary" disabled={!entry || !visible} onClick={()=>{
         if(!entry || !visible) return;

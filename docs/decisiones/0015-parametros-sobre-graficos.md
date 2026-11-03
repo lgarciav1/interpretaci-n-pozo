@@ -69,6 +69,14 @@ vacía). Las flechas mandan solo `commit` sin gesto, así que las teclas seguida
 el slider. Vale también para los cutoffs reales de la 7a. Verificado en Chromium: un arrastre con una pausa de 1,2 s es
 un solo Ctrl+Z.
 
+**Sliders del inspector (2026-11-03).** El `Slider` del sistema de diseño avisa el inicio del arrastre (`onGestureStart`,
+`pointerdown`) y su fin (`onCommit`, `pointerup` o `pointercancel`); `ParamControl` abre un gesto por arrastre y pasa su id
+como `opts.group` a `onChange`, y `ModulePanelView` (y los paneles propios de Passey y de la inversión mineral, vía
+`setParam(key, value, opts)`) lo reenvían a `commit`. Un arrastre con una pausa mayor que 800 ms con el botón apretado ya
+no parte la entrada de deshacer. Las flechas y el campo numérico siguen sin gesto (ventana de 800 ms). Verificado en
+Chromium con el factor de tortuosidad (a): arrastre con pausa de 1,5 s, 1,00 → 2,10; con el código anterior un Ctrl+Z
+dejaba 2,01, con el cambio vuelve a 1,00. Pruebas del historial en `tests/history.test.ts`.
+
 ## D3. Rw: de la temperatura de formación a la de referencia
 
 El parámetro es `rw-manual.rwRef`, Rw a la temperatura de referencia `tRef`. El motor la lleva a cada muestra con Arps
