@@ -50,7 +50,7 @@ el visor no estaría «listo para usar» al terminar la transición).
   scripts de `scripts/qa/` y las pruebas de rendimiento del visor.
 - No hay «proyectos recientes»: el repo no los guarda y no se inventó almacenamiento.
 
-Nombre del producto: «FiubaLog» (pedido de la usuaria en el PR; antes la barra y el `<title>` decían «Interpretación de pozo»). También figura como creador en los PDF exportados.
+Nombre del producto: «fiubaLog» (pedido de la usuaria en el PR; antes la barra y el `<title>` decían «Interpretación de pozo»). También figura como creador en los PDF exportados.
 
 ## D3. La sarta: la misma derivación y el mismo renderizador
 

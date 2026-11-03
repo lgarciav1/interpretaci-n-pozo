@@ -125,7 +125,7 @@ export function writePdf(doc: PdfDocument): Uint8Array {
     doc.title ? `/Title ${unicodeString(doc.title)}` : '',
     doc.author ? `/Author ${unicodeString(doc.author)}` : '',
     doc.subject ? `/Subject ${unicodeString(doc.subject)}` : '',
-    `/Creator ${unicodeString(doc.creator ?? 'FiubaLog')}`,
+    `/Creator ${unicodeString(doc.creator ?? 'fiubaLog')}`,
     `/CreationDate (${pdfDate(created)})`,
   ].join(' ');
   add({ dict: `<< ${info} >>` }); // 5
