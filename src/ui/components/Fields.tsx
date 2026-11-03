@@ -212,6 +212,8 @@ export function NumberField({ value, onChange, unit, disabled, size = 'md', widt
 export interface SliderProps extends NumericScale {
   value: number;
   onChange(value: number): void;
+  /** Se llama al apretar el botón sobre el slider: empieza un arrastre (el fin llega por `onCommit`). */
+  onGestureStart?(): void;
   /** Se llama al soltar (fin de arrastre o tecla). */
   onCommit?(value: number): void;
   disabled?: boolean;
@@ -230,7 +232,7 @@ export interface SliderProps extends NumericScale {
  * Trabaja con la posición t ∈ [0, 1] (src/ui/scale.ts) y anuncia el valor real con aria-valuetext.
  * Teclado: flechas = un paso; Re Pág/Av Pág o Mayús+flecha = 10 pasos; Inicio/Fin = extremos.
  */
-export function Slider({ value, onChange, onCommit, disabled, formatValue, mark, min, max, step, scale, ...rest }: SliderProps) {
+export function Slider({ value, onChange, onGestureStart, onCommit, disabled, formatValue, mark, min, max, step, scale, ...rest }: SliderProps) {
   const s: NumericScale = { min, max, ...(step !== undefined ? { step } : {}), ...(scale ? { scale } : {}) };
   const t = valueToPosition(value, s);
   const ref = useRef<HTMLInputElement>(null);
@@ -259,7 +261,9 @@ export function Slider({ value, onChange, onCommit, disabled, formatValue, mark,
         disabled={disabled}
         aria-valuetext={text}
         onChange={(e) => emit(positionToValue(Number(e.currentTarget.value), s))}
+        onPointerDown={() => onGestureStart?.()}
         onPointerUp={() => onCommit?.(latest.current)}
+        onPointerCancel={() => onCommit?.(latest.current)}
         onKeyDown={(e) => {
           let next: number | null = null;
           const big = e.shiftKey || e.key === 'PageUp' || e.key === 'PageDown';

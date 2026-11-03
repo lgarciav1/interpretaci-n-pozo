@@ -42,10 +42,10 @@ export function ModulePanelView({ module }: { module: AnyModule }) {
   const zone = zoneId ? (interpretation.zones.find((z) => z.id === zoneId) ?? null) : null;
 
   const status = result?.nodes.find((n) => n.moduleId === module.id);
-  const setLocal = (key: string, value: ParamValue) => {
+  const setLocal = (key: string, value: ParamValue, opts?: { group?: string }) => {
     const spec = module.params[key]!;
     const storage = paramStorageKey(module.id, key, spec);
-    commit(`Cambiar ${spec.label}`, (p) => setParam(p, wellId, storage, value, zone && paramScope(spec) === 'zone' ? zone.id : null));
+    commit(`Cambiar ${spec.label}`, (p) => setParam(p, wellId, storage, value, zone && paramScope(spec) === 'zone' ? zone.id : null), opts);
   };
   const alternatives = curvePorts.filter((port) => (result?.candidates[port]?.length ?? 0) > 1);
   const comparing = interpretation.compare.includes(module.id);
@@ -184,7 +184,7 @@ export function ModulePanelView({ module }: { module: AnyModule }) {
                   value={zoneValue ?? globalValue}
                   overridden={zoneValue !== undefined}
                   editable={editable}
-                  onChange={(v) => setLocal(key, v)}
+                  onChange={(v, opts) => setLocal(key, v, opts)}
                   {...(sharedWith ? { sharedWith } : {})}
                   {...(zone && zoneValue !== undefined
                     ? { onReset: () => commit(`Usar ${spec.label} global en ${zone.name}`, (p) => clearParam(p, wellId, storage, zone.id)), resetLabel: 'usar global' }

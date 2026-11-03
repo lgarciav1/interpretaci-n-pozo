@@ -16,7 +16,8 @@ export interface ModulePanelProps {
   /** Zona en edición (null = global). */
   zoneId: string | null;
   /** Fija un parámetro por su clave local (la app resuelve la clave de almacenamiento y la zona). */
-  setParam(key: string, value: ParamValue): void;
+  /** `opts.group`: id del gesto (arrastre de un slider); los cambios con el mismo id forman una sola entrada de deshacer. */
+  setParam(key: string, value: ParamValue, opts?: { group?: string }): void;
   result: ClientResult | null;
 }
 

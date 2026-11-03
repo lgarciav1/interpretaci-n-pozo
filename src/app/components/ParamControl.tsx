@@ -3,7 +3,8 @@
  * interruptor, con su ayuda en un tooltip. En modo zona muestra el valor efectivo y si es un override de esa zona.
  * Los parámetros compartidos llevan una insignia con los módulos que los usan.
  */
-import { useId } from 'react';
+import { useId, useRef } from 'react';
+import { makeId } from '../../core/state/project';
 import type { ParamSpec, ParamValue } from '../../core/params';
 import { unitLabel } from '../../core/units';
 import { Badge, Field, Select, SliderField, Switch, Tooltip, formatParamValue } from '../../ui';
@@ -17,7 +18,8 @@ export interface ParamControlProps {
   overridden: boolean;
   /** false si se está editando una zona y el parámetro es solo global. */
   editable: boolean;
-  onChange(value: ParamValue): void;
+  /** `opts.group` viene con los cambios de un mismo arrastre del slider (una sola entrada de deshacer). */
+  onChange(value: ParamValue, opts?: { group?: string }): void;
   onReset?(): void;
   resetLabel?: string;
   /** Nombres de los módulos que comparten el parámetro (si es compartido). */
@@ -26,6 +28,8 @@ export interface ParamControlProps {
 
 export function ParamControl({ name, spec, value, overridden, editable, onChange, onReset, resetLabel, sharedWith }: ParamControlProps) {
   const id = useId();
+  // Gesto del slider (docs/decisiones/0015): del botón apretado al soltado, aunque se pause, es un solo paso de deshacer.
+  const gesture = useRef<string | null>(null);
   const aside = (
     <>
       {spec.shared && (
@@ -65,7 +69,13 @@ export function ParamControl({ name, spec, value, overridden, editable, onChange
           unit={unit}
           mark={{ value: spec.default, label: `Por defecto: ${formatParamValue(spec.default, spec)}` }}
           formatValue={(v) => `${formatParamValue(v, spec)}${unit ? ` ${unit}` : ''}`}
-          onChange={(v) => onChange(v)}
+          onGestureStart={() => {
+            gesture.current = makeId('param');
+          }}
+          onCommit={() => {
+            gesture.current = null;
+          }}
+          onChange={(v) => (gesture.current ? onChange(v, { group: gesture.current }) : onChange(v))}
         />
       );
       break;
