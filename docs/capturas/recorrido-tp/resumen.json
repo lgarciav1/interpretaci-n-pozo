@@ -1,0 +1,77 @@
+{
+  "results": [
+    {
+      "name": "Cargar los datos del TP",
+      "ok": true,
+      "ms": 5219,
+      "clicks": 4,
+      "note": ""
+    },
+    {
+      "name": "Recorrer los pasos del flujo (10 clics)",
+      "ok": true,
+      "ms": 5026,
+      "clicks": 10,
+      "note": "10 pasos visitados"
+    },
+    {
+      "name": "MDT: cargar presiones del TP",
+      "ok": true,
+      "ms": 2720,
+      "clicks": 2,
+      "note": "MDT del TP (presiones de formación) Datos del TP Movilidad mín. mD/cP psi bar kPa kg/cm² PRUEBAS 58 · 58 incluidas · 0 descartadas Clic en una fila: verla en el"
+    },
+    {
+      "name": "MDT: gradiente de agua arrastrando sobre el visor (zona D)",
+      "ok": true,
+      "ms": 2496,
+      "clicks": 3,
+      "note": "0,786 psi/ft 0,178 bar/m ρ 1,812 g/cm³ R² 0,984 n 28 7.997,8–8.219,3 m Fluido Gas Petróleo A"
+    },
+    {
+      "name": "Corona: cargar plugs del TP",
+      "ok": true,
+      "ms": 2825,
+      "clicks": 2,
+      "note": "Corona del TP (datos de laboratorio) Datos del TP En el visor: clic en un plug lo descarta o lo incluye · arrastrarlo arriba o abajo mueve su corona PLUGS 151 ·"
+    },
+    {
+      "name": "Crossplot: GR contra AT90 (dos clics por eje)",
+      "ok": true,
+      "ms": 1820,
+      "clicks": 5,
+      "note": "ejes GR / AT90"
+    },
+    {
+      "name": "Crossplot: escala log en Y y filtro por capa",
+      "ok": true,
+      "ms": 835,
+      "clicks": 2,
+      "note": "Y en log · capa D"
+    },
+    {
+      "name": "Crossplot: agregar cutoff",
+      "ok": true,
+      "ms": 577,
+      "clicks": 1,
+      "note": ""
+    },
+    {
+      "name": "Histograma: GR con cutoff y capas superpuestas",
+      "ok": true,
+      "ms": 1700,
+      "clicks": 4,
+      "note": ""
+    },
+    {
+      "name": "Tendencia: ajuste sobre un tramo del visor",
+      "ok": true,
+      "ms": 4436,
+      "clicks": 4,
+      "note": "Nueva tendencia A mano Gradiente de agua P · Lineal R² 0,984 Modelo k–φ k · Exponencial R² 0,701 DT · tendencia DT · Lineal R² 0,056 Lineal Log Exp Potencial DT = −0,005244·z + 126 R² 0,056 n 4.648 Fu"
+    }
+  ],
+  "clicks": 37,
+  "totalSeconds": 29.345,
+  "errors": []
+}
