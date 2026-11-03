@@ -27,7 +27,7 @@ export const BASE_TOKENS = {
   space: { '0': 0, '0-5': 2, '1': 4, '1-5': 6, '2': 8, '2-5': 10, '3': 12, '4': 16, '5': 20, '6': 24, '8': 32, '10': 40, '12': 48 },
   radius: { xs: 4, sm: 6, md: 8, lg: 12, xl: 16, full: 999 },
   /** Capas. Todo lo flotante usa estas, nunca números sueltos. */
-  z: { base: 0, raised: 1, sticky: 10, dock: 20, resizer: 30, popover: 100, tooltip: 200, modal: 300, toast: 400 },
+  z: { base: 0, raised: 1, sticky: 10, dock: 20, resizer: 30, home: 50, popover: 100, tooltip: 200, modal: 300, toast: 400 },
   /** Duraciones en ms. Con `prefers-reduced-motion: reduce` el CSS generado las pone en 0. */
   dur: { instant: 60, fast: 120, base: 180, slow: 280, flash: 700 },
   ease: {

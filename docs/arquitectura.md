@@ -14,7 +14,7 @@ módulo de RMN con su pista y su crossplot (0019, `0019-rmn.md`), capacidad de f
 (0019, `0019-reservorio-e-incertidumbre.md`), el perfil radial de invasión (0020), los gráficos conectados al perfil
 con el Pickett interactivo (0021), el informe automático (0022), la calibración con corona (0023; n desde el índice de
 resistividad en 0053) y la sarta de
-perfilaje (0032) con su configurador y vista 3D (0033).
+perfilaje (0032) con su configurador y vista 3D (0033) y la pantalla de Inicio con la entrada al pozo (0065).
 Este documento resume cómo encajan las piezas y cómo agregar un módulo.
 
 ## Ideas centrales
@@ -72,7 +72,8 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 | `src/app/preparation/` | lo de la app sobre la preparación (0058): proyección de datos preparados que usan visor, gráficos, exportación, informe y snapshots (`data.ts`), curvas del visor con «Comparar» (`view.ts`), preferencia de vista y pedido de apertura (`store.ts`) y `openPreparation` (`open.ts`). La interfaz es del módulo `src/modules/preparation/` | sí |
 | `src/app/shell/` | armazón: barra superior, flujo guiado, inspector, dock (`dockPanels.tsx`: una entrada por panel), `ViewerSlot` (conecta stores con el visor: edición de zonas, modo marcar zona, encabezado, «Armar pistas»), `viewerOverlayList.ts` (superposiciones del visor de la app), `CurveEditor` (editor de escalas), diálogos | sí |
 | `src/app/tracks/` | «Armar pistas» (0016): panel con el catálogo (`TrackBuilder.tsx`), plantillas y diálogos (`Templates.tsx`), arrastre con eventos de puntero (`dnd.ts`) y acciones que traducen gestos a recetas con `commit` (`actions.ts`) | sí |
-| `src/app/toolString/` | sarta en la interfaz (0032, 0033): curvas visibles y disponibilidad del pozo activo con caché (`select.ts`), lista de la columna izquierda (`ToolStringPanel.tsx`), vista 3D (`ToolStringView.tsx`) con la escena como descripción pura (`scene.ts`, sin three ni DOM, testeada), la columna litológica del pozo para la formación (`formation.ts`, pura) y su dibujo con three.js (`render3d.ts`), ficha (`ToolSheetCard.tsx`) y atajos en la paleta (`commands.ts`) | `scene.ts` no |
+| `src/app/toolString/` | sarta en la interfaz (0032, 0033): curvas visibles y disponibilidad del pozo activo con caché (`select.ts`), lista de la columna izquierda (`ToolStringPanel.tsx`), vista 3D (`ToolStringView.tsx`) con la escena como descripción pura (`scene.ts`, sin three ni DOM, testeada), la columna litológica del pozo para la formación (`formation.ts`, pura; `wellColumn.ts` la toma del pozo, también para Inicio) y su dibujo con three.js (`render3d.ts`, extensible por herencia: Inicio, 0065), ficha (`ToolSheetCard.tsx`) y atajos en la paleta (`commands.ts`) | `scene.ts` no |
+| `src/app/home/` | pantalla de Inicio (0065): capa sobre el armazón (`HomeScreen.tsx`, `home.css`), estado de interfaz y duraciones de la entrada (`store.ts`), abrir y cerrar (`actions.ts`), composición de demostración (`demoString.ts`), la sarta exhibida y la entrada al pozo (`showcase3d.ts`, hereda `ToolStringRenderer`), esquema sin WebGL (`Silhouette.tsx`) y «Ir a Inicio» en la paleta (`commands.ts`) | sí |
 | `src/app/flow/` | flujo guiado: definición de pasos y evaluación de estados (`flow.ts`, puro y testeado) | `flow.ts` no |
 | `src/ui/` | sistema de diseño: tokens, tema, paleta de curvas, componentes, `useCanvas`; contrato de panel. Guía en `src/ui/README.md`; muestra en `#ui` | sí |
 | `src/viewer/` | visor multipista: plantillas, resolución de pistas, viewport, ticks, reducción M4, rellenos, pilas (`stack.ts`), lectura, contrato de superposiciones (con elementos del teclado), gestos (`interaction.ts`), catálogo de herramientas y curvas para armar pistas (`catalog.ts`), dibujo en canvas (`*.ts`, puros o canvas) y los componentes `WellViewer.tsx`, `Minimap.tsx`, `WellHeader.tsx`, `layoutEdit.tsx` (modo «Armar pistas»: destinos y bordes de ancho). Guía en `src/viewer/README.md` | solo los `.tsx` |
@@ -360,6 +361,11 @@ Decisión: [`docs/decisiones/0032-sarta-de-perfilaje.md`](decisiones/0032-sarta-
   visual (0033 D9): acero con ambiente procedural (`RoomEnvironment` + PMREM), sombras a demanda, ACES; formación de
   contexto con las capas del pozo (litología sugerida o GR) en el tramo que mostraba el visor; cáscaras de vidrio con
   jerarquía por selección; la DOI con su referencia por ficha (`ToolSheet.investigationFrom`).
+- **Inicio** ([`0065`](decisiones/0065-pantalla-de-inicio.md)): la app arranca sin pozo en una capa sobre el armazón
+  (que sigue montado e inerte) con la sarta 3D exhibida —la del pozo activo con la misma derivación que el
+  configurador, o una composición de demostración rotulada— y la entrada al pozo hacia el visor. `ShowcaseRenderer`
+  hereda `ToolStringRenderer` (`RendererOptions`, grupo `content`); bucle solo con giro o entrada y nunca con la pestaña
+  oculta; esquema 2D sin WebGL. `?inicio=no` arranca como antes (scripts de QA).
 
 ## Petrofísica en módulos (fase 6a)
 

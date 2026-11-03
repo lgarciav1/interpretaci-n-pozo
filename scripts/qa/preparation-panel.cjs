@@ -82,7 +82,7 @@ async function shot(page, name, target = '.shell-dock') {
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
-  await page.goto('file://' + ROOT + '/dist/index.html');
+  await page.goto('file://' + ROOT + '/dist/index.html?inicio=no');
   await page.waitForTimeout(1200);
   await palette(page, 'Usar los datos del TP');
   await page.getByRole('button', { name: 'Siguiente: control de calidad' }).click({ timeout: 30000 });
@@ -292,7 +292,7 @@ async function shot(page, name, target = '.shell-dock') {
   const page2 = await ctx.newPage();
   page2.on('pageerror', (e) => errors.push('p2: ' + String(e)));
   await page2.setViewportSize({ width: 1600, height: 1300 });
-  await page2.goto('file://' + ROOT + '/dist/index.html');
+  await page2.goto('file://' + ROOT + '/dist/index.html?inicio=no');
   await page2.waitForTimeout(1000);
   await page2.locator('.shell-topbar input[type=file]').setInputFiles(file);
   await page2.getByText('Proyecto abierto', { exact: true }).waitFor({ timeout: 60000 });
