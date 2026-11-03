@@ -12,7 +12,7 @@
  * - Bucle solo mientras hay giro o entrada, y nunca con la pestaña oculta; al ocultarse a mitad de la entrada, la
  *   entrada termina en el acto (la interfaz no queda esperando un cuadro que no llega).
  */
-import { Group, MathUtils, Quaternion, Spherical, Vector3, type Material, type Object3D } from 'three';
+import { Group, MathUtils, Quaternion, Spherical, Vector3, type Material, type Object3D, type Texture } from 'three';
 import { ToolStringRenderer, type RendererCallbacks } from '../toolString/render3d';
 import { VIEW_AZIMUTH, dir, type ToolLayout, type ToolStringScene } from '../toolString/scene';
 
@@ -111,6 +111,7 @@ export class ShowcaseRenderer extends ToolStringRenderer {
         }
       });
       this.applyEnv();
+      this.schedulePrecompile();
     }
   }
 
@@ -242,12 +243,20 @@ export class ShowcaseRenderer extends ToolStringRenderer {
 
   /** Deja de animar y de escuchar la pestaña (antes de liberar; `dispose` lo hace igual). */
   stop(): void {
+    clearTimeout(this.precompileTimer);
     cancelAnimationFrame(this.loop);
     this.loop = 0;
     this.spinning = false;
     this.endTimeline();
     this.controls.enabled = false;
     document.removeEventListener('visibilitychange', this.onVisibility);
+    // Fuera de la vista ya, aunque la liberación venga después (no queda un lienzo viejo junto a uno nuevo).
+    this.renderer.domElement.style.display = 'none';
+  }
+
+  /** El contexto ya se perdió: no hay nada caro que liberar después. */
+  contextLost(): boolean {
+    return this.renderer.getContext().isContextLost();
   }
 
   override dispose(): void {
@@ -360,6 +369,33 @@ export class ShowcaseRenderer extends ToolStringRenderer {
     this.controls.minDistance = dist * 0.3;
     this.controls.maxDistance = dist * 1.6;
     this.controls.update();
+  }
+
+  private precompileTimer = 0;
+
+  /**
+   * La formación está oculta en reposo y three solo compila lo visible: sin esto, sus shaders y texturas se preparan en
+   * el primer cuadro en que aparece, a mitad de la entrada (un tirón; con SwiftShader, segundos). Se hace apenas
+   * después de armar la escena, fuera del primer cuadro de Inicio.
+   */
+  private schedulePrecompile(): void {
+    clearTimeout(this.precompileTimer);
+    this.precompileTimer = window.setTimeout(() => {
+      const env = this.envObject;
+      if (!env || this.disposed || env.visible) return;
+      env.visible = true;
+      try {
+        env.traverse((o) => {
+          for (const m of materialsOf(o)) {
+            const map = (m as { map?: Texture | null }).map;
+            if (map) this.renderer.initTexture(map);
+          }
+        });
+        void this.renderer.compileAsync(env, this.camera, this.scene).catch(() => {});
+      } finally {
+        env.visible = this.envAmount > 0.001;
+      }
+    }, 400);
   }
 
   private applyEnv(): void {

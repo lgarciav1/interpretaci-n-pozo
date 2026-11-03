@@ -35,6 +35,7 @@
 }
 
 .home.is-returning { animation: home-in var(--dur-slow) var(--ease-enter) both; }
+.home.is-entering .home__scene { pointer-events: none; }
 .home.is-leaving { opacity: 0; pointer-events: none; transition: opacity var(--home-fade) var(--ease-standard); }
 @keyframes home-in { from { opacity: 0; } to { opacity: 1; } }
 

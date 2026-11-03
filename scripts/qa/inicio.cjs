@@ -133,6 +133,9 @@ async function rafRate(page, ms = 1500) {
     const after = await rafRate(page);
     check('arrastre: sin bucle después del gesto', after < 2, `${after.toFixed(1)} cuadros/s`);
     check('selección y giro: el proyecto no cambió (historial intacto)', (await undoLabel(page)) === undo0, undo0);
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(400);
+    check('Ctrl+Z en Inicio: no deshace a ciegas', (await undoLabel(page)) === undo0 && (await phase(page)) === 'open');
     // Pestaña oculta: el renderizador para su bucle.
     await page.locator('.home__chip', { hasText: 'DEN' }).click();
     await page.evaluate(() => {
@@ -190,6 +193,7 @@ async function rafRate(page, ms = 1500) {
     const { ctx, page } = await open(browser);
     await loadDemo(page);
     await page.getByTestId('home-enter').click();
+    check('primera entrada: completa', (await page.getByTestId('home').getAttribute('data-entry')) === 'full');
     await page.waitForTimeout(300);
     const tSkip = await timedClose(page, () => page.evaluate(() => document.querySelector('[data-testid=home-skip]').click()));
     check('saltar: entra al espacio de trabajo en el acto', tSkip < 400, `${tSkip} ms desde el clic`);
@@ -203,9 +207,15 @@ async function rafRate(page, ms = 1500) {
     await page.waitForTimeout(900);
     check('volver a Inicio: aparece con la sarta del pozo', (await phase(page)) === 'open' && (await page.getByTestId('home').innerText()).includes('Entrar al pozo'));
     // Segunda entrada: breve.
+    // La entrada elegida queda en `data-entry` (con SwiftShader los tiempos de reloj no distinguen 0,7 de 2,2 s).
+    await page.evaluate(() => {
+      window.__entry = null;
+      const el = document.querySelector('[data-testid=home]');
+      new MutationObserver(() => (window.__entry ??= el.getAttribute('data-entry'))).observe(el, { attributes: true, attributeFilter: ['data-entry'] });
+    });
     const dt = await timedClose(page, () => page.evaluate(() => document.querySelector('[data-testid=home-enter]').click()));
-    // 0,7 s de recorrido + 0,24 s de fundido; con SwiftShader cada cuadro con la formación tarda cientos de ms.
-    check('segunda entrada: breve', dt < 2600, `${dt} ms desde el clic (0,94 s nominales)`);
+    const kind = await page.evaluate(() => window.__entry);
+    check('segunda entrada: breve', kind === 'short', `entrada «${kind}», ${dt} ms hasta el cierre (0,94 s nominales)`);
     check('volver: el visor conserva zoom y escala', (await page.locator('.wv-toolbar__scale').innerText()) === scale, scale);
     check('volver: el proyecto no cambió', (await undoLabel(page)) === undo0);
     // Escape en Inicio (en reposo, sin ficha) entra directo.

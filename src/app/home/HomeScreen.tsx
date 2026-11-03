@@ -67,6 +67,8 @@ function HomeScreen() {
   const [gl, setGl] = useState<GlState>(() => (hasWebGL2() ? 'ok' : 'unavailable'));
   const [interacted, setInteracted] = useState(false);
   const [fadeMs, setFadeMs] = useState(0);
+  /** Entrada elegida (completa, breve, reducida, saltada): solo para leerla en el DOM (`data-entry`, pruebas). */
+  const [entryShown, setEntryShown] = useState<EntryKind | null>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   /** Caja libre para la sarta dentro del escenario (sin el rótulo ni las herramientas): el renderizador encuadra acá. */
@@ -161,6 +163,8 @@ function HomeScreen() {
         },
       );
     } catch (e) {
+      // Si falló a mitad del constructor, el lienzo ya tiene contexto: se libera acá.
+      host.querySelector('canvas')?.getContext('webgl2')?.getExtension('WEBGL_lose_context')?.loseContext();
       console.warn('Inicio: no se pudo iniciar la vista 3D', e);
       setGl('error');
       return;
@@ -171,11 +175,12 @@ function HomeScreen() {
     return () => {
       ro.disconnect();
       rendererRef.current = null;
-      // Se detiene ya (sin bucle ni escuchas de giro) y se libera apenas después: liberar el contexto WebGL bloquea el
-      // hilo (con SwiftShader, ~1,2 s entre `forceContextLoss` y sacar el lienzo) y así el espacio de trabajo se pinta
-      // antes. Con el contexto perdido no hay nada que esperar.
+      // Se detiene y se oculta ya, y se libera apenas después: liberar el contexto WebGL bloquea el hilo (con
+      // SwiftShader, ~1,2 s entre `forceContextLoss` y sacar el lienzo) y así el espacio de trabajo se pinta antes. Con
+      // el contexto perdido no hay nada caro: se libera en el acto.
       r.stop();
-      setTimeout(() => r.dispose(), 120);
+      if (r.contextLost()) r.dispose();
+      else setTimeout(() => r.dispose(), 120);
     };
   }, [gl, ready]);
 
@@ -189,10 +194,24 @@ function HomeScreen() {
     rendererRef.current?.setTheme(theme);
   }, [theme, gl, ready]);
 
-  // Giro automático en reposo (no con movimiento reducido ni después del primer gesto: lo decide el renderizador).
+  // Giro automático en reposo (no con movimiento reducido ni después del primer gesto: lo decide el renderizador). Se
+  // reevalúa si cambia la preferencia de movimiento con Inicio abierto.
   useEffect(() => {
-    rendererRef.current?.setSpinning(phase === 'open');
+    const apply = () => rendererRef.current?.setSpinning(phase === 'open');
+    apply();
+    const mq = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+    mq?.addEventListener('change', apply);
+    return () => mq?.removeEventListener('change', apply);
   }, [phase, gl, ready]);
+
+  // Una sola vista 3D a la vez: si algo abre el configurador (la paleta de comandos, por ejemplo), Inicio se cierra.
+  useEffect(
+    () =>
+      useUi.subscribe((s, prev) => {
+        if (s.toolStringOpen && !prev.toolStringOpen) closeHome();
+      }),
+    [],
+  );
 
   // Al volver desde el espacio de trabajo, el foco va a la acción principal (al arrancar, el orden natural).
   useEffect(() => {
@@ -218,6 +237,7 @@ function HomeScreen() {
       if (home.phase !== 'open' || !selectActiveEntry(useProject.getState())) return;
       const kind = forced ?? entryKind({ reducedMotion: prefersReducedMotion(), fullEntrySeen: home.fullEntrySeen, hasScene: !!rendererRef.current });
       home.set({ phase: 'entering', fullEntrySeen: home.fullEntrySeen || kind === 'full' });
+      setEntryShown(kind);
       const t = ENTRY_TIMING[kind];
       setTip(null);
       if (t.camera && rendererRef.current) {
@@ -239,29 +259,33 @@ function HomeScreen() {
     closeHome();
   }, []);
 
-  // Escape: salta la entrada; en reposo cierra la ficha o entra directo al espacio de trabajo.
+  // Teclado en captura, antes que los atajos del espacio de trabajo (que escuchan en `window` aunque esté inerte):
+  // Escape es de Inicio (salta la entrada; en reposo cierra la ficha o entra directo) y deshacer/rehacer no corren a
+  // ciegas sobre un proyecto que no se ve. Los diálogos y menús abiertos encima manejan sus teclas.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || e.defaultPrevented) return;
-      if (document.querySelector('[role="dialog"], [role="menu"]')) return;
-      const t = e.target as HTMLElement | null;
-      if (t?.closest('input:not([type="checkbox"]), textarea, select, [contenteditable="true"]')) return;
+      if (e.defaultPrevented || document.querySelector('[role="dialog"], [role="menu"]')) return;
       const p = useHome.getState().phase;
-      if (p === 'entering' || p === 'leaving') {
+      if (p === 'closed') return;
+      const k = e.key.toLowerCase();
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && (k === 'z' || k === 'y')) {
         e.preventDefault();
-        skip();
-      } else if (p === 'open') {
-        if (useToolStringUi.getState().selectedId) {
-          e.preventDefault();
-          useToolStringUi.getState().set({ selectedId: null });
-        } else if (selectActiveEntry(useProject.getState())) {
-          e.preventDefault();
-          void enter('skip');
-        }
+        e.stopImmediatePropagation();
+        return;
+      }
+      if (e.key !== 'Escape') return;
+      const t = e.target instanceof HTMLElement ? e.target : null;
+      if (t?.closest('input:not([type="checkbox"]), textarea, select, [contenteditable="true"]')) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (p === 'entering' || p === 'leaving') skip();
+      else if (p === 'open') {
+        if (useToolStringUi.getState().selectedId) useToolStringUi.getState().set({ selectedId: null });
+        else if (selectActiveEntry(useProject.getState())) void enter('skip');
       }
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
   }, [enter, skip]);
 
   useEffect(() => () => setTs({ hoverId: null }), [setTs]);
@@ -325,6 +349,7 @@ function HomeScreen() {
       aria-label="Inicio"
       data-testid="home"
       data-phase={phase}
+      data-entry={entryShown ?? undefined}
     >
       <div className="home__backdrop" aria-hidden="true" />
       <div className="home__floor" aria-hidden="true" />

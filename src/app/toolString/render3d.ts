@@ -83,13 +83,19 @@ export interface RendererOptions {
 }
 
 /** true si el navegador puede crear un contexto WebGL 2 (three.js lo exige desde r163). */
+let webgl2: boolean | null = null;
 export function hasWebGL2(): boolean {
+  if (webgl2 !== null) return webgl2;
   try {
     const c = document.createElement('canvas');
-    return !!c.getContext('webgl2');
+    const gl = c.getContext('webgl2');
+    webgl2 = !!gl;
+    // El contexto de prueba se libera ya: los navegadores limitan cuántos hay vivos.
+    gl?.getExtension('WEBGL_lose_context')?.loseContext();
   } catch {
-    return false;
+    webgl2 = false;
   }
+  return webgl2;
 }
 
 /** Campo vertical de la cámara: cerrado, para una perspectiva de render de producto (poca distorsión). */
@@ -347,7 +353,7 @@ export class ToolStringRenderer {
     this.envMap.dispose();
     this.scene.environment = null;
     this.renderer.dispose();
-    this.renderer.forceContextLoss();
+    if (!this.renderer.getContext().isContextLost()) this.renderer.forceContextLoss();
     canvas.remove();
     this.labelsLayer.remove();
   }
@@ -518,7 +524,11 @@ export class ToolStringRenderer {
       let o: Object3D | null = h.object;
       while (o && !o.userData.key) o = o.parent;
       if (!o) continue;
-      if (o.userData.key === 'env') return null;
+      if (o.userData.key === 'env') {
+        // Oculta (Inicio en reposo), la formación no tapa nada: el Raycaster de three no mira `visible`.
+        if (!o.visible) continue;
+        return null;
+      }
       const p = this.desc?.primitives.find((x) => x.key === o!.userData.key)?.pick;
       if (p) return p;
     }

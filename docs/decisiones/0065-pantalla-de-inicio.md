@@ -94,7 +94,11 @@ presentación dentro de la clase base** (mezclaría la lógica del configurador 
   con la escena enfocada) lo detiene para el resto de la visita. Sin giro con `prefers-reduced-motion`.
 - Arrastrar gira la cámara alrededor del centro (sin desplazamiento lateral; acercar con límites). Clic selecciona.
 - Escape: con la ficha abierta, la cierra; si no, entra directo al espacio de trabajo (con pozo). Durante la entrada,
-  la salta.
+  la salta. Inicio escucha el teclado **en captura**: los atajos del espacio de trabajo están en `window` (inert no los
+  corta), así que Escape no cierra a ciegas un modo del visor (cortina, marcar zona, tendencias) y Ctrl/Cmd+Z o Y no
+  deshacen ni rehacen un proyecto que no se ve. Los diálogos y menús abiertos encima manejan sus teclas.
+- Durante la entrada el lienzo no recibe el puntero (ni rótulo flotante ni cambios de selección a mitad).
+- Si algo abre el configurador con Inicio a la vista (la paleta de comandos), Inicio se cierra: una sola vista 3D.
 
 ## D6. Entrada al pozo
 
@@ -132,6 +136,11 @@ alcance de esta entrega).
   de la base: geometrías, materiales, texturas, ambiente, controles, contexto). Medido con SwiftShader: liberar el
   contexto bloquea ~0,9 s (`forceContextLoss`) más ~0,4 s al sacar el lienzo; diferirlo deja que el espacio de trabajo
   se pinte antes. En una GPU real es del orden de milisegundos.
+- La formación está oculta en reposo y three compila solo lo visible: sus shaders y texturas se preparan 0,4 s después
+  de armar la escena (`compileAsync`, `initTexture`) y no en el primer cuadro en que aparece. Medido: la entrada breve
+  pasó de 6,6 a 2,8 s hasta el cierre con SwiftShader.
+- La formación oculta no tapa la selección (el `Raycaster` de three no mira `visible`: `hit()` la saltea).
+- `hasWebGL2()` libera su contexto de prueba y cachea el resultado.
 - Sin WebGL 2, con error al iniciar o con el contexto perdido: **esquema 2D** en SVG hecho con la misma descripción de
   la escena (diámetros exagerados ×4, dicho en pantalla), que también selecciona; todas las acciones siguen andando.
 
@@ -141,16 +150,22 @@ Entorno: contenedor Linux, Chromium de Playwright 1.56 sin pantalla, WebGL por *
 `dist/index.html` abierto por `file://`. Los tiempos sirven para comparar y para ver que no hay bucles; no representan
 una GPU.
 
-- Tamaño: `dist/index.html` 6.250.730 → 6.286.005 bytes (**+35,3 kB**, +0,56 %); con gzip -9, 2.700.555 → 2.709.287
-  bytes (+8,7 kB). three ya estaba incluido; no hay imágenes, fuentes ni texturas nuevas.
+- Tamaño: `dist/index.html` 6.250.730 → 6.287.438 bytes (**+36,7 kB**, +0,59 %); con gzip -9, 2.700.555 → 2.709.655
+  bytes (+9,1 kB). three ya estaba incluido; no hay imágenes, fuentes ni texturas nuevas.
 - Cuadros con el giro automático, 1440×900: ~28 cuadros/s sin pozo y ~17–20 con el pozo de demostración (con
   SwiftShader; los primeros segundos después de cargar un pozo bajan a ~2 porque el motor comparte la CPU).
 - Sin bucle: 0 pedidos de cuadro por segundo después de un gesto, con la pestaña oculta y en el espacio de trabajo
   después de entrar.
 - Cierre (clic → Inicio desmontado), medido en la página: saltar 0,38 s, Escape 0,33 s, movimiento reducido 0,46 s,
-  entrada breve 2,4 s (0,94 s nominales: cada cuadro con la formación tarda cientos de ms con SwiftShader).
-- `scripts/qa/inicio.cjs`: 48 verificaciones (todas ok) y las capturas de `docs/capturas/inicio/`. El recorrido del TP
+  entrada breve 2,8 s (0,94 s nominales: cada cuadro con la formación tarda cientos de ms con SwiftShader). La entrada
+  elegida queda en `data-entry` (completa la primera vez, breve la segunda: verificado).
+- `scripts/qa/inicio.cjs`: 50 verificaciones (todas ok) y las capturas de `docs/capturas/inicio/`. El recorrido del TP
   (`scripts/qa/recorrido-tp.cjs`, con `?inicio=no`) sigue pasando: 10 pasos, 0 errores.
+
+Revisión independiente (subagente distinto del que escribió): 3 hallazgos importantes (formación oculta que tapaba la
+selección, atajos del espacio de trabajo activos debajo de Inicio, puntero durante la entrada) y 5 menores (lienzo
+viejo visible durante la liberación diferida, contexto de prueba sin liberar, cambio de movimiento reducido con Inicio
+abierto, configurador abierto desde la paleta, contexto sin liberar si falla el constructor); todos corregidos.
 
 No probado: GPU real, Firefox, Safari, dispositivos táctiles reales, lectores de pantalla.
 
