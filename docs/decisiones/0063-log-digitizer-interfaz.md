@@ -79,3 +79,5 @@ reabrir el proyecto con la curva, y releer el LAS exportado con el lector de la 
   pozo»); falta comprobar y documentar cómo ubicarla en una pista propia.
 - Límites del motor (0062): sin PDF/TIFF, sin OCR, sin curvas que «dan la vuelta», cruces del mismo color → modo
   guiado.
+- Lectura de PDF: anotada como fase futura en [0064](0064-log-digitizer-lectura-de-pdf.md) (propuesta, no
+  implementada).

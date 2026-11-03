@@ -315,9 +315,7 @@ mitad del binario sin comprimir.
 |---|---|---|
 | Slots de cálculo y `compare` en cascada aguas abajo | antes de la fase 9 (snapshots y comparación) | Un "slot" = una asignación de fuentes alternativa; el motor corre la cadena completa por slot (claves `slot:módulo:puerto`), así una alternativa de Sw propaga a k, cutoffs y sumario. |
 | Regla por defecto de fuentes para roles calculados (VSH/PHIE/SW de un vendedor le ganan a los módulos sin aviso) | fase 2, con la tabla de mnemónicos | Para roles con `origin: 'computed'`, preferir el módulo y ofrecer la curva del archivo como alternativa, o pedir confirmación al importar; en cualquier caso emitir un diagnóstico `info`. |
-| Reenvío completo automático ante "resultado incompleto" | antes de la fase 12 | Mensaje `resync` del cliente: el worker vacía `sent` y la próxima respuesta trae todos los datos. |
 | Elegir método por zona para puertos con módulos distintos (Archie en arenas limpias, Simandoux en arcillosas) | cuando se pida | `sources` por zona: el motor arma una curva por tramos con la salida del módulo elegido en cada zona. |
-| Ruido de módulos por defecto sin consumidores (p. ej. sónico sin DT informa error aunque nadie use PHIS) | antes de la fase 12 | Bajar a `info` el faltante de un módulo que solo corre por ser fuente por defecto de un puerto sin consumidores. |
 | psia y psig se tratan como psi | cuando haya datos reales | Guardar la referencia por columna y avisar en el asistente si se mezclan (desplaza ~14,7 psi la regla «presión ≥ lodo»). |
 | Gradientes de presión en pozos desviados (hoy contra MD; el panel avisa si TVD difiere de MD) | cuando haya un pozo desviado | Serie `mdt` con x = TVD (columna `tvd`) y la pista ubicada por MD. |
 | «Usar un contacto como tope de zona» (opcional del pedido MDT) | cuando se pida | Receta que parta la zona que contiene el contacto (`createZone`, `src/core/state/zones.ts`). |
@@ -328,7 +326,6 @@ mitad del binario sin comprimir.
 | Pickett sin zona acuífera | cuando se pida | «Ajustar a la envolvente» (percentil bajo de los residuos de ln Rt) como alternativa explícita al ajuste por mediana (0021, D9). |
 | Matriz del densidad–neutrón con las cartas CP-1 (curvas) en vez de rectas de mezcla | cuando se pida | Tabular la carta por litología; imán hacia la curva más cercana (`snapMatrixToLithology`, 0015). |
 | Líneas de litología curvas en densidad–neutrón (hoy rectas de mezcla matriz–agua) | cuando se pida | Tabular la carta CP-1 del fabricante por litología y dibujarla como `XYLineLayer`. |
-| Sliders del inspector: una sola entrada de deshacer aunque se pause más de 800 ms con el botón apretado | antes de la fase 12 | Usar el gesto de `history.ts` (0015, D2.1: `commit(…, { group })`, `cancelGroup`) desde `Slider` (abrir al bajar el puntero, cerrar al soltar). Los arrastres de los gráficos ya lo usan. |
 | Rangos de ejes del crossplot editables a mano (hoy automáticos o de la plantilla) | cuando se pida | `xRange`/`yRange` ya se guardan; falta el editor (como el de escalas del visor). |
 | Corrección de φ perfil → corona aplicada a la cadena (hoy la calibración es diagnóstica; 0023) | cuando se pida | Módulo alternativo de `PHIE` con la recta RMA por zona que escribe el panel «Calibración». |
 | Puesta en profundidad de la corona en pozos desviados (hoy en MD) | cuando haya un pozo desviado | Igual que los gradientes MDT: variable independiente TVD con la pista ubicada por MD. |
@@ -791,3 +788,5 @@ Decisión: [`docs/decisiones/0063-log-digitizer-interfaz.md`](decisiones/0063-lo
   mesa (imagen incrustada, calibración, trazas) se guarda aparte como JSON.
 - Verificación: `tests/digitizer-ui/`, `tests/modules-digitizer.test.ts` y el guion
   `scripts/qa/log-digitizer.cjs` (clics reales sobre el HTML construido).
+- Fase futura (propuesta, no implementada): lectura de PDF con pdf.js en la etapa de entrada, sin tocar el motor.
+  Ver [`0064`](decisiones/0064-log-digitizer-lectura-de-pdf.md).

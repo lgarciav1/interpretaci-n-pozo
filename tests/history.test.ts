@@ -148,6 +148,34 @@ describe('historial en el store del proyecto', () => {
     expect(store().project).toBe(p0);
   });
 
+  it('un arrastre de slider con una pausa larga con el botón apretado sigue siendo un solo paso (gesto)', () => {
+    const p0 = store().project;
+    const group = 'param-gesto-1';
+    for (const [i, at] of [[1, 0], [2, 100], [3, GROUP_MS * 3], [4, GROUP_MS * 3 + 50]] as const) {
+      now = at;
+      store().commit('Cambiar Rw', (p) => setParam(p, 'w1', 'rw', i / 100), { group });
+    }
+    expect(store().history.past).toHaveLength(1);
+    expect(rw(store().project)).toBe(0.04);
+    store().undo();
+    expect(store().project).toBe(p0);
+  });
+
+  it('sin gesto, una pausa mayor que la ventana abre un paso nuevo; un gesto nuevo también', () => {
+    for (const [i, at] of [[1, 0], [2, GROUP_MS * 2]] as const) {
+      now = at;
+      store().commit('Cambiar Rw', (p) => setParam(p, 'w1', 'rw', i / 100));
+    }
+    expect(store().history.past).toHaveLength(2);
+    now = GROUP_MS * 2 + 10;
+    store().commit('Cambiar Rw', (p) => setParam(p, 'w1', 'rw', 0.3), { group: 'param-gesto-2' });
+    store().commit('Cambiar Rw', (p) => setParam(p, 'w1', 'rw', 0.31), { group: 'param-gesto-2' });
+    expect(store().history.past).toHaveLength(3);
+    now = GROUP_MS * 2 + 20;
+    store().commit('Cambiar Rw', (p) => setParam(p, 'w1', 'rw', 0.4), { group: 'param-gesto-3' });
+    expect(store().history.past).toHaveLength(4);
+  });
+
   it('arrastrar un tope en el visor deja una sola entrada «Mover tope de A»', () => {
     const [, over] = createZonesOverlay({
       edit: {
