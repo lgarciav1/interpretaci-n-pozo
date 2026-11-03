@@ -3,7 +3,8 @@
 - Estado: implementada (fase 2). Motor sin cambios: [0062](0062-log-digitizer-motor.md).
 - Alcance: `src/modules/digitizer/` (módulo de panel), `Dialog size="full"` en `src/ui/`, botón «Digitalizar
   registro» en «Datos del pozo», pruebas en `tests/digitizer-ui/` y `tests/modules-digitizer.test.ts`, guion de
-  navegador `scripts/qa/log-digitizer.cjs`, capturas en `docs/capturas/log-digitizer/`.
+  navegador `scripts/qa/log-digitizer.cjs` y `scripts/qa/log-digitizer-perspectiva-sesion.cjs` (con su generador
+  `scripts/qa/make-digitizer-scan.py`), capturas en `docs/capturas/log-digitizer/`.
 
 ## Qué hay
 
@@ -39,6 +40,16 @@
   de trazas, política de importación, archivo de sesión. Convención del proyecto (`tests/modules.test.ts`): los `.ts`
   del módulo son puros; lo que usa zustand o la interfaz va en `.tsx` (`store.tsx`, `actions.tsx`) o en `draw.ts`.
 
+- **«Mostrar en el visor»** (paso Importar y exportar, tras «Agregar al pozo activo»): las pistas de fábrica se arman por
+  rol, así que una curva que entró sin rol (el pozo ya tenía esa curva, política de abajo) no aparece sola. El botón crea
+  **una pista propia por curva**, a la derecha de la columna de profundidad (al final de la lista quedaría fuera de la
+  vista: el visor es angosto), con un selector `{ curveId }` y la **escala impresa del registro** (bordes izquierdo y
+  derecho; invertida si el mayor está a la izquierda). Un solo paso de deshacer («Mostrar GR_DIG en el visor»); no
+  duplica una curva que ya está en alguna pista; la pista pasa a las pistas propias del espacio (la plantilla deja de ser
+  «De fábrica»). Es una acción de la persona, no un efecto de agregar: agregar curvas no cambia el visor solo. La acción
+  carga de forma diferida `viewerOverlayList` (importa los módulos, entre ellos este: una importación estática sería
+  circular).
+
 ## Qué se persiste y dónde
 
 - **Proyecto (formato v7 sin cambios)**: solo la curva agregada, como curva medida del pozo
@@ -70,13 +81,37 @@ correlación 0,976, cobertura 100 % (limitado por la resolución: cada muestra d
 borrar un tramo, deshacer y rehacer en la mesa; agregar al pozo del TP, Ctrl+Z / Ctrl+Mayús+Z en la app, guardar y
 reabrir el proyecto con la curva, y releer el LAS exportado con el lector de la app. Sin errores de página.
 
+### Perspectiva, curva sin rol en el visor y «Abrir sesión» (2026-11-03)
+
+Guion `scripts/qa/log-digitizer-perspectiva-sesion.cjs` sobre el HTML construido, por `file://`, con clics reales. Imagen
+de `make-digitizer-scan.py` (independiente del motor; solo numpy y Pillow): pista de GR 0–150 gAPI de 900 × 2.700 px con
+grilla, marco y ruido, «fotografiada en ángulo» con una homografía conocida (1.060 × 2.850 px). La profundidad está dentro
+del pozo del TP (tope 7.800 m) para poder agregarla a él.
+
+- **Perspectiva con 4 esquinas.** Las 4 esquinas del marco se marcan sobre la imagen original; la imagen rectificada
+  mide 699 × 2.447 px (lo que dan las esquinas); 4 amarres con residuo 0,00 px; GR contra la verdad: **RMSE 0,245 gAPI
+  (0,16 % del rango), correlación 0,99997, cobertura 99,8 %** (492 muestras). La imagen es idealizada (esquinas exactas,
+  curva suave, sin deformación del papel): valida la matemática y el flujo, no el comportamiento con una foto real.
+- **Curva sin rol en el visor.** El pozo del TP ya tiene GR: la digitalizada entra como `GR_DIG` sin rol y NO está en las
+  pistas de fábrica (comprobado). «Mostrar en el visor» crea su pista, que queda dentro del área visible (encabezado a
+  552–660 px; con la pista al final de la lista quedaba en 1.637–1.746 px, fuera de la pantalla: lo detectó la prueba de
+  control) y muestra la escala 0–150. Ctrl+Z la quita y deja la curva en el pozo; Ctrl+Mayús+Z la devuelve.
+- **«Abrir sesión».** Guardar la sesión (5,5 MB, con la imagen incrustada: la app avisa por pasar de 5 MB), recargar la
+  página (la mesa queda vacía), abrirla con el selector de archivos: vuelven la perspectiva, los 4 amarres (mismo residuo),
+  la curva y su traza, y el LAS exportado es **idéntico** al de antes (mismo RMSE y cobertura). Un JSON que no es una
+  sesión se rechaza con «No se pudo abrir la sesión» y la sesión abierta no se pierde. Sin errores de página.
+- Pruebas unitarias nuevas de «Mostrar en el visor» en `tests/digitizer-ui/integration.test.ts` (posición de la pista,
+  escala impresa, sin duplicar, un solo paso de deshacer, sin curvas).
+
+Capturas: `perspectiva-esquinas-claro`, `perspectiva-corregida-claro`, `visor-ofrece-mostrar-claro`,
+`visor-pista-gr-dig-claro`, `sesion-abierta-claro`.
+
 ## Pendiente
 
-- Perspectiva con 4 esquinas: implementada en la interfaz pero sin validar de punta a punta en el navegador.
-- «Abrir sesión»: probado con tests (ida y vuelta, archivos dañados), no en el navegador.
+- Probar con un **escaneo real** (papel, grilla, ruido, rótulos, curvas que se cruzan) y, si hay digital conocida, medir el
+  RMSE; ajustar los umbrales de calidad con casos reales (la «fase 3» de 0062 sigue sin un registro real).
+- Perspectiva con esquinas marcadas a mano con error (los clics del guion son exactos) y papel deformado.
 - Pulido y atajos adicionales; un panel de ajustes finos del trazado (umbral, saltos) no está expuesto.
-- La curva agregada sin rol no aparece en las pistas de la plantilla de fábrica del visor (se verificó en «Datos del
-  pozo»); falta comprobar y documentar cómo ubicarla en una pista propia.
 - Límites del motor (0062): sin PDF/TIFF, sin OCR, sin curvas que «dan la vuelta», cruces del mismo color → modo
   guiado.
 - Lectura de PDF: anotada como fase futura en [0064](0064-log-digitizer-lectura-de-pdf.md) (propuesta, no

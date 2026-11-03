@@ -12,6 +12,9 @@ import {
   type RasterImage,
 } from '../../digitizer';
 import { addWell, makeId, setActiveWell, updateWell } from '../../core/state/project';
+import { addTrack, selectorKey, uniqueTrackId, updateTrackLayout } from '../../core/state/tracks';
+import type { TrackSpec } from '../../core/display';
+import { useUi } from '../../app/store/ui';
 import { selectActiveEntry, useProject } from '../../app/store/project';
 import { safeFileName } from '../../io/export/files';
 import { writeCsv } from '../../io/export/csv';
@@ -20,7 +23,7 @@ import { toast } from '../../ui';
 import { calibrationOf, specOf, updateCurve, type CurveDraft } from './model/form';
 import { addCurvesToWell, exportInputFor, importPlan, newWellFrom, seriesOf, type ImportItem } from './model/outputs';
 import { base64ToBytes, buildSessionFile, bytesToBase64, formatBytes, parseSessionFile, restoreWork, serializeSessionFile, SESSION_WARN_BYTES } from './model/sessionFile';
-import { initialDigitizerState, useDigitizer, workImageKey } from './store';
+import { initialDigitizerState, useDigitizer, workImageKey, type AddedCurves } from './store';
 import { digitizerClient } from './worker/instance';
 import { isAbort } from './worker/client';
 
@@ -332,11 +335,12 @@ export async function openSession(file: Blob): Promise<boolean> {
 // ---------------------------------------------------------------------------------------------------------------
 // Importar y exportar
 
-function collect(wellForPlan: Parameters<typeof importPlan>[1]): { items: ImportItem[]; names: string[] } {
+function collect(wellForPlan: Parameters<typeof importPlan>[1]): { items: ImportItem[]; names: string[]; scales: AddedCurves['curves'][number]['scale'][] } {
   const st = S();
   const cal = calibrationOf(st.work).calibration;
   const items: ImportItem[] = [];
   const names: string[] = [];
+  const scales: AddedCurves['curves'][number]['scale'][] = [];
   for (const c of st.work.curves) {
     if (!c.include) continue;
     const series = seriesOf(c, cal);
@@ -344,8 +348,10 @@ function collect(wellForPlan: Parameters<typeof importPlan>[1]): { items: Import
     const plan = importPlan(c, wellForPlan, st.importChoices[c.id]);
     items.push({ series, meta: plan.meta });
     names.push(plan.meta.mnemonic);
+    // Escala impresa del registro: el valor del borde izquierdo y del derecho (el mayor a la izquierda = invertida).
+    scales.push({ kind: c.scaleKind, min: Math.min(c.leftValue, c.rightValue), max: Math.max(c.leftValue, c.rightValue), reversed: c.leftValue > c.rightValue });
   }
-  return { items, names };
+  return { items, names, scales };
 }
 
 export function addToActiveWell(): boolean {
@@ -354,7 +360,7 @@ export function addToActiveWell(): boolean {
     toast({ title: 'No hay pozo activo', description: 'Elegí «Crear pozo nuevo» o cargá un pozo.', tone: 'warn' });
     return false;
   }
-  const { items, names } = collect(entry.well);
+  const { items, names, scales } = collect(entry.well);
   if (!items.length) {
     toast({ title: 'No hay curvas para agregar', description: 'Trazá al menos una curva y dejala marcada.', tone: 'warn' });
     return false;
@@ -369,7 +375,10 @@ export function addToActiveWell(): boolean {
   const wellId = entry.well.id;
   const label = names.length === 1 ? `Agregar ${names[0]} digitalizada` : `Agregar ${names.length} curvas digitalizadas`;
   useProject.getState().commit(label, (p) => updateWell(p, wellId, (w) => addCurvesToWell(w, items).well));
-  S().set({ delivered: true });
+  S().set({
+    delivered: true,
+    lastAdded: { wellId, shown: false, curves: result.added.map((a, i) => ({ curveId: a.curve.id, mnemonic: a.curve.mnemonic, scale: scales[i]! })) },
+  });
   const cov = result.added.map((a) => `${a.curve.mnemonic} ${Math.round(a.coverage * 100)} %`).join(' · ');
   toast({ title: label.replace(/^Agregar/, 'Se agregó'), description: `${entry.well.name}: cobertura del pozo ${cov}. Ctrl+Z en la app lo deshace.`, tone: 'ok' });
   return true;
@@ -416,4 +425,53 @@ export function exportCurves(format: 'las' | 'csv'): boolean {
     toast({ title: 'No se pudo exportar', description: errText(e), tone: 'error' });
     return false;
   }
+}
+
+/**
+ * Muestra en el visor las curvas que la mesa acaba de agregar al pozo: una pista propia por curva, con la escala
+ * impresa del registro, a la derecha de la columna de profundidad. Las que entraron sin rol (el pozo ya tenía esa
+ * curva) no están en las pistas de fábrica, que se arman por rol. Un solo paso de deshacer; si la curva ya está en
+ * alguna pista, no la duplica.
+ */
+export async function showAddedInViewer(): Promise<boolean> {
+  const added = S().lastAdded;
+  const entry = selectActiveEntry(useProject.getState());
+  if (!added || !entry || entry.well.id !== added.wellId) {
+    toast({ title: 'No hay curvas para mostrar', description: 'Agregá primero las curvas al pozo activo.', tone: 'warn' });
+    return false;
+  }
+  const present = added.curves.filter((a) => entry.well.curves.some((c) => c.id === a.curveId));
+  if (!present.length) {
+    toast({ title: 'Las curvas ya no están en el pozo', description: 'Se deshizo el agregado: volvé a agregarlas.', tone: 'warn' });
+    return false;
+  }
+  // Carga diferida: la lista de superposiciones del visor importa los módulos (entre ellos, este).
+  const [{ OVERLAYS }, { materializedLayout }] = await Promise.all([import('../../app/shell/viewerOverlayList'), import('../../app/tracks/actions')]);
+  const workspace = useUi.getState().workspace;
+  const label = present.length === 1 ? `Mostrar ${present[0]!.mnemonic} en el visor` : `Mostrar ${present.length} curvas digitalizadas en el visor`;
+  let created = 0;
+  useProject.getState().commit(label, (p) =>
+    updateTrackLayout(p, workspace, materializedLayout(p, workspace, OVERLAYS), (tracks) => {
+      let next: readonly TrackSpec[] = tracks;
+      // Junto a la columna de profundidad (a su derecha): el visor es angosto y al final de la lista quedaría fuera de
+      // la vista. Sin columna de profundidad, al principio.
+      const depthAt = tracks.findIndex((t) => t.kind === 'depth');
+      const beforeId = tracks[depthAt + 1]?.id ?? null;
+      for (const a of present) {
+        const key = selectorKey({ curveId: a.curveId });
+        if (next.some((t) => t.curves?.some((e) => selectorKey(e.select) === key))) continue;
+        const track: TrackSpec = { id: uniqueTrackId(next, a.mnemonic), title: a.mnemonic, kind: 'curves', curves: [{ select: { curveId: a.curveId } }], scale: a.scale };
+        next = addTrack(next, track, beforeId);
+        created++;
+      }
+      return next;
+    }),
+  );
+  S().set({ lastAdded: { ...added, shown: true } });
+  toast(
+    created
+      ? { title: created === 1 ? `Pista ${present[0]!.mnemonic} creada` : `${created} pistas creadas`, description: 'Está junto a la columna de profundidad. Ctrl+Z en la app lo deshace.', tone: 'ok' }
+      : { title: 'Ya estaban en el visor', tone: 'neutral' },
+  );
+  return true;
 }

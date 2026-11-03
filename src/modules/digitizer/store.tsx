@@ -44,6 +44,15 @@ export interface Job {
   cancellable: boolean;
 }
 
+/** Curvas que la mesa acaba de agregar al pozo activo (para ofrecer verlas en el visor). */
+export interface AddedCurves {
+  wellId: string;
+  /** `scale`: la escala impresa de la pista del registro (bordes izquierdo y derecho), para la pista del visor. */
+  curves: { curveId: string; mnemonic: string; scale: { kind: 'linear' | 'log'; min: number; max: number; reversed: boolean } }[];
+  /** Ya se creó la pista en el visor. */
+  shown: boolean;
+}
+
 const HISTORY_LIMIT = 100;
 
 export interface DigitizerState {
@@ -70,6 +79,8 @@ export interface DigitizerState {
   job: Job | null;
   reviewed: boolean;
   delivered: boolean;
+  /** Última entrega al pozo activo (ausente si se creó un pozo nuevo o se exportó). */
+  lastAdded: AddedCurves | null;
   importChoices: Record<string, ImportChoice>;
   target: 'active' | 'new';
   newWell: { name: string; step: number; unit: 'm' | 'ft' };
@@ -111,6 +122,7 @@ export const initialDigitizerState = (): DigitizerState => ({
   job: null,
   reviewed: false,
   delivered: false,
+  lastAdded: null,
   importChoices: {},
   target: 'active',
   newWell: { name: 'Pozo digitalizado', step: 0.1524, unit: 'm' },
