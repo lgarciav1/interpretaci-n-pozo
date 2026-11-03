@@ -14,7 +14,7 @@ import { readWellFile } from '../../src/io';
 import { writeCsv } from '../../src/io/export/csv';
 import { writeLas } from '../../src/io/export/las';
 import { registry } from '../../src/modules';
-import { addToActiveWell, createNewWell, sessionFileText } from '../../src/modules/digitizer/actions';
+import { addToActiveWell, createNewWell, sessionFileText, showAddedInViewer } from '../../src/modules/digitizer/actions';
 import { calibrationOf, emptyWork, newCurveDraft, type CurveDraft, type WorkState } from '../../src/modules/digitizer/model/form';
 import { exportInputFor, importPlan, seriesOf } from '../../src/modules/digitizer/model/outputs';
 import { base64ToBytes, bytesToBase64, parseSessionFile, restoreWork, SESSION_FORMAT } from '../../src/modules/digitizer/model/sessionFile';
@@ -60,6 +60,61 @@ beforeEach(() => {
   seedDesk();
 });
 afterEach(() => useDigitizer.setState(initialDigitizerState()));
+
+describe('mostrar en el visor lo agregado (curva sin rol)', () => {
+  const layout = () => {
+    const p = useProject.getState().project;
+    return p.display.layouts['petrophysics'] ?? [];
+  };
+
+  it('crea una pista propia junto a la profundidad, con la escala impresa del registro y un solo paso de deshacer', async () => {
+    expect(layout()).toEqual([]); // plantilla de fábrica: la curva sin rol no está en ninguna pista
+    addToActiveWell();
+    expect(useDigitizer.getState().lastAdded).toMatchObject({ shown: false, curves: [{ curveId: 'GR_DIG', mnemonic: 'GR_DIG', scale: { kind: 'linear', min: 0, max: 150, reversed: false } }] });
+    expect(await showAddedInViewer()).toBe(true);
+    expect(useProject.getState().undoLabel).toBe('Mostrar GR_DIG en el visor');
+    const tracks = layout();
+    const depthAt = tracks.findIndex((t) => t.kind === 'depth');
+    expect(depthAt).toBeGreaterThanOrEqual(0);
+    expect(tracks[depthAt + 1]).toMatchObject({ title: 'GR_DIG', kind: 'curves', curves: [{ select: { curveId: 'GR_DIG' } }], scale: { kind: 'linear', min: 0, max: 150 } });
+    expect(tracks.filter((t) => t.curves?.some((e) => 'curveId' in e.select && e.select.curveId === 'GR_DIG'))).toHaveLength(1);
+    expect(useDigitizer.getState().lastAdded?.shown).toBe(true);
+    // Ctrl+Z quita la pista y deja la curva en el pozo; rehacer la devuelve.
+    expect(useProject.getState().undo()).toBe('Mostrar GR_DIG en el visor');
+    expect(layout()).toEqual([]);
+    expect(activeWellEntry(useProject.getState().project)!.well.curves.some((k) => k.id === 'GR_DIG')).toBe(true);
+    expect(useProject.getState().redo()).toBe('Mostrar GR_DIG en el visor');
+    expect(layout().some((t) => t.title === 'GR_DIG')).toBe(true);
+  });
+
+  it('una segunda vez no duplica la pista', async () => {
+    addToActiveWell();
+    await showAddedInViewer();
+    const n = layout().length;
+    await showAddedInViewer();
+    expect(layout()).toHaveLength(n);
+  });
+
+  it('sin curvas agregadas, o si se deshizo el agregado, no cambia el proyecto y avisa', async () => {
+    const before = useProject.getState().project;
+    expect(await showAddedInViewer()).toBe(false);
+    expect(useProject.getState().project).toBe(before);
+    addToActiveWell();
+    useProject.getState().undo(); // el agregado se deshizo: la curva ya no está en el pozo
+    expect(useProject.getState().project).toBe(before);
+    expect(await showAddedInViewer()).toBe(false);
+    expect(useProject.getState().project).toBe(before);
+  });
+
+  it('la escala impresa invertida (NPHI 0,45 → −0,15) queda invertida en la pista', async () => {
+    const id = useDigitizer.getState().work.curves[0]!.id;
+    useDigitizer.setState({ work: { ...useDigitizer.getState().work, curves: useDigitizer.getState().work.curves.map((c) => (c.id === id ? { ...c, leftValue: 0.45, rightValue: -0.15 } : c)) } });
+    addToActiveWell();
+    expect(useDigitizer.getState().lastAdded!.curves[0]!.scale).toEqual({ kind: 'linear', min: -0.15, max: 0.45, reversed: true });
+    await showAddedInViewer();
+    expect(layout().find((t) => t.title === 'GR_DIG')!.scale).toEqual({ kind: 'linear', min: -0.15, max: 0.45, reversed: true });
+  });
+});
 
 describe('agregar al pozo activo', () => {
   it('un solo paso de deshacer; la curva entra medida, de «Log Digitizer», sin rol (el pozo ya tiene GR) y con sufijo', () => {

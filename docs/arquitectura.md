@@ -786,7 +786,10 @@ Decisión: [`docs/decisiones/0063-log-digitizer-interfaz.md`](decisiones/0063-lo
   worker para Vitest.
 - Persistencia: la curva entra al proyecto como curva medida (v7 sin cambios, un `commit` deshacible); la sesión de la
   mesa (imagen incrustada, calibración, trazas) se guarda aparte como JSON.
-- Verificación: `tests/digitizer-ui/`, `tests/modules-digitizer.test.ts` y el guion
-  `scripts/qa/log-digitizer.cjs` (clics reales sobre el HTML construido).
+- Verificación: `tests/digitizer-ui/`, `tests/modules-digitizer.test.ts` y los guiones `scripts/qa/log-digitizer.cjs` y
+  `scripts/qa/log-digitizer-perspectiva-sesion.cjs` (clics reales sobre el HTML construido; este último con su generador
+  `scripts/qa/make-digitizer-scan.py`: perspectiva de 4 esquinas, curva sin rol en el visor y «Abrir sesión»).
+- «Mostrar en el visor» (paso de salida): crea una pista propia por curva agregada, junto a la profundidad y con la escala
+  impresa del registro; las curvas sin rol no están en las pistas de fábrica, que se arman por rol (0063).
 - Fase futura (propuesta, no implementada): lectura de PDF con pdf.js en la etapa de entrada, sin tocar el motor.
   Ver [`0064`](decisiones/0064-log-digitizer-lectura-de-pdf.md).

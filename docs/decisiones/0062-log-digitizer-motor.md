@@ -1,6 +1,8 @@
 # 0062 — Log Digitizer: motor puro de digitalización de registros escaneados
 
-- Estado: fase 1 implementada (motor puro y tests). Fases 2 (interfaz) y 3 (pruebas de punta a punta) pendientes.
+- Estado: fase 1 implementada (motor puro y tests). Fase 2 (interfaz): hecha, ver [0063](0063-log-digitizer-interfaz.md). Fase 3
+  (punta a punta): validada con imágenes sintéticas y exportadas por la app (también perspectiva y sesión); falta un
+  escaneo real.
 - Alcance: carpeta nueva `src/digitizer/` (motor, tipos, sesión) y `tests/digitizer/` (generador sintético y pruebas).
 - No cambia: el modelo de datos, el motor de cálculo, los módulos, la interfaz ni el HTML final (el motor todavía no se
   importa desde la app: `dist/index.html` queda byte a byte igual, 6.066.335 bytes).

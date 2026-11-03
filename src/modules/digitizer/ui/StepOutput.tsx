@@ -2,9 +2,9 @@
  * Paso 6 — Importar y exportar: nombre, mnemónico, unidad y rol de cada curva (con la política de roles y
  * mnemónicos repetidos), y «Agregar al pozo activo», «Crear pozo nuevo», «Exportar LAS» y «Exportar CSV».
  */
-import { Badge, Button, Checkbox, EmptyState, Field, NumberField, SegmentedControl, Section, Select, TextField } from '../../../ui';
+import { Badge, Button, Callout, Checkbox, EmptyState, Field, NumberField, SegmentedControl, Section, Select, TextField } from '../../../ui';
 import { selectActiveEntry, useProject } from '../../../app/store/project';
-import { addToActiveWell, createNewWell, exportCurves } from '../actions';
+import { addToActiveWell, createNewWell, exportCurves, showAddedInViewer } from '../actions';
 import { updateCurve } from '../model/form';
 import { importPlan } from '../model/outputs';
 import { useDigitizer } from '../store';
@@ -19,6 +19,7 @@ export function StepOutput() {
   const choices = useDigitizer((s) => s.importChoices);
   const newWell = useDigitizer((s) => s.newWell);
   const exportStep = useDigitizer((s) => s.exportStep);
+  const lastAdded = useDigitizer((s) => s.lastAdded);
   const set = useDigitizer((s) => s.set);
   const updateWork = useDigitizer((s) => s.updateWork);
   if (!rows.length) return <EmptyState size="sm" icon="curve" title="No hay curvas trazadas" description="Trazá al menos una curva en el paso Curvas." />;
@@ -84,6 +85,27 @@ export function StepOutput() {
                 Agregar al pozo activo
               </Button>
             </div>
+            {lastAdded && lastAdded.wellId === well.id && lastAdded.curves.some((a) => well.curves.some((c) => c.id === a.curveId)) && (
+              <div data-testid="digitizer-in-viewer">
+                <Callout
+                  tone={lastAdded.shown ? 'ok' : 'info'}
+                  title={lastAdded.shown ? 'Ya están en el visor' : 'Las curvas están en el pozo'}
+                  {...(lastAdded.shown
+                    ? {}
+                    : {
+                        actions: (
+                          <Button size="sm" variant="secondary" icon="eye" onClick={() => void showAddedInViewer()} data-testid="digitizer-show-in-viewer">
+                            Mostrar en el visor
+                          </Button>
+                        ),
+                      })}
+                >
+                  {lastAdded.shown
+                    ? 'Cada curva tiene su pista, con la escala impresa del registro.'
+                    : 'Las pistas de fábrica se arman por rol: una curva que entró sin rol no aparece sola en el visor.'}
+                </Callout>
+              </div>
+            )}
           </>
         ) : (
           <p className="dz-muted">No hay pozo activo: creá uno nuevo con las curvas digitalizadas.</p>
