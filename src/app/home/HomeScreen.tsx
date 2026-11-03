@@ -30,7 +30,7 @@ import { Silhouette, SILHOUETTE_RADIAL_EXAGGERATION } from './Silhouette';
 import { ENTRY_TIMING, entryKind, useHome, type EntryKind } from './store';
 import './home.css';
 
-export const PRODUCT_NAME = 'Interpretación de pozo';
+export const PRODUCT_NAME = 'FiubaLog';
 
 type GlState = 'ok' | 'unavailable' | 'lost' | 'error';
 

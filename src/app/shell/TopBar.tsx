@@ -84,7 +84,7 @@ export function TopBar() {
     <header className="shell-topbar">
       <button type="button" className="shell-brand" onClick={openHome} aria-label="Inicio" title="Inicio: la sarta en 3D y la entrada al pozo (el trabajo queda como está)" data-testid="open-home">
         <BrandMark />
-        <span className="shell-brand__name">Interpretación de pozo</span>
+        <span className="shell-brand__name">FiubaLog</span>
         <span className="shell-brand__home">Inicio</span>
       </button>
       <nav className="shell-context" aria-label="Proyecto y pozo">

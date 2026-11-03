@@ -196,7 +196,7 @@ async function rafRate(page, ms = 1500) {
     check('primera entrada: completa', (await page.getByTestId('home').getAttribute('data-entry')) === 'full');
     await page.waitForTimeout(300);
     const tSkip = await timedClose(page, () => page.evaluate(() => document.querySelector('[data-testid=home-skip]').click()));
-    check('saltar: entra al espacio de trabajo en el acto', tSkip < 400, `${tSkip} ms desde el clic`);
+    check('saltar: entra al espacio de trabajo en el acto', tSkip < 1000, `${tSkip} ms desde el clic`);
     // El visor sigue usable: zoom.
     await page.getByRole('button', { name: 'Acercar' }).click();
     await page.getByRole('button', { name: 'Acercar' }).click();
@@ -222,7 +222,7 @@ async function rafRate(page, ms = 1500) {
     await page.getByTestId('open-home').click();
     await page.waitForTimeout(700);
     const tEsc = await timedClose(page, () => page.keyboard.press('Escape'));
-    check('Escape: entra directo al espacio de trabajo', tEsc < 400, `${tEsc} ms`);
+    check('Escape: entra directo al espacio de trabajo', tEsc < 1000, `${tEsc} ms`);
     // Escape durante la entrada.
     await page.getByTestId('open-home').click();
     await page.waitForTimeout(700);

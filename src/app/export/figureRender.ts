@@ -216,7 +216,7 @@ async function renderPdf(o: FigureOptions, env: FigureEnv, wellName: string): Pr
     pages: [{ width: framed.width, height: framed.height, items }],
     title: meta.title,
     subject: meta.subtitle ?? '',
-    creator: 'Interpretación de pozo',
+    creator: 'FiubaLog',
     created: env.date,
   });
   const base = isXY ? `${wellName}_${drawable.title}` : `${wellName}_perfil`;
