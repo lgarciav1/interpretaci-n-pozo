@@ -29,6 +29,8 @@ export interface ComputedCurve {
   moduleId: string;
   label: string;
   data: Float64Array;
+  /** Espacios de trabajo del módulo que la produce (para `TrackSpec.collectFrom`); sin dato, no se filtra. */
+  workspaces?: readonly string[];
   /**
    * true si alimenta la cadena (fuente elegida del puerto). Las alternativas (`compare`) se dibujan en la misma pista,
    * rayadas y translúcidas, con la etiqueta «alternativa»; no alimentan rellenos ni superposiciones.
@@ -365,6 +367,7 @@ export function resolveTracks(fullLayout: readonly TrackSpec[], src: ViewerSourc
     for (const c of computed) {
       const key = `c:${c.moduleId}:${c.port}`;
       if (placed.has(key) || isFlag(c.port) !== (t.collect === 'flags')) continue;
+      if (t.collectFrom !== undefined && c.workspaces && !c.workspaces.includes(t.collectFrom)) continue;
       const rc = computedCurve(c, t);
       if (!rc || (t.collect === 'computed' && rc.kind === 'band')) continue;
       list.push(rc);
