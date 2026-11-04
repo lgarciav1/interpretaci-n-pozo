@@ -73,7 +73,7 @@ describe('saneamiento', () => {
 
 describe('distribuciones por zona (0066)', () => {
   it('de fábrica: φe implícita, toda la zona, excluir derrumbe y solo la actual', () => {
-    expect(plotConfig(base(), 'w', 'distribution')).toEqual({ curve: null, filter: 'all', reservoirOnly: false, excludeWashout: false, series: ['#current'], hiddenZones: [] });
+    expect(plotConfig(base(), 'w', 'distribution')).toEqual({ curve: null, filter: 'all', reservoirOnly: false, excludeWashout: false, series: ['#current'], hiddenZones: [], cutoffs: {} });
   });
   it('saneamiento: filtro, series y zonas válidas; series repetidas fuera', () => {
     const d = sanitizeDistribution({ curve: 'PHIE', filter: 'gas', reservoirOnly: 1, excludeWashout: false, series: ['#current', 'snap-1', 'snap-1', 'otra', 'well:w2', 3], hiddenZones: ['za', 'za', ''] });

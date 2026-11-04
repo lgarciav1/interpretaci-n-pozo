@@ -7,7 +7,7 @@
 import type { DistributionStats } from '../../petro/distribution';
 import { ensureContrast, withAlpha } from '../../ui/color';
 import { BASE_TOKENS, canvasFont, scalePx, type ThemeTokens } from '../../ui/tokens';
-import { axisFraction, axisTicks, type XYAxis } from '../xy/axes';
+import { axisFraction, axisTicks, fractionValue, type XYAxis } from '../xy/axes';
 import { axisTitle } from '../xy/draw';
 import { hasBox, type DistributionCell } from './distribution';
 
@@ -52,6 +52,23 @@ export function laneX(axis: XYAxis, width: number, ui = 1): (v: number) => numbe
     const f = axisFraction(axis, v);
     return Number.isFinite(f) ? pad + f * span : NaN;
   };
+}
+
+/**
+ * px horizontal → valor (inversa de `laneX`), acotado a los extremos del eje: un arrastre que se sale del área queda en
+ * el borde. En log, la interpolación es en décadas.
+ */
+export function laneValue(axis: XYAxis, width: number, x: number, ui = 1): number {
+  const pad = scalePx(DIST_METRICS.padX, ui);
+  const span = Math.max(1, width - 2 * pad);
+  const f = Math.min(1, Math.max(0, (x - pad) / span));
+  return fractionValue(axis, f);
+}
+
+/** Fracción del eje de un valor, acotada a [0, 1] (posición de las marcas en CSS); NaN si no se puede ubicar. */
+export function laneFraction(axis: XYAxis, v: number): number {
+  const f = axisFraction(axis, v);
+  return Number.isFinite(f) ? Math.min(1, Math.max(0, f)) : NaN;
 }
 
 /** Carril bajo el puntero (−1 si cae en el margen). */
@@ -136,12 +153,50 @@ export function drawBox(ctx: CanvasRenderingContext2D, x: (v: number) => number,
   ctx.restore();
 }
 
+/**
+ * Distribución de las muestras seleccionadas (de otra fuente: lazo del crossplot, tramo del visor) como una barra fina
+ * dentro de la caja de la zona: P25–P75 rellena, bigotes P10–P90 y la mediana en el color del fondo. Se lee como un
+ * «bullet chart»: la caja de la zona queda visible alrededor.
+ */
+export function drawSelectionBox(ctx: CanvasRenderingContext2D, x: (v: number) => number, yc: number, s: DistributionStats, color: string, theme: ThemeTokens, ui = 1): void {
+  const bh = Math.max(3, scalePx(4, ui));
+  const [x10, x25, x50, x75, x90] = [x(s.p10), x(s.p25), x(s.p50), x(s.p75), x(s.p90)];
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(1, scalePx(1.5, ui));
+  if (Number.isFinite(x10) && Number.isFinite(x90)) {
+    ctx.beginPath();
+    ctx.moveTo(x10, yc);
+    ctx.lineTo(x90, yc);
+    ctx.stroke();
+  }
+  if (Number.isFinite(x25) && Number.isFinite(x75)) {
+    const w = Math.max(scalePx(3, ui), Math.abs(x75 - x25));
+    const left = w === Math.abs(x75 - x25) ? Math.min(x25, x75) : (x25 + x75) / 2 - w / 2;
+    ctx.fillStyle = color;
+    ctx.fillRect(left, yc - bh / 2, w, bh);
+  }
+  if (Number.isFinite(x50)) {
+    ctx.strokeStyle = theme.viewer.trackBg;
+    ctx.lineWidth = Math.max(1.5, scalePx(1.75, ui));
+    ctx.beginPath();
+    ctx.moveTo(x50, yc - bh / 2);
+    ctx.lineTo(x50, yc + bh / 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 export interface RowScene {
   axis: XYAxis;
   cells: readonly DistributionCell[];
   styles: readonly LaneStyle[];
   /** Carril resaltado (hover). */
   hover?: number;
+  /** Distribución de la selección compartida en el carril `lane` (la interpretación actual). */
+  selection?: { lane: number; stats: DistributionStats; color: string } | null;
+  /** Solo la figura exportada: cutoff de la zona como línea vertical (en pantalla es una capa DOM arrastrable). */
+  cutoff?: { value: number; color: string; dashed?: boolean } | null;
 }
 
 /** Fila de una zona: fondo, grilla y un carril por serie (o «sin dato»). Ocupa todo el canvas. */
@@ -160,8 +215,11 @@ export function drawZoneRow(ctx: CanvasRenderingContext2D, width: number, height
       ctx.fillStyle = withAlpha(theme.color.text, theme.name === 'dark' ? 0.08 : 0.05);
       ctx.fillRect(x0, yc - lane / 2, width, lane);
     }
-    if (c.stats && hasBox(c)) drawBox(ctx, x, yc, c.stats, scene.styles[k] ?? { color: theme.color.accent }, theme, ui);
-    else {
+    if (c.stats && hasBox(c)) {
+      drawBox(ctx, x, yc, c.stats, scene.styles[k] ?? { color: theme.color.accent }, theme, ui);
+      const sel = scene.selection;
+      if (sel && sel.lane === k && sel.stats.n > 0 && Number.isFinite(sel.stats.p50)) drawSelectionBox(ctx, x, yc, sel.stats, sel.color, theme, ui);
+    } else {
       ctx.fillStyle = theme.color.textMuted;
       ctx.font = canvasFont(BASE_TOKENS.text.xs, BASE_TOKENS.weight.regular, ui);
       ctx.textAlign = 'left';
@@ -169,6 +227,18 @@ export function drawZoneRow(ctx: CanvasRenderingContext2D, width: number, height
       ctx.fillText('sin dato', x0 + scalePx(DIST_METRICS.padX, ui), yc);
     }
   });
+  const cut = scene.cutoff;
+  const xc = cut ? x(cut.value) : NaN;
+  if (cut && Number.isFinite(xc)) {
+    ctx.strokeStyle = cut.color;
+    ctx.lineWidth = Math.max(1.5, scalePx(1.75, ui));
+    if (cut.dashed) ctx.setLineDash([scalePx(5, ui), scalePx(3, ui)]);
+    ctx.beginPath();
+    ctx.moveTo(Math.round(xc) + 0.5, y0);
+    ctx.lineTo(Math.round(xc) + 0.5, y0 + height);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
   ctx.restore();
 }
 
@@ -212,6 +282,8 @@ export interface FigureRow {
   name: string;
   color: string;
   note?: string;
+  /** Cutoff vigente de la zona (línea vertical). */
+  cutoff?: { value: number; color: string; dashed?: boolean } | null;
 }
 
 export interface DistributionFigureScene {
@@ -261,7 +333,7 @@ export function drawDistributionFigure(ctx: CanvasRenderingContext2D, width: num
       ctx.textBaseline = 'top';
       ctx.fillText(fit(ctx, r.note, labelW - 18), 10, y + rowH / 2 + 2);
     }
-    drawZoneRow(ctx, plotW, rowH, { axis: scene.axis, cells: scene.cells[i] ?? [], styles: scene.styles[i] ?? [] }, theme, ui, labelW, y);
+    drawZoneRow(ctx, plotW, rowH, { axis: scene.axis, cells: scene.cells[i] ?? [], styles: scene.styles[i] ?? [], ...(r.cutoff ? { cutoff: r.cutoff } : {}) }, theme, ui, labelW, y);
     ctx.strokeStyle = theme.viewer.trackBorder;
     ctx.lineWidth = 1;
     ctx.strokeRect(labelW + 0.5, y + 0.5, plotW - 1, rowH - 1);

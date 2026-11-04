@@ -1,6 +1,6 @@
 # 0066 — Distribuciones por zona (boxplots comparados)
 
-- Estado: propuesta (rama `claude/distribuciones-por-zona`, V1).
+- Estado: V1 mergeada; V2 (cutoff sobre el eje y selección por rango, D10–D14) en `claude/distribuciones-v2`.
 - Alcance: pestaña «Distribuciones» del dock (`src/modules/zone-distribution/`), dibujo y armado puro
   (`src/plots/distribution/`), configuración guardada (`src/core/plots.ts`, tipo `distribution`), acceso desde el panel
   del Sumario y la paleta, ícono `boxplot` del sistema de diseño.
@@ -89,11 +89,115 @@ Motor de distribuciones, `plotCurveOptions`/`resolvePlotCurve`, `plotContextOf`,
 `axisTicks`/`niceRange`/`axisFraction`, `registerXYFigure`, `useCanvas`, `csvCell`/`numText`, `downloadFile`,
 `ControlGroup`/`CurveSelect`, `Chip`, `SegmentedControl`, `Checkbox`, `Callout`, el tooltip de `xy.css`.
 
-## Queda para V2
+## V2 — interacciones
 
-- Cutoff arrastrable sobre el eje (escribiendo el parámetro real, como el histograma).
+Rama `claude/distribuciones-v2`. Lo puro en `src/plots/distribution/interact.ts` (tests en
+`tests/plots/distribution-interact.test.ts`); las capas DOM en `marks.tsx`.
+
+### D10. Cutoff sobre el eje: qué línea y con qué alcance
+
+- Si el rol de la propiedad tiene cutoff (`cutoffParamFor`: VSH, PHIE, SW, PERM), la línea ES el parámetro compartido
+  del módulo `cutoffs` y se dibuja siempre (no hace falta «mostrarlo», a diferencia del histograma: en este panel el
+  cutoff es la lectura principal). Se escribe con la misma receta que el histograma, `commitParamCutoff` (misma
+  etiqueta que el slider del inspector, interruptor de k activado en el mismo alcance y el mismo deshacer).
+- Alcance. El histograma tiene UNA línea y su alcance sale del filtro de zonas (una sola zona → esa zona; si no, el
+  global). Acá cada fila ya es una zona, así que se usa la misma regla fila por fila: la marca de la fila lee y escribe
+  el valor de ESA zona (`sharedParamValue` con su id: override o global) y la manija del eje lee y escribe el global.
+  Es la semántica del histograma aplicada a cada zona, no una distinta. Una zona sin valor propio sigue al global
+  (manija hueca) y se mueve con él durante el arrastre; con valor propio (manija rellena, «propio ≥ 0,09» bajo el
+  nombre) no. Volver una zona al global se hace en el inspector (no hay receta de «quitar override» desde gráficos).
+- k con interruptor (`permCutoffOn`): desactivado, línea gris punteada y sin sombra; arrastrarla lo activa en ese
+  alcance (lo hace `commitParamCutoff`), igual que el histograma.
+- Propiedades sin cutoff de módulo: «Agregar línea libre» (en la mediana), guardada en `DistributionConfig.cutoffs`
+  (clave de curva → número, saneado en `sanitizeDistribution`; un `true` no aplica: el real se dibuja siempre). No
+  cambia la petrofísica; el % es el del espesor filtrado por debajo de la línea (≤, como el histograma).
+- El eje incluye los cutoffs (`distributionAxis(…, extra)`): con «Reservorio» las cajas de φ quedan todas a la derecha
+  del corte y sin esto la manija quedaría fuera del eje. Durante el arrastre el eje se congela (como el histograma con
+  las líneas de GR) para que no se mueva bajo el puntero.
+
+### D11. % que pasa: mismos pesos y mismas muestras que la caja
+
+`cutoffPassFraction` recorre las muestras con las reglas de `intervalDistribution` (`forEachUsed`): filtro, derrumbe
+excluido si se pide, sin dato fuera, y el peso de los percentiles (espesor; h·φ para Sw por volumen poral; k por
+espesor con k > 0). Corte inclusivo como el motor (`src/petro/cutoffs.ts`). Sin muestras → «—», nunca 0.
+
+Desvío deliberado del texto literal «% del espesor filtrado»: si el filtro elegido YA aplica ese cutoff (reservorio
+neto con Vsh, φ o k; pay neto con cualquiera), el % sobre él da 100 % por construcción después de cada recálculo, y
+durante el arrastre oscilaría entre la vista previa y 100 %. En esos casos se mide sobre el nivel de arriba que no lo
+aplica (`passBaseFilter`): Sw sobre el reservorio neto, Vsh/φ/k sobre toda la zona. Con Sw el peso es h·φ (el de
+la caja): el % es la fracción del volumen poral del reservorio que es pay, no el N/G del pay por espesor (que es el
+sumario); por eso el texto dice «volumen poral» o «espesor» según la propiedad. El control lo
+dice («El % que pasa es de toda la zona: el filtro ya aplica este cutoff») y el tooltip de cada %. Las cajas siguen
+con el filtro elegido, así que se ve cómo la distribución del reservorio se achica al subir el corte.
+
+El pay neto por zona sale de la tabla `ZONE_SUMMARY` del último resultado del motor (por nombre de zona, como las
+tarjetas de zona), sin recalcular nada en el panel.
+
+### D12. Vista previa y commit
+
+Mismo patrón que el histograma: cada movimiento del puntero escribe el parámetro con fase 'preview' (el motor
+recalcula en vivo: banderas, sumario, pista del visor) y una vista previa local mueve la línea y el % sin esperar al
+motor; al soltar, 'commit'; Escape durante el arrastre, 'cancel' (vuelve al valor de antes). El gesto entero es UNA
+entrada de deshacer (`commitPlotParams` agrupa por gesto). El pay neto se actualiza cuando llega el resultado.
+
+Teclado: la manija es `role="slider"` enfocable; las flechas mueven con el paso del slider del inspector
+(`paramStep`: φ 0,005; Vsh y Sw 0,01; k sin paso, 1 % del eje log, redondeado a 3 cifras; libre, 1 % del eje) como
+vista previa; Enter confirma, Escape vuelve al valor de antes del primer toque y salir de la manija confirma. Es
+distinto del histograma (allí cada flecha es un 'commit' agrupado por la ventana de 800 ms): se eligió así para que
+Enter/Escape tengan sentido y el recorrido con flechas sea un solo deshacer. Mayús = 10 pasos.
+
+Problema encontrado y resuelto en el dock: el puente del motor pone el resultado en null con cada cambio de
+parámetro (los parámetros son parte de la clave del contexto), así que durante el recálculo no hay calculadas, φe
+«desaparece», la propiedad caía a la primera curva (BS) y la manija arrastrada se desmontaba. `useHeldContext`
+(dock) sostiene el último contexto con resultado del mismo pozo y profundidad, con la interpretación nueva, hasta que
+llega el resultado o un error. No cambia datos; evita el parpadeo. (El histograma y el crossplot tienen el mismo
+parpadeo con curvas calculadas; queda anotado como riesgo, no se tocó acá.)
+
+### D13. Selección por rango: fuente `'distribution'`
+
+Arrastrar en horizontal sobre las cajas (fuera de las manijas) define [a, b]. La máscara son las muestras usadas
+(mismas reglas que la caja: zonas visibles, filtro, derrumbe, sin dato) con valor en [a, b] (`rangeMask`), sobre la
+serie actual; `makeSelection('distribution', …, { kind: 'range', curve, curveLabel, min, max })`. Se amplió
+`SelectionSource` y `SelectionDetail` en `src/plots/link.ts` y `selectionTitle` («PHIE 0,0951–0,132 en las
+distribuciones»); el visor, el histograma y el crossplot no distinguen la fuente (solo leen la máscara y
+`detail.kind` para lo propio), así que la muestran sin más cambios (revisados todos los usos). Durante el arrastre la
+banda y el % se calculan localmente; la selección compartida se arma al soltar (el visor y el crossplot no recalculan
+en cada movimiento).
+
+- Se dibuja como banda con el acento sobre todas las filas y una barra en el eje; por zona, «sel. 54 %» del espesor
+  filtrado (ponderado como la caja; 0 % atenuado).
+- Selección de otra fuente (lazo, tramo del visor, clases del histograma, rango de otra propiedad): por zona, la
+  distribución de las muestras seleccionadas (`intervalDistribution` sobre `maskedRanges`, mismo filtro y pesos) como
+  una barra fina DENTRO de la caja de la serie actual: P25–P75 rellena, bigotes P10–P90 y mediana calada. Se eligió
+  sobre un carril aparte porque comparte el eje y la fila con la caja de la zona (se lee como un «bullet chart»: la
+  caja queda visible alrededor y la mediana de la zona sobresale) y no cambia el alto de las filas.
+- Escape (en cualquier lugar, como en los demás gráficos) o «Quitar selección» la borran. Escape durante el arrastre
+  descarta el rango en curso y deja la selección anterior.
+
+### D14. Gestos
+
+- Clic sin arrastre en una caja: el visor va a la zona (como en la V1). Umbral de arrastre horizontal: 4 px con
+  mouse, 10 px con toque (`pointerType`), así un toque no selecciona por accidente.
+- Las filas tienen `touch-action: pan-y`: el desplazamiento vertical del panel sigue funcionando con el dedo y el
+  arrastre horizontal es la selección. Las manijas tienen `touch-action: none` y un área de toque de 22 px (40 px con
+  puntero grueso; la del eje se agranda con un pseudo-elemento) aunque lo visible sea una píldora de 8 × 16 px.
+- Las marcas son capas DOM sobre los canvas (posición por fracción del eje en CSS, `--zd-pad` = el margen de
+  `laneX`): un arrastre no redibuja ninguna caja; los canvas se redibujan solo cuando cambian las celdas (cuando el
+  motor recalcula). El mapeo puntero → valor es `laneValue` (inversa de `laneX`, acotada al eje; en log, en décadas).
+- En angosto, el eje reserva el borde de 3 px de la zona que tienen las filas: antes la grilla del eje quedaba
+  corrida 3 px respecto de las cajas.
+- La figura exportada incluye la línea del cutoff de cada zona.
+
+### Cambios fuera de `src/plots/distribution/` y `src/modules/zone-distribution/`
+
+- `src/core/plots.ts`: `DistributionConfig.cutoffs` (líneas libres) y su saneado: es configuración guardada.
+- `src/plots/link.ts`: fuente `'distribution'`, detalle `range` y su título: la selección compartida es una sola.
+- Tests: `tests/plots-state.test.ts` (la configuración de fábrica tiene `cutoffs: {}`).
+
+## Queda para después
+
+- Volver una zona al global desde el panel (hoy, en el inspector).
 - Plugs de corona como serie.
-- Selección cruzada con el visor (marcar un tramo y ver su caja; resaltar en la fila las muestras seleccionadas).
 - Histogramas apilados (violines) por zona.
 - Barra P90/P50/P10 del volumen (incertidumbre) en la misma vista.
 - Separar visualmente los carriles por serie con su nombre al costado cuando hay ancho.

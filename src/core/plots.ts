@@ -87,6 +87,11 @@ export interface DistributionConfig {
   series: string[];
   /** Zonas ocultas (ids del pozo activo). */
   hiddenZones: string[];
+  /**
+   * Líneas libres por curva (V2): solo para propiedades SIN cutoff del módulo de cutoffs (las de rol VSH, PHIE, SW y
+   * PERM muestran siempre el parámetro real). No cambian la petrofísica.
+   */
+  cutoffs: Record<PlotCurveKey, number>;
 }
 
 export interface WellPlots {
@@ -109,7 +114,7 @@ export function defaultCrossplot(): CrossplotConfig {
 }
 
 export function defaultDistribution(): DistributionConfig {
-  return { curve: null, filter: 'all', reservoirOnly: false, excludeWashout: false, series: ['#current'], hiddenZones: [] };
+  return { curve: null, filter: 'all', reservoirOnly: false, excludeWashout: false, series: ['#current'], hiddenZones: [], cutoffs: {} };
 }
 
 /** Configuración de fábrica de un tipo de gráfico. */
@@ -196,7 +201,16 @@ export function sanitizeDistribution(raw: unknown): DistributionConfig {
     excludeWashout: bool(raw['excludeWashout'], d.excludeWashout),
     series: series.length ? series : d.series,
     hiddenZones: [...new Set(strings(raw['hiddenZones']))],
+    cutoffs: freeLines(raw['cutoffs']),
   };
+}
+
+/** Líneas libres de las distribuciones: solo números finitos con clave de curva válida (un `true` no aplica acá). */
+function freeLines(v: unknown): Record<PlotCurveKey, number> {
+  const out: Record<PlotCurveKey, number> = {};
+  if (!isObj(v)) return out;
+  for (const [k, x] of Object.entries(v)) if (isKey(k) && isNum(x)) out[k] = x;
+  return out;
 }
 
 /** Valida `display.plots` leído de un archivo (por pozo). Lo que no es un objeto se descarta con aviso. */

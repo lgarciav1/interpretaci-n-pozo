@@ -166,8 +166,9 @@ export function cellQuality(c: DistributionCell): { washout: number; washoutExcl
 /**
  * Eje compartido: contiene P10–P90 y las medias de todas las cajas visibles (lineal con margen y extremos «lindos»;
  * log en décadas). Si todos los valores son ≥ 0, el eje lineal no baja de 0. null si no hay ninguna caja.
+ * `extra`: valores que también tienen que verse (los cutoffs, para que su manija siempre se pueda agarrar).
  */
-export function distributionAxis(cells: readonly (readonly DistributionCell[])[], scale: 'linear' | 'log', label: string, unit?: string): XYAxis | null {
+export function distributionAxis(cells: readonly (readonly DistributionCell[])[], scale: 'linear' | 'log', label: string, unit?: string, extra: readonly number[] = []): XYAxis | null {
   const vals: number[] = [];
   for (const row of cells)
     for (const c of row) {
@@ -176,7 +177,10 @@ export function distributionAxis(cells: readonly (readonly DistributionCell[])[]
       vals.push(s.p10, s.p90, s.mean, s.p50);
       if (scale === 'log') vals.push(s.geoMean);
     }
-  const finite = vals.filter((v) => Number.isFinite(v) && (scale === 'linear' || v > 0));
+  const ok = (v: number) => Number.isFinite(v) && (scale === 'linear' || v > 0);
+  // Sin ninguna caja no hay eje, aunque haya cutoffs.
+  if (!vals.some(ok)) return null;
+  const finite = [...vals, ...extra].filter(ok);
   const r = niceRange([finite], scale, { pad: 0.06 });
   if (!r) return null;
   const min = scale === 'linear' && finite.every((v) => v >= 0) ? Math.max(0, r.min) : r.min;
