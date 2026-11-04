@@ -9,6 +9,10 @@
   position: relative;
   overflow-y: clip;
 }
+/* Mientras el Inicio lo cubre (inerte, aria-hidden) el armazón no impone su ancho mínimo: en el celular inflaba el
+   viewport de layout a 1024 px y el Inicio (fixed, inset 0) quedaba más grande que la pantalla, con el botón
+   «Entrar al pozo» fuera de vista y sin scroll. Al soltarse el cubrimiento vuelve el mínimo del espacio de trabajo. */
+.shell[aria-hidden='true'] { min-width: 0; overflow: clip; }
 .shell-spacer { flex: 1; }
 
 /* Lectura temporal: se conserva la disposición guardada y se recupera al salir. */

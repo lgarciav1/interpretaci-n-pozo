@@ -5,6 +5,8 @@
   inset: 0;
   z-index: var(--z-modal);
   display: grid;
+  /* Columna acotada al ancho disponible: sin esto, el contenido sin saltos de línea ensancha el diálogo más que la pantalla. */
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   padding: var(--space-6);
   background: var(--color-overlay);
@@ -14,7 +16,9 @@
   display: flex;
   flex-direction: column;
   width: 100%;
+  min-width: 0;
   max-height: calc(100vh - calc(48px * var(--ui-scale)));
+  max-height: calc(100dvh - calc(48px * var(--ui-scale)));
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface-raised);
@@ -28,7 +32,7 @@
 .ui-dialog--xl { max-width: calc(1080px * var(--ui-scale)); }
 /* Ventana completa (mesas de trabajo como el Log Digitizer): un margen chico y todo el alto. */
 .ui-dialog-backdrop:has(> .ui-dialog--full) { padding: var(--space-3); }
-.ui-dialog--full { max-width: none; height: calc(100vh - 2 * var(--space-3)); max-height: none; }
+.ui-dialog--full { max-width: none; height: calc(100vh - 2 * var(--space-3)); height: calc(100dvh - 2 * var(--space-3)); max-height: none; }
 .ui-dialog__head {
   display: flex;
   align-items: center;
@@ -150,3 +154,9 @@
 }
 .ui-popover[data-placement='top'] { transform: translateY(4px); }
 .ui-popover[data-open] { opacity: 1; transform: none; transition: opacity var(--dur-fast) var(--ease-enter), transform var(--dur-base) var(--ease-enter); }
+
+/* Celular: margen chico (el stepper del encabezado se compacta solo según su ancho). */
+@media (max-width: 640px) {
+  .ui-dialog-backdrop { padding: var(--space-2); }
+  .ui-dialog__head { gap: var(--space-3); padding-left: var(--space-4); }
+}
