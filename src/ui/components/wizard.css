@@ -22,3 +22,11 @@
 .ui-wizard__step.is-current .ui-wizard__marker { border-color: var(--color-accent); background: var(--color-accent); color: var(--color-text-on-accent); }
 .ui-wizard__step.is-done { color: var(--color-text); }
 .ui-wizard__step.is-done .ui-wizard__marker { border-color: var(--color-ok-border); background: var(--color-ok-soft); color: var(--color-ok-text); }
+
+/* Pantalla angosta: solo el rótulo del paso actual; los demás quedan como marcadores. */
+@media (max-width: 640px) {
+  .ui-wizard { gap: var(--space-1-5); }
+  .ui-wizard__step { gap: var(--space-1-5); }
+  .ui-wizard__step:not(.is-current) .ui-wizard__label { display: none; }
+  .ui-wizard__line { width: calc(10px * var(--ui-scale)); }
+}
