@@ -6,15 +6,17 @@
  *
  * - Lo de paso (bajo el puntero): profundidad de un punto del crossplot, tramos de la clase del histograma.
  * - La SELECCIÓN: una sola activa entre todas las fuentes (lazo o rectángulo del crossplot, clases del histograma,
- *   tramo del visor). Es una máscara sobre las muestras del pozo; los demás la muestran a su manera (tramos en el
- *   visor, puntos resaltados en el crossplot, distribución superpuesta en el histograma).
+ *   tramo del visor, rango de una propiedad en las distribuciones por zona, 0066). Es una máscara sobre las muestras
+ *   del pozo; los demás la muestran a su manera (tramos en el visor, puntos resaltados en el crossplot, distribución
+ *   superpuesta en el histograma, caja fina por zona en las distribuciones).
  *
  * El cursor del visor → punto del crossplot sigue leyendo `useViewer.cursorDepth`.
  */
+import { formatNumber } from '../ui/format';
 import type { DepthRun } from './data';
 import { maskCount, maskRuns, type SelectionShape } from './selection';
 
-export type SelectionSource = 'crossplot' | 'histogram' | 'viewer';
+export type SelectionSource = 'crossplot' | 'histogram' | 'viewer' | 'distribution';
 
 /** Lo que hace falta para volver a dibujar la selección donde se creó (y para sumar a ella). */
 export type SelectionDetail =
@@ -23,7 +25,9 @@ export type SelectionDetail =
   /** Histograma: clases elegidas de la curva `curve` con esos bordes. */
   | { kind: 'bins'; curve: string; curveLabel: string; edges: readonly number[]; bins: readonly number[] }
   /** Visor: tramo de profundidad (m). */
-  | { kind: 'interval'; top: number; base: number };
+  | { kind: 'interval'; top: number; base: number }
+  /** Distribuciones por zona (0066, V2): rango [min, max] de la propiedad `curve` en las zonas visibles y el filtro. */
+  | { kind: 'range'; curve: string; curveLabel: string; min: number; max: number };
 
 export interface PlotSelection {
   source: SelectionSource;
@@ -90,6 +94,7 @@ export function selectionFor(depth: Float64Array | null | undefined): PlotSelect
 export function selectionTitle(s: PlotSelection, fmtDepth: (d: number) => string = (d) => d.toFixed(1)): string {
   const d = s.detail;
   if (d.kind === 'interval') return `Tramo ${fmtDepth(d.top)}–${fmtDepth(d.base)} m`;
+  if (d.kind === 'range') return `${d.curveLabel} ${formatNumber(d.min, { significant: 3 })}–${formatNumber(d.max, { significant: 3 })} en las distribuciones`;
   if (d.kind === 'bins') return d.bins.length === 1 ? `Clase del histograma de ${d.curveLabel}` : `${d.bins.length} clases del histograma de ${d.curveLabel}`;
   const lasso = d.shapes.some((q) => q.kind === 'lasso');
   const rect = d.shapes.some((q) => q.kind === 'rect');

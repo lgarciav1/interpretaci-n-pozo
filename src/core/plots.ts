@@ -72,8 +72,8 @@ export type DistributionSampleFilter = 'all' | 'netRes' | 'netPay';
 
 /**
  * Distribuciones por zona (boxplots; docs/decisiones/0066): propiedad, filtro de muestras, series comparadas y zonas
- * ocultas. Las series se nombran `#current` (interpretación actual), `snap-…` (snapshot del pozo) o `well:<id>` (otro
- * pozo del proyecto, zonas emparejadas por nombre).
+ * ocultas. Las series se nombran `#current` (interpretación actual), `#core` (plugs de corona), `snap-…` (snapshot del
+ * pozo) o `well:<id>` (otro pozo del proyecto, zonas emparejadas por nombre).
  */
 export interface DistributionConfig {
   /** null = la propiedad por defecto (φe si hay). */
@@ -87,7 +87,19 @@ export interface DistributionConfig {
   series: string[];
   /** Zonas ocultas (ids del pozo activo). */
   hiddenZones: string[];
+  /**
+   * Líneas libres por curva (V2): solo para propiedades SIN cutoff del módulo de cutoffs (las de rol VSH, PHIE, SW y
+   * PERM muestran siempre el parámetro real). No cambian la petrofísica.
+   */
+  cutoffs: Record<PlotCurveKey, number>;
+  /** Vista (V2): cajas o histogramas apilados por zona sobre el mismo eje. */
+  view: DistributionView;
+  /** Franja del volumen in situ por zona (determinista y P90–P10 de la incertidumbre). */
+  volume: boolean;
 }
+
+/** Vista de las distribuciones por zona. */
+export type DistributionView = 'box' | 'hist';
 
 export interface WellPlots {
   histogram?: HistogramConfig;
@@ -109,7 +121,7 @@ export function defaultCrossplot(): CrossplotConfig {
 }
 
 export function defaultDistribution(): DistributionConfig {
-  return { curve: null, filter: 'all', reservoirOnly: false, excludeWashout: false, series: ['#current'], hiddenZones: [] };
+  return { curve: null, filter: 'all', reservoirOnly: false, excludeWashout: false, series: ['#current'], hiddenZones: [], cutoffs: {}, view: 'box', volume: false };
 }
 
 /** Configuración de fábrica de un tipo de gráfico. */
@@ -182,7 +194,11 @@ export function sanitizeCrossplot(raw: unknown): CrossplotConfig {
   };
 }
 
-const SERIES_ID = /^(#current|snap-.+|well:.+)$/;
+/**
+ * `#current` (actual), `#core` (plugs de corona), `#core-log` (perfil en las muestras de los plugs), `snap-…` (snapshot)
+ * o `well:<id>` (otro pozo).
+ */
+const SERIES_ID = /^(#current|#core|#core-log|snap-.+|well:.+)$/;
 
 export function sanitizeDistribution(raw: unknown): DistributionConfig {
   const d = defaultDistribution();
@@ -196,7 +212,18 @@ export function sanitizeDistribution(raw: unknown): DistributionConfig {
     excludeWashout: bool(raw['excludeWashout'], d.excludeWashout),
     series: series.length ? series : d.series,
     hiddenZones: [...new Set(strings(raw['hiddenZones']))],
+    cutoffs: freeLines(raw['cutoffs']),
+    view: raw['view'] === 'hist' ? 'hist' : 'box',
+    volume: bool(raw['volume'], d.volume),
   };
+}
+
+/** Líneas libres de las distribuciones: solo números finitos con clave de curva válida (un `true` no aplica acá). */
+function freeLines(v: unknown): Record<PlotCurveKey, number> {
+  const out: Record<PlotCurveKey, number> = {};
+  if (!isObj(v)) return out;
+  for (const [k, x] of Object.entries(v)) if (isKey(k) && isNum(x)) out[k] = x;
+  return out;
 }
 
 /** Valida `display.plots` leído de un archivo (por pozo). Lo que no es un objeto se descarta con aviso. */

@@ -9,7 +9,6 @@
  * copia marcada como desactualizada, con «Recalcular».
  */
 import { useEffect, useMemo, useState } from 'react';
-import { create } from 'zustand';
 import { selectActiveEntry, useProject } from '../../app/store/project';
 import type { TableCell, TableValue } from '../../core/module';
 import { clearParam, setParam as setProjectParam } from '../../core/state/project';
@@ -18,6 +17,7 @@ import type { XYAxis } from '../../plots/xy/axes';
 import { Button, Callout, CurveSwatch, DataTable, EmptyState, SegmentedControl, fillColor, formatNumber, useThemeTokens, withAlpha, type Column } from '../../ui';
 import type { ModulePanel, ModulePanelProps } from '../../ui/modulePanel';
 import { CALCULATE_KEY, dependencySignature, exceedanceFor, histogramFor, niceRange, statsOf, targetsOf, tornadoFor, type Row, type TargetStats, type TornadoBar } from './model';
+import { useSnapshots, type UncertaintySnapshot } from './snapshots';
 import './panel.css';
 
 const fmt = (v: number | TableCell | undefined, digits: number) =>
@@ -27,22 +27,6 @@ const fmt = (v: number | TableCell | undefined, digits: number) =>
 /** Cifras para volúmenes de campo: 3 significativas, sin pasar de 2 decimales en volúmenes grandes. */
 const vol = (v: number) => (Number.isFinite(v) ? formatNumber(v, Math.abs(v) >= 100 ? { digits: 0 } : { significant: 3 }) : '—');
 const pct = (v: number) => (Number.isFinite(v) ? `${v > 0 ? '+' : v < 0 ? '−' : '±'}${formatNumber(Math.abs(v), { digits: Math.abs(v) < 10 ? 1 : 0 })} %` : '—');
-
-/** Copia del último cálculo de cada pozo (sobrevive al cambio de panel). */
-interface Snapshot {
-  wellId: string;
-  gen: number;
-  sig: string;
-  iterations: number;
-  summary: readonly Row[];
-  hist: readonly Row[];
-  cdf: readonly Row[];
-  tornado: readonly Row[];
-  warnings: string[];
-}
-const useSnapshots = create<{ byWell: Record<string, Snapshot> }>(() => ({
-  byWell: {},
-}));
 
 let runCounter = 0;
 
@@ -198,7 +182,7 @@ function Kpis({ stats }: { stats: TargetStats }) {
 
 type Theme = ReturnType<typeof useThemeTokens>;
 
-function Distribution({ snap, targetKey, stats, fluid, label, theme }: { snap: Snapshot; targetKey: string; stats: TargetStats; fluid: 'oil' | 'gas'; label: string; theme: Theme }) {
+function Distribution({ snap, targetKey, stats, fluid, label, theme }: { snap: UncertaintySnapshot; targetKey: string; stats: TargetStats; fluid: 'oil' | 'gas'; label: string; theme: Theme }) {
   const hist = useMemo(() => histogramFor(snap.hist, targetKey, stats.unit), [snap, targetKey, stats.unit]);
   const exc = useMemo(() => exceedanceFor(snap.cdf, targetKey, stats.unit), [snap, targetKey, stats.unit]);
   const barColor = fillColor(fluid, theme.name).color;
