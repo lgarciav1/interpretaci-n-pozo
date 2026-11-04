@@ -142,7 +142,7 @@ describe('regresión del pozo TP completo', () => {
     const classic = resolveTracks(BUILTIN_LAYOUTS.petrophysics, source);
     const essential = resolveTracks(essentialPetrophysicsLayout(), source);
     const collected = classic.find((t) => t.id === 'computed')!;
-    expect(collected.curves.length).toBeGreaterThan(40);
+    expect(collected.curves.length).toBeLessThanOrEqual(2);
     expect(essential.some((t) => t.id === 'computed')).toBe(false);
     expect(essential.flatMap((t) => t.curves).length).toBeLessThan(25);
     for (const t of essential) for (const c of t.curves) {

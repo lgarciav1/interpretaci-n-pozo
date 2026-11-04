@@ -24,7 +24,7 @@ describe('línea base clásica del TP', () => {
     expect(layoutFor('geology', opened.display.layouts)).toBe(BUILTIN_LAYOUTS.geology);
   });
 
-  it('conserva los once grupos clásicos y las 52 curvas del recolector para quien elige esa vista', () => {
+  it('conserva los once grupos clásicos y deja «Interpretación» con sus curvas elegidas (sin recolector)', () => {
     const { well, zones } = readWellFile(csvText, 'pozo_tp_perfiles.csv');
     const p = addWell(createProject('Base TP'), well, zones);
     const result = computeOnce(registry, toEngineWell(well), p.wells[0]!.interpretation);
@@ -33,9 +33,9 @@ describe('línea base clásica del TP', () => {
       : []);
     const tracks = resolveTracks(layoutFor('petrophysics', p.display.layouts), { depth: well.depth.values, curves: well.curves, computed, catalog: registry.roles });
     expect(tracks.map((t) => t.id)).toEqual(['correlation', 'depth', 'resistivity', 'porosity', 'sonic', 'computed', 'saturation', 'volumetric', 'permeability', 'flags', 'indicators']);
-    // 47 de la línea base + M, N, Umaa y Th/K de «Índices de litología» (0059) + la distribución de la arcilla de
-    // Thomas–Stieber (0061): el recolector suma los módulos nuevos.
-    expect(tracks.find((t) => t.id === 'computed')!.curves).toHaveLength(52);
+    // Antes el recolector la llenaba con 52 curvas (todo lo calculado por cualquier módulo): quedaba saturada. Ahora
+    // muestra solo VSH e IGR; las demás se agregan desde «Armar pistas».
+    expect(tracks.find((t) => t.id === 'computed')!.curves.map((c) => c.role)).toEqual(['VSH', 'IGR']);
     expect(tracks.find((t) => t.id === 'porosity')!.curves.map((c) => c.role)).toEqual(['PEF', 'NPHI', 'RHOB']);
   });
 });

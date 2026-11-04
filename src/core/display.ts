@@ -124,6 +124,11 @@ export interface TrackSpec {
   stack?: StackSpec;
   /** Toma las curvas calculadas (o banderas) que ninguna otra pista ubicó. */
   collect?: 'computed' | 'flags';
+  /**
+   * Con `collect`: solo toma las salidas de módulos de ese espacio de trabajo. Sin esto, la pista de una plantilla se
+   * llena con lo que producen módulos de otros espacios (p. ej. el aprendizaje automático de Geología en Petrofísica).
+   */
+  collectFrom?: string;
   /** No se muestra si no tiene curvas. */
   hideWhenEmpty?: boolean;
   /** Texto del estado vacío (qué falta para que aparezcan curvas). */
@@ -320,6 +325,7 @@ function sanitizeTrack(raw: unknown, where: string, warn: (m: string) => void): 
   if (isStr(raw['overlayId'])) t.overlayId = raw['overlayId'];
   if (typeof raw['unit'] === 'string') t.unit = raw['unit'];
   if (raw['collect'] === 'computed' || raw['collect'] === 'flags') t.collect = raw['collect'];
+  if (isStr(raw['collectFrom'])) t.collectFrom = raw['collectFrom'];
   if (typeof raw['hideWhenEmpty'] === 'boolean') t.hideWhenEmpty = raw['hideWhenEmpty'];
   if (typeof raw['emptyHint'] === 'string') t.emptyHint = raw['emptyHint'];
   if (raw['hidden'] === true) t.hidden = true;

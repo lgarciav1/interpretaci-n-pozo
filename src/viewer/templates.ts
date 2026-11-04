@@ -123,7 +123,8 @@ export const BUILTIN_LAYOUTS: Readonly<Record<WorkspaceId, readonly TrackSpec[]>
         { kind: 'edge', curve: 'IGR', side: 'left', fill: 'shale', opacity: 0.35 },
         { kind: 'edge', curve: 'VSH', side: 'left', fill: 'shale', opacity: 0.6 },
       ],
-      collect: 'computed',
+      // Sin recolector: juntar todo lo calculado la saturaba con más de 20 curvas auxiliares (distancia a la arcilla,
+      // desajuste de la inversión, FZI…). Esas siguen disponibles en «Armar pistas» y en sus propias pistas.
       emptyHint: 'Las curvas calculadas aparecen acá. Empezá por el paso Arcilla.',
     },
     {
@@ -175,7 +176,7 @@ export const BUILTIN_LAYOUTS: Readonly<Record<WorkspaceId, readonly TrackSpec[]>
     },
     { id: 'sonic', title: 'Sónico', kind: 'curves', width: 0.8, curves: [{ select: { role: 'DT' } }, { select: { role: 'DTS' } }], emptyHint: 'Sin sónico en este pozo.' },
     NMR_TRACK,
-    { id: 'computed', title: 'Interpretación', kind: 'curves', curves: [{ select: { role: 'IGR' }, style: { line: 'solid' } }], collect: 'computed', hideWhenEmpty: true },
+    { id: 'computed', title: 'Interpretación', kind: 'curves', curves: [{ select: { role: 'IGR' }, style: { line: 'solid' } }], collect: 'computed', collectFrom: 'geology', hideWhenEmpty: true },
     { id: 'flags', title: 'Banderas', kind: 'flags', collect: 'flags', hideWhenEmpty: true },
   ],
 };

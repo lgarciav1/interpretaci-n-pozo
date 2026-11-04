@@ -152,7 +152,9 @@ describe('pistas del pozo del TP (datos/pozo_tp_perfiles.csv)', () => {
       { port: 'VSH', moduleId: 'vsh-alt', label: 'VSH alternativa', data: new Float64Array(n), active: false },
       { port: 'XYZ', moduleId: 'nuevo', label: 'Rol desconocido', data: new Float64Array(n).fill(3), active: true },
     ];
-    const t2 = resolveTracks(BUILTIN_LAYOUTS.petrophysics, { ...src, computed });
+    // Con recolector explícito (la plantilla de fábrica ya no lo trae: se saturaba con todo lo calculado).
+    const collecting = BUILTIN_LAYOUTS.petrophysics.map((t) => (t.id === 'computed' ? { ...t, collect: 'computed' as const } : t));
+    const t2 = resolveTracks(collecting, { ...src, computed });
     // La alternativa (compare) se dibuja en la pista de su rol, marcada; sin VSH activa no hay relleno de VSH.
     expect(track(t2, 'computed').curves.map((c) => c.key)).toEqual(['c:vsh-alt:VSH', 'c:igr:IGR', 'c:nuevo:XYZ']);
     const alt = track(t2, 'computed').curves[0]!;
@@ -168,6 +170,27 @@ describe('pistas del pozo del TP (datos/pozo_tp_perfiles.csv)', () => {
     expect(xyz.axis.max).toBeGreaterThan(3);
     // la alternativa aparece una sola vez
     expect(t2.flatMap((t) => t.curves).filter((c) => c.moduleId === 'vsh-alt')).toHaveLength(1);
+  });
+
+  it('la plantilla de fábrica de Petrofísica no se satura: «Interpretación» no absorbe las calculadas ajenas a sus curvas', () => {
+    const n = well.depth.values.length;
+    const computed: ComputedCurve[] = [
+      { port: 'IGR', moduleId: 'igr', label: 'IGR', data: new Float64Array(n).fill(0.4), active: true },
+      { port: 'XYZ', moduleId: 'nuevo', label: 'Rol desconocido', data: new Float64Array(n).fill(3), active: true },
+    ];
+    const t = resolveTracks(BUILTIN_LAYOUTS.petrophysics, { ...src, computed });
+    expect(track(t, 'computed').curves.map((c) => c.key)).toEqual(['c:igr:IGR']);
+  });
+
+  it('collectFrom: el recolector solo toma salidas de módulos del espacio de trabajo pedido', () => {
+    const n = well.depth.values.length;
+    const mk = (port: string, moduleId: string, workspaces?: string[]): ComputedCurve =>
+      ({ port, moduleId, label: port, data: new Float64Array(n).fill(1), active: true, ...(workspaces ? { workspaces } : {}) });
+    const computed = [mk('XYZ', 'petro-mod', ['petrophysics']), mk('ABC', 'geo-mod', ['geology']), mk('DEF', 'both-mod', ['geology', 'petrophysics']), mk('GHI', 'sin-dato')];
+    const layout = [{ id: 'c', title: 'C', kind: 'curves' as const, collect: 'computed' as const, collectFrom: 'petrophysics' }];
+    const t = resolveTracks(layout, { ...src, computed });
+    // Sin `workspaces` (módulo desconocido) no se filtra: ante la duda, se muestra.
+    expect(track(t, 'c').curves.map((c) => c.name)).toEqual(['XYZ', 'DEF', 'GHI']);
   });
 
   it('overrides: curva > rol > plantilla; color con contraste en ambos temas; ocultar', () => {

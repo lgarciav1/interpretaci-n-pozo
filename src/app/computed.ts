@@ -9,7 +9,7 @@ import type { Well } from '../core/well';
 import { registry } from '../modules';
 import type { ComputedCurve } from '../viewer/resolve';
 import type { ViewerTable } from '../viewer/overlay';
-import type { ReadonlyTableValue } from '../core/module';
+import { moduleWorkspaces, type ReadonlyTableValue } from '../core/module';
 
 const cache = new WeakMap<ClientResult, ComputedCurve[]>();
 const NONE: ComputedCurve[] = [];
@@ -36,7 +36,8 @@ export function computedCurves(result: ClientResult | null, well: Well | null): 
     out = [];
     for (const o of result.outputs) {
       if (o.kind !== 'curve' || !(o.value instanceof Float64Array)) continue;
-      out.push({ port: o.port, moduleId: o.moduleId, label: registry.get(o.moduleId)?.name ?? o.label, data: o.value, active: o.active });
+      const mod = registry.get(o.moduleId);
+      out.push({ port: o.port, moduleId: o.moduleId, label: mod?.name ?? o.label, data: o.value, active: o.active, ...(mod ? { workspaces: moduleWorkspaces(mod) } : {}) });
     }
     cache.set(result, out);
   }

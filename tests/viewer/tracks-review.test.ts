@@ -58,7 +58,7 @@ describe('acciones de «Armar pistas»', () => {
   it('mover una curva que tomó el recolector le da su estilo y sus rellenos de convención', () => {
     const p = addWell(createProject('P'), well);
     // VSH fuera de la pista de Interpretación: la toma el recolector de una plantilla sin VSH.
-    const layout = materializedLayout(p, WS, []).map((t) => (t.id === 'computed' ? { ...t, curves: [], fills: [] } : t));
+    const layout = materializedLayout(p, WS, []).map((t) => (t.id === 'computed' ? { ...t, curves: [], fills: [], collect: 'computed' as const } : t));
     const q = { ...p, display: { ...p.display, layouts: { [WS]: layout } } };
     const { displayed, editor } = editorFor(q, [vsh, phit]);
     const comp = displayed.find((t) => t.id === 'computed')!;
