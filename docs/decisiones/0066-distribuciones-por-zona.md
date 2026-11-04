@@ -33,7 +33,7 @@ ponderados por espesor (Hazen con pesos iguales). Sin dato → «sin dato», nun
 ## D3. Filtro de muestras y opciones que el motor rechazaría
 
 Toda la zona / reservorio neto / pay neto (`NET_RES`, `NET_PAY` activos), «Solo zonas de reservorio» (`kind`) y
-«Excluir derrumbe» (`IND_WASHOUT`, activado por defecto). Si falta la bandera o el indicador, la opción queda
+«Excluir derrumbe» (`IND_WASHOUT`, apagado por defecto: así la media coincide con el sumario por zona, que no excluye derrumbe; activado, el control lo avisa). Si falta la bandera o el indicador, la opción queda
 deshabilitada y el filtro efectivo cae a «toda la zona»; el panel nunca llama al motor con una entrada faltante. Si una
 serie comparada no tiene las banderas, su celda dice «sin banderas netas» en vez de tirar.
 

@@ -98,14 +98,19 @@ export function DistributionPanel({ ctx, wellName, config, onChange, series, onG
   const curve = useMemo(() => resolvePlotCurve(ctx, key), [ctx, key]);
   const current = useMemo(() => seriesFromContext(ctx, key, { id: CURRENT_SERIES, label: 'Actual', kind: 'current' }), [ctx, key]);
   const avail = availabilityOf(current);
-  const stat = propertyStat(curve?.role ?? curve?.short ?? '', avail.phi);
+  const stat = propertyStat(curve?.role ?? curve?.short ?? '', avail.phi, curve?.scale);
   const unit = curve?.unitText || undefined;
   // Filtro efectivo: si faltan las banderas, toda la zona (el control queda deshabilitado).
   const filter = (config.filter === 'netRes' && !avail.netRes) || (config.filter === 'netPay' && !avail.netPay) ? 'all' : config.filter;
   const excludeWashout = config.excludeWashout && avail.washout;
 
   // Series elegidas, en el orden de las candidatas («Actual» primero).
-  const chosen = config.series.length ? config.series : [CURRENT_SERIES];
+  // Sin las que ya no existen (snapshot borrado, pozo quitado): si no, quitar «Actual» con una sola serie viva dejaría
+  // la lista sin series reales y el panel mostraría «Actual» con su chip apagado.
+  const chosen = useMemo(() => {
+    const alive = config.series.filter((id) => id === CURRENT_SERIES || series.some((s) => s.id === id));
+    return alive.length ? alive : [CURRENT_SERIES];
+  }, [config.series, series]);
   const lanes = useMemo(() => {
     const out: { id: string; label: string; kind: SeriesKind; status: DistributionSeriesItem['status']; data: SeriesData | null }[] = [];
     if (chosen.includes(CURRENT_SERIES)) out.push({ id: CURRENT_SERIES, label: 'Actual', kind: 'current', status: 'ready', data: current });
@@ -141,6 +146,9 @@ export function DistributionPanel({ ctx, wellName, config, onChange, series, onG
     [rows, lanes.length, styles, theme],
   );
 
+  // Tramo de cada fila para marcar en el visor: el mismo arreglo mientras no cambien las filas, así mover el puntero
+  // dentro de una zona no vuelve a avisar al visor en cada movimiento (`setPlotLink` compara por identidad).
+  const rowRuns = useMemo(() => rows.map((r) => [{ top: r.top, base: r.base }]), [rows]);
   const [hover, setHover] = useState(HOVER_NONE);
   useEffect(() => () => setPlotLink({ hoverRuns: null }), []);
 
@@ -223,7 +231,7 @@ export function DistributionPanel({ ctx, wellName, config, onChange, series, onG
               disabled={!avail.washout}
               onChange={(on) => onChange({ excludeWashout: on }, on ? 'Excluir derrumbe' : 'Incluir derrumbe')}
               label="Excluir derrumbe"
-              description={avail.washout ? 'Muestras con el indicador de derrumbe' : 'No hay indicador de derrumbe calculado'}
+              description={avail.washout ? 'Muestras con el indicador de derrumbe. Activado, las medias dejan de coincidir con el sumario por zona.' : 'No hay indicador de derrumbe calculado'}
             />
           </ControlGroup>
           <ControlGroup title="Series">
@@ -335,7 +343,7 @@ export function DistributionPanel({ ctx, wellName, config, onChange, series, onG
                       hover={hover.zone === i ? hover : null}
                       onHover={(h) => {
                         setHover(h ? { zone: i, ...h } : HOVER_NONE);
-                        setPlotLink({ hoverRuns: h ? [{ top: r.top, base: r.base }] : null });
+                        setPlotLink({ hoverRuns: h ? rowRuns[i]! : null });
                       }}
                       onGo={() => goTo(r)}
                     />

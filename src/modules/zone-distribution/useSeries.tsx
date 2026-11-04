@@ -21,6 +21,7 @@ import { CURRENT } from '../../app/snapshots/useSource';
 import type { SeriesKind } from '../../plots/distribution/distribution';
 import type { SeriesContext } from '../../plots/trend/series';
 import { registry } from '../index';
+import { swapLeases } from './leases';
 
 export interface SeriesCandidate {
   id: string;
@@ -90,7 +91,7 @@ export function useSeriesRuns(ids: readonly string[], project: Project, active: 
           if (!snap) out.push({ id, error: 'El snapshot ya no existe.' });
           else {
             const r = snapshotRunRequest(project, snap);
-            out.push({ id, key: r.key, engineWell: r.engineWell, interpretation: snap.interpretation, context: r.context, preparation: r.preparation, well: r.well });
+            out.push({ id, key: r.key, engineWell: r.engineWell, interpretation: r.interpretation, context: r.context, preparation: r.preparation, well: r.well });
           }
         }
       } catch (err) {
@@ -104,11 +105,21 @@ export function useSeriesRuns(ids: readonly string[], project: Project, active: 
   const keys = runs.map((r) => r.key).join('\n');
   const latest = useRef(runs);
   latest.current = runs;
+  // Corridas tomadas. Al cambiar la selección se toman las nuevas antes de soltar las viejas (`swapLeases`): agregar
+  // una serie no cancela ni re-encola las que siguen elegidas.
+  const held = useRef<(() => void)[]>([]);
   useEffect(() => {
-    const releases = latest.current.map((r) => snapshotRunner.acquire(r.key, r.engineWell, r.interpretation, r.context, r.preparation));
-    return () => releases.forEach((release) => release());
+    held.current = swapLeases(held.current, () => latest.current.map((r) => snapshotRunner.acquire(r.key, r.engineWell, r.interpretation, r.context, r.preparation)));
     // La clave resume pozo, interpretación, curvas y contexto: no hace falta depender de los objetos.
   }, [keys]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(
+    () => () => {
+      const releases = held.current;
+      held.current = [];
+      releases.forEach((release) => release());
+    },
+    [],
+  );
 
   // Firma primitiva de los estados (estable entre renders mientras nada cambie).
   const signature = useSyncExternalStore(subscribe, () => runs.map((r) => snapshotRunner.get(r.key)?.status ?? 'pending').join(','));

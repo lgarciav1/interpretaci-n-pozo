@@ -9,7 +9,7 @@ import { ensureContrast, withAlpha } from '../../ui/color';
 import { BASE_TOKENS, canvasFont, scalePx, type ThemeTokens } from '../../ui/tokens';
 import { axisFraction, axisTicks, type XYAxis } from '../xy/axes';
 import { axisTitle } from '../xy/draw';
-import type { DistributionCell } from './distribution';
+import { hasBox, type DistributionCell } from './distribution';
 
 /** Medidas en px CSS a tamaño de interfaz 1 (se escalan con `ui`). */
 export const DIST_METRICS = {
@@ -160,7 +160,7 @@ export function drawZoneRow(ctx: CanvasRenderingContext2D, width: number, height
       ctx.fillStyle = withAlpha(theme.color.text, theme.name === 'dark' ? 0.08 : 0.05);
       ctx.fillRect(x0, yc - lane / 2, width, lane);
     }
-    if (c.stats && c.stats.n > 0) drawBox(ctx, x, yc, c.stats, scene.styles[k] ?? { color: theme.color.accent }, theme, ui);
+    if (c.stats && hasBox(c)) drawBox(ctx, x, yc, c.stats, scene.styles[k] ?? { color: theme.color.accent }, theme, ui);
     else {
       ctx.fillStyle = theme.color.textMuted;
       ctx.font = canvasFont(BASE_TOKENS.text.xs, BASE_TOKENS.weight.regular, ui);

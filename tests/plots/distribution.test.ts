@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { emptyInterpretation } from '../../src/core/interpretation';
 import { defaultRoleCatalog } from '../../src/core/roles';
 import { createWell, type Zone } from '../../src/core/well';
-import { buildCells, cellQuality, cellTooltip, distributionAxis, propertyStat, shownRows, statsCsv, topsCsv, zoneKey, zoneNotes, zoneRows, type SeriesData } from '../../src/plots/distribution/distribution';
+import { buildCells, cellQuality, hasBox, cellTooltip, distributionAxis, propertyStat, shownRows, statsCsv, topsCsv, zoneKey, zoneNotes, zoneRows, type SeriesData } from '../../src/plots/distribution/distribution';
 import { laneAt, rowHeight } from '../../src/plots/distribution/draw';
 import { defaultProperty, propertyOptions, seriesFromContext, thicknessOf, translateKey, usesOnlyDefaults } from '../../src/plots/distribution/series';
 import type { SeriesContext } from '../../src/plots/trend/series';
@@ -76,6 +76,15 @@ describe('celdas', () => {
     const pv = buildCells(rows, [series({ phi: undefined })], { ...SETTINGS, mean: 'poreVolume' });
     expect(pv[0]![0]!.missing).toBe('phi');
   });
+  it('Sw por volumen poral en una zona con φ = 0 (lutita): n > 0 pero sin caja, se lee «sin dato»', () => {
+    const phiZeroA = Float64Array.from({ length: n }, (_, i) => (i < 10 ? 0 : 0.2));
+    const sw = new Float64Array(n).fill(1);
+    const [[a], [b]] = buildCells(rows, [series({ values: sw, phi: phiZeroA })], { ...SETTINGS, excludeWashout: false, mean: 'poreVolume' });
+    expect(a!.stats!.n).toBe(10);
+    expect(a!.stats!.p50).toBeNaN();
+    expect(hasBox(a!)).toBe(false);
+    expect(hasBox(b!)).toBe(true);
+  });
   it('un snapshot del mismo pozo se empareja por id aunque cambie el nombre', () => {
     const snap = series({ id: 'snap-1', kind: 'snapshot', zones: zones.map((z) => ({ ...z, name: `${z.name}2` })) });
     expect(buildCells(rows, [snap], SETTINGS)[1]![0]!.stats!.n).toBe(10);
@@ -84,13 +93,17 @@ describe('celdas', () => {
     const [[a]] = buildCells(rows, [series()], SETTINGS);
     expect(zoneNotes(a)).toEqual([
       { text: 'n 7 · 7,0 m', tone: 'muted' },
-      { text: '20 % derrumbe', tone: 'warn' },
+      { text: '20 % derrumbe (excluido)', tone: 'warn' },
       { text: '10 % sin dato', tone: 'muted' },
     ]);
     const tip = cellTooltip('A', 'Actual', a!, 'thickness', 'v/v');
     expect(tip[0]).toBe('A · Actual');
     expect(tip).toContain('Media (por espesor) 0,05 v/v');
     expect(tip.at(-1)).toBe('20 % excluido por derrumbe · 10 % sin dato');
+    // Sin excluir, el derrumbe se sigue informando (incluido en la estadística).
+    const [[b]] = buildCells(rows, [series()], { ...SETTINGS, excludeWashout: false });
+    expect(zoneNotes(b)[1]).toEqual({ text: '20 % derrumbe', tone: 'warn' });
+    expect(cellTooltip('A', 'Actual', b!, 'thickness', 'v/v').at(-1)).toBe('20 % en derrumbe (incluido) · 10 % sin dato');
   });
 });
 
@@ -117,6 +130,11 @@ describe('eje', () => {
     expect(propertyStat('SW', true)).toEqual({ mean: 'poreVolume', scale: 'linear', fallback: false });
     expect(propertyStat('SW', false)).toEqual({ mean: 'thickness', scale: 'linear', fallback: true });
     expect(propertyStat('PERM', true).scale).toBe('log');
+  });
+  it('resistividad (curva en escala log): eje log como en el visor y el histograma, media por espesor', () => {
+    expect(propertyStat('RT', true, 'log')).toEqual({ mean: 'thickness', scale: 'log', fallback: false });
+    expect(propertyStat('GR', true, 'linear').scale).toBe('linear');
+    expect(propertyStat('PERM', true, 'linear').scale).toBe('log');
   });
 });
 

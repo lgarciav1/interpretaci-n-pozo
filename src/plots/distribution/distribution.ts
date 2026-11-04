@@ -85,11 +85,16 @@ export interface Availability {
 
 export const availabilityOf = (s: Pick<SeriesData, 'netRes' | 'netPay' | 'washout' | 'phi'>): Availability => ({ netRes: !!s.netRes, netPay: !!s.netPay, washout: !!s.washout, phi: !!s.phi });
 
-/** Media y escala de la propiedad: la sugerida por el rol, con la media por espesor si falta φ para ponderar Sw. */
-export function propertyStat(roleOrMnemonic: string, phiAvailable: boolean): { mean: DistributionMean; scale: 'linear' | 'log'; fallback: boolean } {
+/**
+ * Media y escala de la propiedad: la sugerida por el rol, con la media por espesor si falta φ para ponderar Sw. El eje
+ * es logarítmico también si la curva se lee en escala log (resistividades, como en el visor y el histograma); la media
+ * de esas curvas sigue siendo la sugerida por el rol.
+ */
+export function propertyStat(roleOrMnemonic: string, phiAvailable: boolean, curveScale: 'linear' | 'log' = 'linear'): { mean: DistributionMean; scale: 'linear' | 'log'; fallback: boolean } {
   const s = suggestDistributionStat(roleOrMnemonic);
-  if (s.mean === 'poreVolume' && !phiAvailable) return { mean: 'thickness', scale: s.scale, fallback: true };
-  return { ...s, fallback: false };
+  const scale = s.scale === 'log' || curveScale === 'log' ? 'log' : 'linear';
+  if (s.mean === 'poreVolume' && !phiAvailable) return { mean: 'thickness', scale, fallback: true };
+  return { mean: s.mean, scale, fallback: false };
 }
 
 /** Por qué una celda no tiene caja. */
@@ -141,10 +146,19 @@ export function buildCells(rows: readonly ZoneRow[], series: readonly SeriesData
   );
 }
 
-/** Fracciones (0–1) del espesor filtrado excluido por derrumbe y sin dato; NaN si no pasó ninguna muestra. */
-export function cellQuality(c: DistributionCell): { washout: number; noData: number } {
-  if (!c.stats || !(c.filtered > 0)) return { washout: NaN, noData: NaN };
-  return { washout: c.stats.excludedWashout / c.filtered, noData: c.stats.noData / c.filtered };
+/**
+ * true si la celda tiene caja que dibujar. Con la media por volumen poral, muestras usadas con φ = 0 pesan 0: una zona
+ * donde todas tienen φ = 0 (lutita) tiene n > 0 pero ni percentiles ni media, y se lee «sin dato» (no un carril vacío).
+ */
+export const hasBox = (c: DistributionCell): boolean => !!c.stats && c.stats.n > 0 && Number.isFinite(c.stats.p50);
+
+/**
+ * Fracciones (0–1) del espesor filtrado en derrumbe (se excluya o no; `washoutExcluded` dice cuál) y sin dato; NaN si no
+ * pasó ninguna muestra.
+ */
+export function cellQuality(c: DistributionCell): { washout: number; washoutExcluded: boolean; noData: number } {
+  if (!c.stats || !(c.filtered > 0)) return { washout: NaN, washoutExcluded: false, noData: NaN };
+  return { washout: c.stats.washoutThickness / c.filtered, washoutExcluded: c.stats.excludedWashout > 0, noData: c.stats.noData / c.filtered };
 }
 
 // ── eje ──────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -190,7 +204,7 @@ export function zoneNotes(c: DistributionCell | undefined): { text: string; tone
   const s = c.stats;
   const out: { text: string; tone: 'muted' | 'warn' }[] = [{ text: s.n > 0 ? `n ${formatNumber(s.n, { digits: 0 })} · ${formatNumber(s.thickness, { digits: 1 })} m` : 'sin muestras', tone: 'muted' }];
   const q = cellQuality(c);
-  if (q.washout > 0) out.push({ text: `${pct(q.washout)} % derrumbe`, tone: q.washout >= 0.2 ? 'warn' : 'muted' });
+  if (q.washout > 0) out.push({ text: `${pct(q.washout)} % derrumbe${q.washoutExcluded ? ' (excluido)' : ''}`, tone: q.washout >= 0.2 ? 'warn' : 'muted' });
   if (q.noData > 0) out.push({ text: `${pct(q.noData)} % sin dato`, tone: q.noData >= 0.2 ? 'warn' : 'muted' });
   return out;
 }
@@ -222,7 +236,7 @@ export function cellTooltip(zone: string, series: string, c: DistributionCell, m
   ];
   if (mean !== 'geometric' && Number.isFinite(s.geoMean) && unit === 'mD') lines.push(`Media geométrica ${fmtValue(s.geoMean, unit)}`);
   const q = cellQuality(c);
-  const extra = [q.washout > 0 ? `${pct(q.washout)} % excluido por derrumbe` : '', q.noData > 0 ? `${pct(q.noData)} % sin dato` : ''].filter(Boolean);
+  const extra = [q.washout > 0 ? `${pct(q.washout)} % ${q.washoutExcluded ? 'excluido por derrumbe' : 'en derrumbe (incluido)'}` : '', q.noData > 0 ? `${pct(q.noData)} % sin dato` : ''].filter(Boolean);
   if (extra.length) lines.push(extra.join(' · '));
   return lines;
 }

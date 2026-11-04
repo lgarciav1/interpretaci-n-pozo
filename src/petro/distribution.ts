@@ -133,6 +133,8 @@ export interface DistributionStats {
   thickness: number;
   /** m: espesor (de las muestras que pasan el filtro) excluido por derrumbe. 0 si no se excluye. */
   excludedWashout: number;
+  /** m: espesor (de las muestras que pasan el filtro) con derrumbe, se excluya o no (igual a excludedWashout si se excluye). */
+  washoutThickness: number;
   /** m: espesor (filtrado, sin derrumbe excluido) sin dato en la curva (o en φ con 'poreVolume'; o ≤ 0 con 'geometric'). */
   noData: number;
   min: number;
@@ -166,6 +168,7 @@ export function intervalDistribution(
   const useWashout = excludeWashout && washout !== undefined;
 
   let excludedWashout = 0;
+  let washoutThickness = 0;
   let noData = 0;
   let sumH = 0;
   let sumW = 0; // Σ w
@@ -183,6 +186,7 @@ export function intervalDistribution(
       // Pay = reservorio y pay, como en summarizeRanges (si viene netRes).
       if (filter === 'netPay' && netRes && netRes[i] !== 1) continue;
       const h = thickness[i]!;
+      if (washout && washout[i] === 1 && Number.isFinite(h) && h > 0) washoutThickness += h;
       if (useWashout && washout![i] === 1) {
         if (Number.isFinite(h) && h > 0) excludedWashout += h;
         continue;
@@ -225,6 +229,7 @@ export function intervalDistribution(
     n,
     thickness: sumH,
     excludedWashout,
+    washoutThickness,
     noData,
     min: n > 0 ? min : NaN,
     max: n > 0 ? max : NaN,
@@ -247,13 +252,13 @@ export interface SuggestedDistributionStat {
 /**
  * Media (y escala del eje) por defecto según el rol o mnemónico de la propiedad (sin distinguir mayúsculas):
  *   Sw, SWE, SW*, SXO (roles `SW`, `SXO`)   → 'poreVolume' (S̄w ponderada por volumen poral), eje lineal;
- *   k: PERM*, K, K_*, KLINK*, KAIR* (rol `PERM`) → 'geometric', eje log;
+ *   k: PERM*, K_*, KLINK*, KAIR* (rol `PERM`) → 'geometric', eje log; «K» solo NO (puede ser potasio del GR espectral);
  *   resto (PHIE, PHIT, VSH, GR, RT, …)       → 'thickness', eje lineal.
  * El caso de φ/Vsh/k aritmética del sumario se obtiene pasando mean = 'thickness' explícitamente.
  */
 export function suggestDistributionStat(roleOrMnemonic: string): SuggestedDistributionStat {
   const id = roleOrMnemonic.trim().toUpperCase();
   if (/^(SW|SXO)/.test(id)) return { mean: 'poreVolume', scale: 'linear' };
-  if (/^(PERM|K$|K_|KLINK|KAIR)/.test(id)) return { mean: 'geometric', scale: 'log' };
+  if (/^(PERM|K_|KLINK|KAIR)/.test(id)) return { mean: 'geometric', scale: 'log' };
   return { mean: 'thickness', scale: 'linear' };
 }

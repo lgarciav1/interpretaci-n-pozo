@@ -109,7 +109,7 @@ export function defaultCrossplot(): CrossplotConfig {
 }
 
 export function defaultDistribution(): DistributionConfig {
-  return { curve: null, filter: 'all', reservoirOnly: false, excludeWashout: true, series: ['#current'], hiddenZones: [] };
+  return { curve: null, filter: 'all', reservoirOnly: false, excludeWashout: false, series: ['#current'], hiddenZones: [] };
 }
 
 /** Configuración de fábrica de un tipo de gráfico. */

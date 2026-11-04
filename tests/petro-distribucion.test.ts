@@ -341,12 +341,12 @@ describe('petro/distribution: suggestDistributionStat', () => {
     }
   });
   it('k/PERM* → geometric en escala log', () => {
-    for (const id of ['PERM', 'perm_core', 'K', 'k_klinkenberg', 'KLINK', 'KAIR']) {
+    for (const id of ['PERM', 'perm_core', 'k_klinkenberg', 'KLINK', 'KAIR']) {
       expect(suggestDistributionStat(id)).toEqual({ mean: 'geometric', scale: 'log' });
     }
   });
   it('resto → thickness lineal (incluye KR, KTH…, VSH, PHIE, RT, GR, NET_RES)', () => {
-    for (const id of ['PHIE', 'PHIT', 'VSH', 'GR', 'RT', 'RHOB', 'NET_RES']) {
+    for (const id of ['PHIE', 'PHIT', 'VSH', 'GR', 'RT', 'RHOB', 'NET_RES', 'K']) {
       expect(suggestDistributionStat(id)).toEqual({ mean: 'thickness', scale: 'linear' });
     }
   });
@@ -361,5 +361,20 @@ describe('intervalDistribution: pay exige reservorio (como summarizeRanges)', ()
     const s = intervalDistribution({ values, thickness, netRes, netPay }, { filter: 'netPay', excludeWashout: false, mean: 'thickness' }, [{ start: 0, end: 3 }]);
     expect(s.n).toBe(2);
     expect(s.mean).toBeCloseTo(0.25, 12);
+  });
+});
+
+describe('intervalDistribution: espesor en derrumbe', () => {
+  it('washoutThickness se cuenta se excluya o no; excludedWashout solo al excluir', () => {
+    const input = { values: [0.1, 0.2, 0.3, 0.4], thickness: [1, 1, 1, 2], washout: [0, 1, NaN, 1] };
+    const one = [{ start: 0, end: 4 }];
+    const incl = intervalDistribution(input, { filter: 'all', excludeWashout: false, mean: 'thickness' }, one);
+    expect(incl.washoutThickness).toBe(3);
+    expect(incl.excludedWashout).toBe(0);
+    expect(incl.n).toBe(4);
+    const excl = intervalDistribution(input, { filter: 'all', excludeWashout: true, mean: 'thickness' }, one);
+    expect(excl.washoutThickness).toBe(3);
+    expect(excl.excludedWashout).toBe(3);
+    expect(excl.n).toBe(2);
   });
 });
