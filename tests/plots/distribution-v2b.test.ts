@@ -10,7 +10,10 @@ import type { Zone } from '../../src/core/well';
 import { emptyInterpretation } from '../../src/core/interpretation';
 import { weightedQuantiles } from '../../src/petro/distribution';
 import { autoBinCount } from '../../src/plots/histogram/histogram';
-import { statsCsv, zoneNotes, zoneRows, cellTooltip } from '../../src/plots/distribution/distribution';
+import { cellTooltip, distributionAxis, statsCsv, zoneNotes, zoneRows } from '../../src/plots/distribution/distribution';
+import { drawZoneRow, withoutPlugs } from '../../src/plots/distribution/draw';
+import { THEMES } from '../../src/ui/tokens';
+import { axisFraction } from '../../src/plots/xy/axes';
 import { histogramAxis, histogramEdges, histTooltip, laneHistogram, usedSamples } from '../../src/plots/distribution/hist';
 import { CORE_MIN_BOX, corePropertyOf, plugCells, plugColumn, plugDiffText, plugLogCells, plugMean, plugWarnings, tiePlugs, type CorePlugs } from '../../src/plots/distribution/plugs';
 import { hasRange, volumeFraction, volumeMax, volumeText, zoneVolumes } from '../../src/plots/distribution/volume';
@@ -135,6 +138,8 @@ describe('plugs → zonas', () => {
     const core = plugCells(rows, plugs, col, 'phi', depth, {}, 'all').cells;
     expect(plugDiffText(core[1], cells[1], 'phi', 'v/v')).toBe('Corona − perfil en plugs: +0,17 v/v');
     expect(plugDiffText(core[0], { stats: null, filtered: 0 }, 'phi')).toBeNull();
+    // Con n distintos (el perfil perdió plugs por filtro/derrumbe) la diferencia lo aclara.
+    expect(plugDiffText(core[1], f, 'phi', 'v/v')).toMatch(/ · n 5 vs 2 plugs$/);
     expect(zoneNotes(cells[1])).toEqual([{ text: 'n 5 muestras (una por plug)', tone: 'muted' }]);
   });
 
@@ -266,5 +271,55 @@ describe('configuración', () => {
     expect(defaultDistribution()).toMatchObject({ view: 'box', volume: false });
     expect(sanitizeDistribution({ view: 'hist', volume: true, series: ['#current', '#core', '#core-log', '#otra'] })).toMatchObject({ view: 'hist', volume: true, series: ['#current', '#core', '#core-log'] });
     expect(sanitizeDistribution({ view: 'violin', volume: 'sí' })).toMatchObject({ view: 'box', volume: false });
+  });
+});
+
+describe('revisión de la V2', () => {
+  const plugs: CorePlugs = { ids: ['a'], depth: [11], sets: ['s'], columns: { phi: { values: [0.1], unit: 'v/v' } } };
+  const col = plugColumn(plugs, 'phi', 'v/v')!;
+
+  it('el eje contiene TODOS los plugs dibujados, no solo P10–P90', () => {
+    // 10 plugs en B: 0,05 y 0,40 quedan fuera de P10–P90 (Hazen con n = 10: P10 = 0,06 y P90 = 0,38).
+    const vals = [0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.11, 0.12, 0.38, 0.4];
+    const many: CorePlugs = { ids: vals.map((_, i) => `p${i}`), depth: vals.map((_, i) => 10 + i * 0.5), sets: ['s'], columns: { phi: { values: vals, unit: 'v/v' } } };
+    const { cells } = plugCells(rows, many, plugColumn(many, 'phi', 'v/v')!, 'phi', depth, {}, 'all');
+    const s = cells[1]!.stats!;
+    expect(s.p10).toBeGreaterThan(0.05);
+    expect(s.p90).toBeLessThan(0.4);
+    const axis = distributionAxis([[{ stats: null, missing: 'zone', filtered: 0 }], [cells[1]!]], 'linear', 'PHIE')!;
+    expect(axis.min).toBeLessThanOrEqual(0.05);
+    expect(axis.max).toBeGreaterThanOrEqual(0.4);
+    for (const v of vals) {
+      const f = axisFraction(axis, v);
+      expect(f).toBeGreaterThanOrEqual(0);
+      expect(f).toBeLessThanOrEqual(1);
+    }
+    // En log (k): el plug más chico y el más grande también entran.
+    const kp: CorePlugs = { ids: vals.map((_, i) => `k${i}`), depth: vals.map((_, i) => 10 + i * 0.5), sets: ['s'], columns: { k: { values: [0.01, 1, 2, 3, 4, 5, 6, 7, 8, 5000], unit: 'mD' } } };
+    const kc = plugCells(rows, kp, plugColumn(kp, 'k', 'mD')!, 'k', depth, {}, 'all').cells[1]!;
+    const kaxis = distributionAxis([[kc]], 'log', 'PERM')!;
+    expect(kaxis.min).toBeLessThanOrEqual(0.01);
+    expect(kaxis.max).toBeGreaterThanOrEqual(5000);
+  });
+
+  it('zona sin plugs: «sin plugs» una sola vez en la fila (corona y perfil en plugs)', () => {
+    const none = plugCells(rows, plugs, col, 'phi', depth, {}, 'all').cells[0]!; // A no tiene plugs
+    const noneLog = plugLogCells(rows, plugs, col, 'phi', depth, new Float64Array(20), {}, 'all', false)[0]!;
+    expect(withoutPlugs(none)).toBe(true);
+    expect(withoutPlugs(noneLog)).toBe(true);
+    const texts: string[] = [];
+    const noop = () => {};
+    const ctx = new Proxy({ fillText: (t: string) => texts.push(t), measureText: () => ({ width: 10 }) } as Record<string, unknown>, {
+      get: (t, k: string) => (k in t ? t[k] : noop),
+      set: (t, k: string, v) => ((t[k] = v), true),
+    }) as unknown as CanvasRenderingContext2D;
+    const axis = { kind: 'linear' as const, min: 0, max: 1, label: 'PHIE' };
+    const style = { color: '#000' };
+    drawZoneRow(ctx, 400, 120, { axis, cells: [none, noneLog], styles: [style, style] }, THEMES.light);
+    expect(texts.filter((t) => t === 'sin plugs')).toHaveLength(1);
+    // Una zona con plugs en la corona y sin ninguno válido en el perfil NO se silencia: son mensajes distintos.
+    texts.length = 0;
+    drawZoneRow(ctx, 400, 120, { axis, cells: [none, { stats: null, missing: 'curve', filtered: 0 }], styles: [style, style] }, THEMES.light);
+    expect(texts).toEqual(['sin plugs', 'sin dato']);
   });
 });

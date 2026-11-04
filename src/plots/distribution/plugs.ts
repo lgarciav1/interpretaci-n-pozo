@@ -225,8 +225,12 @@ export function plugDiffText(core: DistributionCell | undefined, log: Distributi
   if (a === undefined || b === undefined || !Number.isFinite(a) || !Number.isFinite(b)) return null;
   const d = a - b;
   const sign = d > 0 ? '+' : d < 0 ? '−' : '±';
-  const t = `Corona − perfil en plugs: ${sign}${fmtValue(Math.abs(d), unit)}`;
-  return prop === 'k' && b > 0 ? `${t} (×${formatNumber(a / b, { significant: 3 })})` : t;
+  const base = `Corona − perfil en plugs: ${sign}${fmtValue(Math.abs(d), unit)}`;
+  const t = prop === 'k' && b > 0 ? `${base} (×${formatNumber(a / b, { significant: 3 })})` : base;
+  // Si el perfil no tiene dato en algún plug (NaN, k ≤ 0 o derrumbe excluido) las medias salen de conjuntos distintos.
+  const na = core?.stats?.n ?? 0;
+  const nb = log?.stats?.n ?? 0;
+  return na !== nb ? `${t} · n ${formatNumber(na, { digits: 0 })} vs ${formatNumber(nb, { digits: 0 })} plugs` : t;
 }
 
 /**

@@ -188,6 +188,8 @@ export function distributionAxis(cells: readonly (readonly DistributionCell[])[]
       const s = c.stats;
       if (!s || !(s.n > 0)) continue;
       vals.push(s.p10, s.p90, s.mean, s.p50);
+      // Plugs: se dibuja cada punto (también los de afuera de P10–P90), así que el eje tiene que contenerlos.
+      if (c.plugs) vals.push(s.min, s.max);
       if (scale === 'log') vals.push(s.geoMean);
     }
   const ok = (v: number) => Number.isFinite(v) && (scale === 'linear' || v > 0);

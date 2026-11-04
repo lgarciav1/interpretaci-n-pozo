@@ -347,6 +347,9 @@ function drawHistRow(ctx: CanvasRenderingContext2D, x: (v: number) => number, x0
   }
 }
 
+/** true si la celda es de plugs y la zona no tiene ninguno (el carril dice «sin plugs»). */
+export const withoutPlugs = (c: DistributionCell): boolean => !!c.plugs && !c.stats && c.missing === 'plugs';
+
 /** Fila de una zona: fondo, grilla y un carril por serie (o «sin dato»). Ocupa todo el canvas. */
 export function drawZoneRow(ctx: CanvasRenderingContext2D, width: number, height: number, scene: RowScene, theme: ThemeTokens, ui = 1, x0 = 0, y0 = 0): void {
   ctx.save();
@@ -373,7 +376,8 @@ export function drawZoneRow(ctx: CanvasRenderingContext2D, width: number, height
       drawBox(ctx, x, yc, c.stats, style, theme, ui);
       const sel = scene.selection;
       if (sel && sel.lane === k && sel.stats.n > 0 && Number.isFinite(sel.stats.p50)) drawSelectionBox(ctx, x, yc, sel.stats, sel.color, theme, ui);
-    } else {
+    } else if (!(withoutPlugs(c) && scene.cells.slice(0, k).some(withoutPlugs))) {
+      // «sin plugs» una sola vez por fila: la corona y el perfil en plugs comparten los mismos plugs (D21).
       ctx.fillStyle = theme.color.textMuted;
       ctx.font = canvasFont(BASE_TOKENS.text.xs, BASE_TOKENS.weight.regular, ui);
       ctx.textAlign = 'left';

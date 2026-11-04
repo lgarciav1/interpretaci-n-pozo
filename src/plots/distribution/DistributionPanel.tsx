@@ -46,7 +46,7 @@ import {
   type SeriesKind,
   type ZoneRow,
 } from './distribution';
-import { DIST_METRICS, drawDistAxis, drawDistributionFigure, drawZoneRow, laneAt, laneValue, rowHeight, zoneLaneStyle, type LaneStyle, type RowHistScene } from './draw';
+import { DIST_METRICS, drawDistAxis, drawDistributionFigure, drawZoneRow, laneAt, laneValue, rowHeight, withoutPlugs, zoneLaneStyle, type LaneStyle, type RowHistScene } from './draw';
 import { histogramAxis, histogramEdges, histTooltip, laneHistogram, usedSamples } from './hist';
 import { CORE_LOG_SERIES, CORE_MIN_BOX, CORE_SERIES, corePropertyOf, plugCells, plugColumn, plugDiffText, plugLogCells, plugWarnings, type CorePlugs } from './plugs';
 import { hasRange, VOLUME_LABEL, VOLUME_UNIT, volumeFraction, volumeMax, volumeText, volumeTitle, type VolumeData, type VolumeFluid } from './volume';
@@ -904,7 +904,8 @@ function ZoneRowView({ row, cells, styles, axis, labels, mean, unit, ui, hover, 
   const notes = zoneNotes(cells[0]);
   // n de plugs de la zona a la vista (no solo en el tooltip) cuando la corona no es la primera serie.
   const coreCell = cells.findIndex((c, k) => k > 0 && c.plugs?.source === 'core');
-  if (coreCell > 0) notes.push({ text: `corona: ${plugCountText(cells[coreCell]!)}`, tone: (cells[coreCell]!.stats?.n ?? 0) > 0 && cells[coreCell]!.stats!.n < CORE_MIN_BOX ? 'warn' : 'muted' });
+  // Sin plugs en la zona, el carril de la corona ya lo dice: no se repite bajo el nombre.
+  if (coreCell > 0 && !withoutPlugs(cells[coreCell]!)) notes.push({ text: `corona: ${plugCountText(cells[coreCell]!)}`, tone: (cells[coreCell]!.stats?.n ?? 0) > 0 && cells[coreCell]!.stats!.n < CORE_MIN_BOX ? 'warn' : 'muted' });
   const height = rowHeight(cells.length, ui, view);
   const move = (e: ReactPointerEvent<HTMLCanvasElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -967,7 +968,7 @@ function ZoneRowView({ row, cells, styles, axis, labels, mean, unit, ui, hover, 
               </span>
             )}
             {showSel && (
-              <span className={selFraction > 0 ? 'is-sel' : undefined} title="Espesor filtrado de la zona dentro de la selección" data-testid={`zdist-sel-${row.name}`}>
+              <span className={selFraction > 0 ? 'is-sel' : undefined} title={`${weightText[0]!.toUpperCase()}${weightText.slice(1)} filtrado de la zona dentro de la selección`} data-testid={`zdist-sel-${row.name}`}>
                 sel. {pctText(selFraction)} %
               </span>
             )}
