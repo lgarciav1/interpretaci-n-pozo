@@ -10,6 +10,7 @@ import { intervalDistribution, suggestDistributionStat, type DistributionFilter,
 import { formatNumber } from '../../ui/format';
 import { layoutZones, type Zone, type ZoneKind } from '../../core/well';
 import { niceRange, type XYAxis } from '../xy/axes';
+import type { PlugInfo } from './plugs';
 
 // ── filas: zonas ─────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -57,7 +58,8 @@ export function shownRows(rows: readonly ZoneRow[], opts: { reservoirOnly: boole
 
 // ── series ───────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export type SeriesKind = 'current' | 'snapshot' | 'well';
+/** `core`: plugs de corona del pozo activo (puntos con peso 1; `plugs.ts`). */
+export type SeriesKind = 'current' | 'snapshot' | 'well' | 'core' | 'coreLog';
 
 /** Datos de una serie lista: curvas alineadas con la profundidad de SU pozo y sus zonas. */
 export interface SeriesData {
@@ -98,13 +100,15 @@ export function propertyStat(roleOrMnemonic: string, phiAvailable: boolean, curv
 }
 
 /** Por qué una celda no tiene caja. */
-export type CellMissing = 'zone' | 'curve' | 'flags' | 'phi';
+export type CellMissing = 'zone' | 'curve' | 'flags' | 'phi' | 'plugs';
 
 export interface DistributionCell {
   stats: DistributionStats | null;
   missing?: CellMissing;
-  /** m: espesor de las muestras que pasan el filtro (usadas + derrumbe excluido + sin dato). */
+  /** m: espesor de las muestras que pasan el filtro (usadas + derrumbe excluido + sin dato). Plugs: cantidad. */
   filtered: number;
+  /** Solo la serie de corona: los plugs de la zona (la estadística es por plug, no por espesor). */
+  plugs?: PlugInfo;
 }
 
 export interface DistributionSettings {
@@ -114,20 +118,29 @@ export interface DistributionSettings {
 }
 
 /**
- * Una celda por (zona, serie). La zona de una serie se busca por id (mismo pozo) o, si no, por nombre (otro pozo);
- * si falta la zona, la curva o una bandera que pide el filtro, la celda no tiene estadística y dice por qué.
+ * La zona de cada fila en cada serie (sobre las muestras de SU pozo): por id en el mismo pozo o, si no, por nombre
+ * (otro pozo). `undefined` si la serie no tiene esa zona.
  */
-export function buildCells(rows: readonly ZoneRow[], series: readonly SeriesData[], settings: DistributionSettings): DistributionCell[][] {
-  const seriesRows = series.map((s) => {
+export function matchZones(rows: readonly ZoneRow[], series: readonly Pick<SeriesData, 'kind' | 'depth' | 'zones'>[]): (ZoneRow | undefined)[][] {
+  const finders = series.map((s) => {
     const own = zoneRows(s.depth, s.zones);
     const byId = new Map(own.map((r) => [r.id, r]));
     const byName = new Map<string, ZoneRow>();
     for (const r of own) if (!byName.has(zoneKey(r.name))) byName.set(zoneKey(r.name), r);
     return (row: ZoneRow) => (s.kind === 'well' ? undefined : byId.get(row.id)) ?? byName.get(zoneKey(row.name));
   });
-  return rows.map((row) =>
+  return rows.map((row) => finders.map((f) => f(row)));
+}
+
+/**
+ * Una celda por (zona, serie). La zona de una serie se busca por id (mismo pozo) o, si no, por nombre (otro pozo);
+ * si falta la zona, la curva o una bandera que pide el filtro, la celda no tiene estadística y dice por qué.
+ */
+export function buildCells(rows: readonly ZoneRow[], series: readonly SeriesData[], settings: DistributionSettings): DistributionCell[][] {
+  const matched = matchZones(rows, series);
+  return rows.map((_row, i) =>
     series.map((s, k): DistributionCell => {
-      const zone = seriesRows[k]!(row);
+      const zone = matched[i]![k];
       if (!zone) return { stats: null, missing: 'zone', filtered: 0 };
       if (!s.values) return { stats: null, missing: 'curve', filtered: 0 };
       if ((settings.filter === 'netRes' && !s.netRes) || (settings.filter === 'netPay' && !s.netPay)) return { stats: null, missing: 'flags', filtered: 0 };
@@ -206,6 +219,7 @@ export function zoneNotes(c: DistributionCell | undefined): { text: string; tone
   if (!c) return [];
   if (!c.stats) return [{ text: MISSING_TEXT[c.missing ?? 'curve'], tone: 'muted' }];
   const s = c.stats;
+  if (c.plugs) return [{ text: plugCountText(c), tone: s.n > 0 && s.n < 5 ? 'warn' : 'muted' }];
   const out: { text: string; tone: 'muted' | 'warn' }[] = [{ text: s.n > 0 ? `n ${formatNumber(s.n, { digits: 0 })} · ${formatNumber(s.thickness, { digits: 1 })} m` : 'sin muestras', tone: 'muted' }];
   const q = cellQuality(c);
   if (q.washout > 0) out.push({ text: `${pct(q.washout)} % derrumbe${q.washoutExcluded ? ' (excluido)' : ''}`, tone: q.washout >= 0.2 ? 'warn' : 'muted' });
@@ -218,6 +232,7 @@ export const MISSING_TEXT: Record<CellMissing, string> = {
   curve: 'sin la propiedad',
   flags: 'sin banderas netas',
   phi: 'sin porosidad',
+  plugs: 'sin plugs',
 };
 
 export const MEAN_LABEL: Record<DistributionMean, string> = {
@@ -226,9 +241,20 @@ export const MEAN_LABEL: Record<DistributionMean, string> = {
   geometric: 'Media geométrica',
 };
 
-/** Líneas del tooltip de una caja. */
-export function cellTooltip(zone: string, series: string, c: DistributionCell, mean: DistributionMean, unit?: string): string[] {
+/** «n 12 plugs» (y cuántos deja afuera el filtro) de una celda de corona. */
+export function plugCountText(c: DistributionCell): string {
+  const p = c.plugs;
+  if (!p) return '';
+  const n = c.stats?.n ?? 0;
+  const what = p.source === 'log' ? (n === 1 ? 'muestra (una por plug)' : 'muestras (una por plug)') : n === 1 ? 'plug' : 'plugs';
+  const base = n > 0 ? `n ${formatNumber(n, { digits: 0 })} ${what}` : p.inZone > 0 ? 'ningún plug pasa el filtro' : 'sin plugs';
+  return p.filteredOut > 0 && n > 0 ? `${base} (${formatNumber(p.filteredOut, { digits: 0 })} fuera del filtro)` : base;
+}
+
+/** Líneas del tooltip de una caja. `notes`: avisos de la serie (corona: unidad y base de φ). */
+export function cellTooltip(zone: string, series: string, c: DistributionCell, mean: DistributionMean, unit?: string, notes: readonly string[] = []): string[] {
   const head = series ? `${zone} · ${series}` : zone;
+  if (c.plugs) return [...plugTooltip(head, c, mean, unit), ...(c.stats && c.stats.n > 0 ? notes : [])];
   if (!c.stats) return [head, MISSING_TEXT[c.missing ?? 'curve']];
   const s = c.stats;
   if (!(s.n > 0)) return [head, 'Sin muestras con dato en el filtro'];
@@ -242,6 +268,20 @@ export function cellTooltip(zone: string, series: string, c: DistributionCell, m
   const q = cellQuality(c);
   const extra = [q.washout > 0 ? `${pct(q.washout)} % ${q.washoutExcluded ? 'excluido por derrumbe' : 'en derrumbe (incluido)'}` : '', q.noData > 0 ? `${pct(q.noData)} % sin dato` : ''].filter(Boolean);
   if (extra.length) lines.push(extra.join(' · '));
+  return lines;
+}
+
+/** Tooltip de una celda de corona: n de plugs, percentiles con pesos iguales y la media (aritmética o geométrica). */
+function plugTooltip(head: string, c: DistributionCell, mean: DistributionMean, unit?: string): string[] {
+  const s = c.stats;
+  if (!s) return [head, c.missing === 'flags' ? MISSING_TEXT.flags : plugCountText(c) || MISSING_TEXT.plugs];
+  const lines = [head, plugCountText(c)];
+  if (!(s.n > 0)) return lines;
+  if (s.n < 5) lines.push(`Valores ${c.plugs!.values.map((v) => fmtValue(v)).join(' · ')}${unit ? ` ${unit}` : ''} (pocos plugs: puntos, sin caja)`);
+  else lines.push(`P10 ${fmtValue(s.p10)} · P50 ${fmtValue(s.p50)} · P90 ${fmtValue(s.p90, unit)}`);
+  lines.push(`${mean === 'geometric' ? 'Media geométrica' : 'Media aritmética'} ${fmtValue(s.mean, unit)} · cada plug pesa igual`);
+  if (c.plugs!.source === 'log') lines.push('Perfil en la muestra de cada plug (no toda la zona)');
+  if (c.plugs!.noValue > 0) lines.push(`${formatNumber(c.plugs!.noValue, { digits: 0 })} sin valor de la propiedad`);
   return lines;
 }
 
@@ -271,13 +311,13 @@ export function statsCsv(rows: readonly ZoneRow[], series: readonly { label: str
           csvCell(meta.property),
           csvCell(FILTER_LABEL[meta.filter]),
           meta.excludeWashout ? 'sí' : 'no',
-          csvCell(MEAN_LABEL[meta.mean]),
+          csvCell(c?.plugs ? (meta.mean === 'geometric' ? 'Media geométrica' : 'Media aritmética') : MEAN_LABEL[meta.mean]),
           st ? String(st.n) : '',
-          st ? n(st.thickness) : '',
+          st && !c?.plugs ? n(st.thickness) : '',
           ...(st ? [st.p10, st.p25, st.p50, st.p75, st.p90, st.mean, st.geoMean].map(n) : ['', '', '', '', '', '', '']),
-          st ? n(st.excludedWashout) : '',
-          st ? n(st.noData) : '',
-          csvCell(!c ? '' : !st ? MISSING_TEXT[c.missing ?? 'curve'] : st.n === 0 ? 'sin muestras' : ''),
+          st && !c?.plugs ? n(st.excludedWashout) : '',
+          st && !c?.plugs ? n(st.noData) : '',
+          csvCell(!c ? '' : c.plugs ? `${c.plugs.source === 'log' ? 'perfil en las muestras de los plugs' : 'plugs de corona'}, pesos iguales${st && st.n > 0 && st.n < 5 ? '; menos de 5 plugs' : ''}${!st ? `; ${MISSING_TEXT[c.missing ?? 'plugs']}` : ''}` : !st ? MISSING_TEXT[c.missing ?? 'curve'] : st.n === 0 ? 'sin muestras' : ''),
         ].join(','),
       );
     }),

@@ -18,9 +18,9 @@ import { useUi } from '../store/ui';
 import { showSwModels } from '../tracks/swModels';
 import { AVAILABILITY_LABEL, useToolStringView } from '../toolString/select';
 import { openPreparation } from '../preparation/open';
+import { FREE_MODULE_VIEW } from './freeModuleView';
 
-/** Valor de `activeStepId` cuando se eligió un módulo que no pertenece a ningún paso. */
-export const FREE_MODULE_VIEW = '@module';
+export { FREE_MODULE_VIEW };
 
 const STATUS_TONE: Record<StepStatus, Tone> = { done: 'ok', partial: 'accent', todo: 'neutral', skipped: 'neutral', empty: 'neutral', locked: 'neutral' };
 const STEP_ICON: Record<string, IconName> = {

@@ -3,7 +3,7 @@ import { Stepper } from '../../ui';
 import { flowProgress, STEP_STATUS_LABEL } from '../flow/flow';
 import { openStep, useFlow } from '../flow/useFlow';
 import { useUi } from '../store/ui';
-import { FREE_MODULE_VIEW } from './Inspector';
+import { FREE_MODULE_VIEW } from './freeModuleView';
 
 export function FlowBar() {
   const { states, active, suggested } = useFlow();

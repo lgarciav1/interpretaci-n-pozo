@@ -72,8 +72,8 @@ export type DistributionSampleFilter = 'all' | 'netRes' | 'netPay';
 
 /**
  * Distribuciones por zona (boxplots; docs/decisiones/0066): propiedad, filtro de muestras, series comparadas y zonas
- * ocultas. Las series se nombran `#current` (interpretación actual), `snap-…` (snapshot del pozo) o `well:<id>` (otro
- * pozo del proyecto, zonas emparejadas por nombre).
+ * ocultas. Las series se nombran `#current` (interpretación actual), `#core` (plugs de corona), `snap-…` (snapshot del
+ * pozo) o `well:<id>` (otro pozo del proyecto, zonas emparejadas por nombre).
  */
 export interface DistributionConfig {
   /** null = la propiedad por defecto (φe si hay). */
@@ -92,7 +92,14 @@ export interface DistributionConfig {
    * PERM muestran siempre el parámetro real). No cambian la petrofísica.
    */
   cutoffs: Record<PlotCurveKey, number>;
+  /** Vista (V2): cajas o histogramas apilados por zona sobre el mismo eje. */
+  view: DistributionView;
+  /** Franja del volumen in situ por zona (determinista y P90–P10 de la incertidumbre). */
+  volume: boolean;
 }
+
+/** Vista de las distribuciones por zona. */
+export type DistributionView = 'box' | 'hist';
 
 export interface WellPlots {
   histogram?: HistogramConfig;
@@ -114,7 +121,7 @@ export function defaultCrossplot(): CrossplotConfig {
 }
 
 export function defaultDistribution(): DistributionConfig {
-  return { curve: null, filter: 'all', reservoirOnly: false, excludeWashout: false, series: ['#current'], hiddenZones: [], cutoffs: {} };
+  return { curve: null, filter: 'all', reservoirOnly: false, excludeWashout: false, series: ['#current'], hiddenZones: [], cutoffs: {}, view: 'box', volume: false };
 }
 
 /** Configuración de fábrica de un tipo de gráfico. */
@@ -187,7 +194,11 @@ export function sanitizeCrossplot(raw: unknown): CrossplotConfig {
   };
 }
 
-const SERIES_ID = /^(#current|snap-.+|well:.+)$/;
+/**
+ * `#current` (actual), `#core` (plugs de corona), `#core-log` (perfil en las muestras de los plugs), `snap-…` (snapshot)
+ * o `well:<id>` (otro pozo).
+ */
+const SERIES_ID = /^(#current|#core|#core-log|snap-.+|well:.+)$/;
 
 export function sanitizeDistribution(raw: unknown): DistributionConfig {
   const d = defaultDistribution();
@@ -202,6 +213,8 @@ export function sanitizeDistribution(raw: unknown): DistributionConfig {
     series: series.length ? series : d.series,
     hiddenZones: [...new Set(strings(raw['hiddenZones']))],
     cutoffs: freeLines(raw['cutoffs']),
+    view: raw['view'] === 'hist' ? 'hist' : 'box',
+    volume: bool(raw['volume'], d.volume),
   };
 }
 

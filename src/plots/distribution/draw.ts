@@ -9,7 +9,9 @@ import { ensureContrast, withAlpha } from '../../ui/color';
 import { BASE_TOKENS, canvasFont, scalePx, type ThemeTokens } from '../../ui/tokens';
 import { axisFraction, axisTicks, fractionValue, type XYAxis } from '../xy/axes';
 import { axisTitle } from '../xy/draw';
-import { hasBox, type DistributionCell } from './distribution';
+import { hasBox, MISSING_TEXT, type DistributionCell } from './distribution';
+import type { LaneHistogram } from './hist';
+import { CORE_MIN_BOX } from './plugs';
 
 /** Medidas en px CSS a tamaño de interfaz 1 (se escalan con `ui`). */
 export const DIST_METRICS = {
@@ -23,6 +25,8 @@ export const DIST_METRICS = {
   padY: 5,
   /** Alto del eje. */
   axis: 26,
+  /** Alto del área de los histogramas de una fila (vista «Histogramas», todas las series superpuestas). */
+  hist: 38,
 } as const;
 
 export interface LaneStyle {
@@ -41,8 +45,9 @@ export function zoneLaneStyle(zoneColor: string, theme: ThemeTokens): LaneStyle 
   return { color: ensureContrast(zoneColor, theme.viewer.trackBg, 3.2), fill: withAlpha(zoneColor, theme.name === 'dark' ? 0.4 : 0.5) };
 }
 
-/** Alto de la fila de una zona con `lanes` series (px CSS). */
-export const rowHeight = (lanes: number, ui = 1) => scalePx(DIST_METRICS.padY * 2 + Math.max(1, lanes) * DIST_METRICS.lane, ui);
+/** Alto de la fila de una zona con `lanes` series (px CSS). En la vista de histogramas las series se superponen. */
+export const rowHeight = (lanes: number, ui = 1, view: 'box' | 'hist' = 'box') =>
+  scalePx(DIST_METRICS.padY * 2 + (view === 'hist' ? DIST_METRICS.hist + 4 : Math.max(1, lanes) * DIST_METRICS.lane), ui);
 
 /** Valor → px horizontal dentro de un ancho dado (NaN si no se puede ubicar, p. ej. ≤ 0 en log). */
 export function laneX(axis: XYAxis, width: number, ui = 1): (v: number) => number {
@@ -71,8 +76,9 @@ export function laneFraction(axis: XYAxis, v: number): number {
   return Number.isFinite(f) ? Math.min(1, Math.max(0, f)) : NaN;
 }
 
-/** Carril bajo el puntero (−1 si cae en el margen). */
-export function laneAt(y: number, lanes: number, ui = 1): number {
+/** Carril bajo el puntero (−1 si cae en el margen). En la vista de histogramas hay un solo «carril»: la fila. */
+export function laneAt(y: number, lanes: number, ui = 1, view: 'box' | 'hist' = 'box'): number {
+  if (view === 'hist') return y >= 0 && y <= rowHeight(lanes, ui, 'hist') ? 0 : -1;
   const k = Math.floor((y - scalePx(DIST_METRICS.padY, ui)) / scalePx(DIST_METRICS.lane, ui));
   return k >= 0 && k < lanes ? k : -1;
 }
@@ -187,6 +193,101 @@ export function drawSelectionBox(ctx: CanvasRenderingContext2D, x: (v: number) =
   ctx.restore();
 }
 
+/** Desplazamiento vertical determinista de un plug (−1…1): separa puntos de igual valor sin azar. */
+const jitter = (j: number) => (((j * 7919) % 9) - 4) / 4;
+
+/**
+ * Plugs de corona de una zona como puntos sobre el carril. Con pocos plugs (< `CORE_MIN_BOX`) son la marca principal
+ * (sin caja); con más, quedan tenues detrás de la caja y muestran la dispersión real del laboratorio.
+ */
+export function drawPlugDots(ctx: CanvasRenderingContext2D, x: (v: number) => number, yc: number, values: readonly number[], style: LaneStyle, theme: ThemeTokens, ui = 1, spread = scalePx(DIST_METRICS.box, ui) * 0.42): void {
+  const few = values.length < CORE_MIN_BOX;
+  const r = scalePx(few ? 3.5 : 2, ui);
+  ctx.save();
+  values.forEach((v, j) => {
+    const px = x(v);
+    if (!Number.isFinite(px)) return;
+    const py = yc + (few ? 0 : jitter(j) * spread);
+    ctx.beginPath();
+    ctx.arc(px, py, r, 0, Math.PI * 2);
+    if (few) {
+      ctx.fillStyle = style.color;
+      ctx.fill();
+      ctx.lineWidth = Math.max(1, scalePx(1.25, ui));
+      ctx.strokeStyle = theme.viewer.trackBg;
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = withAlpha(style.color, theme.name === 'dark' ? 0.55 : 0.45);
+      ctx.fill();
+    }
+  });
+  ctx.restore();
+}
+
+/** Histogramas de una fila (vista «Histogramas»): todas las series sobre la misma base, la primera rellena. */
+export interface RowHistScene {
+  edges: ArrayLike<number>;
+  /** Una por serie; cada una se escala a su propio pico (`LaneHistogram.peak`). */
+  lanes: readonly (LaneHistogram | null)[];
+}
+
+/** Mediana (línea) y media (rombo hueco sobre la base) de una serie en la vista de histogramas. */
+function drawHistMarks(ctx: CanvasRenderingContext2D, x: (v: number) => number, base: number, h: number, s: DistributionStats, style: LaneStyle, theme: ThemeTokens, ui: number): void {
+  const x50 = x(s.p50);
+  const xm = x(s.mean);
+  ctx.save();
+  if (Number.isFinite(x50)) {
+    ctx.strokeStyle = style.color;
+    ctx.lineWidth = Math.max(1.5, scalePx(2, ui));
+    ctx.beginPath();
+    ctx.moveTo(Math.round(x50) + 0.5, base);
+    ctx.lineTo(Math.round(x50) + 0.5, base - h);
+    ctx.stroke();
+  }
+  if (Number.isFinite(xm)) {
+    const r = scalePx(4, ui);
+    ctx.beginPath();
+    ctx.moveTo(xm, base - r);
+    ctx.lineTo(xm + r, base);
+    ctx.lineTo(xm, base + r);
+    ctx.lineTo(xm - r, base);
+    ctx.closePath();
+    ctx.fillStyle = theme.viewer.trackBg;
+    ctx.fill();
+    ctx.lineWidth = Math.max(1.25, scalePx(1.5, ui));
+    ctx.strokeStyle = theme.color.text;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** Contorno escalonado (y relleno) de un histograma sobre la base. */
+function drawStairs(ctx: CanvasRenderingContext2D, x: (v: number) => number, base: number, h: number, edges: ArrayLike<number>, hist: LaneHistogram, style: LaneStyle, filled: boolean, theme: ThemeTokens, ui: number): void {
+  const k = edges.length - 1;
+  const peak = hist.peak;
+  if (k < 1 || !(peak > 0)) return;
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(x(edges[0]!), base);
+  for (let j = 0; j < k; j++) {
+    const y = base - (hist.fraction[j]! / peak) * h;
+    ctx.lineTo(x(edges[j]!), y);
+    ctx.lineTo(x(edges[j + 1]!), y);
+  }
+  ctx.lineTo(x(edges[k]!), base);
+  ctx.closePath();
+  if (filled) {
+    ctx.fillStyle = style.fill ?? withAlpha(style.color, theme.name === 'dark' ? 0.32 : 0.22);
+    ctx.fill();
+  }
+  ctx.strokeStyle = style.color;
+  ctx.lineWidth = Math.max(1, scalePx(filled ? 1.25 : 1.75, ui));
+  ctx.lineJoin = 'round';
+  if (style.dashed) ctx.setLineDash([scalePx(4, ui), scalePx(2, ui)]);
+  ctx.stroke();
+  ctx.restore();
+}
+
 export interface RowScene {
   axis: XYAxis;
   cells: readonly DistributionCell[];
@@ -197,6 +298,53 @@ export interface RowScene {
   selection?: { lane: number; stats: DistributionStats; color: string } | null;
   /** Solo la figura exportada: cutoff de la zona como línea vertical (en pantalla es una capa DOM arrastrable). */
   cutoff?: { value: number; color: string; dashed?: boolean } | null;
+  /** Vista «Histogramas»: si está, la fila dibuja los histogramas superpuestos en vez de las cajas. */
+  hist?: RowHistScene | null;
+}
+
+/** Fila en la vista de histogramas: base común, la primera serie rellena y las demás como contorno. */
+function drawHistRow(ctx: CanvasRenderingContext2D, x: (v: number) => number, x0: number, y0: number, width: number, height: number, scene: RowScene, hist: RowHistScene, theme: ThemeTokens, ui: number): void {
+  const pad = scalePx(DIST_METRICS.padY, ui);
+  const base = Math.round(y0 + height - pad - scalePx(3, ui)) + 0.5;
+  const h = base - (y0 + pad);
+  ctx.strokeStyle = theme.viewer.trackBorder;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x0, base);
+  ctx.lineTo(x0 + width, base);
+  ctx.stroke();
+  let drawn = 0;
+  const firstFilled = scene.cells.findIndex((c, k) => !!hist.lanes[k] && !(c.plugs && (c.stats?.n ?? 0) < CORE_MIN_BOX));
+  // Contornos primero, la serie rellena al final no tapa a las otras: se dibuja primero su relleno.
+  const order = scene.cells.map((_, k) => k).sort((a, b) => (a === firstFilled ? -1 : b === firstFilled ? 1 : a - b));
+  for (const k of order) {
+    const c = scene.cells[k]!;
+    const style = scene.styles[k] ?? { color: theme.color.accent };
+    const lh = hist.lanes[k];
+    if (c.plugs && c.stats && c.stats.n > 0 && c.stats.n < CORE_MIN_BOX) {
+      drawPlugDots(ctx, x, base - scalePx(5, ui), c.plugs.values, style, theme, ui);
+      drawn++;
+      continue;
+    }
+    if (!lh || !c.stats || !(c.stats.n > 0)) continue;
+    drawStairs(ctx, x, base, h, hist.edges, lh, style, k === firstFilled, theme, ui);
+    drawn++;
+  }
+  for (const k of order) {
+    const c = scene.cells[k]!;
+    if (!hist.lanes[k] || !c.stats || !(c.stats.n > 0) || (c.plugs && c.stats.n < CORE_MIN_BOX)) continue;
+    drawHistMarks(ctx, x, base, h, c.stats, scene.styles[k] ?? { color: theme.color.accent }, theme, ui);
+  }
+  const sel = scene.selection;
+  if (sel && sel.stats.n > 0 && Number.isFinite(sel.stats.p50)) drawSelectionBox(ctx, x, y0 + pad + scalePx(2, ui), sel.stats, sel.color, theme, ui);
+  if (drawn === 0) {
+    const c = scene.cells[0];
+    ctx.fillStyle = theme.color.textMuted;
+    ctx.font = canvasFont(BASE_TOKENS.text.xs, BASE_TOKENS.weight.regular, ui);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(c?.plugs && !c.stats ? MISSING_TEXT[c.missing ?? 'plugs'] : 'sin dato', x0 + scalePx(DIST_METRICS.padX, ui), y0 + height / 2);
+  }
 }
 
 /** Fila de una zona: fondo, grilla y un carril por serie (o «sin dato»). Ocupa todo el canvas. */
@@ -209,14 +357,20 @@ export function drawZoneRow(ctx: CanvasRenderingContext2D, width: number, height
   const top = y0 + scalePx(DIST_METRICS.padY, ui);
   const map = laneX(scene.axis, width, ui);
   const x = (v: number) => x0 + map(v);
-  scene.cells.forEach((c, k) => {
+  if (scene.hist) drawHistRow(ctx, x, x0, y0, width, height, scene, scene.hist, theme, ui);
+  else scene.cells.forEach((c, k) => {
     const yc = top + (k + 0.5) * lane;
     if (scene.hover === k) {
       ctx.fillStyle = withAlpha(theme.color.text, theme.name === 'dark' ? 0.08 : 0.05);
       ctx.fillRect(x0, yc - lane / 2, width, lane);
     }
-    if (c.stats && hasBox(c)) {
-      drawBox(ctx, x, yc, c.stats, scene.styles[k] ?? { color: theme.color.accent }, theme, ui);
+    const style = scene.styles[k] ?? { color: theme.color.accent };
+    if (c.plugs && c.stats && c.stats.n > 0) {
+      // Plugs: puntos siempre; la caja solo con suficientes plugs (una caja de 3 plugs engaña).
+      drawPlugDots(ctx, x, yc, c.plugs.values, style, theme, ui);
+      if (c.stats.n >= CORE_MIN_BOX && hasBox(c)) drawBox(ctx, x, yc, c.stats, style, theme, ui);
+    } else if (c.stats && hasBox(c)) {
+      drawBox(ctx, x, yc, c.stats, style, theme, ui);
       const sel = scene.selection;
       if (sel && sel.lane === k && sel.stats.n > 0 && Number.isFinite(sel.stats.p50)) drawSelectionBox(ctx, x, yc, sel.stats, sel.color, theme, ui);
     } else {
@@ -224,7 +378,7 @@ export function drawZoneRow(ctx: CanvasRenderingContext2D, width: number, height
       ctx.font = canvasFont(BASE_TOKENS.text.xs, BASE_TOKENS.weight.regular, ui);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      ctx.fillText('sin dato', x0 + scalePx(DIST_METRICS.padX, ui), yc);
+      ctx.fillText(c.plugs ? (c.stats ? 'ningún plug pasa el filtro' : MISSING_TEXT[c.missing ?? 'plugs']) : 'sin dato', x0 + scalePx(DIST_METRICS.padX, ui), yc);
     }
   });
   const cut = scene.cutoff;
@@ -291,6 +445,8 @@ export interface DistributionFigureScene {
   rows: readonly FigureRow[];
   cells: readonly (readonly DistributionCell[])[];
   styles: readonly (readonly LaneStyle[])[];
+  /** Vista «Histogramas»: los histogramas de cada fila (mismo orden que `rows`). */
+  hists?: readonly RowHistScene[] | null;
 }
 
 /**
@@ -302,11 +458,12 @@ export function drawDistributionFigure(ctx: CanvasRenderingContext2D, width: num
   const axisH = DIST_METRICS.axis + 16;
   const plotW = width - labelW;
   const lanes = Math.max(1, scene.cells[0]?.length ?? 1);
-  const natural = rowHeight(lanes);
+  const view = scene.hists ? 'hist' : 'box';
+  const natural = rowHeight(lanes, 1, view);
   const free = Math.max(1, height - axisH);
   const k = Math.min(1, free / Math.max(1, scene.rows.length * (natural + 4)));
   const ui = Math.max(0.55, k);
-  const rowH = rowHeight(lanes, ui);
+  const rowH = rowHeight(lanes, ui, view);
   const gap = 4 * ui;
   ctx.save();
   // Título del eje sobre los nombres.
@@ -333,7 +490,8 @@ export function drawDistributionFigure(ctx: CanvasRenderingContext2D, width: num
       ctx.textBaseline = 'top';
       ctx.fillText(fit(ctx, r.note, labelW - 18), 10, y + rowH / 2 + 2);
     }
-    drawZoneRow(ctx, plotW, rowH, { axis: scene.axis, cells: scene.cells[i] ?? [], styles: scene.styles[i] ?? [], ...(r.cutoff ? { cutoff: r.cutoff } : {}) }, theme, ui, labelW, y);
+    const hist = scene.hists?.[i];
+    drawZoneRow(ctx, plotW, rowH, { axis: scene.axis, cells: scene.cells[i] ?? [], styles: scene.styles[i] ?? [], ...(r.cutoff ? { cutoff: r.cutoff } : {}), ...(hist ? { hist } : {}) }, theme, ui, labelW, y);
     ctx.strokeStyle = theme.viewer.trackBorder;
     ctx.lineWidth = 1;
     ctx.strokeRect(labelW + 0.5, y + 0.5, plotW - 1, rowH - 1);

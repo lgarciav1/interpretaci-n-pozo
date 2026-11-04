@@ -1,6 +1,7 @@
 # 0066 — Distribuciones por zona (boxplots comparados)
 
-- Estado: V1 mergeada; V2 (cutoff sobre el eje y selección por rango, D10–D14) en `claude/distribuciones-v2`.
+- Estado: V1 mergeada; V2 en `claude/distribuciones-v2`: interacciones (cutoff sobre el eje y selección por rango,
+  D10–D14) y datos (corona como serie, histogramas apilados y volumen in situ, D15–D21).
 - Alcance: pestaña «Distribuciones» del dock (`src/modules/zone-distribution/`), dibujo y armado puro
   (`src/plots/distribution/`), configuración guardada (`src/core/plots.ts`, tipo `distribution`), acceso desde el panel
   del Sumario y la paleta, ícono `boxplot` del sistema de diseño.
@@ -194,10 +195,133 @@ en cada movimiento).
 - `src/plots/link.ts`: fuente `'distribution'`, detalle `range` y su título: la selección compartida es una sola.
 - Tests: `tests/plots-state.test.ts` (la configuración de fábrica tiene `cutoffs: {}`).
 
+## V2 — datos
+
+Lo puro en `src/plots/distribution/`: `corePlugs.ts` (plugs del pozo), `plugs.ts` (estadística de la corona), `hist.ts`
+(vista de histogramas) y `volume.ts` (lectura de las tablas de volumen e incertidumbre). Tests en
+`tests/plots/distribution-v2b.test.ts`. El dock (`src/modules/zone-distribution/dock.tsx`) solo los conecta con los
+stores. (Los `.ts` de `src/modules/` no pueden importar `src/plots` ni stores: los carga el worker; por eso lo puro de
+esta parte vive en `src/plots/distribution/`, que ya lee definiciones de módulos como `src/plots/cutoffs.ts`.)
+
+### D15. Corona como serie: qué plugs y con qué propiedad
+
+- Plugs: los INCLUIDOS de todos los conjuntos de corona del pozo (decisión del usuario o propuesta de calidad,
+  `plugStatuses`), con la profundidad CORRIDA (`shiftedDepth`: la misma que dibuja el visor). Un chip «Corona» (serie
+  `#core`, saneada en `DistributionConfig.series`) aparece solo si hay plugs y la propiedad tiene equivalente.
+- Mapeo por ROL de la curva elegida, nunca por mnemónico (`corePropertyOf`): φ ↔ PHIE, PHIT, PHIE_NMR y PHIT_NMR (los
+  mismos roles sobre los que el visor dibuja los plugs); k ↔ PERM; densidad de grano ↔ RHOMAA (densidad de matriz
+  aparente: no hay rol RHOG; en el visor la densidad de grano va sobre RHOB solo por legibilidad, pero RHOB no es la
+  misma magnitud). Sw, Vsh, GR, etc. no tienen corona.
+- Unidad: la de la columna de corona (los lectores ya la normalizan a v/v, mD y g/cm³). Si difiere de la de la curva y es
+  la misma magnitud se convierte (`convertArray`) y se avisa; si es otra magnitud, no hay chip.
+- Base de φ: el modelo de corona NO guarda si la φ del laboratorio es total o efectiva. Lo único que hay es la curva
+  contra la que el conjunto la correlaciona (ajuste «curva de correlación» del panel Corona, por defecto PHIE). El
+  tooltip lo dice siempre; si la propiedad elegida es de la otra base (PHIT contra un conjunto calibrado con PHIE, o al
+  revés) el aviso pasa a tono de advertencia y se repite bajo los chips. En el TP la φ de corona (≈ 0,20 en B) queda
+  muy por encima de PHIE (≈ 0,10): la diferencia es del dato, no del panel, y es justo lo que esta vista deja ver.
+
+### D16. Plugs → zonas, filtro y tolerancia
+
+- Cada plug se ata a la muestra de perfil más cercana a su profundidad corrida (`nearestSample`): tolerancia de UN paso
+  de muestreo (0,1524 m en el TP), la misma que usa el resto de la app para ubicar una profundidad sobre el perfil. Más
+  lejos (arriba o abajo del perfil, o en un hueco) queda «fuera del perfil»: no entra en ninguna zona y se cuenta en el
+  texto de ayuda de la serie.
+- Zona: la de esa muestra (los tramos de `layoutZones`, la misma regla que las muestras de perfil). Equivale a «la zona
+  que contiene la profundidad corrida» salvo en el medio paso del borde, donde manda la regla de las muestras, así un
+  plug nunca cae en una zona distinta de la de la muestra con la que se lo filtra.
+- Filtro reservorio / pay: la bandera NET_RES / NET_PAY de esa muestra (con pay = reservorio y pay, como el motor). Si
+  falta la bandera, «sin banderas netas», como las demás series.
+- Derrumbe: NO se aplica a los plugs. El indicador de derrumbe marca muestras de PERFIL afectadas por el pozo; el plug
+  se midió en el laboratorio. «Excluir derrumbe» sigue valiendo para las series de perfil.
+
+### D17. Estadística de los plugs y n mínimo para la caja
+
+- Los plugs son puntos, no espesores: `intervalDistribution` del motor con peso 1 por plug (Hazen con pesos iguales,
+  idéntico a `weightedQuantiles` con pesos 1; test). Media aritmética para φ y densidad de grano; geométrica para k (eje
+  log, coherente con la serie del perfil; k ≤ 0 cuenta como «sin valor»). No se duplica ningún cálculo.
+- Con n < 5 plugs en una zona (`CORE_MIN_BOX`) se dibujan solo los puntos (sin caja ni rombo: una caja de 3 plugs
+  engaña) y el n va en tono de advertencia. Con n ≥ 5, caja con los puntos tenues detrás (desplazamiento vertical
+  determinista para separar valores iguales): se ve la dispersión real del laboratorio.
+- n de plugs por zona bajo el nombre («corona: n 90 plugs (12 fuera del filtro)») y en el tooltip; el CSV de
+  estadísticas lleva la fila «Corona» sin espesores y con la observación «plugs de corona, pesos iguales».
+- Color: el de la primera corona en el visor (`RUN_COLORS`), distinto del acento de «Actual».
+
+### D18. Vista «Histogramas»
+
+- Conmutador «Cajas | Histogramas» (grupo «Vista»), guardado en `DistributionConfig.view` (`'box' | 'hist'`, saneado).
+- Clases: el criterio del histograma del dock (`src/plots/histogram/histogram.ts`). Eje: `autoRange` (percentil 0,5 al
+  99,5 ensanchado un 8 %) sobre TODAS las muestras usadas de las filas visibles y de todas las series (más los cutoffs,
+  para que su manija se pueda agarrar), con extremos lindos; cantidad de clases por Freedman–Diaconis (Sturges si el
+  IQR es 0) entre 5 y 80; bordes de extremo a extremo del eje, iguales en log10 para k y las resistividades. Cada clase
+  cae en el mismo lugar en todas las filas. (En la vista de cajas el eje sigue siendo P10–P90.)
+- Peso: el de la caja, muestra por muestra (`forEachUsed`): espesor; h·φ para Sw; los plugs, 1 cada uno.
+- Normalización (decisión revisada y aceptada): cada serie se lleva a fracción de su propio peso y se dibuja escalada a
+  SU pico (como un «ridgeline»). Se probó primero escalar la fila a su pico común: los plugs (90 valores en pocas clases) aplastaban al
+  perfil en la misma fila. Así una zona fina se lee igual que una gruesa y las formas se comparan; las alturas entre
+  series no, y por eso el tooltip da la fracción de cada serie en la clase bajo el puntero.
+- Dibujo: contorno escalonado (sin suavizar: es un histograma); la primera serie rellena con el color de la zona (una
+  serie) o el suyo (varias), las demás solo contorno (otros pozos punteado). Mediana como línea vertical y media como
+  rombo hueco sobre la base, como en las cajas. La corona con menos de 5 plugs: puntos sobre la base.
+- El cutoff, la banda de selección, el % que pasa, el clic → visor y el arrastre de rango son capas DOM y gestos que no
+  dependen de la vista: siguen igual (verificado en el navegador). La caja fina de una selección de otra fuente va arriba
+  de la fila.
+
+### D19. Franja del volumen in situ
+
+- «Volumen in situ por zona» (casilla en «Vista», `DistributionConfig.volume`). Solo de la serie «Actual» (si no está
+  elegida, no se muestra).
+- Determinista: tabla VOLUMETRICS del módulo `volumetrics` del último resultado (ya en MMbbl y Bcf; por nombre de zona,
+  como el pay del sumario). Incertidumbre: la copia del Monte Carlo que guarda el panel del módulo `uncertainty`
+  (tabla UNCERTAINTY, `p90Field`/`p50Field`/`p10Field` por id de zona y totales). Convención SPE-PRMS del módulo: P90
+  = estimación baja, P10 = alta. No se recalcula nada.
+- Por zona: punto del determinista y, si la incertidumbre está calculada, barra P90–P10 con marca en P50, en una escala
+  0–máximo compartida por fluido (petróleo y gas separados, cada uno con su unidad). Sello o sin hidrocarburo: texto.
+  Arriba del gráfico, los totales y el estado: «Calcular incertidumbre» si no se corrió; «Incertidumbre desactualizada ·
+  Recalcular» con la barra en gris si cambió algo después (misma regla que el panel del módulo: firma de dependencias o
+  generación del resultado).
+- El enlace abre el módulo en el inspector (su paso del flujo, «Volumen», como «Todos los módulos») y no lo activa: el
+  Monte Carlo se corre con su botón. Ancho: una tercera columna; angosto: una franja bajo cada fila.
+
+### D20. Figura
+
+La figura exportada (`registerXYFigure`) sigue la vista: título «Histogramas de …» o «Distribución de …», filas con
+histogramas o cajas, la serie «Corona» en la leyenda con su glifo. La franja de volumen no entra en la figura (es un
+dato de otro módulo con su propia exportación).
+
+### D21. «Perfil en plugs»: la comparación equivalente
+
+- Problema: la caja «Actual» de una zona usa TODA la zona; la corona, solo el tramo cortado. En el TP, la corona 1
+  cubre ~27 m (7813–7841 m) de los 181 m de B: ahí DPHI (ρma 2,65–2,68) da 0,19–0,21 y PHIE_CMR 0,18, igual que la
+  corona, pero la caja de toda B baja a ~0,10 por las arcillas que no se cortaron. Comparar corona contra la zona entera
+  sugiere un error de perfil que no existe.
+- Serie automática «Perfil en plugs» (`#core-log`, chip propio, saneado): la curva elegida de la serie «Actual» evaluada
+  en las MISMAS muestras a las que se ata cada plug (D16: `nearestSample`, un paso de tolerancia), solo de los plugs con
+  valor de corona válido, con peso 1 por plug, la misma media que la corona (aritmética φ, geométrica k), el mismo
+  filtro (bandera de esa muestra) y la misma regla de n < 5. El derrumbe se aplica como en las otras series de perfil
+  (afecta a la lectura del perfil, no al plug), así que con «Excluir derrumbe» su n puede ser menor que el de la corona.
+- Se activa junto con la corona (al prender «Corona» se agregan las dos; al apagarla, las dos) y se puede apagar sola.
+  Estilo: el acento del perfil con borde punteado.
+- Las dos comparaciones quedan a la vista a propósito: corona contra «Perfil en plugs» mide el desacuerdo corona–perfil
+  en las mismas profundidades (calibración: matriz, arcilla, base de φ); «Perfil en plugs» contra «Actual» muestra
+  cuánto representa el tramo cortado a la zona (si los plugs sirven para caracterizarla).
+- Tooltip de las dos series y de la fila en modo histogramas: «Corona − perfil en plugs: +0,012 v/v» (para k, también
+  el cociente, que es lo que se lee en el eje log). CSV: fila «Perfil en plugs» con la observación correspondiente.
+
+### Cambios fuera de `src/plots/distribution/` y `src/modules/zone-distribution/` (V2 — datos)
+
+- `src/core/plots.ts`: `DistributionConfig.view` y `.volume`, serie `#core` en el saneado: es configuración guardada.
+- `src/modules/uncertainty/snapshots.tsx` (nuevo) y `panel.tsx`: la copia del Monte Carlo vivía en un store privado del
+  panel y es la única copia (el panel apaga `calculate` al llegar el resultado, así que el resultado del motor ya no la
+  tiene). Se movió tal cual a un archivo propio para leerla desde las distribuciones; el panel no cambia de
+  comportamiento.
+- Tests: `tests/plots-state.test.ts` (la configuración de fábrica tiene `view` y `volume`).
+- `src/app/shell/freeModuleView.ts` (nuevo): la constante `FREE_MODULE_VIEW` sale de `Inspector.tsx` (que la sigue
+  reexportando) para que `FlowBar.tsx` y el dock de las distribuciones (enlace «Calcular incertidumbre») la importen
+  sin ciclo de imports. Sin cambio de comportamiento.
+
 ## Queda para después
 
 - Volver una zona al global desde el panel (hoy, en el inspector).
-- Plugs de corona como serie.
-- Histogramas apilados (violines) por zona.
-- Barra P90/P50/P10 del volumen (incertidumbre) en la misma vista.
 - Separar visualmente los carriles por serie con su nombre al costado cuando hay ancho.
+- Guardar en el modelo de corona la base de φ del laboratorio (total / efectiva) para avisar con certeza.
+- Totales de volumen en la figura exportada.

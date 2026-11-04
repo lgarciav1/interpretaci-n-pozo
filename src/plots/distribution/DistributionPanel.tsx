@@ -7,13 +7,14 @@
  * Presentación: no conoce los stores. Lo conecta `src/modules/zone-distribution/dock.tsx`. Pensado primero para un
  * contenedor angosto (nombre de la zona arriba de su fila); con ancho, nombres a la izquierda y controles al costado.
  */
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import type { DistributionConfig } from '../../core/plots';
 import { intervalDistribution, type DistributionInput, type DistributionMean, type DistributionStats } from '../../petro/distribution';
 import { useCanvas } from '../../ui/canvas';
 import { CATEGORICAL } from '../../ui/curves';
 import { Button, Callout, Checkbox, Chip, EmptyState, IconButton, SegmentedControl, Spinner, formatNumber, useThemeTokens, useUiScaleFactor, type ThemeTokens } from '../../ui';
 import { scalePx } from '../../ui/tokens';
+import { withAlpha } from '../../ui/color';
 import { ControlGroup, CurveSelect } from '../controls';
 import { cutoffParamFor, type CutoffParamKey } from '../cutoffs';
 import { resolvePlotCurve } from '../data';
@@ -30,7 +31,9 @@ import {
   cellTooltip,
   distributionAxis,
   FILTER_LABEL,
+  matchZones,
   MEAN_LABEL,
+  plugCountText,
   propertyStat,
   shownRows,
   statsCsv,
@@ -43,7 +46,10 @@ import {
   type SeriesKind,
   type ZoneRow,
 } from './distribution';
-import { DIST_METRICS, drawDistAxis, drawDistributionFigure, drawZoneRow, laneAt, laneValue, rowHeight, zoneLaneStyle, type LaneStyle } from './draw';
+import { DIST_METRICS, drawDistAxis, drawDistributionFigure, drawZoneRow, laneAt, laneValue, rowHeight, zoneLaneStyle, type LaneStyle, type RowHistScene } from './draw';
+import { histogramAxis, histogramEdges, histTooltip, laneHistogram, usedSamples } from './hist';
+import { CORE_LOG_SERIES, CORE_MIN_BOX, CORE_SERIES, corePropertyOf, plugCells, plugColumn, plugDiffText, plugLogCells, plugWarnings, type CorePlugs } from './plugs';
+import { hasRange, VOLUME_LABEL, VOLUME_UNIT, volumeFraction, volumeMax, volumeText, volumeTitle, type VolumeData, type VolumeFluid } from './volume';
 import { cutoffPassFraction, maskedRanges, maskFraction, passBaseFilter, rangeFraction, rangeMask, summaryPay, zoneCutoff, type CutoffPreview, type SummaryRow, type ZoneCutoff } from './interact';
 import { Band, CutGrip, CutLine, type CutMark } from './marks';
 import { defaultProperty, propertyOptions, seriesFromContext, translateKey, usesOnlyDefaults } from './series';
@@ -84,13 +90,22 @@ export interface DistributionPanelProps {
   onParamCutoff(key: CutoffParamKey, zoneId: string | null, value: number, phase: GuidePhase): void;
   /** Tabla ZONE_SUMMARY del último resultado del motor para este pozo (pay neto por zona); null si no hay. */
   summary: readonly SummaryRow[] | null;
+  /** Plugs de corona incluidos del pozo activo (profundidad corrida) y su color por tema; null si no hay. */
+  core?: { plugs: CorePlugs; colors: Readonly<Record<'light' | 'dark', string>> } | null;
+  /** Volumen in situ por zona (determinista y, si está calculada, la incertidumbre); null si no hay resultado. */
+  volume?: VolumeData | null;
+  /** Abrir el módulo de incertidumbre en el inspector (no lo calcula: lo decide el usuario). */
+  onOpenUncertainty?(): void;
 }
 
-/** Estilo de cada serie: «Actual» con el acento; snapshots y pozos con la paleta categórica (pozos con borde punteado). */
-function seriesStyles(items: readonly { id: string; kind: SeriesKind }[], theme: ThemeTokens): LaneStyle[] {
+/**
+ * Estilo de cada serie: «Actual» con el acento; la corona con el color de su primera corona en el visor; snapshots y
+ * pozos con la paleta categórica (pozos con borde punteado).
+ */
+function seriesStyles(items: readonly { id: string; kind: SeriesKind }[], theme: ThemeTokens, coreColor?: string): LaneStyle[] {
   const pal = CATEGORICAL[theme.name];
   let k = 1;
-  return items.map((s) => (s.kind === 'current' ? { color: theme.color.accent } : { color: pal[k++ % pal.length]!, dashed: s.kind === 'well' }));
+  return items.map((s) => (s.kind === 'current' ? { color: theme.color.accent } : s.kind === 'core' ? { color: coreColor ?? pal[0]! } : s.kind === 'coreLog' ? { color: theme.color.accent, dashed: true, fill: withAlpha(theme.color.accent, theme.name === 'dark' ? 0.14 : 0.1) } : { color: pal[k++ % pal.length]!, dashed: s.kind === 'well' }));
 }
 
 interface Hover {
@@ -141,7 +156,7 @@ function inputOf(s: SeriesData): DistributionInput | null {
   };
 }
 
-export function DistributionPanel({ ctx, wellName, config, onChange, series, onGoTo, onDownload, onParamCutoff, summary }: DistributionPanelProps) {
+export function DistributionPanel({ ctx, wellName, config, onChange, series, onGoTo, onDownload, onParamCutoff, summary, core = null, volume = null, onOpenUncertainty }: DistributionPanelProps) {
   const theme = useThemeTokens();
   const ui = useUiScaleFactor();
   const options = useMemo(() => propertyOptions(ctx), [ctx]);
@@ -154,17 +169,27 @@ export function DistributionPanel({ ctx, wellName, config, onChange, series, onG
   // Filtro efectivo: si faltan las banderas, toda la zona (el control queda deshabilitado).
   const filter = (config.filter === 'netRes' && !avail.netRes) || (config.filter === 'netPay' && !avail.netPay) ? 'all' : config.filter;
   const excludeWashout = config.excludeWashout && avail.washout;
+  const view = config.view === 'hist' ? 'hist' : 'box';
+
+  // Corona (V2): la propiedad elegida tiene equivalente por rol y el conjunto la trae en una unidad comparable.
+  const coreProp = corePropertyOf(curve?.role);
+  const coreCol = useMemo(() => (core ? plugColumn(core.plugs, coreProp, curve?.unit) : null), [core, coreProp, curve?.unit]);
+  const coreColor = core?.colors[theme.name];
 
   // Series elegidas, en el orden de las candidatas («Actual» primero).
   // Sin las que ya no existen (snapshot borrado, pozo quitado): si no, quitar «Actual» con una sola serie viva dejaría
   // la lista sin series reales y el panel mostraría «Actual» con su chip apagado.
   const chosen = useMemo(() => {
-    const alive = config.series.filter((id) => id === CURRENT_SERIES || series.some((s) => s.id === id));
+    // «Perfil en plugs» solo existe junto con la corona.
+    const coreChosen = config.series.includes(CORE_SERIES) && !!coreCol;
+    const alive = config.series.filter((id) => id === CURRENT_SERIES || (id === CORE_SERIES && !!coreCol) || (id === CORE_LOG_SERIES && coreChosen) || series.some((s) => s.id === id));
     return alive.length ? alive : [CURRENT_SERIES];
-  }, [config.series, series]);
+  }, [config.series, series, coreCol]);
   const lanes = useMemo(() => {
     const out: { id: string; label: string; kind: SeriesKind; status: DistributionSeriesItem['status']; data: SeriesData | null }[] = [];
     if (chosen.includes(CURRENT_SERIES)) out.push({ id: CURRENT_SERIES, label: 'Actual', kind: 'current', status: 'ready', data: current });
+    if (chosen.includes(CORE_SERIES) && coreCol) out.push({ id: CORE_SERIES, label: 'Corona', kind: 'core', status: 'ready', data: null });
+    if (chosen.includes(CORE_LOG_SERIES) && chosen.includes(CORE_SERIES) && coreCol && current.values) out.push({ id: CORE_LOG_SERIES, label: 'Perfil en plugs', kind: 'coreLog', status: 'ready', data: null });
     for (const s of series) {
       if (!chosen.includes(s.id)) continue;
       const k2 = s.ctx && key ? (s.kind === 'well' ? translateKey(ctx, key, s.ctx) : key) : null;
@@ -172,23 +197,72 @@ export function DistributionPanel({ ctx, wellName, config, onChange, series, onG
     }
     if (out.length === 0) out.push({ id: CURRENT_SERIES, label: 'Actual', kind: 'current', status: 'ready', data: current });
     return out;
-  }, [chosen, series, current, ctx, key]);
-  const styles = useMemo(() => seriesStyles(lanes, theme), [lanes, theme]);
+  }, [chosen, series, current, ctx, key, coreCol]);
+  const styles = useMemo(() => seriesStyles(lanes, theme, coreColor), [lanes, theme, coreColor]);
 
   const allRows = useMemo(() => zoneRows(ctx.well.depth.values, ctx.interpretation.zones), [ctx]);
   const rows = useMemo(() => shownRows(allRows, { reservoirOnly: config.reservoirOnly, hidden: config.hiddenZones }), [allRows, config.reservoirOnly, config.hiddenZones]);
   const legendRows = useMemo(() => (config.reservoirOnly ? allRows.filter((r) => r.kind === 'reservoir') : allRows), [allRows, config.reservoirOnly]);
 
   const settings = useMemo(() => ({ filter, excludeWashout, mean: stat.mean }), [filter, excludeWashout, stat.mean]);
+  // Plugs de corona por zona (peso 1 por plug; bandera de reservorio/pay de la muestra de perfil más cercana).
+  const corePart = useMemo(
+    () => (coreCol && coreProp && core && lanes.some((l) => l.kind === 'core') ? plugCells(rows, core.plugs, coreCol, coreProp, ctx.well.depth.values, { ...(current.netRes ? { netRes: current.netRes } : {}), ...(current.netPay ? { netPay: current.netPay } : {}) }, filter) : null),
+    [coreCol, coreProp, core, lanes, rows, ctx.well.depth.values, current.netRes, current.netPay, filter],
+  );
+  // Perfil en plugs (D21): la curva actual en la muestra de cada plug, mismas reglas que la corona.
+  const coreLogPart = useMemo(
+    () =>
+      coreCol && coreProp && core && current.values && lanes.some((l) => l.kind === 'coreLog')
+        ? plugLogCells(rows, core.plugs, coreCol, coreProp, ctx.well.depth.values, current.values, { ...(current.netRes ? { netRes: current.netRes } : {}), ...(current.netPay ? { netPay: current.netPay } : {}), ...(current.washout ? { washout: current.washout } : {}) }, filter, excludeWashout)
+        : null,
+    [coreCol, coreProp, core, lanes, rows, ctx.well.depth.values, current, filter, excludeWashout],
+  );
   // Celdas: las series sin datos todavía (calculando o con error) quedan como carril vacío.
   const cells = useMemo<DistributionCell[][]>(() => {
     const ready = lanes.filter((l) => l.data);
     const computed = buildCells(rows, ready.map((l) => l.data!), settings);
     return rows.map((_, i) => {
       let j = 0;
-      return lanes.map((l) => (l.data ? computed[i]![j++]! : { stats: null, missing: 'curve', filtered: 0 }));
+      return lanes.map((l): DistributionCell =>
+        l.kind === 'core'
+          ? (corePart?.cells[i] ?? { stats: null, missing: 'plugs', filtered: 0 })
+          : l.kind === 'coreLog'
+          ? (coreLogPart?.[i] ?? { stats: null, missing: 'plugs', filtered: 0 })
+          : l.data
+          ? computed[i]![j++]!
+          : { stats: null, missing: 'curve', filtered: 0 },
+      );
     });
-  }, [rows, lanes, settings]);
+  }, [rows, lanes, settings, corePart, coreLogPart]);
+  // Diferencia de medias corona − perfil en plugs por zona (tooltip de las dos series).
+  const plugDiffs = useMemo(() => {
+    const kc = lanes.findIndex((l) => l.kind === 'core');
+    const kl = lanes.findIndex((l) => l.kind === 'coreLog');
+    return rows.map((_, i) => (kc >= 0 && kl >= 0 && coreProp ? plugDiffText(cells[i]?.[kc], cells[i]?.[kl], coreProp, unit) : null));
+  }, [lanes, rows, cells, coreProp, unit]);
+  const coreNotes = useMemo(() => (coreCol && coreProp ? plugWarnings(coreProp, coreCol, curve?.role ?? null, core?.plugs.phiMatch) : []), [coreCol, coreProp, curve?.role, core]);
+
+  // Vista «Histogramas» (V2): muestras usadas por fila y serie (las mismas de la caja), clases del histograma del dock.
+  const samples = useMemo(() => {
+    if (view !== 'hist') return null;
+    const ready = lanes.filter((l) => l.data);
+    const zonesOf = matchZones(rows, ready.map((l) => l.data!));
+    return rows.map((_, i) => {
+      let j = 0;
+      return lanes.map((l, k) => {
+        if (l.kind === 'core' || l.kind === 'coreLog') {
+          const p = cells[i]?.[k]?.plugs;
+          return p ? { xs: p.values, ws: p.values.map(() => 1) } : null;
+        }
+        if (!l.data) return null;
+        const z = zonesOf[i]![j++];
+        const inp = inputOf(l.data);
+        return z && inp ? usedSamples(inp, settings, z.ranges) : null;
+      });
+    });
+  }, [view, lanes, rows, settings, cells]);
+  const pooled = useMemo(() => (samples ? Float64Array.from(samples.flatMap((r) => r.flatMap((x) => x?.xs ?? []))) : null), [samples]);
   // ── cutoff (V2): el real del módulo de cutoffs si el rol lo tiene; si no, una línea libre opcional ────────────────
   const param = cutoffParamFor(curve?.role ?? null);
   const params = ctx.interpretation.params;
@@ -202,8 +276,19 @@ export function DistributionPanel({ ctx, wellName, config, onChange, series, onG
   const globalCut: ZoneCutoff | null = param ? zoneCutoff(params, param, null, preview) : freeValue !== undefined ? { value: freeValue, own: false, inactive: false, side: 'below' } : null;
   const zoneCuts = useMemo(() => rows.map((r) => (param ? zoneCutoff(params, param, r.id, preview) : globalCut)), [rows, param, params, preview, globalCut?.value]); // eslint-disable-line react-hooks/exhaustive-deps
   const cutValues = useMemo(() => [globalCut?.value ?? NaN, ...zoneCuts.map((c) => c?.value ?? NaN)].filter(Number.isFinite), [globalCut?.value, zoneCuts]);
-  const liveAxis = useMemo<XYAxis | null>(() => (curve ? distributionAxis(cells, stat.scale, curve.short, unit, cutValues) : null), [cells, stat.scale, curve, unit, cutValues]);
+  const liveAxis = useMemo<XYAxis | null>(
+    () => (!curve ? null : view === 'hist' && pooled ? histogramAxis(pooled, stat.scale, curve.short, unit, cutValues) : distributionAxis(cells, stat.scale, curve.short, unit, cutValues)),
+    [cells, stat.scale, curve, unit, cutValues, view, pooled],
+  );
   const axis = frozen ?? liveAxis;
+  // Histogramas por fila: clases sobre el eje compartido, cada serie como fracción de su peso, fila escalada a su pico.
+  const hists = useMemo<RowHistScene[] | null>(() => {
+    if (!samples || !axis || !pooled) return null;
+    const edges = histogramEdges(axis, pooled);
+    return samples.map((row) => {
+      return { edges, lanes: row.map((x) => (x ? laneHistogram(x.xs, x.ws, edges) : null)) };
+    });
+  }, [samples, axis, pooled]);
 
   // Muestras de la serie actual (el cutoff y la selección son del pozo activo).
   const currentInput = useMemo(() => inputOf(current), [current]);
@@ -277,16 +362,22 @@ export function DistributionPanel({ ctx, wellName, config, onChange, series, onG
   useEffect(() => {
     if (!axis || rows.length === 0) return;
     const th = XY_FIGURE_THEME;
-    const figStyles = rows.map((r) => (lanes.length === 1 ? [zoneLaneStyle(r.color, th)] : seriesStyles(lanes, th)));
+    const figStyles = rows.map((r) => (lanes.length === 1 ? [zoneLaneStyle(r.color, th)] : seriesStyles(lanes, th, core?.colors.light)));
+    const hasCore = lanes.some((l) => l.kind === 'core');
+    const glyph =
+      view === 'hist'
+        ? `Histograma por ${stat.mean === 'poreVolume' ? 'volumen poral' : 'espesor'}, cada serie a su pico · línea: mediana · rombo: ${stat.mean === 'geometric' ? 'media geométrica' : 'media'}`
+        : `Caja P25–P75 · línea: mediana · bigotes P10–P90 · rombo: ${MEAN_LABEL[stat.mean].toLowerCase()}`;
     const filterText = FILTER_LABEL[filter].toLowerCase();
     return registerXYFigure({
       id: 'distribuciones-por-zona',
-      title: `Distribución de ${curve?.short ?? ''} por zona · ${filterText}`,
+      title: `${view === 'hist' ? 'Histogramas' : 'Distribución'} de ${curve?.short ?? ''} por zona · ${filterText}`,
       x: axis,
       y: { kind: 'linear', min: 0, max: 1, label: 'Zona' },
       points: [
         ...(lanes.length > 1 ? lanes.map((l, k) => ({ id: `s-${l.id}`, name: l.label, x: [], y: [], color: figStyles[0]![k]!.color })) : []),
-        { id: 'glyph', name: `Caja P25–P75 · línea: mediana · bigotes P10–P90 · rombo: ${MEAN_LABEL[stat.mean].toLowerCase()}`, x: [], y: [], color: th.color.text },
+        { id: 'glyph', name: glyph, x: [], y: [], color: th.color.text },
+        ...(hasCore ? [{ id: 'plugs', name: `Corona: un punto por plug (pesos iguales); caja desde ${CORE_MIN_BOX} plugs`, x: [], y: [], color: core?.colors.light ?? th.color.text }] : []),
       ],
       lines: [],
       trends: [],
@@ -309,11 +400,12 @@ export function DistributionPanel({ ctx, wellName, config, onChange, series, onG
             }),
             cells,
             styles: figStyles,
+            hists: view === 'hist' ? hists : null,
           },
           th,
         ),
     });
-  }, [axis, rows, cells, lanes, stat.mean, filter, curve?.short, wellName, rowCuts]);
+  }, [axis, rows, cells, lanes, stat.mean, filter, curve?.short, wellName, rowCuts, view, hists, core]);
 
   // Escape mientras se arrastra un rango: lo descarta (la selección anterior queda).
   const rangeDrag = useRef<{ pointerId: number; x0: number; v0: number; moved: boolean; touch: boolean; row: number } | null>(null);
@@ -335,7 +427,9 @@ export function DistributionPanel({ ctx, wellName, config, onChange, series, onG
   const setSeries = (id: string) => {
     const on = chosen.includes(id);
     if (on && chosen.length === 1) return;
-    const next = on ? chosen.filter((x) => x !== id) : [...chosen, id];
+    let next = on ? chosen.filter((x) => x !== id) : [...chosen, id];
+    // La corona se activa con «Perfil en plugs» (su comparación equivalente) y lo arrastra al apagarse.
+    if (id === CORE_SERIES) next = on ? next.filter((x) => x !== CORE_LOG_SERIES) : next.includes(CORE_LOG_SERIES) ? next : [...next, CORE_LOG_SERIES];
     onChange({ series: next }, on ? 'Quitar serie de las distribuciones' : 'Agregar serie a las distribuciones');
   };
   const toggleZone = (id: string) => {
@@ -425,7 +519,15 @@ export function DistributionPanel({ ctx, wellName, config, onChange, series, onG
 
   const noZones = allRows.length === 0;
   const pending = lanes.filter((l) => l.status === 'pending').length;
-  const allSeries: DistributionSeriesItem[] = [{ id: CURRENT_SERIES, label: 'Actual', kind: 'current', status: 'ready' }, ...series];
+  const allSeries: DistributionSeriesItem[] = [
+    { id: CURRENT_SERIES, label: 'Actual', kind: 'current', status: 'ready' },
+    ...(coreCol ? [{ id: CORE_SERIES, label: 'Corona', kind: 'core' as const, status: 'ready' as const, detail: `${core!.plugs.ids.length} plugs` }] : []),
+    ...(coreCol && chosen.includes(CORE_SERIES) && current.values ? [{ id: CORE_LOG_SERIES, label: 'Perfil en plugs', kind: 'coreLog' as const, status: 'ready' as const, detail: 'la curva actual en la muestra de cada plug' }] : []),
+    ...series,
+  ];
+  const coreOn = lanes.some((l) => l.kind === 'core');
+  const showVolume = config.volume === true && !!volume && volume.fluids.length > 0 && lanes.some((l) => l.id === CURRENT_SERIES);
+  const volMax = (f: VolumeFluid) => (volume ? volumeMax(volume, f, rows.map((r) => r.id)) : NaN);
   const styleOf = (id: string) => {
     const k = lanes.findIndex((l) => l.id === id);
     return k >= 0 ? styles[k] : undefined;
@@ -442,6 +544,32 @@ export function DistributionPanel({ ctx, wellName, config, onChange, series, onG
               {stat.scale === 'log' ? ' · eje logarítmico' : ''}
               {stat.fallback ? ' (falta φe para ponderar por volumen poral)' : ''}
             </p>
+          </ControlGroup>
+          <ControlGroup title="Vista">
+            <SegmentedControl
+              size="sm"
+              block
+              aria-label="Vista de las distribuciones"
+              value={view}
+              onChange={(v) => onChange({ view: v }, v === 'hist' ? 'Ver histogramas por zona' : 'Ver cajas por zona')}
+              options={[
+                { value: 'box', label: 'Cajas', title: 'Boxplot por zona: P10–P90, P25–P75, mediana y media' },
+                { value: 'hist', label: 'Histogramas', title: 'Histograma ponderado por zona sobre el mismo eje, cada serie escalada a su pico' },
+              ]}
+            />
+            <Checkbox
+              checked={config.volume === true}
+              disabled={!volume || volume.fluids.length === 0}
+              onChange={(on) => onChange({ volume: on }, on ? 'Mostrar el volumen in situ por zona' : 'Ocultar el volumen in situ por zona')}
+              label="Volumen in situ por zona"
+              description={
+                !volume
+                  ? 'Todavía no hay resultado del volumen in situ.'
+                  : volume.fluids.length === 0
+                  ? 'Ninguna zona tiene petróleo o gas elegido (módulo de volumen in situ).'
+                  : `Determinista y P90–P10 de la incertidumbre, en ${volume.fluids.map((f) => VOLUME_UNIT[f]).join(' y ')}. Solo de la interpretación actual.`
+              }
+            />
           </ControlGroup>
           <ControlGroup title="Muestras">
             <SegmentedControl
@@ -486,8 +614,18 @@ export function DistributionPanel({ ctx, wellName, config, onChange, series, onG
                 );
               })}
             </div>
-            {series.length === 0 ? (
-              <p className="plot-hint">Guardá un snapshot (o cargá otro pozo) para comparar distribuciones.</p>
+            {coreOn && (
+              <p className="plot-hint" data-testid="zdist-core-hint">
+                Corona: un punto por plug en su zona (profundidad corrida); caja desde {CORE_MIN_BOX} plugs, pesos iguales, media {stat.mean === 'geometric' ? 'geométrica' : 'aritmética'}. El filtro usa la bandera de la muestra de perfil más cercana (hasta un paso de muestreo). «Perfil en plugs» es la curva actual en esas mismas muestras: compará la corona con esa caja, no con la de toda la zona (que suma tramos sin cortar).
+                {corePart && corePart.outside > 0 ? ` ${corePart.outside} ${corePart.outside === 1 ? 'plug queda' : 'plugs quedan'} fuera del perfil.` : ''}
+              </p>
+            )}
+            {coreOn && coreNotes.some((n) => n.tone === 'warn') && (
+              <p className="plot-hint zdist-warn">{coreNotes.filter((n) => n.tone === 'warn').map((n) => n.text).join(' · ')}</p>
+            )}
+            {!coreCol && core && coreProp === null && <p className="plot-hint">La corona se compara con φ, k o densidad de matriz (PHIE/PHIT, PERM, RHOMAA).</p>}
+            {series.length === 0 && !core ? (
+              <p className="plot-hint">Guardá un snapshot (o cargá otro pozo o la corona) para comparar distribuciones.</p>
             ) : series.some((s) => s.kind === 'well' && chosen.includes(s.id)) ? (
               <p className="plot-hint">Otros pozos: zonas emparejadas por nombre; borde punteado.</p>
             ) : null}
@@ -566,15 +704,36 @@ export function DistributionPanel({ ctx, wellName, config, onChange, series, onG
                     );
                   })}
                 </div>
-                <ul className="zdist-key" aria-label="Cómo leer las cajas">
-                  <li>
-                    <span className="zdist-glyph zdist-glyph--box" aria-hidden="true" />
-                    P25–P75 · mediana
-                  </li>
-                  <li>
-                    <span className="zdist-glyph zdist-glyph--whisker" aria-hidden="true" />
-                    P10–P90
-                  </li>
+                <ul className="zdist-key" aria-label={view === 'hist' ? 'Cómo leer los histogramas' : 'Cómo leer las cajas'}>
+                  {view === 'hist' ? (
+                    <>
+                      <li title="Peso por clase (espesor; volumen poral para Sw; un plug = 1), como fracción de cada serie y escalado a su pico: se comparan formas, no alturas">
+                        <span className="zdist-glyph zdist-glyph--hist" aria-hidden="true" />
+                        {stat.mean === 'poreVolume' ? 'Por volumen poral' : 'Por espesor'} · escalado al pico
+                      </li>
+                      <li>
+                        <span className="zdist-glyph zdist-glyph--median" aria-hidden="true" />
+                        Mediana
+                      </li>
+                    </>
+                  ) : (
+                    <>
+                      <li>
+                        <span className="zdist-glyph zdist-glyph--box" aria-hidden="true" />
+                        P25–P75 · mediana
+                      </li>
+                      <li>
+                        <span className="zdist-glyph zdist-glyph--whisker" aria-hidden="true" />
+                        P10–P90
+                      </li>
+                    </>
+                  )}
+                  {coreOn && (
+                    <li>
+                      <span className="zdist-glyph zdist-glyph--plug" style={{ ['--plug' as string]: coreColor }} aria-hidden="true" />
+                      Plug
+                    </li>
+                  )}
                   <li>
                     <span className="zdist-glyph zdist-glyph--mean" aria-hidden="true" />
                     {stat.mean === 'geometric' ? 'Media geométrica' : 'Media'}
@@ -599,12 +758,13 @@ export function DistributionPanel({ ctx, wellName, config, onChange, series, onG
                   </Button>
                 </div>
               )}
+              {showVolume && volume && <VolumeStatus volume={volume} onOpenUncertainty={onOpenUncertainty} />}
               {rows.length === 0 ? (
                 <EmptyState size="sm" icon="boxplot" title="Ninguna zona a la vista" description={config.reservoirOnly ? 'No hay zonas de tipo reservorio visibles. Cambiá el tipo en el paso Zonas o desmarcá «Solo zonas de reservorio».' : 'Tocá una zona en la leyenda para mostrarla.'} />
               ) : !axis ? (
                 <EmptyState size="sm" icon="boxplot" title="Sin datos para graficar" description={`${curve.short} no tiene valores en las zonas visibles con el filtro «${FILTER_LABEL[filter]}».`} />
               ) : (
-                <div className={`zdist-plot${band ? ' is-banding' : ''}`} data-testid="zdist-plot" style={{ ['--zd-pad' as string]: `${scalePx(DIST_METRICS.padX, ui)}px` }} onPointerLeave={() => setPlotLink({ hoverRuns: null })}>
+                <div className={`zdist-plot${band ? ' is-banding' : ''}${showVolume ? ' has-volume' : ''}`} data-view={view} data-testid="zdist-plot" style={{ ['--zd-pad' as string]: `${scalePx(DIST_METRICS.padX, ui)}px` }} onPointerLeave={() => setPlotLink({ hoverRuns: null })}>
                   <div className="zdist-axis-label">
                     <span className="zdist-axis-title">{unit ? `${curve.short} (${unit})` : curve.short}</span>
                     <span className="zdist-axis-filter">{FILTER_LABEL[filter]}</span>
@@ -631,6 +791,12 @@ export function DistributionPanel({ ctx, wellName, config, onChange, series, onG
                       )}
                     </div>
                   </div>
+                  {showVolume && volume && (
+                    <div className="zdist-vol-head" aria-hidden="true">
+                      <span className="zdist-axis-title">In situ</span>
+                      <span className="zdist-axis-filter">{volume.fluids.map((f) => VOLUME_UNIT[f]).join(' · ')}</span>
+                    </div>
+                  )}
                   {rows.map((r, i) => (
                     <ZoneRowView
                       key={r.id}
@@ -639,6 +805,13 @@ export function DistributionPanel({ ctx, wellName, config, onChange, series, onG
                       styles={rowStyles[i]!}
                       axis={axis}
                       labels={lanes.map((l) => (lanes.length > 1 ? l.label : ''))}
+                      laneNames={lanes.map((l) => l.label)}
+                      view={view}
+                      hist={hists?.[i] ?? null}
+                      coreNotes={coreNotes.map((n) => n.text)}
+                      plugDiff={plugDiffs[i] ?? null}
+                      weightText={weightText}
+                      volume={showVolume && volume ? <VolumeCell zone={r} volume={volume} max={volMax} /> : null}
                       mean={stat.mean}
                       unit={unit}
                       ui={ui}
@@ -707,22 +880,54 @@ interface ZoneRowViewProps {
   };
   index: number;
   onCut(value: number, phase: GuidePhase): void;
+  /** Nombre de cada serie (tooltip de los histogramas). */
+  laneNames: readonly string[];
+  view: 'box' | 'hist';
+  /** Histogramas de la fila (vista «Histogramas»). */
+  hist: RowHistScene | null;
+  /** Avisos de la serie de corona (unidad, base de φ) para su tooltip. */
+  coreNotes: readonly string[];
+  /** «Corona − perfil en plugs: +0,012 v/v» de la zona (tooltip de las dos series), o null. */
+  plugDiff: string | null;
+  /** «espesor» o «volumen poral» (tooltip de los histogramas). */
+  weightText: string;
+  /** Franja del volumen in situ de la zona (o null). */
+  volume: ReactNode;
 }
 
-function ZoneRowView({ row, cells, styles, axis, labels, mean, unit, ui, hover, onHover, onGo, cut, param, passTitle, band, selFraction, selection, gesture, index, onCut }: ZoneRowViewProps) {
+function ZoneRowView({ row, cells, styles, axis, labels, mean, unit, ui, hover, onHover, onGo, cut, param, passTitle, band, selFraction, selection, gesture, index, onCut, laneNames, view, hist, coreNotes, plugDiff, weightText, volume }: ZoneRowViewProps) {
   const lane = hover?.lane ?? -1;
   const ref = useCanvas(
-    (c, { width, height }, theme, u) => drawZoneRow(c, width, height, { axis, cells, styles, selection, ...(lane >= 0 ? { hover: lane } : {}) }, theme, u),
-    [axis, cells, styles, lane, selection?.stats, selection?.color, selection?.lane],
+    (c, { width, height }, theme, u) => drawZoneRow(c, width, height, { axis, cells, styles, selection, ...(lane >= 0 && view === 'box' ? { hover: lane } : {}), ...(view === 'hist' && hist ? { hist } : {}) }, theme, u),
+    [axis, cells, styles, lane, selection?.stats, selection?.color, selection?.lane, view, hist],
   );
   const notes = zoneNotes(cells[0]);
-  const height = rowHeight(cells.length, ui);
+  // n de plugs de la zona a la vista (no solo en el tooltip) cuando la corona no es la primera serie.
+  const coreCell = cells.findIndex((c, k) => k > 0 && c.plugs?.source === 'core');
+  if (coreCell > 0) notes.push({ text: `corona: ${plugCountText(cells[coreCell]!)}`, tone: (cells[coreCell]!.stats?.n ?? 0) > 0 && cells[coreCell]!.stats!.n < CORE_MIN_BOX ? 'warn' : 'muted' });
+  const height = rowHeight(cells.length, ui, view);
   const move = (e: ReactPointerEvent<HTMLCanvasElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    const k = laneAt(e.clientY - rect.top, cells.length, ui);
+    const k = laneAt(e.clientY - rect.top, cells.length, ui, view);
     onHover(k >= 0 ? { lane: k, x: e.clientX - rect.left, y: e.clientY - rect.top, width: rect.width } : null);
   };
-  const tip = hover && hover.lane >= 0 && cells[hover.lane] ? cellTooltip(row.name, labels[hover.lane] ?? '', cells[hover.lane]!, mean, unit) : null;
+  const tip = !hover || hover.lane < 0
+    ? null
+    : view === 'hist' && hist
+    ? [
+        ...histTooltip(
+          row.name,
+          laneValue(axis, hover.width, hover.x, ui),
+          hist.edges,
+          cells.map((c, k) => ({ label: laneNames[k] ?? '', hist: hist.lanes[k] ?? null, stats: c.stats, plugs: !!c.plugs })),
+          weightText,
+          unit,
+        ),
+        ...(plugDiff ? [plugDiff] : []),
+      ]
+    : cells[hover.lane]
+    ? cellTooltip(row.name, labels[hover.lane] ?? '', cells[hover.lane]!, mean, unit, [...(plugDiff && cells[hover.lane]!.plugs ? [plugDiff] : []), ...(cells[hover.lane]!.plugs?.source === 'core' ? coreNotes : [])])
+    : null;
   const showPass = !!cut && cut.mark.tone !== 'inactive' && Number.isFinite(cut.pass);
   const showPay = !!cut && Number.isFinite(cut.pay);
   const showSel = Number.isFinite(selFraction);
@@ -796,6 +1001,90 @@ function ZoneRowView({ row, cells, styles, axis, labels, mean, unit, ui, hover, 
           </div>
         )}
       </div>
+      {volume}
     </>
+  );
+}
+
+/** Estado del volumen arriba del gráfico: totales por fluido, si la incertidumbre está calculada y el enlace para hacerlo. */
+function VolumeStatus({ volume, onOpenUncertainty }: { volume: VolumeData; onOpenUncertainty: (() => void) | undefined }) {
+  return (
+    <div className="zdist-vol-status" data-testid="zdist-volume-status">
+      <span className="zdist-vol-status__totals num">
+        {volume.fluids.map((f) => {
+          const t = volume.total[f];
+          return (
+            <span key={f}>
+              {VOLUME_LABEL[f]} <strong>{volumeText(t?.det)}</strong> {VOLUME_UNIT[f]}
+              {hasRange(t) && (
+                <span className="plot-muted">
+                  {' '}
+                  (P90–P10 {volumeText(t.p90)}–{volumeText(t.p10)})
+                </span>
+              )}
+            </span>
+          );
+        })}
+      </span>
+      <span className="zdist-vol-status__key">
+        <span className="zdist-vol-glyph zdist-vol-glyph--det" aria-hidden="true" />
+        determinista
+        {volume.uncertainty !== 'none' && (
+          <>
+            <span className={`zdist-vol-glyph zdist-vol-glyph--range${volume.uncertainty === 'stale' ? ' is-stale' : ''}`} aria-hidden="true" />
+            P90–P10 · P50
+          </>
+        )}
+      </span>
+      {volume.uncertainty === 'none' ? (
+        onOpenUncertainty && (
+          <Button size="sm" variant="ghost" icon="activity" onClick={onOpenUncertainty} data-testid="zdist-open-uncertainty" title="Abre el módulo de incertidumbre: la simulación se corre desde allí">
+            Calcular incertidumbre
+          </Button>
+        )
+      ) : volume.uncertainty === 'stale' ? (
+        <span className="zdist-vol-status__stale">
+          Incertidumbre desactualizada
+          {onOpenUncertainty && (
+            <Button size="sm" variant="ghost" icon="refresh" onClick={onOpenUncertainty} data-testid="zdist-open-uncertainty">
+              Recalcular
+            </Button>
+          )}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+/** Volumen de una zona: punto del determinista y, si hay incertidumbre, barra P90–P10 con marca en P50. */
+function VolumeCell({ zone, volume, max }: { zone: ZoneRow; volume: VolumeData; max(f: VolumeFluid): number }) {
+  const z = volume.byZone[zone.id];
+  const fluids = volume.fluids.filter((f) => z?.[f]);
+  return (
+    <div className="zdist-vol" style={{ ['--zone' as string]: zone.color }} data-testid={`zdist-vol-${zone.name}`}>
+      {fluids.length === 0 ? (
+        <span className="zdist-vol__none">{z?.note ?? 'sin volumen'}</span>
+      ) : (
+        fluids.map((f) => {
+          const v = z![f]!;
+          const m = max(f);
+          const at = (x: number | undefined) => `${(volumeFraction(x, m) * 100).toFixed(2)}%`;
+          const range = hasRange(v);
+          return (
+            <div key={f} className={`zdist-vol__lane${volume.uncertainty === 'stale' ? ' is-stale' : ''}`} title={volumeTitle(zone.name, f, v, volume.uncertainty)}>
+              <span className="zdist-vol__track">
+                {range && <span className="zdist-vol__bar" style={{ left: at(v.p90), width: `${((volumeFraction(v.p10, m) - volumeFraction(v.p90, m)) * 100).toFixed(2)}%` }} />}
+                {range && Number.isFinite(v.p50) && <span className="zdist-vol__p50" style={{ left: at(v.p50) }} />}
+                {Number.isFinite(v.det) && <span className="zdist-vol__det" style={{ left: at(v.det) }} />}
+              </span>
+              <span className="zdist-vol__value num">
+                {volumeText(v.det)}
+                <span className="zdist-vol__unit"> {VOLUME_UNIT[f]}</span>
+              </span>
+            </div>
+          );
+        })
+      )}
+    </div>
   );
 }
