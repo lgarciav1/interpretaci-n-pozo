@@ -6,7 +6,7 @@ import { effectiveWell } from '../preparation/data';
  */
 import { useMemo, type ReactNode } from 'react';
 import type { SourceRef } from '../../core/interpretation';
-import type { CrossplotConfig, HistogramConfig, PlotKind } from '../../core/plots';
+import type { PlotConfigOf, PlotKind } from '../../core/plots';
 import { plotConfig, updatePlotConfig } from '../../core/state/plots';
 import { activeWellEntry, makeId, setModuleEnabled, setParam, setSource } from '../../core/state/project';
 import { showTool } from '../../core/state/toolString';
@@ -36,7 +36,7 @@ export function usePlotContext(): SeriesContext | null {
   }, [entry, result]);
 }
 
-type ConfigOf<K extends PlotKind> = K extends 'histogram' ? HistogramConfig : CrossplotConfig;
+type ConfigOf<K extends PlotKind> = PlotConfigOf<K>;
 
 /** Configuración guardada del gráfico en el pozo activo (o la de fábrica). */
 export function usePlotConfig<K extends PlotKind>(kind: K): ConfigOf<K> | null {
@@ -129,7 +129,7 @@ export function showHiddenTool(h: Pick<HiddenCurve, 'toolId' | 'toolName' | 'rea
  * Monta el panel solo mientras su pestaña está a la vista (con el dock abierto): un gráfico oculto no recalcula ni
  * redibuja con cada cambio de parámetros, y solo lo que está a la vista se ofrece para exportar como figura.
  */
-export function PlotDockGate({ id, icon, children }: { id: string; icon: 'histogram' | 'scatter'; children: (ctx: SeriesContext) => ReactNode }) {
+export function PlotDockGate({ id, icon, children }: { id: string; icon: 'histogram' | 'scatter' | 'boxplot'; children: (ctx: SeriesContext) => ReactNode }) {
   const active = useUi((s) => s.dockTab === id && !s.layout.dockCollapsed);
   const ctx = usePlotContext();
   if (!active) return null;

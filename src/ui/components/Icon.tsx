@@ -177,6 +177,14 @@ const ICONS = {
     </>
   ),
   histogram: <path d="M4 20h16M6 20v-5M10 20V8M14 20v-9M18 20v-4" />,
+  // Boxplots horizontales (distribuciones por zona): bigote, caja y mediana.
+  boxplot: (
+    <>
+      <path d="M3 8h3M15 8h5M3 16h5M17 16h4M3 5v6M20 5v6M3 13v6M21 13v6M11 6v4M12 14v4" />
+      <rect x="6" y="6" width="9" height="4" rx="1" />
+      <rect x="8" y="14" width="9" height="4" rx="1" />
+    </>
+  ),
   trend: (
     <>
       <path d="M4 19.5L20 5" />

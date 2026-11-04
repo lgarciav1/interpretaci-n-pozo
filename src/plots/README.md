@@ -18,6 +18,20 @@ Decisión: [`docs/decisiones/0008-tendencias-y-gradientes.md`](../../docs/decisi
 
 Tests: `tests/plots/` (series y ajuste, geometría, interacción con `PointerGestures`).
 
+## `distribution/` — distribuciones por zona
+
+Decisión: [`docs/decisiones/0066-distribuciones-por-zona.md`](../../docs/decisiones/0066-distribuciones-por-zona.md).
+Boxplots por zona de una propiedad, una caja por serie (actual, snapshots, otros pozos).
+
+| Archivo | Qué hace |
+|---|---|
+| `distribution.ts` | puro: filas por zona, celdas zona × serie (motor `petro/distribution.ts`), eje compartido, avisos, tooltip, CSV de estadísticas y de topes |
+| `series.ts` | puro: opciones de propiedad (interpretación primero), serie desde un contexto, traducción de claves entre pozos |
+| `draw.ts` | canvas sin React: eje, fila de cajas y figura exportable |
+| `DistributionPanel.tsx`, `distribution.css` | componente (lo conecta `src/modules/zone-distribution/dock.tsx`) |
+
+Tests: `tests/plots/distribution.test.ts`.
+
 ## `xy/` — gráfico x–y base
 
 Decisión: [`docs/decisiones/0010-datos-de-corona.md`](../../docs/decisiones/0010-datos-de-corona.md) (D6). Gráfico de

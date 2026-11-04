@@ -3,7 +3,7 @@
  * saneamiento al abrir y compatibilidad con proyectos guardados antes de la fase 7a (formato v5).
  */
 import { describe, expect, it } from 'vitest';
-import { defaultCrossplot, defaultHistogram, sanitizeCrossplot, sanitizeHistogram, sanitizePlots } from '../src/core/plots';
+import { defaultCrossplot, defaultDistribution, defaultHistogram, sanitizeCrossplot, sanitizeDistribution, sanitizeHistogram, sanitizePlots } from '../src/core/plots';
 import { emptyHistory, recordChange, undo } from '../src/core/state/history';
 import { plotConfig, setPlotCutoff, updatePlotConfig } from '../src/core/state/plots';
 import { addWell, createProject } from '../src/core/state/project';
@@ -68,6 +68,28 @@ describe('saneamiento', () => {
     expect(out?.['x']).toBeUndefined();
     expect(warns).toHaveLength(1);
     expect(sanitizePlots(undefined)).toBeUndefined();
+  });
+});
+
+describe('distribuciones por zona (0066)', () => {
+  it('de fábrica: φe implícita, toda la zona, excluir derrumbe y solo la actual', () => {
+    expect(plotConfig(base(), 'w', 'distribution')).toEqual({ curve: null, filter: 'all', reservoirOnly: false, excludeWashout: false, series: ['#current'], hiddenZones: [] });
+  });
+  it('saneamiento: filtro, series y zonas válidas; series repetidas fuera', () => {
+    const d = sanitizeDistribution({ curve: 'PHIE', filter: 'gas', reservoirOnly: 1, excludeWashout: false, series: ['#current', 'snap-1', 'snap-1', 'otra', 'well:w2', 3], hiddenZones: ['za', 'za', ''] });
+    expect(d).toEqual({ ...defaultDistribution(), excludeWashout: false, series: ['#current', 'snap-1', 'well:w2'], hiddenZones: ['za'] });
+    expect(sanitizeDistribution({ filter: 'netPay', curve: 'r:SW', series: [] })).toMatchObject({ filter: 'netPay', curve: 'r:SW', series: ['#current'] });
+    expect(sanitizeDistribution('x')).toEqual(defaultDistribution());
+  });
+  it('viaja por pozo con los demás gráficos', () => {
+    const out = sanitizePlots({ w: { distribution: { filter: 'netRes', hiddenZones: ['zb'] } } });
+    expect(out?.['w']?.distribution).toMatchObject({ filter: 'netRes', hiddenZones: ['zb'] });
+  });
+  it('un parche entra en el proyecto y no toca la interpretación', () => {
+    const p = base();
+    const q = updatePlotConfig(p, 'w', 'distribution', { curve: 'r:SW', series: ['#current', 'snap-1'] });
+    expect(q.display.plots?.['w']?.distribution).toMatchObject({ curve: 'r:SW', series: ['#current', 'snap-1'], excludeWashout: false });
+    expect(q.wells[0]!.interpretation).toBe(p.wells[0]!.interpretation);
   });
 });
 

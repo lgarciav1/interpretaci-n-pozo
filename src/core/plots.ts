@@ -1,5 +1,5 @@
 /**
- * Configuración de los gráficos del dock (histograma y crossplot libre) que se GUARDA en el proyecto
+ * Configuración de los gráficos del dock (histograma, crossplot libre y distribuciones por zona) que se GUARDA en el proyecto
  * (docs/decisiones/0014-histograma-y-crossplot.md, D2): curvas elegidas, escalas, color, zonas filtradas, plantilla y
  * cutoffs libres. Es trabajo del usuario y viaja con el archivo, igual que las pistas del visor: vive en
  * `Project.display.plots[pozo]`, fuera de `Interpretation` (no recalcula el motor ni entra en snapshots) y entra en
@@ -67,12 +67,38 @@ export interface CrossplotConfig {
   pickettWaterZones?: string[];
 }
 
+/** Qué muestras entran en las distribuciones por zona: toda la zona, solo reservorio neto o solo pay neto. */
+export type DistributionSampleFilter = 'all' | 'netRes' | 'netPay';
+
+/**
+ * Distribuciones por zona (boxplots; docs/decisiones/0066): propiedad, filtro de muestras, series comparadas y zonas
+ * ocultas. Las series se nombran `#current` (interpretación actual), `snap-…` (snapshot del pozo) o `well:<id>` (otro
+ * pozo del proyecto, zonas emparejadas por nombre).
+ */
+export interface DistributionConfig {
+  /** null = la propiedad por defecto (φe si hay). */
+  curve: PlotCurveKey | null;
+  filter: DistributionSampleFilter;
+  /** Solo las zonas de tipo reservorio. */
+  reservoirOnly: boolean;
+  /** Descartar las muestras con IND_WASHOUT = 1 (si la curva existe). */
+  excludeWashout: boolean;
+  /** Series elegidas, en el orden de los chips. Vacío = solo la interpretación actual. */
+  series: string[];
+  /** Zonas ocultas (ids del pozo activo). */
+  hiddenZones: string[];
+}
+
 export interface WellPlots {
   histogram?: HistogramConfig;
   crossplot?: CrossplotConfig;
+  distribution?: DistributionConfig;
 }
 
 export type PlotKind = keyof WellPlots;
+
+/** Configuración de un tipo de gráfico. */
+export type PlotConfigOf<K extends PlotKind> = NonNullable<WellPlots[K]>;
 
 export function defaultHistogram(): HistogramConfig {
   return { curve: null, scale: 'auto', bins: null, zones: [], byZone: true, normalize: true, cumulative: false, cutoffs: {} };
@@ -80,6 +106,16 @@ export function defaultHistogram(): HistogramConfig {
 
 export function defaultCrossplot(): CrossplotConfig {
   return { x: null, y: null, xScale: 'auto', yScale: 'auto', xReversed: false, yReversed: false, color: { kind: 'zone' }, zones: [], template: null, cutoffs: {} };
+}
+
+export function defaultDistribution(): DistributionConfig {
+  return { curve: null, filter: 'all', reservoirOnly: false, excludeWashout: false, series: ['#current'], hiddenZones: [] };
+}
+
+/** Configuración de fábrica de un tipo de gráfico. */
+export function defaultPlotConfig<K extends PlotKind>(kind: K): PlotConfigOf<K> {
+  const d: { [P in PlotKind]: () => PlotConfigOf<P> } = { histogram: defaultHistogram, crossplot: defaultCrossplot, distribution: defaultDistribution };
+  return d[kind]() as PlotConfigOf<K>;
 }
 
 /** Límites de la cantidad de clases elegida a mano. */
@@ -146,6 +182,23 @@ export function sanitizeCrossplot(raw: unknown): CrossplotConfig {
   };
 }
 
+const SERIES_ID = /^(#current|snap-.+|well:.+)$/;
+
+export function sanitizeDistribution(raw: unknown): DistributionConfig {
+  const d = defaultDistribution();
+  if (!isObj(raw)) return d;
+  const f = raw['filter'];
+  const series = [...new Set(strings(raw['series']).filter((s) => SERIES_ID.test(s)))];
+  return {
+    curve: isKey(raw['curve']) ? raw['curve'] : null,
+    filter: f === 'netRes' || f === 'netPay' ? f : 'all',
+    reservoirOnly: bool(raw['reservoirOnly'], d.reservoirOnly),
+    excludeWashout: bool(raw['excludeWashout'], d.excludeWashout),
+    series: series.length ? series : d.series,
+    hiddenZones: [...new Set(strings(raw['hiddenZones']))],
+  };
+}
+
 /** Valida `display.plots` leído de un archivo (por pozo). Lo que no es un objeto se descarta con aviso. */
 export function sanitizePlots(raw: unknown, warn: (m: string) => void = () => {}): Record<string, WellPlots> | undefined {
   if (raw === undefined || raw === null) return undefined;
@@ -162,7 +215,8 @@ export function sanitizePlots(raw: unknown, warn: (m: string) => void = () => {}
     const w: WellPlots = {};
     if (v['histogram'] !== undefined) w.histogram = sanitizeHistogram(v['histogram']);
     if (v['crossplot'] !== undefined) w.crossplot = sanitizeCrossplot(v['crossplot']);
-    if (w.histogram || w.crossplot) out[wellId] = w;
+    if (v['distribution'] !== undefined) w.distribution = sanitizeDistribution(v['distribution']);
+    if (w.histogram || w.crossplot || w.distribution) out[wellId] = w;
   }
   return Object.keys(out).length ? out : undefined;
 }
