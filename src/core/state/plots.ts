@@ -3,15 +3,15 @@
  * docs/decisiones/0014-histograma-y-crossplot.md, D2). Se aplican con `useProject.getState().commit(etiqueta, …)`
  * y entran en deshacer/rehacer. Si nada cambia devuelven el mismo proyecto (no se registra en el historial).
  */
-import { defaultCrossplot, defaultHistogram, type CrossplotConfig, type HistogramConfig, type PlotCurveKey, type PlotKind, type WellPlots } from '../plots';
+import { defaultPlotConfig, type PlotConfigOf, type PlotCurveKey, type PlotKind, type WellPlots } from '../plots';
 import { getWellEntry, type Project } from './project';
 
-type ConfigOf<K extends PlotKind> = K extends 'histogram' ? HistogramConfig : CrossplotConfig;
+type ConfigOf<K extends PlotKind> = PlotConfigOf<K>;
 
 /** Configuración guardada de un gráfico de un pozo, o la de fábrica. */
 export function plotConfig<K extends PlotKind>(project: Project, wellId: string, kind: K): ConfigOf<K> {
   const saved = project.display.plots?.[wellId]?.[kind];
-  return (saved ?? (kind === 'histogram' ? defaultHistogram() : defaultCrossplot())) as ConfigOf<K>;
+  return (saved ?? defaultPlotConfig(kind)) as ConfigOf<K>;
 }
 
 const same = (a: unknown, b: unknown) => a === b || JSON.stringify(a) === JSON.stringify(b);
@@ -37,7 +37,7 @@ export function updatePlotConfig<K extends PlotKind>(project: Project, wellId: s
  * Cutoff de un gráfico sobre una curva: `true` muestra el cutoff real (parámetro del módulo de cutoffs), un número es
  * una línea libre y `null` lo quita.
  */
-export function setPlotCutoff(project: Project, wellId: string, kind: PlotKind, curve: PlotCurveKey, value: number | true | null): Project {
+export function setPlotCutoff(project: Project, wellId: string, kind: 'histogram' | 'crossplot', curve: PlotCurveKey, value: number | true | null): Project {
   const cfg = plotConfig(project, wellId, kind);
   const cur = cfg.cutoffs[curve];
   if (value === null ? cur === undefined : cur === value) return project;

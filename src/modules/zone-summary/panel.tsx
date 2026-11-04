@@ -3,8 +3,9 @@
  * promedios del pay) que entran en la columna del inspector. La tabla completa sigue en Resultados (dock).
  */
 import type { TableCell, TableValue } from '../../core/module';
-import { DataTable, EmptyState, formatNumber, type Column } from '../../ui';
+import { Button, DataTable, EmptyState, formatNumber, type Column } from '../../ui';
 import type { ModulePanel, ModulePanelProps } from '../../ui/modulePanel';
+import { openZoneDistribution } from '../zone-distribution/dock';
 import './panel.css';
 
 type Row = Readonly<Record<string, TableCell>>;
@@ -133,6 +134,12 @@ function ZoneSummaryPanel({ module, result }: ModulePanelProps) {
       <p className="zsum-note">
         {hasSand ? 'Arena neta ⊇ reservorio neto (permeable) ⊇ pay neto (útil). ' : ''}Sw ponderada por volumen poral. La tabla completa (reservorio, kh, h·φ) está en Resultados.
       </p>
+      <div className="zsum-more">
+        <Button size="sm" variant="secondary" icon="boxplot" onClick={openZoneDistribution} data-testid="zone-summary-distributions">
+          Ver distribuciones
+        </Button>
+        <span className="zsum-note">P10, P50 y P90 de φ, Sw, Vsh o k en cada zona, y comparación con snapshots.</span>
+      </div>
     </div>
   );
 }
