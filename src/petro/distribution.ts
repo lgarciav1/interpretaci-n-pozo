@@ -55,22 +55,34 @@ export function weightedQuantiles(
   probs: readonly number[] = DEFAULT_QUANTILES,
 ): number[] {
   const n = Math.min(values.length, weights.length);
-  const idx: number[] = [];
+  const xv: number[] = [];
+  const wv: number[] = [];
+  let uniform = true;
   for (let i = 0; i < n; i++) {
     const x = values[i]!;
     const w = weights[i]!;
-    if (Number.isFinite(x) && Number.isFinite(w) && w > 0) idx.push(i);
+    if (Number.isFinite(x) && Number.isFinite(w) && w > 0) {
+      if (wv.length > 0 && w !== wv[0]) uniform = false;
+      xv.push(x);
+      wv.push(w);
+    }
   }
-  idx.sort((a, b) => values[a]! - values[b]!);
+  if (uniform) {
+    // Pesos iguales (espesor de muestreo constante): el orden entre empates no importa, y el sort numérico nativo de un
+    // Float64Array es ~4 veces más rápido que el de índices con comparador. El resultado es el mismo.
+    return quantilesOfSorted(Float64Array.from(xv).sort(), wv, probs);
+  }
+  const idx = xv.map((_, i) => i);
+  idx.sort((a, b) => xv[a]! - xv[b]!);
   return quantilesOfSorted(
-    idx.map((i) => values[i]!),
-    idx.map((i) => weights[i]!),
+    idx.map((i) => xv[i]!),
+    idx.map((i) => wv[i]!),
     probs,
   );
 }
 
 /** Núcleo: `xs` ordenado ascendente, `ws` > 0 y finitos, mismo largo. */
-function quantilesOfSorted(xs: readonly number[], ws: readonly number[], probs: readonly number[]): number[] {
+function quantilesOfSorted(xs: ArrayLike<number>, ws: ArrayLike<number>, probs: readonly number[]): number[] {
   const m = xs.length;
   if (m === 0) return probs.map(() => NaN);
   let total = 0;

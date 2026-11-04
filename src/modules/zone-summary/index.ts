@@ -9,7 +9,10 @@
  * Definición PURA (la ejecuta el Web Worker).
  */
 import { defineModule, input, output, type TableCell, type ZoneScalarValue } from '../../core/module';
-import { summarizeRanges, type IntervalSummary } from '../../petro/summary';
+import { summarizeRanges, type IntervalSummary, type SummaryOptions } from '../../petro/summary';
+
+/** La tabla todavía no muestra percentiles ni medias geo/armónica: no se pagan (ordenar ~2 ms por llamada) en cada recálculo. Quitar al agregarlos. */
+const NO_DIST: SummaryOptions = { distributions: false };
 import type { ZoneKind } from '../../core/well';
 
 const KIND_LABEL: Record<ZoneKind, string> = {
@@ -124,7 +127,7 @@ export default defineModule({
     const netPayH: ZoneScalarValue = {};
     const hphiSh: ZoneScalarValue = {};
     for (const iv of intervals) {
-      const s = summarizeRanges(data, [{ start: iv.start, end: iv.end }]);
+      const s = summarizeRanges(data, [{ start: iv.start, end: iv.end }], NO_DIST);
       rows.push(row(iv.name, iv.kind ? KIND_LABEL[iv.kind] : null, iv.top, iv.base, s));
       // El sello no aporta volumen: su faltante de Sw no se avisa.
       if (iv.kind !== 'seal' && s.noDataPay > PAY_GAP_WARN * s.netRes) {
@@ -143,7 +146,7 @@ export default defineModule({
       }
     }
 
-    const total = summarizeRanges(data, intervals.map((iv) => ({ start: iv.start, end: iv.end })));
+    const total = summarizeRanges(data, intervals.map((iv) => ({ start: iv.start, end: iv.end })), NO_DIST);
     const tops = intervals.map((iv) => iv.top).filter(Number.isFinite);
     const bases = intervals.map((iv) => iv.base).filter(Number.isFinite);
     rows.push(row('Total', null, tops.length ? Math.min(...tops) : NaN, bases.length ? Math.max(...bases) : NaN, total));
@@ -164,13 +167,19 @@ export default defineModule({
       { latex: '\\bar\\phi = \\frac{\\sum h_i\\,\\phi_i}{\\sum h_i}', description: 'Sobre el espesor neto.' },
       { latex: '\\bar S_w = \\frac{\\sum h_i\\,\\phi_i\\,S_{w,i}}{\\sum h_i\\,\\phi_i}', description: 'Ponderada por volumen poral.' },
       { latex: 'h\\phi S_h = \\sum h_i\\,\\phi_i\\,(1 - S_{w,i})', description: 'Sobre el pay; es igual a h·φ̄·(1 − S̄w).' },
-      { latex: 'kh = \\sum h_i\\,k_i', description: 'Capacidad de flujo del pay, en mD·m.' },
+      { latex: 'kh = \\sum h_i\\,k_i', description: 'Capacidad de flujo del pay, en mD·m. Equivale a la media aritmética de k por el espesor: flujo horizontal, capas en paralelo.' },
+      { latex: '\\bar x_g = \\exp\\!\\left(\\frac{\\sum h_i\\,\\ln x_i}{\\sum h_i}\\right)', description: 'Media geométrica ponderada por espesor de k y de RT en el pay; solo cuentan las muestras con x > 0, las demás son nulas.' },
+      { latex: '\\bar x_h = \\frac{\\sum h_i}{\\sum h_i / x_i}', description: 'Media armónica ponderada por espesor de k en el pay: permeabilidad efectiva con flujo vertical, capas en serie. Siempre x̄h ≤ x̄g ≤ x̄a.' },
+      { latex: 'c_j = \\frac{\\sum_{m<j} w_m + w_j/2}{\\sum w_m},\\quad P_p = x_{(j)} + \\frac{p - c_j}{c_{j+1} - c_j}\\,(x_{(j+1)} - x_{(j)})', description: 'Percentil ponderado (P10, P50, P90) de Vsh, φ, Sw, k y RT, con peso wᵢ = hᵢ (Sw: wᵢ = hᵢ·φᵢ, volumen poral, como S̄w): muestras ordenadas por valor, cada una ubicada en el punto medio de su tramo de la distribución acumulada e interpolación lineal entre ellas; con pesos iguales es el método de Hazen. P10 es el valor bajo el cual queda el 10 % del espesor.' },
     ],
     references: [
       'Asquith, G. y Krygowski, D. (2004). Basic Well Log Analysis, 2.ª ed. AAPG Methods in Exploration 16.',
+      'Warren, J. E. y Price, H. S. (1961). Flow in heterogeneous porous media. SPE Journal 1(3), 153-169.',
+      'Lake, L. W. (1989). Enhanced Oil Recovery, cap. 2. Prentice Hall.',
+      'Hyndman, R. J. y Fan, Y. (1996). Sample quantiles in statistical packages. The American Statistician 50(4), 361-365.',
       'Worthington, P. F. y Cosentino, L. (2005). The role of cut-offs in integrated reservoir studies. SPE Reservoir Evaluation & Engineering 8(4).',
     ],
     notes:
-      'Los tres espesores netos están anidados: pay ≤ reservorio ≤ arena ≤ bruto. Las muestras sin Vsh o porosidad que ningún corte descarta no se pueden clasificar y se informan como «sin dato». El reservorio sin Sw cuenta en «sin dato pay»: no se cuenta como no pay; si toda la zona carece de Sw, el pay queda sin dato. El total se calcula desde las sumas de todas las zonas, no promediando promedios; las muestras fuera de toda zona no cuentan.',
+      'Los percentiles, la media geométrica y la armónica se calculan sobre las mismas muestras que cada promedio (neto de reservorio para Vsh, φ y Sw; neto pay para esas y para k y RT). Los nulos (sin dato; para las medias geométrica y armónica, también valores ≤ 0) no entran y se informan aparte con su espesor. Los percentiles de Sw se ponderan por volumen poral h·φ, como la media; los demás, por espesor. Los tres espesores netos están anidados: pay ≤ reservorio ≤ arena ≤ bruto. Las muestras sin Vsh o porosidad que ningún corte descarta no se pueden clasificar y se informan como «sin dato». El reservorio sin Sw cuenta en «sin dato pay»: no se cuenta como no pay; si toda la zona carece de Sw, el pay queda sin dato. El total se calcula desde las sumas de todas las zonas, no promediando promedios; las muestras fuera de toda zona no cuentan.',
   },
 });

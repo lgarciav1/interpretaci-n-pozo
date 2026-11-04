@@ -81,3 +81,64 @@ export function percentile(
   const hi = Math.min(lo + 1, m - 1);
   return xs[lo]! + (h - lo) * (xs[hi]! - xs[lo]!);
 }
+
+/**
+ * Medias de valores estrictamente positivos ponderadas por espesor (o por el peso que se pase): geométrica y armónica.
+ * Solo cuentan las muestras con x > 0, x finito y peso > 0 finito; el resto es «nulo» (log y 1/x no están definidos).
+ *
+ *   Geométrica   x̄g = exp( Σ wᵢ·ln xᵢ / Σ wᵢ )     representativa de k en un medio log-normal (aleatorio 2D)
+ *   Armónica     x̄h = Σ wᵢ / Σ (wᵢ / xᵢ)           k efectiva con flujo vertical, capas en SERIE (perpendicular a la estratificación)
+ *   Aritmética   x̄a = Σ wᵢ·xᵢ / Σ wᵢ               k efectiva con flujo horizontal, capas en PARALELO (kh = Σ hᵢ·kᵢ)
+ *
+ * Siempre x̄h ≤ x̄g ≤ x̄a (desigualdad de medias ponderadas), con igualdad solo si todos los valores son iguales
+ * (aritmética calculada sobre las mismas muestras positivas).
+ *
+ * Referencias: Warren, J.E. y Price, H.S. (1961), SPE Journal 1(3) (medias de k en capas); Lake, L.W. (1989),
+ * "Enhanced Oil Recovery", cap. 2 (promedios de permeabilidad); Hardy, G.H., Littlewood, J.E. y Pólya, G. (1934),
+ * "Inequalities" (armónica ≤ geométrica ≤ aritmética).
+ */
+export interface PositiveMeans {
+  /** Media geométrica ponderada (NaN si no hay muestras positivas). */
+  geo: number;
+  /** Media armónica ponderada (NaN si no hay muestras positivas). */
+  harm: number;
+  /** Media aritmética ponderada sobre las MISMAS muestras positivas (para comparar; NaN si no hay). */
+  arith: number;
+  /** Muestras usadas (x > 0). */
+  n: number;
+  /** Muestras nulas: NaN, no finitas o ≤ 0 (con peso > 0). */
+  nullCount: number;
+  /** Peso (espesor) de las muestras nulas. */
+  nullWeight: number;
+}
+
+/**
+ * Ver `PositiveMeans`. `weights` por defecto vale 1 en todas las muestras. Las muestras con peso ≤ 0, NaN o no finito
+ * se ignoran por completo (ni usadas ni nulas). Sin muestras positivas → medias NaN (nunca 0, nunca excepción).
+ */
+export function positiveMeans(values: ArrayLike<number>, weights?: ArrayLike<number>): PositiveMeans {
+  let sw = 0;
+  let sLn = 0;
+  let sInv = 0;
+  let sX = 0;
+  let n = 0;
+  let nullCount = 0;
+  let nullWeight = 0;
+  for (let i = 0; i < values.length; i++) {
+    const w = weights ? weights[i]! : 1;
+    if (!(w > 0) || !Number.isFinite(w)) continue;
+    const x = values[i]!;
+    if (!(x > 0) || !Number.isFinite(x)) {
+      nullCount++;
+      nullWeight += w;
+      continue;
+    }
+    sw += w;
+    sLn += w * Math.log(x);
+    sInv += w / x;
+    sX += w * x;
+    n++;
+  }
+  if (n === 0) return { geo: NaN, harm: NaN, arith: NaN, n, nullCount, nullWeight };
+  return { geo: Math.exp(sLn / sw), harm: sw / sInv, arith: sX / sw, n, nullCount, nullWeight };
+}

@@ -78,8 +78,11 @@ describe('petro/summary: rangos y totales', () => {
     const both = summarizeRanges(input, [a, b]);
     const whole = summarizeRanges(input, [{ start: 0, end: 8 }]);
     for (const key of Object.keys(whole) as (keyof typeof whole)[]) {
-      if (Number.isNaN(whole[key])) expect(both[key], key).toBeNaN();
-      else expect(both[key], key).toBeCloseTo(whole[key], 12);
+      const w = whole[key];
+      // Los campos anidados (estadísticas, medias geométrica/armónica) se comparan enteros: mismas muestras, mismo orden.
+      if (typeof w !== 'number') expect(both[key], key).toEqual(w);
+      else if (Number.isNaN(w)) expect(both[key], key).toBeNaN();
+      else expect(both[key], key).toBeCloseTo(w, 12);
     }
     // y es distinto del promedio de promedios: φ̄pay de a (muestras 0–2) es 0,15 y de b es NaN (sin pay)
     const sa = summarizeRanges(input, [a]);
