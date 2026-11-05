@@ -33,6 +33,9 @@ describe('línea base clásica del TP', () => {
       : []);
     const tracks = resolveTracks(layoutFor('petrophysics', p.display.layouts), { depth: well.depth.values, curves: well.curves, computed, catalog: registry.roles });
     expect(tracks.map((t) => t.id)).toEqual(['correlation', 'depth', 'resistivity', 'porosity', 'sonic', 'computed', 'saturation', 'volumetric', 'permeability', 'flags', 'indicators']);
+    // Perfil clásico (0067) y «Moderno»: las mismas once pistas (cambian rellenos y dibujo).
+    const modern = resolveTracks(layoutFor('petrophysics', p.display.layouts, 'modern'), { depth: well.depth.values, curves: well.curves, computed, catalog: registry.roles });
+    expect(modern.map((t) => t.id)).toEqual(['correlation', 'depth', 'resistivity', 'porosity', 'sonic', 'computed', 'saturation', 'volumetric', 'permeability', 'flags', 'indicators']);
     // Antes el recolector la llenaba con 52 curvas (todo lo calculado por cualquier módulo): quedaba saturada. Ahora
     // muestra solo VSH e IGR; las demás se agregan desde «Armar pistas».
     expect(tracks.find((t) => t.id === 'computed')!.curves.map((c) => c.role)).toEqual(['VSH', 'IGR']);

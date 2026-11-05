@@ -20,6 +20,8 @@ import { createQcOverlay } from '../../viewer/overlays/qc';
 import { createZonesOverlay } from '../../viewer/overlays/zones';
 import { resolveTracks } from '../../viewer/resolve';
 import { layoutFor, STACK_ROLE_HINTS, withOverlayTracks } from '../../viewer/templates';
+import { wellTvdss } from '../../viewer/depthColumns';
+import { DEFAULT_LOOK, lookOf } from '../../viewer/look';
 import { computedCurves, computedTables } from '../computed';
 import { visibleCurves } from '../toolString/select';
 import { visibleQc } from '../plots/context';
@@ -51,10 +53,13 @@ export function figureTracks(well: Well) {
   const computed = computedCurves(entry && result && sameContext(result.context,entryContext(entry)) ? result : null, well);
   // Como en pantalla: sin las curvas de herramientas apagadas en la sarta (0032).
   const interpretation = entry?.interpretation;
+  // El mismo estilo que en pantalla (docs/decisiones/0067): plantilla de fábrica, paleta y columna TVDSS.
+  const look = display.look ?? DEFAULT_LOOK;
   return resolveTracks(
-    withOverlayTracks(layoutFor(workspace, display.layouts), FIGURE_OVERLAYS, workspace, { well, ...(display.overlays ? { settings: display.overlays } : {}) }),
-    { depth: well.depth.values, curves: preparationViewCurves(visibleCurves(well, interpretation), interpretation, result, usePreparationUi.getState().compareOriginals), computed, catalog: registry.roles, sources: interpretation?.sources },
+    withOverlayTracks(layoutFor(workspace, display.layouts, look), FIGURE_OVERLAYS, workspace, { well, ...(display.overlays ? { settings: display.overlays } : {}) }),
+    { depth: well.depth.values, curves: preparationViewCurves(visibleCurves(well, interpretation), interpretation, result, usePreparationUi.getState().compareOriginals), computed, catalog: registry.roles, sources: interpretation?.sources, tvdss: wellTvdss(well) },
     { roles: display.roles, ...(display.curves[well.id] ? { curves: display.curves[well.id] } : {}) },
+    { look },
   );
 }
 
@@ -82,6 +87,7 @@ export function viewerFigureContext(measure: TextMeasure): ViewerFigureContext |
     stackHints: STACK_ROLE_HINTS,
     date: new Date(),
     measure,
+    look: lookOf(useProject.getState().project.display.look),
   };
 }
 

@@ -1,6 +1,9 @@
 /**
  * Superposición de zonas: bandas translúcidas sobre las pistas, franja de color con el nombre en la pista de
  * profundidad, líneas de tope y rótulo con el nombre (fijo arriba mientras la zona está a la vista).
+ * Perfil clásico (`frame.look === 'classic'`, docs/decisiones/0067): sin teñir las pistas; cada tope es una línea fina
+ * del color de la zona que cruza todo el perfil, con el nombre en texto chico junto a la línea, y una franja angosta
+ * con el color de la formación junto a la columna de profundidad. La edición es la misma con los dos estilos.
  * Clic en la franja, en la pista de profundidad o en un rótulo → `onSelect` (otro clic sobre la seleccionada la
  * deselecciona); doble clic → muestra la zona entera. Usa el contrato de `../overlay.ts` como cualquier módulo.
  *
@@ -13,7 +16,7 @@
  */
 import { createZone, moveZoneEdge, nudgeZoneEdge, contactGap, type NewZoneInput, type ZoneEdge } from '../../core/state/zones';
 import type { Zone } from '../../core/well';
-import { contrastRatio, withAlpha } from '../../ui/color';
+import { contrastRatio, ensureContrast, withAlpha } from '../../ui/color';
 import { formatNumber } from '../../ui/format';
 import { BASE_TOKENS, scalePx, THEMES } from '../../ui/tokens';
 import type { OverlayFrame, OverlayHit, OverlayHitFrame, OverlayPointer, OverlayTarget, OverlayTrack, ViewerOverlay, ViewerZone } from '../overlay';
@@ -21,6 +24,11 @@ import type { OverlayFrame, OverlayHit, OverlayHitFrame, OverlayPointer, Overlay
 /** Medidas en px de Compacto: se multiplican por `frame.uiScale` (tamaño de interfaz; 1 en las figuras). */
 const STRIP = 14;
 const LABEL_H = 16;
+/** Perfil clásico: franja de formación junto a la profundidad y alto del rótulo de texto. */
+const CLASSIC_STRIP = 6;
+const CLASSIC_LABEL_H = 12;
+const CLASSIC_LABEL_PX = 10;
+const isClassic = (frame: Pick<OverlayHitFrame, 'look'>) => frame.look === 'classic';
 /** Distancia (px) a una línea de tope para agarrarla. */
 export const EDGE_HIT_PX = 5;
 
@@ -86,6 +94,12 @@ function labelBox(z: ViewerZone, frame: OverlayHitFrame, track: OverlayTrack): {
   const yBase = vp.yOf(z.base);
   if (yBase < 0 || yTop > vp.height) return null;
   const u = frame.uiScale ?? 1;
+  if (isClassic(frame)) {
+    const h = scalePx(CLASSIC_LABEL_H, u);
+    const y = Math.max(yTop + 2, 2);
+    if (y + h > yBase - 1) return null;
+    return { x: track.x + 3, y, w: (6 + z.name.length * 6.2) * u, h };
+  }
   const h = scalePx(LABEL_H, u);
   const y = Math.max(yTop + 3, 3);
   if (y + h > yBase - 2) return null;
@@ -144,9 +158,23 @@ export function createZonesOverlay(opts: ZonesOverlayOptions = {}): ViewerOverla
     label: 'Zonas (bandas)',
     layer: 'under',
     order: -10,
-    draw({ ctx, viewport: vp, tracks, data, theme, uiScale }) {
+    draw({ ctx, viewport: vp, tracks, data, theme, uiScale, look }) {
       const alpha = theme.viewer.zoneAlpha;
       const u = uiScale ?? 1;
+      if (look === 'classic') {
+        // Solo la franja de la formación, al lado de la columna de profundidad: las pistas quedan blancas.
+        const depthTrack = tracks.find((t) => t.kind === 'depth');
+        if (!depthTrack) return;
+        const w = scalePx(CLASSIC_STRIP, u);
+        for (const z of shown(data)) {
+          const y0 = vp.yOf(z.top);
+          const y1 = vp.yOf(z.base);
+          if (y1 < 0 || y0 > vp.height) continue;
+          ctx.fillStyle = withAlpha(z.color, z.id === data.selectedZoneId ? 1 : 0.85);
+          ctx.fillRect(depthTrack.x, y0, w, y1 - y0);
+        }
+        return;
+      }
       const strip = scalePx(STRIP, u);
       for (const z of shown(data)) {
         const y0 = vp.yOf(z.top);
@@ -294,12 +322,14 @@ export function createZonesOverlay(opts: ZonesOverlayOptions = {}): ViewerOverla
       const first = firstCurveTrack(tracks);
       const width = tracks.reduce((mx, t) => Math.max(mx, t.x + t.width), 0);
       const sorted = [...shown(data)].sort((a, b) => a.top - b.top);
+      const classic = isClassic(frame);
       sorted.forEach((z, k) => {
         const selected = z.id === data.selectedZoneId;
         const y0 = vp.yOf(z.top);
         const y1 = vp.yOf(z.base);
         if (y1 < -2 || y0 > vp.height + 2) return;
-        ctx.strokeStyle = withAlpha(z.color, selected ? 1 : 0.85);
+        // Clásico: línea de 1 px del color de la zona, oscurecida lo justo para leerse sobre el fondo blanco.
+        ctx.strokeStyle = classic ? ensureContrast(z.color, theme.viewer.trackBg, 2.2) : withAlpha(z.color, selected ? 1 : 0.85);
         ctx.lineWidth = selected ? 2 : 1;
         ctx.beginPath();
         const ty = Math.round(y0) + (selected ? 0 : 0.5);
@@ -316,6 +346,21 @@ export function createZonesOverlay(opts: ZonesOverlayOptions = {}): ViewerOverla
         if (!first) return;
         const box = labelBox(z, frame, first);
         if (!box) return;
+        if (classic) {
+          // Nombre en texto chico junto a la línea, con un halo del fondo para leerse sobre las curvas.
+          const fontPx = scalePx(CLASSIC_LABEL_PX, frame.uiScale ?? 1);
+          ctx.font = `${selected ? BASE_TOKENS.weight.bold : BASE_TOKENS.weight.semibold} ${fontPx}px ${BASE_TOKENS.font.sans}`;
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.lineJoin = 'round';
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = withAlpha(theme.viewer.trackBg, 0.9);
+          const ty = box.y + box.h / 2 + 0.5;
+          ctx.strokeText(z.name, box.x + 1, ty);
+          ctx.fillStyle = ensureContrast(z.color, theme.viewer.trackBg, 4.5);
+          ctx.fillText(z.name, box.x + 1, ty);
+          return;
+        }
         ctx.fillStyle = z.color;
         ctx.beginPath();
         ctx.roundRect(box.x, box.y, box.w, box.h, 4);

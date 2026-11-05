@@ -9,6 +9,7 @@ import type { ExportSummary } from '../io/export/types';
 import type { Well } from '../core/well';
 import { formatNumber } from '../ui/format';
 import { layoutViewerFigure, type ViewerFigureInput, type ViewerFigureLayout } from './figure';
+import type { ViewerLook } from './look';
 import type { ViewerData, ViewerOverlay, ViewerZone } from './overlay';
 import type { ResolvedTrack } from './resolve';
 import { wellHeaderFields } from './wellHeader';
@@ -42,6 +43,8 @@ export interface ViewerFigureContext {
   stackHints?: Readonly<Record<string, string>>;
   date: Date;
   measure: TextMeasure;
+  /** Estilo del visor (el de la pantalla); ausente = «Moderno». */
+  look?: ViewerLook;
 }
 
 /** Tramo en metros: el pedido recortado al pozo. Lanza (en español) si no hay nada que dibujar. */
@@ -106,6 +109,7 @@ export function buildViewerFigure(req: ViewerFigureRequest, ctx: ViewerFigureCon
     scaleText: `Escala vertical ${formatScale(Math.round(scaleDenominatorFor(pxPerM)))}`,
     ...(ctx.stackHints ? { stackHints: ctx.stackHints } : {}),
     measure: ctx.measure,
+    ...(ctx.look ? { look: ctx.look } : {}),
   };
 }
 

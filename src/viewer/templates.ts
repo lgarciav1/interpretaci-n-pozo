@@ -6,13 +6,15 @@
  * - Correlación: GR con relleno arcilla (del borde izquierdo a la curva: crece con GR, como IGR y VSH) y arena (de la
  *   curva al borde derecho), y curva de respaldo; caliper vs. trépano con relleno de derrumbe comparando VALORES
  *   (CALI > BS), que sigue bien aunque el usuario cambie la escala de una de las dos.
- * - Resistividad en log 0,2–2000 por décadas; profunda roja y más gruesa (encima de las demás).
+ * - Resistividad en log 0,2–2000 por décadas; profunda roja (encima de las demás).
+ * - Dos juegos: `BUILTIN_LAYOUTS` (perfil clásico, el de fábrica) y `MODERN_LAYOUTS` (estilo «Moderno»), ver abajo.
  * - Densidad–neutrón en escalas compatibles (RHOB 1,95–2,95; NPHI 0,45 → −0,15): cruce de gas en amarillo donde la
  *   densidad queda a la izquierda del neutrón; separación de arcilla donde el neutrón queda a la izquierda.
  * - Las curvas se dibujan en el orden listado: la última queda encima.
  */
 import type { StackSpec, TrackSpec } from '../core/display';
 import type { WorkspaceId } from '../core/workspaces';
+import { DEFAULT_LOOK, type ViewerLookId } from './look';
 import { guard, type OverlayTrackContext, type ViewerOverlay } from './overlay';
 
 const RESISTIVITY_SCALE = { kind: 'log', min: 0.2, max: 2000 } as const;
@@ -79,7 +81,11 @@ export const NMR_TRACK: TrackSpec = {
 /** Dónde se calcula cada entrada de la pila volumétrica (para el estado vacío). */
 export const STACK_ROLE_HINTS: Readonly<Record<string, string>> = { VSH: 'paso Arcilla', PHIE: 'paso Porosidad', SW: 'paso Saturación' };
 
-export const BUILTIN_LAYOUTS: Readonly<Record<WorkspaceId, readonly TrackSpec[]>> = {
+/**
+ * Plantillas del estilo «Moderno» (docs/decisiones/0067): las de fábrica hasta la versión con perfil clásico, sin
+ * cambios (GR con arcilla y arena, Sw con hidrocarburo en la misma pista que PHIE y BVW).
+ */
+export const MODERN_LAYOUTS: Readonly<Record<WorkspaceId, readonly TrackSpec[]>> = {
   petrophysics: [
     {
       id: 'correlation',
@@ -181,9 +187,60 @@ export const BUILTIN_LAYOUTS: Readonly<Record<WorkspaceId, readonly TrackSpec[]>
   ],
 };
 
-/** Pistas de un espacio de trabajo: las propias del proyecto o las de fábrica. */
-export function layoutFor(workspace: WorkspaceId, custom: Readonly<Record<string, readonly TrackSpec[]>> | undefined): readonly TrackSpec[] {
-  return custom?.[workspace] ?? BUILTIN_LAYOUTS[workspace];
+const modernPetro = MODERN_LAYOUTS.petrophysics;
+
+/**
+ * Plantillas de FÁBRICA: perfil clásico (docs/decisiones/0067). Las mismas pistas que «Moderno» salvo:
+ * - Correlación: un solo relleno, hacia la arcilla (del borde izquierdo al GR), en un oliva apagado; sin arena.
+ * - Interpretación: solo el relleno de arcilla de VSH (sin el de IGR debajo).
+ * - «Porosidad · Sw» con el relleno clásico de BVW: entre PHIE y BVW, hidrocarburo; entre BVW y cero, agua (en lugar
+ *   del relleno de hidrocarburo de Sw de «Moderno»). Compara VALORES (sigue bien si el usuario cambia la escala de una);
+ *   PHIE y BVW comparten la escala del catálogo (0,4 → 0) y SW queda encima con la suya (1 → 0), sin relleno. La
+ *   misma pista y el mismo id que en «Moderno»: no suma ancho al perfil.
+ * Lo demás (colores, grosores, zonas, tramas, encabezados) lo pone el estilo del visor (look.ts), no la plantilla.
+ */
+export const BUILTIN_LAYOUTS: Readonly<Record<WorkspaceId, readonly TrackSpec[]>> = {
+  petrophysics: modernPetro.flatMap((t): TrackSpec[] => {
+    if (t.id === 'correlation') {
+      return [{ ...t, fills: [{ kind: 'edge', curve: 'GR', side: 'left', fill: 'shale', opacity: 1 }, { kind: 'between', a: 'BS', b: 'CALI', aLeft: 'washout', compare: 'value', opacity: 1 }] }];
+    }
+    if (t.id === 'saturation') {
+      return [
+        {
+          ...t,
+          fills: [
+            // a = BVW, b = PHIE: donde BVW < PHIE (por valor) está el volumen de hidrocarburo, PHIE − BVW = φ·(1 − Sw).
+            { kind: 'between', a: 'BVW', b: 'PHIE', aLeft: 'hydrocarbon', compare: 'value', opacity: 1 },
+            // De BVW a cero: el agua (φ·Sw). Línea base en 0, del lado que quede según la escala.
+            { kind: 'baseline', curve: 'BVW', value: 0, left: 'water', right: 'water', opacity: 1 },
+          ],
+        },
+      ];
+    }
+    if (t.id === 'computed') {
+      // Un solo relleno de arcilla (el de VSH): dos rellenos superpuestos (IGR y VSH) oscurecen la pista.
+      return [{ ...t, fills: [{ kind: 'edge', curve: 'VSH', side: 'left', fill: 'shale', opacity: 1 }] }];
+    }
+    return [t];
+  }),
+  geology: MODERN_LAYOUTS.geology,
+};
+
+/** Plantillas de fábrica por estilo del visor. */
+export const FACTORY_LAYOUTS: Readonly<Record<ViewerLookId, Readonly<Record<WorkspaceId, readonly TrackSpec[]>>>> = {
+  classic: BUILTIN_LAYOUTS,
+  modern: MODERN_LAYOUTS,
+};
+
+/** Pistas de fábrica de un espacio con un estilo (por defecto, el de fábrica). */
+export const factoryLayout = (workspace: WorkspaceId, look: ViewerLookId = DEFAULT_LOOK): readonly TrackSpec[] => FACTORY_LAYOUTS[look][workspace];
+
+/**
+ * Pistas de un espacio de trabajo: las propias del proyecto o las de fábrica del estilo elegido. Las propias se
+ * conservan con cualquier estilo (un proyecto guardado con su plantilla la sigue viendo; cambia solo el dibujo).
+ */
+export function layoutFor(workspace: WorkspaceId, custom: Readonly<Record<string, readonly TrackSpec[]>> | undefined, look: ViewerLookId = DEFAULT_LOOK): readonly TrackSpec[] {
+  return custom?.[workspace] ?? factoryLayout(workspace, look);
 }
 
 /** Id de la pista propia de una superposición. */

@@ -8,7 +8,7 @@ import { registry } from '../../src/modules';
 import { AreaSink, fillBetween } from '../../src/viewer/fills';
 import { resolveTracks, type ComputedCurve, type ResolvedTrack } from '../../src/viewer/resolve';
 import { fractionArray } from '../../src/viewer/scale';
-import { BUILTIN_LAYOUTS, layoutFor } from '../../src/viewer/templates';
+import { BUILTIN_LAYOUTS, layoutFor, MODERN_LAYOUTS } from '../../src/viewer/templates';
 
 const PURE = import.meta.glob(['../../src/viewer/**/*.ts'], { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
 
@@ -125,14 +125,20 @@ describe('pistas del pozo del TP (datos/pozo_tp_perfiles.csv)', () => {
     expect(t.curves[0]!.styles.light.color).not.toBe(t.curves[1]!.styles.light.color);
   });
 
-  it('correlación: GR con curva de respaldo y rellenos arena/arcilla; caliper vs. trépano', () => {
+  it('correlación: GR con curva de respaldo y un solo relleno, hacia la arcilla (perfil clásico); caliper vs. trépano', () => {
     const t = track(tracks, 'correlation');
     expect(t.curves.map((c) => c.name)).toEqual(['BS', 'CAL', 'SP', 'GR']);
     expect(t.curves.find((c) => c.name === 'GR')!.wrap).toBe(true);
     expect(t.fills.map((f) => [f.kind, f.aLeft ?? f.bLeft, f.compare])).toEqual([
       ['edge', 'shale', 'screen'],
-      ['edge', 'sand', 'screen'],
       ['between', 'washout', 'value'],
+    ]);
+    // «Moderno» conserva los dos rellenos de antes (arcilla y arena).
+    const m = track(resolveTracks(MODERN_LAYOUTS.petrophysics, src), 'correlation');
+    expect(m.fills.map((f) => [f.kind, f.aLeft ?? f.bLeft])).toEqual([
+      ['edge', 'shale'],
+      ['edge', 'sand'],
+      ['between', 'washout'],
     ]);
   });
 

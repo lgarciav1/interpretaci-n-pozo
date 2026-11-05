@@ -313,6 +313,8 @@ const ICONS = {
   ),
   'fit-height': <path d="M12 3.5v17M8.5 7L12 3.5 15.5 7M8.5 17l3.5 3.5 3.5-3.5M5 12h3M16 12h3" />,
   dot: <circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none" />,
+  /** Medir un intervalo: regla vertical con remates. */
+  ruler: <path d="M8 3.5h8M8 20.5h8M12 3.5v17M12 8h3M12 12h4M12 16h3" />,
   /** Sarta de perfilaje: cable y herramientas apiladas. */
   'tool-string': (
     <>

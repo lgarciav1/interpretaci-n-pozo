@@ -29,7 +29,7 @@ export { Checkbox, SegmentedControl, Switch, TabPanel, Tabs, type SegmentOption,
 export { Field, NumberField, Select, Slider, SliderField, TextField, type SelectOption } from './components/Fields';
 export { Badge, Callout, Chip, EmptyState, StatusDot, type Tone } from './components/Feedback';
 export { Dialog } from './components/Dialog';
-export { Menu, type MenuEntry } from './components/Menu';
+export { ContextMenu, Menu, type ContextMenuProps, type MenuEntry } from './components/Menu';
 export { Popover } from './components/Popover';
 export { ColorPicker } from './components/ColorPicker';
 export { Toaster, dismissToast, toast } from './components/Toast';

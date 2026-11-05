@@ -206,7 +206,7 @@ function tool(id: string, name: string, description: string, spec: TrackSpec, ro
 }
 
 const TOOLS: Readonly<Record<string, ReturnType<typeof tool>[]>> = {
-  'gr-sp': [tool('tool:correlation', 'Correlación', 'GR con arcilla y arena, SP y caliper con derrumbe', factory('petrophysics', 'correlation'), ['GR', 'SP', 'CALI', 'BS'])],
+  'gr-sp': [tool('tool:correlation', 'Correlación', 'GR con relleno de arcilla, SP y caliper con derrumbe', factory('petrophysics', 'correlation'), ['GR', 'SP', 'CALI', 'BS'])],
   caliper: [
     tool(
       'tool:caliper',
@@ -223,7 +223,7 @@ const TOOLS: Readonly<Record<string, ReturnType<typeof tool>[]>> = {
   nmr: [tool('tool:nmr', 'Resonancia magnética', 'Agua ligada, irreducible y fluido libre, con la PHIE de densidad–neutrón encima', NMR_TRACK, ['PHIT_NMR', 'PHIE_NMR', 'BVI_NMR'])],
   computed: [
     tool('tool:computed', 'Interpretación', 'Junta las calculadas que ninguna otra pista muestra', factory('petrophysics', 'computed'), []),
-    tool('tool:saturation', 'Porosidad · Sw', 'PHIE, SW y BVW con hidrocarburo', factory('petrophysics', 'saturation'), ['PHIE', 'SW', 'BVW']),
+    tool('tool:saturation', 'Porosidad · Sw', 'PHIE, BVW y SW: hidrocarburo entre PHIE y BVW, agua de BVW a cero', factory('petrophysics', 'saturation'), ['PHIE', 'SW', 'BVW']),
     tool('tool:sw-models', 'Modelos de Sw', 'Archie, Simandoux e Indonesia lado a lado, con la banda donde difieren', SW_MODELS_TRACK, ['SW']),
     tool('tool:permeability', 'Permeabilidad', 'Escala logarítmica 0,01–10 000 mD', factory('petrophysics', 'permeability'), ['PERM']),
   ],

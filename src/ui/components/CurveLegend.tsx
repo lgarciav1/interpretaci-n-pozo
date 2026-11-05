@@ -47,8 +47,11 @@ export interface CurveLegendProps {
   /**
    * 'stacked' (por defecto): nombre arriba, escala abajo. 'inline': una sola fila baja al estilo de un encabezado de
    * perfil — extremo izquierdo, nombre y valor sobre el trazo de la curva, extremo derecho; la unidad va al tooltip.
+   * 'classic': encabezado de perfil clásico (docs/decisiones/0067) — «mínimo · MNEMÓNICO unidad · máximo» en
+   * monoespaciada y, debajo, la muestra del trazo (color y patrón) a todo el ancho, con la lectura encima. Si no entra,
+   * el nombre y la unidad pasan a dos líneas (nunca se cortan).
    */
-  layout?: 'stacked' | 'inline';
+  layout?: 'stacked' | 'inline' | 'classic';
 }
 
 export function CurveLegend({ role, name, unit, catalog, scale = true, theme: fixed, curveStyle: resolved, value, title, scaleTag = true, tag, layout = 'stacked' }: CurveLegendProps) {
@@ -57,6 +60,34 @@ export function CurveLegend({ role, name, unit, catalog, scale = true, theme: fi
   const s = resolved ?? curveStyle(role, theme, catalog, name);
   const lo = s.reversed ? s.max : s.min;
   const hi = s.reversed ? s.min : s.max;
+  if (layout === 'classic') {
+    const tip = `${title ?? s.label}${unit ? ` (${unit})` : ''}`;
+    return (
+      <div className={`ui-curve-legend ui-curve-legend--classic${scale ? '' : ' ui-curve-legend--noscale'}`} title={tip}>
+        <div className="ui-curve-legend__row">
+          {scale && <span className="ui-curve-legend__lo">{lo !== undefined ? range(lo) : ''}</span>}
+          <span className="ui-curve-legend__label">
+            <span className="ui-curve-legend__name" style={{ color: s.color }}>
+              {name}
+            </span>
+            {unit && <span className="ui-curve-legend__unit">{unit}</span>}
+          </span>
+          {scale && <span className="ui-curve-legend__hi">{hi !== undefined ? range(hi) : ''}</span>}
+        </div>
+        <span className="ui-curve-legend__sample">
+          {s.kind === 'band' ? (
+            <CurveSwatch style={s} width={12} />
+          ) : (
+            <svg className="ui-curve-legend__line" height={6} aria-hidden="true">
+              <line x1="0" y1="3" x2="100%" y2="3" stroke={s.color} strokeWidth={s.width} strokeDasharray={s.dash.join(' ') || undefined} />
+            </svg>
+          )}
+          {tag && <span className="ui-curve-legend__tag ui-curve-legend__tag--alt">{tag}</span>}
+          {value !== undefined && <span className="ui-curve-legend__value num">{value}</span>}
+        </span>
+      </div>
+    );
+  }
   if (layout === 'inline') {
     const label = (
       <span className="ui-curve-legend__label">

@@ -151,7 +151,19 @@ export interface TrackTemplate {
   savedAt?: string;
 }
 
+/**
+ * Estilo de dibujo del visor (docs/decisiones/0067): 'classic' (perfil clásico, el de fábrica) o 'modern' (el estilo
+ * anterior). Lo interpreta `src/viewer/look.ts`; acá solo se guarda.
+ */
+export type ViewerLookSetting = 'classic' | 'modern';
+export const DEFAULT_VIEWER_LOOK: ViewerLookSetting = 'classic';
+
 export interface DisplaySettings {
+  /**
+   * Estilo del visor. Ausente = el de fábrica (`DEFAULT_VIEWER_LOOK`): un proyecto guardado antes de existir este campo
+   * se abre con el perfil clásico y conserva sus pistas propias (solo cambia el dibujo).
+   */
+  look?: ViewerLookSetting;
   /** Pistas propias por espacio de trabajo (ausente = plantilla de fábrica). */
   layouts: Record<string, TrackSpec[]>;
   /** Overrides por rol, para todo el proyecto. */
@@ -432,6 +444,9 @@ export function sanitizeDisplay(raw: unknown, warn: (message: string) => void = 
     }
     if (Object.keys(overlays).length) out.overlays = overlays;
   }
+  if (raw['look'] === 'modern' || raw['look'] === 'classic') {
+    if (raw['look'] !== DEFAULT_VIEWER_LOOK) out.look = raw['look'];
+  } else if (raw['look'] !== undefined) warn('El estilo del visor guardado no se reconoce; se usa el de fábrica.');
   const plots = sanitizePlots(raw['plots'], warn);
   if (plots) out.plots = plots;
   const templates = sanitizeTemplates(raw['trackTemplates'], warn);

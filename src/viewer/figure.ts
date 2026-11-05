@@ -15,6 +15,7 @@ import { FILL_PALETTE } from '../ui/curves';
 import { BASE_TOKENS, THEMES } from '../ui/tokens';
 import { layoutTracks, type TrackBox } from './layout';
 import type { OverlayTrackDecl, ViewerData, ViewerOverlay, ViewerZone } from './overlay';
+import type { ViewerLook } from './look';
 import { stackFillColor, ViewerRenderer } from './render';
 import type { ResolvedCurve, ResolvedTrack } from './resolve';
 import { edgeValues } from './scale';
@@ -57,6 +58,8 @@ export interface ViewerFigureInput {
   scaleText: string;
   stackHints?: Readonly<Record<string, string>>;
   measure: TextMeasure;
+  /** Estilo del visor (docs/decisiones/0067): el cuerpo se dibuja como en pantalla. Ausente = «Moderno». */
+  look?: ViewerLook;
 }
 
 // ── encabezado de pista ─────────────────────────────────────────────────────────────────────────────────────────
@@ -85,7 +88,7 @@ const sameScale = (a: ResolvedCurve, b: ResolvedCurve) => a.axis.kind === b.axis
 export function trackHeaderRows(t: ResolvedTrack, depthUnit = 'm', declaration?: OverlayTrackDecl): HeaderRow[] {
   const rows: HeaderRow[] = [{ kind: 'title', text: t.title, height: TITLE_H }];
   if (t.kind === 'depth') {
-    rows.push({ kind: 'unit', text: depthUnit, height: SCALE_H });
+    rows.push({ kind: 'unit', text: t.tvdss ? `MD · TVDSS (${depthUnit})` : depthUnit, height: SCALE_H });
     return rows;
   }
   if (t.kind === 'stack') {
@@ -317,7 +320,7 @@ function drawHeaders(ctx: CanvasRenderingContext2D, input: ViewerFigureInput, L:
         ctx.fillStyle = row.curve.styles.light.color;
         ctx.fillText(fitText(measure, f, row.name, inner - 24), x0 + 24, mid);
       } else {
-        const color = row.color in FILL_PALETTE ? stackFillColor(row.color, th) : row.color;
+        const color = row.color in FILL_PALETTE ? stackFillColor(row.color, th, input.look?.palette) : row.color;
         ctx.fillStyle = color;
         ctx.fillRect(x0, mid - 5, 10, 10);
         ctx.strokeStyle = v.trackBorder;
@@ -483,6 +486,7 @@ export function drawViewerFigure(ctx: CanvasRenderingContext2D, input: ViewerFig
     overlays: input.overlays,
     data: input.data,
     ...(input.stackHints ? { stackHints: input.stackHints } : {}),
+    ...(input.look ? { look: input.look } : {}),
   });
   ctx.restore();
 

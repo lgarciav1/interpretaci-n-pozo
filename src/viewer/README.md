@@ -7,7 +7,12 @@ Lo monta `src/app/shell/ViewerSlot.tsx`, que conecta los stores; el componente n
 
 | Archivo | Qué hace | React |
 |---|---|---|
-| `templates.ts` | plantillas de fábrica por espacio de trabajo (`BUILTIN_LAYOUTS`) y `layoutFor` (las del proyecto ganan) | no |
+| `templates.ts` | plantillas de fábrica por espacio de trabajo y estilo (`BUILTIN_LAYOUTS` clásico, `MODERN_LAYOUTS`) y `layoutFor` (las del proyecto ganan) | no |
+| `look.ts` | estilos del visor (`classic` de fábrica, `modern`) y reglas de trazo por densidad de muestras (patrón, sólida, banda) | no |
+| `lithology.ts` | tramas litológicas de las pilas y su opacidad según el zoom | no |
+| `depthColumns.ts` | TVDSS (elevación de referencia + desviación) y rótulos de la segunda columna de profundidad | no |
+| `printScale.ts` | escalas de impresión del selector (1:200…1:5000, cm cada 100 m) | no |
+| `contextMenu.ts`, `overlays/measure.ts` | lógica del menú contextual (curva cercana, lecturas para copiar) y herramienta «Medir» | no |
 | `resolve.ts` | plantilla + curvas medidas + calculadas + overrides → `ResolvedTrack[]` (curvas en unidad canónica, escala, estilo por tema, rellenos) | no |
 | `viewport.ts` | viewport (tope, px/m, alto), límites, zoom centrado, scroll, ver todo, `showRange`, escala 1:N | no |
 | `ticks.ts` | ticks de profundidad 1-2-5 × 10ᵏ, grilla lineal y logarítmica por décadas | no |
@@ -31,7 +36,8 @@ Lo monta `src/app/shell/ViewerSlot.tsx`, que conecta los stores; el componente n
 | `WellViewer.tsx`, `viewer.css` | componente: encabezados (editables), dos canvas, interacción, elementos del teclado, accesibilidad | sí |
 | `MinimapView.tsx`, `WellHeaderView.tsx` | minimapa navegable y encabezado de pozo | sí |
 
-Tests: `tests/viewer/` (geometría, resolución con el pozo del TP, configuración guardada, superposiciones). Un test
+Tests: `tests/viewer/` (geometría, resolución con el pozo del TP, configuración guardada, superposiciones, perfil
+clásico en `perfil-clasico.test.ts`). Un test
 exige que los `.ts` de esta carpeta no importen React, zustand ni `src/app`.
 
 ## Pistas
@@ -71,6 +77,37 @@ Una pista es un `TrackSpec` (`src/core/display.ts`, JSON puro que se guarda en e
   log con un mínimo válido.
 - Overrides del usuario: `Project.display.roles[rol]` y `Project.display.curves[pozo][curva]` (escala, rango,
   inversión, color, trazo, respaldo, ocultar). Precedencia: curva → rol → plantilla → paleta.
+
+## Perfil clásico y estilo «Moderno» (0067)
+
+Decisión: [`docs/decisiones/0067-perfil-clasico.md`](../../docs/decisiones/0067-perfil-clasico.md). Un estilo
+(`ViewerLook`, `look.ts`) decide cómo se dibujan las mismas pistas; se guarda en `Project.display.look` (ausente = el de
+fábrica, `classic`) y se elige en el grupo «Estilo» del selector de plantillas. Las pistas propias se conservan con los
+dos estilos; cada estilo trae su plantilla de fábrica (`factoryLayout(espacio, estilo)`).
+
+```ts
+const look = lookOf(project.display.look);                                  // 'classic' si no hay nada guardado
+const layout = layoutFor(workspace, project.display.layouts, look.id);
+const tracks = resolveTracks(layout, { ...fuentes, tvdss: wellTvdss(well) }, overrides, { look: look.id });
+<WellViewer tracks={tracks} look={look} onCreateTop={…} onExportVisible={…} … />
+```
+
+| Qué | Clásico (de fábrica) | Moderno |
+|---|---|---|
+| Zonas | línea de 1 px por tope + nombre chico + franja de 6 px junto a la profundidad | banda teñida en cada pista + rótulo |
+| Curvas | 1 px (máx. 1,25), colores oscuros por convención | 1,25–1,75 px |
+| Rayadas y punteadas | patrón hasta 1 muestra/px; sólidas por encima | siempre con patrón |
+| Pozo completo | banda mín–máx + media desde 3 muestras/px | línea M4 |
+| Rellenos | apagados; GR solo arcilla; Porosidad · Sw con BVW | saturados; GR arcilla y arena; hidrocarburo de Sw |
+| Pilas | tramas litológicas (desaparecen desde 1:5000) | lisas |
+| Encabezados | «mín · MNEMÓNICO unidad · máx» en monoespaciada, muestra del trazo, títulos en dos líneas | una fila compacta |
+| Profundidad | MD + TVDSS si hay elevación (y desviación) | MD |
+| Calidad del pozo | franja junto al borde de la pista | rayado sobre la pista |
+
+- `resolveTracks(…, { look })`, `FrameInput.look`, `OverlayFrame.look` y `ViewerFigureInput.look` son opcionales:
+  ausentes = «Moderno» (los tests y figuras de antes no cambian). Una superposición de módulo puede leer `frame.look`.
+- La paleta clásica está en `src/ui/curves.ts` (`CLASSIC_CURVE_PALETTE`, `CLASSIC_FILL_PALETTE`; `curveStyle(…, 'classic')`,
+  `fillColor(…, 'classic')`). Un grosor elegido por el usuario gana al tope de 1,25 px.
 
 ## Pistas armables (fase 7b)
 
@@ -220,6 +257,9 @@ Tests: `tests/figures/`.
 | Marcar zona | botón «Marcar zona» y arrastrar un tramo; Esc sale | — |
 | Escala y color | clic en el encabezado de una curva (popover); «+N» abre las curvas agrupadas | Tab hasta el encabezado, Enter |
 | Minimapa | arrastrar la ventana; clic = centrar ahí | ↑ / ↓ un décimo de ventana; Re Pág / Av Pág; Inicio / Fin |
+| Escala de impresión | menú del rótulo 1:N de la barra: 1:200 … 1:5000 (cm cada 100 m) y «Ajustar al pozo» | Tab hasta el rótulo, Enter; flechas en el menú |
+| Menú del perfil | clic derecho: copiar profundidad y lecturas, crear un tope, editar la pista, medir, exportar PNG; Mayús + clic derecho = menú del navegador | tecla Menú o Mayús+F10 (en la profundidad del cursor); flechas, Enter, Esc |
+| Medir un intervalo | desde el menú del perfil: arrastrar marca el tramo con tope, base y espesor (y vertical con TVDSS) | Esc borra la medida |
 
 La lectura del cursor se escribe en los encabezados (4 cifras significativas, unidad canónica) y, con teclado, se
 anuncia en una región `aria-live`. El cursor de teclado aparece al enfocar con Tab, no con un clic. La profundidad del cursor y el tramo visible se publican en `useViewer`
@@ -241,6 +281,17 @@ anuncia en una región `aria-live`. El cursor de teclado aparece al enfocar con 
   | sintético, 50 000 muestras (`?muestras=50000`, 4a) | 5,8 ms | 8,9 ms | 11,9 ms |
   | TP, 5 810 muestras (4b: + litología, minimapa, encabezado) | 3,5 ms | 4,9 ms | 6,2 ms |
   | sintético, 50 000 muestras (4b, tres corridas) | 5,6–5,9 ms | 8,2–9,0 ms | 12–16 ms |
+
+  Perfil clásico (0067; mismo método, 140 cuadros, 1600 × 1000, dos corridas por build):
+
+  | Pozo | antes (Moderno de fábrica) | perfil clásico | Moderno en el build nuevo |
+  |---|---|---|---|
+  | TP, 5 810 muestras | 2,4–2,5 ms (p95 7,2–7,8) | 2,6 ms (p95 7,7–8,3) | 2,5 ms (p95 6,6–6,7) |
+  | sintético, 50 000 muestras | 5,6–6,6 ms (p95 16,8–18,7) | 5,9 ms (p95 16,3–16,8) | 6,0 ms (p95 17,7–20,4) |
+
+  La banda mín–máx reemplaza a la línea M4 (un vértice por fila en vez de cuatro) y las tramas se pintan con el
+  mosaico como relleno de la capa (fondo = color de la capa, opacidad en cuartos): un solo `fill` por capa, como sin
+  trama. La primera aparición de cada trama crea su mosaico (una vez por lienzo).
 
   La animación de carga y el minimapa no suman costo a un cuadro normal: la animación es un recorte que solo existe
   mientras dura y el minimapa se redibuja solo si cambian sus datos (la ventana se mueve por estilos).

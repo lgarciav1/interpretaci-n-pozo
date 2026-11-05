@@ -18,8 +18,10 @@ import type { Curve } from '../core/well';
 import type { SourceRef } from '../core/interpretation';
 import { isPreparedSource } from '../core/preparation/source';
 import { ensureContrast } from '../ui/color';
-import { curveStyle, dashPattern, FILL_PALETTE, type CurveStyle, type FillId } from '../ui/curves';
+import { CLASSIC_MAX_LINE_WIDTH, curveStyle, dashPattern, FILL_PALETTE, type CurveStyle, type FillId, type PaletteVariant } from '../ui/curves';
 import { THEMES, type ThemeName } from '../ui/tokens';
+import { DEPTH_TRACK_WIDTH_TVDSS } from './depthColumns';
+import { lookOf, type ViewerLookId } from './look';
 import { dataRange, validScale, type AxisScale } from './scale';
 import { computeStack, type StackResult } from './stack';
 
@@ -45,6 +47,11 @@ export interface ViewerSources {
   curves: readonly Curve[];
   computed: readonly ComputedCurve[];
   catalog: RoleCatalog;
+  /**
+   * TVDSS por muestra (`wellTvdss`, depthColumns.ts), si el pozo tiene con qué calcularla. Con un estilo que la muestra
+   * (perfil clásico), la pista de profundidad suma su columna; sin ella, solo MD.
+   */
+  tvdss?: Float64Array | null;
 }
 
 export interface DisplayOverrides {
@@ -132,6 +139,8 @@ export interface ResolvedTrack {
   stack?: ResolvedStack;
   /** Curvas de la pista ocultas por el usuario. */
   hidden?: HiddenCurve[];
+  /** Pista de profundidad: TVDSS por muestra para la segunda columna (solo si el estilo la muestra y hay datos). */
+  tvdss?: Float64Array;
   /**
    * Pista que normalmente no se ve porque está vacía (`hideWhenEmpty`); solo con `keepEmpty` (modo «Armar pistas»,
    * docs/decisiones/0016): se muestra para poder moverla o quitarla.
@@ -142,6 +151,11 @@ export interface ResolvedTrack {
 export interface ResolveOptions {
   /** Resolver también las pistas `hideWhenEmpty` vacías (con `latent: true`). */
   keepEmpty?: boolean;
+  /**
+   * Estilo del visor (look.ts): paleta de curvas (colores y grosores) y columna TVDSS. Ausente = «Moderno», la
+   * resolución de siempre (los tests y figuras que no lo pasan no cambian); la app pasa el del proyecto.
+   */
+  look?: ViewerLookId;
 }
 
 /**
@@ -201,9 +215,12 @@ function makeCurve(
   catalog: RoleCatalog,
   track: TrackSpec,
   layers: CurveDisplayOverride,
+  variant: PaletteVariant = 'modern',
+  /** Grosor elegido por el usuario (override de rol o de curva): gana al tope del perfil clásico. */
+  userWidth?: number,
 ): ResolvedCurve | null {
   if (layers.hidden) return null;
-  const light = curveStyle(base.role, 'light', catalog, base.name);
+  const light = curveStyle(base.role, 'light', catalog, base.name, variant);
   const roleKnown = !!(base.role && catalog.get(base.role)?.display);
   // Escala: overrides → paleta/catálogo → escala de la pista → rango de los datos.
   const fromRole: Partial<AxisScale> = roleKnown ? { kind: light.scale, ...(light.min !== undefined ? { min: light.min } : {}), ...(light.max !== undefined ? { max: light.max } : {}), reversed: light.reversed } : {};
@@ -238,8 +255,9 @@ function makeCurve(
   const kindLine: 'line' | 'band' = light.kind;
   const styles = {} as Record<ThemeName, CurveStyle>;
   for (const theme of ['light', 'dark'] as const) {
-    const s = theme === 'light' ? light : curveStyle(base.role, theme, catalog, base.name);
-    const width = layers.width ?? s.width;
+    const s = theme === 'light' ? light : curveStyle(base.role, theme, catalog, base.name, variant);
+    // Perfil clásico: líneas finas también con un grosor de plantilla (la PHIE de 2 px de la pista RMN).
+    const width = userWidth ?? (variant === 'classic' ? Math.min(CLASSIC_MAX_LINE_WIDTH, layers.width ?? s.width) : (layers.width ?? s.width));
     // Alternativa: rayada salvo que el usuario elija otro trazo (además se dibuja translúcida).
     const line = layers.line ?? (base.alternative && s.line === 'solid' ? 'dashed' : s.line);
     const color = layers.color ? ensureContrast(layers.color, THEMES[theme].viewer.trackBg, 3) : s.color;
@@ -265,6 +283,8 @@ function makeCurve(
 export function resolveTracks(fullLayout: readonly TrackSpec[], src: ViewerSources, overrides: DisplayOverrides = {}, options: ResolveOptions = {}): ResolvedTrack[] {
   const layout = fullLayout.some((t) => t.hidden) ? fullLayout.filter((t) => !t.hidden) : fullLayout;
   const { catalog } = src;
+  const look = lookOf(options.look ?? 'modern');
+  const variant = look.palette;
   const n = src.depth.length;
   const measured = src.curves.filter((c) => c.data.length === n);
   // Activas primero: en una pista, la alternativa queda debajo de la que alimenta la cadena.
@@ -281,7 +301,8 @@ export function resolveTracks(fullLayout: readonly TrackSpec[], src: ViewerSourc
   const measuredCurve = (c: Curve, track: TrackSpec, tpl?: CurveDisplayOverride, selectedRole?: string) => {
     const role = selectedRole ?? c.role;
     const { data, unit } = toCanonical(role === c.role ? c : { ...c, role }, catalog);
-    const layers = merge(tpl, role ? overrides.roles?.[role] : undefined, overrides.curves?.[c.id]);
+    const user = merge(role ? overrides.roles?.[role] : undefined, overrides.curves?.[c.id]);
+    const layers = merge(tpl, user);
     const roleLabel = role ? catalog.get(role)?.label : undefined;
     const key = `m:${c.id}`;
     const origin = c.origin.kind === 'prepared' ? 'prepared' : 'measured';
@@ -297,12 +318,15 @@ export function resolveTracks(fullLayout: readonly TrackSpec[], src: ViewerSourc
       catalog,
       track,
       layers,
+      variant,
+      user.width,
     );
   };
   const computedCurve = (c: ComputedCurve, track: TrackSpec, tpl?: CurveDisplayOverride, explicitModule = false) => {
     // Un módulo nombrado en la pista (modelos de Sw lado a lado) se muestra como una curva más, no como alternativa.
     const alternative = !c.active && !explicitModule;
     const layers = merge(tpl, overrides.roles?.[c.port]);
+    const userWidth = overrides.roles?.[c.port]?.width;
     const def = catalog.get(c.port);
     const key = `c:${c.moduleId}:${c.port}`;
     if (layers.hidden) {
@@ -321,6 +345,8 @@ export function resolveTracks(fullLayout: readonly TrackSpec[], src: ViewerSourc
       catalog,
       track,
       layers,
+      variant,
+      userWidth,
     );
   };
   /** Entrada de una pila: la calculada activa gana a la medida (en unidad canónica). */
@@ -389,7 +415,8 @@ export function resolveTracks(fullLayout: readonly TrackSpec[], src: ViewerSourc
   const out: ResolvedTrack[] = [];
   for (const t of layout) {
     if (t.kind === 'depth') {
-      out.push({ id: t.id, title: t.title, kind: 'depth', width: 0, fixed: DEPTH_TRACK_WIDTH, curves: [], fills: [], grid: null });
+      const tvdss = look.tvdss && src.tvdss && src.tvdss.length === n ? src.tvdss : null;
+      out.push({ id: t.id, title: t.title, kind: 'depth', width: 0, fixed: tvdss ? DEPTH_TRACK_WIDTH_TVDSS : DEPTH_TRACK_WIDTH, curves: [], fills: [], grid: null, ...(tvdss ? { tvdss } : {}) });
       continue;
     }
     if (t.kind === 'stack') {

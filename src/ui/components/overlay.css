@@ -160,3 +160,6 @@
   .ui-dialog-backdrop { padding: var(--space-2); }
   .ui-dialog__head { gap: var(--space-3); padding-left: var(--space-4); }
 }
+/* Encabezado de un menú contextual (p. ej. profundidad y lecturas del punto del perfil): no interactivo. */
+.ui-menu__header { padding: var(--space-1-5) var(--space-2) var(--space-2); margin: 0 calc(var(--space-1) * -1) var(--space-1); border-bottom: 1px solid var(--color-border); color: var(--color-text-muted); font-size: var(--text-xs); line-height: var(--leading-tight); max-width: calc(320px * var(--ui-scale)); }
+.ui-menu__header strong { display: block; color: var(--color-text); font-weight: var(--weight-semibold); font-size: var(--text-sm); }

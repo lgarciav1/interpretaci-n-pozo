@@ -4,6 +4,8 @@
   rellenos por valor, escalas log, cachés acotadas, validación al abrir). Ampliada en la fase 4b (D9–D15): pista
   volumétrica, edición de zonas, editor de escalas, animación de carga, minimapa, encabezado de pozo, alternativas y
   elementos de superposición alcanzables con el teclado (cambio aditivo del contrato, D15).
+- El estilo de dibujo de fábrica pasó a ser el perfil clásico (zonas como líneas, paleta fina, trazo por densidad,
+  TVDSS, menú contextual): ver [0067](0067-perfil-clasico.md). Lo descripto acá sigue valiendo como estilo «Moderno».
 - Alcance: `src/viewer/` (modelo, cálculos, dibujo y componente), `src/core/display.ts` (configuración guardada),
   `src/app/shell/ViewerSlot.tsx` (conexión con los stores) y `src/app/store/viewer.ts` (cursor publicado).
 - Lo heredan: la fase 4b (pista volumétrica, encabezado de pozo, minimapa, editor de escalas, edición de zonas),
