@@ -10,11 +10,14 @@
  * salvo los Path2D de los rellenos.
  */
 import { mix, withAlpha } from '../ui/color';
-import { FILL_PALETTE, fillColor, type FillId } from '../ui/curves';
+import { FILL_PALETTE, fillColor, type FillId, type PaletteVariant } from '../ui/curves';
 import { formatNumber } from '../ui/format';
 import { BASE_TOKENS, scalePx, type ThemeTokens } from '../ui/tokens';
 import { blockSummary, decimateWithBounds, DECIMATE_THRESHOLD, ensureRowBuffers, ROW_DATA, ROW_GAP, rowBounds, visibleRange, type RowBuffers } from './decimate';
-import { fillBetween } from './fills';
+import { tvdssTicks } from './depthColumns';
+import { fillBetween, fillPatternRect, tilePattern } from './fills';
+import { lithologyTile, patternOpacity, patternPhase } from './lithology';
+import { ENVELOPE_ALPHA, strokeMode, VIEWER_LOOKS, type ViewerLook } from './look';
 import type { TrackBox } from './layout';
 import { guard, type OverlayFrame, type OverlayTrack, type OverlayViewport, type ViewerData, type ViewerOverlay } from './overlay';
 import { formatDepth, nearestIndex } from './readout';
@@ -58,6 +61,11 @@ export interface FrameInput {
    * recorte del mismo cuadro: fondo, grilla, superposiciones y profundidad se dibujan una vez. Ausente = sin cortina.
    */
   curtain?: { x: number; before: readonly (ResolvedTrack | null)[] };
+  /**
+   * Estilo de dibujo (look.ts, docs/decisiones/0067): zonas, paleta de rellenos, trazo según la densidad, banda
+   * mín–máx, tramas, grilla por décadas y columna TVDSS. Ausente = «Moderno» (el dibujo de siempre).
+   */
+  look?: ViewerLook;
 }
 
 const FONT = BASE_TOKENS.font.sans;
@@ -71,9 +79,9 @@ const crisp = (v: number) => Math.round(v) + 0.5;
 const curveKey = (c: ResolvedCurve) => `${c.key}|${scaleKey(c.axis)}`;
 
 /** Color opaco de una capa de pila (el de la paleta mezclado con el fondo de pista a su opacidad). */
-export function stackFillColor(fill: string, theme: ThemeTokens): string {
+export function stackFillColor(fill: string, theme: ThemeTokens, variant: PaletteVariant = 'modern'): string {
   // Un relleno desconocido (proyecto de otra versión) cae en el neutro en vez de romper el dibujo.
-  const c = fillColor((fill in FILL_PALETTE ? fill : 'undivided') as FillId, theme.name);
+  const c = fillColor((fill in FILL_PALETTE ? fill : 'undivided') as FillId, theme.name, variant);
   return mix(theme.viewer.trackBg, c.color, Math.min(1, c.alpha + 0.15));
 }
 
@@ -124,6 +132,8 @@ interface Sampling {
   n: number;
   /** Límites de fila por índice (solo si decimated). */
   bounds: Int32Array | null;
+  /** Muestras visibles por píxel de alto (decide el trazo en el perfil clásico). */
+  density: number;
 }
 
 export class ViewerRenderer {
@@ -170,7 +180,7 @@ export class ViewerRenderer {
       for (let r = 0; r < rows; r++) y[r] = r + 0.5;
       bounds = this.boundsBuf = rowBounds(depth, i0, i1, vp.top, vp.pxPerM, rows, this.boundsBuf);
     } else for (let k = 0; k < n; k++) y[k] = (depth[i0 + k]! - vp.top) * vp.pxPerM;
-    return { i0, i1, rows, decimated, y, n, bounds };
+    return { i0, i1, rows, decimated, y, n, bounds, density: (i1 - i0) / Math.max(1, vp.height) };
   }
 
   private rows(rawKey: string, values: Float32Array | Float64Array, s: Sampling): RowBuffers {
@@ -254,6 +264,7 @@ export class ViewerRenderer {
 
   private drawFills(ctx: CanvasRenderingContext2D, t: ResolvedTrack, box: TrackBox, f: FrameInput, s: Sampling): void {
     const theme = f.theme.name;
+    const variant = f.look?.palette ?? 'modern';
     for (const fill of t.fills) {
       this.profile(fill.a, box, s, this.xa);
       let xb: Float32Array | number;
@@ -279,12 +290,12 @@ export class ViewerRenderer {
       const bPath = fill.bLeft ? new Path2D() : null;
       fillBetween(s.n, s.y, this.xa, xb, aPath, bPath, box.x, box.x + box.width, diff);
       if (aPath && fill.aLeft) {
-        const c = fillColor(fill.aLeft, theme);
+        const c = fillColor(fill.aLeft, theme, variant);
         ctx.fillStyle = withAlpha(c.color, c.alpha * fill.opacity);
         ctx.fill(aPath);
       }
       if (bPath && fill.bLeft) {
-        const c = fillColor(fill.bLeft, theme);
+        const c = fillColor(fill.bLeft, theme, variant);
         ctx.fillStyle = withAlpha(c.color, c.alpha * fill.opacity);
         ctx.fill(bPath);
       }
@@ -294,25 +305,86 @@ export class ViewerRenderer {
   private drawCurves(ctx: CanvasRenderingContext2D, t: ResolvedTrack, box: TrackBox, f: FrameInput, s: Sampling): void {
     ctx.lineJoin = 'round';
     ctx.lineCap = 'butt';
+    const look = f.look ?? VIEWER_LOOKS.modern;
     for (const c of t.curves) {
       if (c.kind !== 'line') continue;
       const st = c.styles[f.theme.name];
       const frac = fractionArray(c.data, c.axis);
+      // Perfil clásico: patrón solo con pocas muestras por píxel; con muchas, sólida o banda mín–máx (look.ts).
+      const mode = strokeMode(s.density, st.line, look);
       ctx.strokeStyle = st.color;
-      ctx.setLineDash(st.dash);
+      ctx.setLineDash(mode === 'pattern' ? st.dash : []);
       // Alternativa (método en comparación): translúcida, debajo de la activa (resolve la ordena antes).
       const alpha = c.alternative ? 0.6 : 1;
       if (c.wrap) {
         ctx.globalAlpha = 0.55 * alpha;
         ctx.lineWidth = Math.max(0.75, st.width * 0.75);
-        this.strokeFractions(ctx, `${curveKey(c)}:wrap`, wrapFractionArray(frac), box, s);
+        if (mode === 'envelope' && s.decimated) this.strokeEnvelope(ctx, `${curveKey(c)}:wrap`, wrapFractionArray(frac), box, s, st.color, 0.55 * alpha);
+        else this.strokeFractions(ctx, `${curveKey(c)}:wrap`, wrapFractionArray(frac), box, s);
       }
       ctx.globalAlpha = alpha;
       ctx.lineWidth = st.width;
-      this.strokeFractions(ctx, curveKey(c), frac, box, s);
+      if (mode === 'envelope' && s.decimated) this.strokeEnvelope(ctx, curveKey(c), frac, box, s, st.color, alpha);
+      else this.strokeFractions(ctx, curveKey(c), frac, box, s);
       ctx.globalAlpha = 1;
     }
     ctx.setLineDash([]);
+  }
+
+  /**
+   * Vista de pozo completo (muchas muestras por fila): banda clara de mínimo a máximo de cada fila y, encima, la línea
+   * fina de la media. Usa los mismos buffers M4 que la línea (ningún pico se pierde: la banda llega al mín y al máx).
+   */
+  private strokeEnvelope(ctx: CanvasRenderingContext2D, key: string, frac: Float32Array, box: TrackBox, s: Sampling, color: string, alpha: number): void {
+    const b = this.rows(key, frac, s);
+    const x0 = box.x;
+    const w = box.width;
+    // Banda: un polígono por tramo continuo (ida por el mínimo, vuelta por el máximo), armado directo desde los buffers
+    // M4 (sin la lógica de cruces de `fillBetween`: el mínimo nunca pasa al máximo). Una fila sin muestras (muestreo
+    // irregular) no corta la banda; un hueco (solo NaN) sí.
+    const band = new Path2D();
+    const lo = -w;
+    const hi = 2 * w;
+    const clampX = (f: number) => x0 + Math.min(hi, Math.max(lo, f * w));
+    let r = 0;
+    const rows = s.rows;
+    while (r < rows) {
+      while (r < rows && b.state[r] !== ROW_DATA) r++;
+      if (r >= rows) break;
+      const start = r;
+      let last = r;
+      band.moveTo(clampX(b.min[r]!), r);
+      for (; r < rows && b.state[r] !== ROW_GAP; r++) {
+        if (b.state[r] !== ROW_DATA) continue;
+        band.lineTo(clampX(b.min[r]!), r + 0.5);
+        last = r;
+      }
+      band.lineTo(clampX(b.min[last]!), last + 1);
+      band.lineTo(clampX(b.max[last]!), last + 1);
+      for (let k = last; k >= start; k--) if (b.state[k] === ROW_DATA) band.lineTo(clampX(b.max[k]!), k + 0.5);
+      band.lineTo(clampX(b.max[start]!), start);
+      band.closePath();
+    }
+    const prevAlpha = ctx.globalAlpha;
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = withAlpha(color, ENVELOPE_ALPHA * alpha);
+    ctx.fill(band);
+    ctx.globalAlpha = prevAlpha;
+    ctx.beginPath();
+    let down = false;
+    for (let k = 0; k < rows; k++) {
+      const st = b.state[k];
+      if (st === ROW_GAP) {
+        down = false;
+        continue;
+      }
+      if (st !== ROW_DATA) continue;
+      const x = x0 + b.mean[k]! * w;
+      if (down) ctx.lineTo(x, k + 0.5);
+      else ctx.moveTo(x, k + 0.5);
+      down = true;
+    }
+    ctx.stroke();
   }
 
   private drawFlags(ctx: CanvasRenderingContext2D, t: ResolvedTrack, box: TrackBox, f: FrameInput, s: Sampling): void {
@@ -361,13 +433,33 @@ export class ViewerRenderer {
       this.drawEmptyNote(ctx, box, f, stackHint(st, f.stackHints) ?? 'Sin datos para la columna.');
       return;
     }
+    const look = f.look ?? VIEWER_LOOKS.modern;
+    // Tramas litológicas (perfil clásico): se aclaran al alejar y desaparecen a escala de pozo completo.
+    const patternAlpha = look.lithology ? patternOpacity(f.viewport.pxPerM) : 0;
     for (const l of st.layers) {
       this.fracProfile(`${t.id}:${l.id}:l`, l.left, box, s, this.xa);
       this.fracProfile(`${t.id}:${l.id}:r`, l.right, box, s, this.xb);
       const path = new Path2D();
       fillBetween(s.n, s.y, this.xa, this.xb, path, null, box.x, box.x + box.width);
-      ctx.fillStyle = stackFillColor(l.fill, f.theme);
+      const color = stackFillColor(l.fill, f.theme, look.palette);
+      const tile = patternAlpha > 0 ? lithologyTile(l.fill) : null;
+      // Trama: el color de la capa como fondo del mosaico y el trazo mezclado a la opacidad del zoom (en pasos de un
+      // cuarto, para no llenar la caché): la capa se rellena UNA vez, como sin trama. En un grabador vectorial (SVG),
+      // relleno liso + recorte y mosaico declarativo.
+      const steps = tile ? Math.round(patternAlpha * 4) / 4 : 0;
+      // Trazo de la trama: el color de la capa oscurecido (en oscuro, hacia el fondo: líneas tenues, no brillantes).
+      const ink = steps > 0 ? mix(color, f.theme.name === 'dark' ? mix(color, '#000000', 0.45) : mix(color, f.theme.viewer.depthText, 0.55), steps) : color;
+      const phase = tile && steps > 0 ? patternPhase(f.viewport.top, f.viewport.pxPerM, tile.height) : 0;
+      const pattern = tile && steps > 0 ? tilePattern(ctx, tile, color, ink, 1, phase) : null;
+      ctx.fillStyle = pattern ?? color;
       ctx.fill(path);
+      if (tile && steps > 0 && !pattern) {
+        ctx.save();
+        ctx.clip(path);
+        ctx.translate(0, phase);
+        fillPatternRect(ctx, { x: box.x, y: -phase, width: box.width, height: f.viewport.height + tile.height }, tile, 'rgba(0,0,0,0)', ink);
+        ctx.restore();
+      }
     }
   }
 
@@ -417,11 +509,14 @@ export class ViewerRenderer {
       ctx.stroke();
     }
     // Verticales por pista.
+    const decades = !!f.look?.decades;
     for (const { t, b } of curveTracks) {
       if (!t.grid) continue;
-      const lines = t.grid.kind === 'log' ? logGrid(t.grid.min, t.grid.max, t.grid.reversed) : linearGrid(10);
+      const log = t.grid.kind === 'log';
+      const lines = log ? logGrid(t.grid.min, t.grid.max, t.grid.reversed) : linearGrid(10);
       for (const major of [false, true]) {
-        ctx.strokeStyle = major ? v.gridMajor : v.gridMinor;
+        // Perfil clásico: en log, la década marcada y las subdivisiones 2–9 tenues.
+        ctx.strokeStyle = major ? (decades && log ? v.gridDecade : v.gridMajor) : v.gridMinor;
         ctx.beginPath();
         for (const g of lines) {
           if (g.major !== major) continue;
@@ -434,28 +529,27 @@ export class ViewerRenderer {
     }
   }
 
-  private drawDepthTrack(ctx: CanvasRenderingContext2D, box: TrackBox, f: FrameInput, ticks: ReturnType<typeof depthTicks>): void {
+  private drawDepthTrack(ctx: CanvasRenderingContext2D, t: ResolvedTrack, box: TrackBox, f: FrameInput, ticks: ReturnType<typeof depthTicks>): void {
     const v = f.theme.viewer;
     const h = f.viewport.height;
     const right = box.x + box.width;
-    ctx.strokeStyle = v.gridMajor;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (const d of ticks.minor) {
-      const y = crisp(yOf(f.viewport, d));
-      ctx.moveTo(right - 4, y);
-      ctx.lineTo(right, y);
-    }
-    ctx.stroke();
-    ctx.strokeStyle = v.axisText;
-    ctx.beginPath();
-    for (const d of ticks.major) {
-      const y = crisp(yOf(f.viewport, d));
-      ctx.moveTo(right - 8, y);
-      ctx.lineTo(right, y);
-    }
-    ctx.stroke();
     const ui = f.uiScale ?? 1;
+    // Con TVDSS: MD a la izquierda (su borde en la mitad), TVDSS a la derecha (más tenue).
+    const tv = t.tvdss;
+    const mdRight = tv ? box.x + Math.round(box.width * 0.56) : right;
+    const tickMarks = (list: readonly number[], at: number, len: number, color: string) => {
+      ctx.strokeStyle = color;
+      ctx.beginPath();
+      for (const d of list) {
+        const y = crisp(yOf(f.viewport, d));
+        ctx.moveTo(at - len, y);
+        ctx.lineTo(at, y);
+      }
+      ctx.stroke();
+    };
+    ctx.lineWidth = 1;
+    tickMarks(ticks.minor, mdRight, 4, v.gridMajor);
+    tickMarks(ticks.major, mdRight, 8, v.axisText);
     ctx.fillStyle = v.depthText;
     ctx.font = labelFont(ui, BASE_TOKENS.weight.medium);
     ctx.textAlign = 'right';
@@ -464,7 +558,22 @@ export class ViewerRenderer {
     for (const d of ticks.major) {
       const y = yOf(f.viewport, d);
       if (y < edge || y > h - edge) continue;
-      ctx.fillText(formatNumber(d, { digits: ticks.decimals, grouping: false }), right - scalePx(11, ui), y);
+      ctx.fillText(formatNumber(d, { digits: ticks.decimals, grouping: false }), mdRight - scalePx(11, ui), y);
+    }
+    if (!tv) return;
+    const tvTicks = tvdssTicks(f.depth, tv, f.viewport.top, baseOf(f.viewport), ticks.step);
+    ctx.strokeStyle = v.gridMajor;
+    ctx.beginPath();
+    ctx.moveTo(crisp(mdRight), 0);
+    ctx.lineTo(crisp(mdRight), h);
+    ctx.stroke();
+    tickMarks(tvTicks.map((x) => x.md), right, 6, v.axisText);
+    ctx.fillStyle = v.axisText;
+    ctx.font = labelFont(ui);
+    for (const x of tvTicks) {
+      const y = yOf(f.viewport, x.md);
+      if (y < edge || y > h - edge) continue;
+      ctx.fillText(formatNumber(x.value, { digits: ticks.decimals, grouping: false }), right - scalePx(8, ui), y);
     }
   }
 
@@ -480,7 +589,8 @@ export class ViewerRenderer {
     ctx.clearRect(0, 0, f.width, h);
     f.tracks.forEach((t, i) => {
       const b = f.boxes[i]!;
-      ctx.fillStyle = t.kind === 'depth' ? v.trackBgAlt : v.trackBg;
+      // Perfil clásico: todo el fondo blanco (también la profundidad), como un perfil impreso.
+      ctx.fillStyle = t.kind === 'depth' && !f.look?.paper ? v.trackBgAlt : v.trackBg;
       ctx.fillRect(b.x, 0, b.width, h);
     });
     this.drawGrid(ctx, f, ticks);
@@ -495,6 +605,7 @@ export class ViewerRenderer {
       invalidate: f.invalidate ?? (() => {}),
       active: f.active ?? null,
       uiScale: f.uiScale ?? 1,
+      ...(f.look ? { look: f.look.id } : {}),
     };
     const runOverlays = (layer: 'under' | 'over') => {
       for (const o of [...f.overlays].filter((o) => o.layer === layer).sort((a, b) => (a.order ?? 0) - (b.order ?? 0))) {
@@ -535,7 +646,7 @@ export class ViewerRenderer {
 
     // Profundidad y bordes al final: quedan nítidos sobre todo lo demás.
     f.tracks.forEach((t, i) => {
-      if (t.kind === 'depth') this.drawDepthTrack(ctx, f.boxes[i]!, f, ticks);
+      if (t.kind === 'depth') this.drawDepthTrack(ctx, t, f.boxes[i]!, f, ticks);
     });
     ctx.strokeStyle = v.trackBorder;
     ctx.lineWidth = 1;

@@ -132,6 +132,12 @@ export interface OverlayFrame {
    * 1 en las figuras exportadas, que no dependen del tamaño elegido.
    */
   uiScale?: number;
+  /**
+   * Estilo del visor (docs/decisiones/0067): 'classic' (perfil clásico, el de fábrica) o 'modern'. Una superposición
+   * puede adaptar su dibujo (las zonas son líneas en el clásico y bandas en el moderno). Ausente = 'modern' (tests y
+   * figuras de antes); la app y las figuras actuales lo pasan siempre.
+   */
+  look?: 'classic' | 'modern';
 }
 
 /** Lo mismo que OverlayFrame, sin contexto de dibujo (para `hit`). */

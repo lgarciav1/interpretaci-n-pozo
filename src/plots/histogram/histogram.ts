@@ -8,8 +8,10 @@
  *   Wahrscheinlichkeitstheorie und verwandte Gebiete 57, 453–476. Ancho h = 2·IQR·n^(−1/3).
  * - Sturges, H. A. (1926). The choice of a class interval. JASA 21(153), 65–66. k = ⌈log2 n⌉ + 1.
  * - Percentiles: Hyndman y Fan (1996), definición 7 (la misma de `percentile` en src/petro/stats.ts, sobre un typed array
- *   ordenado una sola vez).
+ *   ordenado una sola vez). La curva acumulada ponderada (`cumulativeCurve`) usa en cambio los cuantiles ponderados de
+ *   src/petro/distribution.ts (Hazen ponderado), los de los boxplots por zona.
  */
+import { weightedQuantiles } from '../../petro/distribution';
 
 export type HistScale = 'linear' | 'log';
 
@@ -121,6 +123,127 @@ export function cumulativePercent(h: HistogramCounts): Float64Array {
     out[j] = total > 0 ? (100 * acc) / total : NaN;
   }
   return out;
+}
+
+export interface CumulativeCurve {
+  /** Bordes de las clases (k + 1), en valores de la curva: el eje X de la acumulada. */
+  edges: Float64Array;
+  /** Acumulada normalizada 0–1 en cada borde (k + 1): cdf[0] = 0 y cdf[k] = 1; no decreciente. NaN si no hay muestras. */
+  cdf: Float64Array;
+  /** Peso total (muestras, o m con pesos por espesor) dentro del rango de las clases: el denominador de la acumulada. */
+  total: number;
+  /** Muestras dentro del rango. */
+  n: number;
+  /** Peso fuera del rango de las clases (por debajo / por encima): no entra en la acumulada. */
+  below: number;
+  above: number;
+  /** P10, P50 y P90 leídos de la propia curva (interpolación lineal entre bordes; en log, lineal en log10): caen sobre ella. */
+  p10: number;
+  p50: number;
+  p90: number;
+  /** P10, P50 y P90 exactos de las muestras dentro del rango (cuantiles ponderados de `weightedQuantiles`, Hazen). */
+  exact: { p10: number; p50: number; p90: number };
+}
+
+/**
+ * Valor de la curva cuya acumulada vale `p` (0–1), por interpolación lineal de la acumulada entre bordes (supone los
+ * valores repartidos uniformemente dentro de cada clase; en log, uniformes en log10). En un tramo plano (clases vacías)
+ * devuelve el primer borde que alcanza `p`. NaN si `p` no está en [0, 1] o la acumulada no tiene datos.
+ */
+export function quantileFromCdf(edges: ArrayLike<number>, cdf: ArrayLike<number>, p: number, scale: HistScale): number {
+  const k = edges.length - 1;
+  if (!(p >= 0 && p <= 1) || k < 1 || !Number.isFinite(cdf[k]!)) return NaN;
+  if (p <= cdf[0]!) return edges[0]!;
+  let lo = 0;
+  let hi = k;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >>> 1;
+    if (cdf[mid]! < p) lo = mid;
+    else hi = mid;
+  }
+  // cdf[lo] < p <= cdf[hi]
+  const f = (p - cdf[lo]!) / (cdf[hi]! - cdf[lo]!);
+  const a = t(scale, edges[lo]!);
+  const b = t(scale, edges[hi]!);
+  return inv(scale, a + f * (b - a));
+}
+
+/**
+ * Curva acumulada (CDF) del histograma de una curva, en los bordes de las clases, normalizada 0–1 sobre lo que cae
+ * DENTRO del rango de las clases (así termina exactamente en 1; lo de afuera se informa en `below`/`above`):
+ *
+ *   F(eⱼ) = Σ_{clases i < j} wᵢ / Σ_{todas} wᵢ      con wᵢ = suma de los pesos de las muestras de la clase i
+ *
+ * Las clases son las de `edges` (iguales en lineal o en log10, `binEdges`) con la misma regla de pertenencia que
+ * `countBins` (clase cerrada a la izquierda; la última también a la derecha; en log los valores ≤ 0 no cuentan).
+ * Sin `weights` cada muestra pesa 1 (igual que el conteo del histograma); con `weights` (p. ej. espesor en m, `ctx.thickness`)
+ * pesa wᵢ; se ignoran pesos ≤ 0 o no finitos. Dentro de cada clase la acumulada crece linealmente: es la
+ * aproximación por clases (error ≤ una clase respecto de la acumulada exacta de las muestras).
+ *
+ * P10/P50/P90 (`p10`, `p50`, `p90`) salen de invertir esa curva con `quantileFromCdf`, para anotarlos sobre ella; los
+ * exactos de las muestras (`exact`) usan `weightedQuantiles`. Son percentiles (P10 = el 10 % queda por debajo).
+ *
+ * @param values  valores de la curva, en su unidad; los no finitos no cuentan.
+ * @param edges   bordes de las clases, estrictamente crecientes (≥ 2).
+ * @param scale   'linear' | 'log' (debe ser la de `edges`).
+ * @param opts    `weights` por muestra (mismo largo que `values`) e `include` para filtrar por índice (zona, máscara).
+ * @returns Sin muestras dentro del rango → cdf y percentiles NaN, sin excepción.
+ */
+export function cumulativeCurve(
+  values: ArrayLike<number>,
+  edges: ArrayLike<number>,
+  scale: HistScale,
+  opts: { weights?: ArrayLike<number>; include?: (i: number) => boolean } = {},
+): CumulativeCurve {
+  const { weights, include } = opts;
+  const k = Math.max(0, edges.length - 1);
+  const w = new Float64Array(k);
+  const xs: number[] = [];
+  const ws: number[] = [];
+  let n = 0;
+  let below = 0;
+  let above = 0;
+  for (let i = 0; i < values.length; i++) {
+    if (include && !include(i)) continue;
+    const v = values[i]!;
+    if (!Number.isFinite(v) || (scale === 'log' && !(v > 0))) continue;
+    const wi = weights ? weights[i]! : 1;
+    if (!(wi > 0) || !Number.isFinite(wi)) continue;
+    const j = k > 0 ? binIndex(edges, v) : -1;
+    if (j >= 0) {
+      w[j]! += wi;
+      n++;
+      xs.push(v);
+      ws.push(wi);
+    } else if (k > 0 && v < edges[0]!) below += wi;
+    else above += wi;
+  }
+  const total = w.reduce((a, b) => a + b, 0);
+  const e = Float64Array.from({ length: k + 1 }, (_, j) => (j < edges.length ? edges[j]! : NaN));
+  const cdf = new Float64Array(k + 1);
+  if (!(total > 0)) {
+    cdf.fill(NaN);
+    return { edges: e, cdf, total: 0, n, below, above, p10: NaN, p50: NaN, p90: NaN, exact: { p10: NaN, p50: NaN, p90: NaN } };
+  }
+  let acc = 0;
+  for (let j = 0; j < k; j++) {
+    acc += w[j]!;
+    cdf[j + 1] = acc / total;
+  }
+  cdf[k] = 1; // sin error de redondeo acumulado
+  const [x10, x50, x90] = weightedQuantiles(xs, ws, [0.1, 0.5, 0.9]) as [number, number, number];
+  return {
+    edges: e,
+    cdf,
+    total,
+    n,
+    below,
+    above,
+    p10: quantileFromCdf(e, cdf, 0.1, scale),
+    p50: quantileFromCdf(e, cdf, 0.5, scale),
+    p90: quantileFromCdf(e, cdf, 0.9, scale),
+    exact: { p10: x10, p50: x50, p90: x90 },
+  };
 }
 
 export interface AutoRange {

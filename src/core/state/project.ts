@@ -6,7 +6,7 @@
  * Esto permite deshacer/rehacer guardando proyectos anteriores, y que el puente con el motor detecte cambios por
  * referencia.
  */
-import { emptyDisplay, isEmptyOverride, type CurveDisplayOverride, type DisplaySettings, type TrackSpec } from '../display';
+import { DEFAULT_VIEWER_LOOK, emptyDisplay, isEmptyOverride, type CurveDisplayOverride, type DisplaySettings, type TrackSpec, type ViewerLookSetting } from '../display';
 import { emptyInterpretation, sourceRefEquals, type Interpretation, type SourceRef } from '../interpretation';
 import type { ParamValue } from '../params';
 import type { RoleId } from '../roles';
@@ -280,6 +280,19 @@ export function setTrackLayout(project: Project, workspace: string, tracks: Trac
   if (tracks) layouts[workspace] = tracks;
   else delete layouts[workspace];
   return { ...project, display: { ...project.display, layouts } };
+}
+
+/**
+ * Estilo del visor del proyecto (docs/decisiones/0067). El de fábrica no se guarda (queda ausente). No toca las pistas:
+ * una plantilla propia se conserva con cualquier estilo.
+ */
+export function setViewerLook(project: Project, look: ViewerLookSetting): Project {
+  const current = project.display.look ?? DEFAULT_VIEWER_LOOK;
+  if (current === look) return project;
+  const display = { ...project.display };
+  if (look === DEFAULT_VIEWER_LOOK) delete display.look;
+  else display.look = look;
+  return { ...project, display };
 }
 
 /** Override de dibujo para un rol en todo el proyecto (null o vacío = quitarlo). */

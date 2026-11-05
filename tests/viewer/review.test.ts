@@ -12,7 +12,7 @@ import type { ViewerOverlay } from '../../src/viewer/overlay';
 import { overlayTracks, ViewerRenderer } from '../../src/viewer/render';
 import { findCurve, resolveTracks, type ComputedCurve, type ResolvedTrack } from '../../src/viewer/resolve';
 import { FRACTION_CACHE_PER_ARRAY, fractionArray, fractionCacheSize } from '../../src/viewer/scale';
-import { BUILTIN_LAYOUTS, overlayTrackId, withOverlayTracks } from '../../src/viewer/templates';
+import { BUILTIN_LAYOUTS, MODERN_LAYOUTS, overlayTrackId, withOverlayTracks } from '../../src/viewer/templates';
 import { viewportLimits, fitAll, showRange } from '../../src/viewer/viewport';
 import { THEMES } from '../../src/ui/tokens';
 
@@ -76,7 +76,9 @@ describe('punto 2: pistas propias de superposiciones y datos del pozo para ellas
 
 describe('punto 3: relleno de GR — arcilla del borde izquierdo a la curva, arena de la curva al borde derecho', () => {
   it('GR 120 en 0–150: 80 % arcilla y 20 % arena (coherente con IGR/VSH)', () => {
-    const t = track(resolve([measured('GR', 'GR', [120, 120])]), 'correlation');
+    // Estilo «Moderno» (dos rellenos); el perfil clásico de fábrica tiene solo el de arcilla, con la misma geometría.
+    const t = track(resolve([measured('GR', 'GR', [120, 120])], MODERN_LAYOUTS.petrophysics), 'correlation');
+    expect(fillAreas(track(resolve([measured('GR', 'GR', [120, 120])]), 'correlation'), 0).bLeft).toBeCloseTo(0.8, 9);
     const shale = fillAreas(t, 0);
     const sand = fillAreas(t, 1);
     expect([shale.fill.side, shale.fill.bLeft]).toEqual(['left', 'shale']);

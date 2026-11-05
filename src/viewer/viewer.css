@@ -494,3 +494,44 @@
 .wv-curtain[data-edge-left] .wv-curtain__label--before { right: auto; left: calc(50% + var(--space-2)); top: calc(var(--space-2) + 26px * var(--ui-scale)); }
 .wv-curtain[data-edge-right] .wv-curtain__label--after { left: auto; right: calc(50% + var(--space-2)); top: calc(var(--space-2) + 26px * var(--ui-scale)); }
 
+
+/*
+ * Perfil clásico (docs/decisiones/0067): títulos que no se cortan (dos líneas si no entran), profundidad en dos
+ * columnas (MD y TVDSS) y selector de escala de impresión.
+ */
+.wv[data-look='classic'] .wv-head__title {
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: normal;
+  hyphens: auto;
+  text-overflow: clip;
+  text-transform: none;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+.wv[data-look='classic'] .wv-head__overflow-names { display: none; }
+.wv[data-look='classic'] .wv-head--depth .wv-head__title { white-space: nowrap; }
+.wv[data-look='classic'] .wv-head--depth { background: var(--viewer-track-bg); }
+.wv[data-look='classic'] .wv-head__depth { font-family: var(--font-mono); font-size: calc(10px * var(--ui-scale)); }
+.wv-head__depth--two { display: grid; grid-template-columns: 1fr 1fr; column-gap: var(--space-1); width: 100%; text-align: center; }
+.wv-head__tvdss { color: var(--color-text-subtle); }
+.wv[data-look='classic'] .wv-head__curves { gap: 0; }
+.wv-scale-btn { display: inline-flex; align-items: center; gap: 2px; border: 0; font: inherit; font-size: var(--text-xs); cursor: pointer; }
+.wv-scale-btn:hover { background: var(--color-surface-hover); color: var(--color-text); }
+.wv-scale-btn:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+/* Banderas en el perfil clásico: el nombre largo («Posible roca generadora») pasa a dos líneas en vez de invadir la pista vecina. */
+.wv[data-look='classic'] .wv-head--flags .ui-curve-legend--inline { grid-template-columns: minmax(0, 1fr); }
+.wv[data-look='classic'] .wv-head--flags .ui-curve-legend__mid { height: auto; min-height: calc(18px * var(--ui-scale)); }
+.wv[data-look='classic'] .wv-head--flags .ui-curve-legend__label { flex-wrap: wrap; }
+.wv[data-look='classic'] .wv-head--flags .ui-curve-legend__name { flex: 0 1 auto; min-width: 0; white-space: normal; overflow-wrap: normal; hyphens: auto; line-height: 1.2; }
+/* Pila en el perfil clásico: lectura en monoespaciada chica para que el rótulo («Arcilla», «Hidroc.») no se corte. */
+.wv[data-look='classic'] .wv-stack-item { gap: var(--space-1); }
+.wv[data-look='classic'] .wv-stack-item__value { font-family: var(--font-mono); font-size: calc(10px * var(--ui-scale)); letter-spacing: -0.02em; }
+.wv[data-look='classic'] .wv-stack-item__label { font-size: calc(10.5px * var(--ui-scale)); }
+.wv[data-look='classic'] .wv-stack-item { grid-template-columns: calc(8px * var(--ui-scale)) minmax(0, 1fr) auto; gap: calc(3px * var(--ui-scale)); }
+.wv[data-look='classic'] .wv-stack-item__swatch { width: calc(8px * var(--ui-scale)); height: calc(8px * var(--ui-scale)); }
+.wv[data-look='classic'] .wv-stack-item__value { font-weight: var(--weight-medium); }
+.wv[data-look='classic'] .wv-stack-item { height: auto; min-height: calc(16px * var(--ui-scale)); }
+.wv[data-look='classic'] .wv-stack-item__label { white-space: normal; overflow-wrap: normal; text-overflow: clip; line-height: 1.15; }

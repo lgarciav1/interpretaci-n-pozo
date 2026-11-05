@@ -433,7 +433,9 @@ export function readWell(
         flagRes = wf;
         flagPay = wf;
       }
-      const sum = summarizeRanges({ thickness, netRes: flagRes, netPay: flagPay, phi, sw, vsh }, [{ start: run.s, end: run.e }]);
+      const sum = summarizeRanges({ thickness, netRes: flagRes, netPay: flagPay, phi, sw, vsh }, [{ start: run.s, end: run.e }], {
+        distributions: false, // solo usa promedios; los percentiles ordenarían las muestras de cada tramo sin necesidad
+      });
       const phiM = sum.phiPay;
       const swM = sum.swPay;
       const vshM = sum.vshPay;

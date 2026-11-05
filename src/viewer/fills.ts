@@ -139,7 +139,7 @@ export interface PatternBox { x: number; y: number; width: number; height: numbe
 export interface PatternPainter {
   fillTiledRect(box: PatternBox, tile: TilePattern, background: string, stroke: string, scale: number): void;
 }
-const patternCache = new WeakMap<CanvasRenderingContext2D, Map<string, CanvasPattern>>();
+const patternCache = new WeakMap<CanvasRenderingContext2D, Map<string, { pattern: CanvasPattern; a: number; d: number; dy: number }>>();
 
 /**
  * Rellena con CanvasPattern de un lienzo fuera de pantalla. La resolución sigue la transformación real (DPR o
@@ -150,14 +150,27 @@ export function fillPatternRect(ctx: CanvasRenderingContext2D, box: PatternBox, 
   if (![box.x, box.y, box.width, box.height, tile.width, tile.height, scale].every(Number.isFinite) || box.width <= 0 || box.height <= 0 || tile.width <= 0 || tile.height <= 0 || scale <= 0) return;
   const vector = ctx as CanvasRenderingContext2D & Partial<PatternPainter>;
   if (vector.fillTiledRect) { vector.fillTiledRect(box, tile, background, stroke, scale); return; }
+  const pattern = tilePattern(ctx, tile, background, stroke, scale);
+  if (!pattern) return;
+  ctx.save(); ctx.fillStyle = pattern; ctx.fillRect(box.x, box.y, box.width, box.height); ctx.restore();
+}
+
+/**
+ * El CanvasPattern (en caché por lienzo) de un mosaico, con su transformación a unidades CSS y el origen corrido `dy`
+ * px en vertical (para que la trama acompañe a la profundidad). null en un grabador vectorial (usar `fillPatternRect`)
+ * o si el mosaico es inválido. Rellenar un camino con él evita el recorte (`clip`) por capa: más barato por cuadro.
+ */
+export function tilePattern(ctx: CanvasRenderingContext2D, tile: TilePattern, background: string, stroke: string, scale = 1, dy = 0): CanvasPattern | null {
+  if ((ctx as Partial<PatternPainter>).fillTiledRect) return null;
+  if (!(tile.width > 0 && tile.height > 0 && scale > 0)) return null;
   const transform = ctx.getTransform();
   const density = Math.max(1, Math.min(8, Math.max(Math.hypot(transform.a, transform.b), Math.hypot(transform.c, transform.d))));
   const w = tile.width * scale, h = tile.height * scale;
   const key = JSON.stringify([tile, background, stroke, scale, density]);
   let cache = patternCache.get(ctx);
   if (!cache) { cache = new Map(); patternCache.set(ctx, cache); }
-  let pattern = cache.get(key);
-  if (!pattern) {
+  let entry = cache.get(key);
+  if (!entry) {
     const pw = Math.max(1, Math.ceil(w * density)), ph = Math.max(1, Math.ceil(h * density));
     const canvas = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(pw, ph) : document.createElement('canvas');
     canvas.width = pw; canvas.height = ph;
@@ -172,12 +185,16 @@ export function fillPatternRect(ctx: CanvasRenderingContext2D, box: PatternBox, 
     for (const [x0, y0, x1, y1] of tile.lines ?? []) { scratch.moveTo(x0, y0); scratch.lineTo(x1, y1); }
     scratch.stroke();
     for (const [x, y, r] of tile.dots ?? []) { scratch.beginPath(); scratch.arc(x, y, r, 0, Math.PI * 2); scratch.fill(); }
-    pattern = ctx.createPattern(canvas, 'repeat') ?? undefined;
+    const pattern = ctx.createPattern(canvas, 'repeat') ?? undefined;
     if (!pattern) throw new Error('No se pudo repetir el mosaico del relleno.');
-    pattern.setTransform({ a: w / pw, d: h / ph });
     // Cota de caché por lienzo: cambios continuos de tema, zoom o color no acumulan mosaicos sin límite.
     if (cache.size >= 64) cache.clear();
-    cache.set(key, pattern);
+    entry = { pattern, a: w / pw, d: h / ph, dy: NaN };
+    cache.set(key, entry);
   }
-  ctx.save(); ctx.fillStyle = pattern; ctx.fillRect(box.x, box.y, box.width, box.height); ctx.restore();
+  if (entry.dy !== dy) {
+    entry.pattern.setTransform({ a: entry.a, d: entry.d, f: dy });
+    entry.dy = dy;
+  }
+  return entry.pattern;
 }

@@ -11,7 +11,7 @@ import { createWell, type Curve } from '../../src/core/well';
 import { buildTrackCatalog } from '../../src/viewer/catalog';
 import { curveEnvelope, resolveTracks, type ComputedCurve } from '../../src/viewer/resolve';
 import { isSwModelsTrack, SW_MODEL_IDS, SW_MODELS, SW_MODELS_TRACK, showSwModelsRecipe, swModelCurves, swModelsToCompare } from '../../src/viewer/swModels';
-import { BUILTIN_LAYOUTS } from '../../src/viewer/templates';
+import { BUILTIN_LAYOUTS, MODERN_LAYOUTS } from '../../src/viewer/templates';
 
 const depth = Float64Array.from({ length: 5 }, (_, i) => 1000 + i);
 const LABELS: Record<string, string> = { 'sw-archie': 'Sw — Archie', 'sw-simandoux': 'Sw — Simandoux', 'sw-indonesia': 'Sw — Indonesia' };
@@ -151,8 +151,12 @@ describe('selector por módulo', () => {
   });
 
   it('la pista de fábrica de Sw sigue mostrando la activa y las alternativas como antes', () => {
-    const t = resolve([sw('sw-archie', [0.5, 0.5, 0.5, 0.5, 0.5], true), sw('sw-simandoux', [0.4, 0.4, 0.4, 0.4, 0.4])], BUILTIN_LAYOUTS.petrophysics).find((x) => x.id === 'saturation')!;
+    const curves = [sw('sw-archie', [0.5, 0.5, 0.5, 0.5, 0.5], true), sw('sw-simandoux', [0.4, 0.4, 0.4, 0.4, 0.4])];
+    // Perfil clásico (0067) y «Moderno»: SW en «Porosidad · Sw».
+    const t = resolve(curves, BUILTIN_LAYOUTS.petrophysics).find((x) => x.id === 'saturation')!;
     expect(t.curves.map((c) => [c.moduleId, c.alternative])).toEqual([['sw-simandoux', true], ['sw-archie', false]]);
+    const m = resolve(curves, MODERN_LAYOUTS.petrophysics).find((x) => x.id === 'saturation')!;
+    expect(m.curves.map((c) => [c.moduleId, c.alternative])).toEqual([['sw-simandoux', true], ['sw-archie', false]]);
   });
 });
 

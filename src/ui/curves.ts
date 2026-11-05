@@ -112,6 +112,68 @@ export const CURVE_PALETTE: Readonly<Record<RoleId, CurvePaletteEntry>> = {
 };
 
 /**
+ * Variante de paleta. 'modern' es la de arriba (la de siempre: gráficos, listas, estilo «Moderno» del visor);
+ * 'classic' es la del perfil clásico de fábrica del visor (docs/decisiones/0067): colores oscuros y trazos finos por
+ * convención de curva, y rellenos apagados.
+ */
+export type PaletteVariant = 'modern' | 'classic';
+
+/** Grosor de línea por defecto y máximo del perfil clásico (px CSS). Un override del usuario lo puede superar. */
+export const CLASSIC_LINE_WIDTH = 1;
+export const CLASSIC_MAX_LINE_WIDTH = 1.25;
+
+/**
+ * Perfil clásico: cambios sobre `CURVE_PALETTE` por rol. Convenciones de lectura: GR verde oscuro; resistividad
+ * profunda roja sólida, media azul a rayas, somera verde punteada; RHOB rojo, NPHI azul a rayas; PE magenta; DT
+ * violeta; CALI negro a rayas. En oscuro, los mismos tonos aclarados lo justo para leerse sobre la pista. Las
+ * calculadas, en tonos menos saturados que en «Moderno». Lo que no está acá conserva color y trazo, con grosor fino.
+ */
+export const CLASSIC_CURVE_PALETTE: Readonly<Partial<Record<RoleId, Partial<CurvePaletteEntry>>>> = {
+  CALI: { light: '#1c1f24', dark: '#d4d8de', line: 'dashed' },
+  BS: { light: '#7a8088', dark: '#8f969f', line: 'dotted' },
+  GR: { light: '#17663a', dark: '#5cc489', line: 'solid' },
+  SP: { light: '#30437a', dark: '#93a6e0', line: 'dashed' },
+  PEF: { light: '#a3238f', dark: '#e48ad6', line: 'dashed' },
+  RHOB: { light: '#b3202c', dark: '#ff7a84', line: 'solid' },
+  DRHO: { light: '#9a6b94', dark: '#cfa1c9', line: 'dotted' },
+  NPHI: { light: '#1f4fa8', dark: '#7aa4ef', line: 'dashed' },
+  DT: { light: '#5b2a9e', dark: '#b597ec', line: 'solid' },
+  DTS: { light: '#87306c', dark: '#d991c0', line: 'dashed' },
+  RT: { light: '#b3202c', dark: '#ff7a84', line: 'solid', width: 1.25 },
+  RM: { light: '#1f4fa8', dark: '#7aa4ef', line: 'dashed' },
+  RS: { light: '#2e7d32', dark: '#7ccf82', line: 'dotted', width: 1.25 },
+  RXO: { light: '#3a3f46', dark: '#c3c8cf', line: 'dashdot' },
+  RA10: { light: '#2e7d32', dark: '#7ccf82', line: 'dotted', width: 1.25 },
+  RA20: { light: '#8a5a12', dark: '#e0b26a', line: 'dashdot' },
+  RA30: { light: '#6a3fa0', dark: '#b89ae6', line: 'dashdot' },
+  IGR: { light: '#3f7d55', dark: '#86c39b', line: 'dashed' },
+  VSH: { light: '#6e5232', dark: '#c9a982', line: 'solid' },
+  PHIE: { light: '#2b5d8a', dark: '#86b4dc', line: 'solid', width: 1.25 },
+  PHIT: { light: '#3a3f46', dark: '#c3c8cf', line: 'solid' },
+  SW: { light: '#1f2f5c', dark: '#a9bde6', line: 'solid' },
+  BVW: { light: '#3f6f96', dark: '#8fb3d3', line: 'solid' },
+  PERM: { light: '#9a4a1f', dark: '#e09a6c', line: 'solid' },
+  NET_SAND: { light: '#cdbf9c', dark: '#8f8366' },
+  NET_RES: { light: '#d8c27e', dark: '#a8955a' },
+  NET_PAY: { light: '#c98a84', dark: '#a9675f' },
+  IND_GAS: { light: '#d6b55e', dark: '#b99a45' },
+  IND_SHALE: { light: '#9a8a6e', dark: '#8a7a5f' },
+  IND_COAL: { light: '#3a3a3a', dark: '#8f959c' },
+  IND_WASHOUT: { light: '#8aa0b2', dark: '#6f8798' },
+  IND_NMR_DEFICIT: { light: '#a46a9c', dark: '#b98ab2' },
+};
+
+/** Entrada de la paleta de un rol en una variante (null si el rol no es de la paleta curada). */
+export function paletteEntry(role: RoleId, variant: PaletteVariant = 'modern'): CurvePaletteEntry | null {
+  const base = CURVE_PALETTE[role];
+  if (!base) return null;
+  if (variant === 'modern') return base;
+  const over = CLASSIC_CURVE_PALETTE[role];
+  const width = Math.min(CLASSIC_MAX_LINE_WIDTH, over?.width ?? CLASSIC_LINE_WIDTH);
+  return { ...base, ...over, width };
+}
+
+/**
  * Muestras para elegir el color de una curva (editor de escalas): los colores clásicos de los perfiles, tomados de
  * la paleta (rojo de la profunda, azul de la media, verde del GR, negro del caliper…).
  */
@@ -187,6 +249,36 @@ export const FILL_PALETTE: Readonly<Record<FillId, FillEntry>> = {
   pore: { label: 'Porosidad', light: '#bcdcec', dark: '#4f7f94', alpha: 0.75 },
   /** Resto de una columna que no se pudo partir (faltan entradas): neutro, para no inventar una matriz. */
   undivided: { label: 'Sin partir', light: '#c4c8ce', dark: '#5d636b', alpha: 0.55 },
+};
+
+/**
+ * Perfil clásico: rellenos apagados (oliva o tierra desaturados, azul y verde grisáceos) para que las curvas manden.
+ * Lo que no está acá queda como en `FILL_PALETTE`.
+ */
+export const CLASSIC_FILL_PALETTE: Readonly<Partial<Record<FillId, Partial<FillEntry>>>> = {
+  gasCrossover: { light: '#e3c766', dark: '#b59a46', alpha: 0.45 },
+  shaleCrossover: { light: '#a59a86', dark: '#7d7361', alpha: 0.3 },
+  shale: { light: '#8f8a62', dark: '#7d7856', alpha: 0.42 },
+  sand: { light: '#e4d7a8', dark: '#a69a6f', alpha: 0.55 },
+  limestone: { light: '#b4cbdb', dark: '#62808f', alpha: 0.6 },
+  dolomite: { light: '#c6b9d6', dark: '#7b6d8f', alpha: 0.6 },
+  anhydrite: { light: '#d8b9c9', dark: '#8f6f80', alpha: 0.6 },
+  salt: { light: '#d9e6ea', dark: '#7a9299', alpha: 0.6 },
+  coal: { light: '#2f2f2f', dark: '#0c0c0c', alpha: 0.85 },
+  marl: { light: '#b5bc9c', dark: '#727a5c', alpha: 0.6 },
+  chalk: { light: '#efefe6', dark: '#a4a698', alpha: 0.6 },
+  tuff: { light: '#d9a988', dark: '#9a6f52', alpha: 0.6 },
+  basement: { light: '#b98380', dark: '#835553', alpha: 0.6 },
+  water: { light: '#8fb0cc', dark: '#4d6f8c', alpha: 0.55 },
+  hydrocarbon: { light: '#9fba86', dark: '#5e7a4a', alpha: 0.55 },
+  oil: { light: '#9fba86', dark: '#5e7a4a', alpha: 0.55 },
+  gas: { light: '#d39c93', dark: '#93605a', alpha: 0.55 },
+  washout: { light: '#b3b8bf', dark: '#5b626b', alpha: 0.3 },
+  netReservoir: { light: '#d8c27e', dark: '#a8955a', alpha: 0.7 },
+  netPay: { light: '#c98a84', dark: '#a9675f', alpha: 0.7 },
+  pore: { light: '#cddbe4', dark: '#4f6a78', alpha: 0.7 },
+  freeFluid: { light: '#dcd58a', dark: '#a9a35a', alpha: 0.55 },
+  capillaryWater: { light: '#8fb0cc', dark: '#4d6f8c', alpha: 0.55 },
 };
 
 /** Colores sugeridos para zonas nuevas (bandas sobre el perfil, chips, crossplots coloreados por capa). */
@@ -278,17 +370,17 @@ const DEFAULT_WIDTH = 1.25;
  * - Rol declarado por un módulo → su `display.color`, aclarado/oscurecido hasta contraste 3:1 con la pista.
  * - Sin rol o sin color → color categórico estable por `fallbackKey` (p. ej. el mnemónico).
  */
-export function curveStyle(role: RoleId | null | undefined, theme: ThemeName, catalog: RoleCatalog = defaultRoleCatalog, fallbackKey?: string): CurveStyle {
+export function curveStyle(role: RoleId | null | undefined, theme: ThemeName, catalog: RoleCatalog = defaultRoleCatalog, fallbackKey?: string, variant: PaletteVariant = 'modern'): CurveStyle {
   const def = role ? catalog.get(role) : undefined;
   const display = def?.display;
-  const entry = role ? CURVE_PALETTE[role] : undefined;
+  const entry = role ? (paletteEntry(role, variant) ?? undefined) : undefined;
   const trackBg = THEMES[theme].viewer.trackBg;
   let color: string;
   if (entry) color = entry[theme];
   else if (display?.color) color = ensureContrast(display.color, trackBg, 3);
   else color = categoricalColor(fallbackKey ?? role ?? '?', theme);
   const line = entry?.line ?? 'solid';
-  const width = entry?.width ?? DEFAULT_WIDTH;
+  const width = entry?.width ?? (variant === 'classic' ? CLASSIC_LINE_WIDTH : DEFAULT_WIDTH);
   const kind = entry?.kind ?? (def?.family === 'flag' ? 'band' : 'line');
   return {
     color,
@@ -304,7 +396,7 @@ export function curveStyle(role: RoleId | null | undefined, theme: ThemeName, ca
   };
 }
 
-export function fillColor(id: FillId, theme: ThemeName): { color: string; alpha: number } {
-  const f = FILL_PALETTE[id];
+export function fillColor(id: FillId, theme: ThemeName, variant: PaletteVariant = 'modern'): { color: string; alpha: number } {
+  const f = variant === 'classic' ? { ...FILL_PALETTE[id], ...CLASSIC_FILL_PALETTE[id] } : FILL_PALETTE[id];
   return { color: f[theme], alpha: f.alpha };
 }

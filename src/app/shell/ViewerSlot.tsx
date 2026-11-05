@@ -24,6 +24,13 @@ import { patchOverride } from '../../viewer/curveEdit';
 import type { ViewerData, ViewerZone } from '../../viewer/overlay';
 import { resolveTracks, type HiddenCurve, type ResolvedTrack } from '../../viewer/resolve';
 import { layoutFor, STACK_ROLE_HINTS, withOverlayTracks } from '../../viewer/templates';
+import { DEFAULT_LOOK, lookOf } from '../../viewer/look';
+import { wellTvdss } from '../../viewer/depthColumns';
+import { addTopAt, defaultZoneName } from '../../core/state/zones';
+import { applyZoneEdit, makeId } from '../../core/state/project';
+import { toast, zoneColor } from '../../ui';
+import { defaultFigureOptions, exportFigure } from '../export/figureActions';
+import { pxToCm } from '../../io/export/figures/sizing';
 import { WellHeader } from '../../viewer/WellHeaderView';
 import { WellViewer, type ViewerCurtain } from '../../viewer/WellViewer';
 import { alignCurtainTracks } from '../../viewer/curtain';
@@ -110,21 +117,26 @@ export function ViewerSlot() {
   const compareOriginals = usePreparationUi(s => s.compareOriginals);
   const curves = useMemo(() => (well ? preparationViewCurves(visibleCurves(well, { toolString }), interpretation, result, compareOriginals) : []), [well, toolString, interpretation, result, compareOriginals]);
   // Pistas propias con escala según los datos (presiones MDT) y los ajustes guardados (unidad).
+  // Estilo del visor (docs/decisiones/0067): perfil clásico de fábrica o «Moderno»; elige también la plantilla de fábrica.
+  const lookId = display.look ?? DEFAULT_LOOK;
+  const look = lookOf(lookId);
   const layoutSpec = useMemo(
-    () => (well ? withOverlayTracks(layoutFor(workspace, display.layouts), OVERLAYS, workspace, { well, ...(display.overlays ? { settings: display.overlays } : {}) }) : []),
-    [well, workspace, display.layouts, display.overlays],
+    () => (well ? withOverlayTracks(layoutFor(workspace, display.layouts, lookId), OVERLAYS, workspace, { well, ...(display.overlays ? { settings: display.overlays } : {}) }) : []),
+    [well, workspace, display.layouts, display.overlays, lookId],
   );
+  // TVDSS para la segunda columna de profundidad: solo si el pozo tiene elevación de referencia (en caché por pozo).
+  const tvdss = useMemo(() => (well ? wellTvdss(well) : null), [well]);
   const overrides = useMemo(() => (well ? { roles: display.roles, ...(display.curves[well.id] ? { curves: display.curves[well.id] } : {}) } : {}), [well, display.roles, display.curves]);
   const tracks = useMemo(() => {
     if (!well) return [];
     return resolveTracks(
       layoutSpec,
-      { depth: well.depth.values, curves, computed, catalog: registry.roles, sources: interpretation?.sources },
+      { depth: well.depth.values, curves, computed, catalog: registry.roles, sources: interpretation?.sources, tvdss },
       overrides,
       // Armando pistas se ven también las que se ocultan vacías (para moverlas o quitarlas).
-      { keepEmpty: building },
+      { keepEmpty: building, look: lookId },
     );
-  }, [well, curves, computed, layoutSpec, overrides, building, interpretation?.sources]);
+  }, [well, curves, computed, layoutSpec, overrides, building, interpretation?.sources, tvdss, lookId]);
 
   // Cortina antes/después: el snapshot se calcula una vez al elegirlo (caché compartida con el diálogo); arrastrar la
   // línea solo redibuja. Cada lado usa sus datos; una grilla/laboratorio incompatibles bloquean la cortina.
@@ -139,9 +151,9 @@ export function ViewerSlot() {
     if (!well || !curtainSnap || !curtainResult || !curtainWell || curtainIssue) return null;
     // El lado «antes» con la sarta del snapshot (sus curvas medidas son las que veía ese cálculo).
     const beforeCurves = preparationViewCurves(visibleCurves(curtainWell, curtainSnap.interpretation), curtainSnap.interpretation, curtainResult, compareOriginals);
-    const before = resolveTracks(layoutSpec, { depth: curtainWell.depth.values, curves: beforeCurves, computed: computedCurves(curtainResult, curtainWell), catalog: registry.roles, sources: curtainSnap.interpretation.sources }, overrides, { keepEmpty: true });
+    const before = resolveTracks(layoutSpec, { depth: curtainWell.depth.values, curves: beforeCurves, computed: computedCurves(curtainResult, curtainWell), catalog: registry.roles, sources: curtainSnap.interpretation.sources, tvdss }, overrides, { keepEmpty: true, look: lookId });
     return { before: alignCurtainTracks(tracks, before), beforeLabel: `Antes: ${curtainSnap.name}`, afterLabel: 'Después: actual' };
-  }, [well, curtainSnap, curtainResult, curtainWell, curtainIssue, layoutSpec, overrides, tracks, compareOriginals]);
+  }, [well, curtainSnap, curtainResult, curtainWell, curtainIssue, layoutSpec, overrides, tracks, compareOriginals, tvdss, lookId]);
 
   // «Armar pistas» (docs/decisiones/0016): acciones sobre las pistas que se ven, publicadas para el panel.
   const editor = useMemo(() => (well ? createLayoutEditor({ workspace, overlays: OVERLAYS, displayed: tracks, curves }) : null), [well, workspace, tracks, curves]);
@@ -353,6 +365,24 @@ export function ViewerSlot() {
     });
   };
 
+  // Menú contextual del perfil (docs/decisiones/0067): crear un tope y exportar lo visible.
+  const createTop = (d: number) => {
+    const zones = interpretation?.zones ?? [];
+    const input = { id: makeId('zona'), lowerId: makeId('zona'), name: defaultZoneName(zones), color: zoneColor(zones.length) };
+    const r = addTopAt(zones, d, input, { depth: well.depth.values });
+    if ('error' in r) {
+      toast({ tone: 'warn', title: 'No se creó el tope', description: r.error });
+      return;
+    }
+    commit(`Crear tope de ${r.created.name}`, (p) => applyZoneEdit(p, well.id, r.zones, r.clone));
+    setUi({ editingZoneId: r.created.id });
+    toast({ tone: 'ok', title: `Tope de «${r.created.name}» a ${formatNumber(r.created.top, { digits: 2, grouping: false })} m`, description: 'Arrastrá la línea para ajustarlo; el nombre y el color se cambian en el panel Zonas.' });
+  };
+  const exportVisible = (req: { top: number; base: number; scale: number; widthPx: number }) => {
+    const base = defaultFigureOptions('profile-tracks');
+    void exportFigure({ ...base, format: 'png', range: { kind: 'visible', top: req.top, base: req.base }, verticalScale: req.scale, widthCm: Math.max(base.widthCm, +(pxToCm(req.widthPx) + 2 * base.marginCm).toFixed(1)), dpi: 150 });
+  };
+
   const editingZone = data.zones.find((z) => z.id === editingZoneId);
   const toolbarStart = (
     <>
@@ -530,6 +560,9 @@ export function ViewerSlot() {
         onDragChange={onDragChange}
         layoutEdit={layoutEdit}
         curtain={curtain}
+        look={look}
+        onCreateTop={createTop}
+        onExportVisible={exportVisible}
       />
       {editing && editingCurve && <CurveEditor key={`${editing.trackId}|${editing.key}`} wellId={well.id} curve={editingCurve} anchorRef={anchorRef} onClose={() => setEditing(null)} />}
       <SaveTemplateDialog workspace={workspace} overlays={OVERLAYS} />

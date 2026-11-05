@@ -40,9 +40,11 @@ import { buildTrackCatalog, curveEntryOf, filterCatalog, trackForCurve } from '.
 import type { ViewerOverlay } from '../../src/viewer/overlay';
 import { layoutTracks } from '../../src/viewer/layout';
 import { resolveTracks } from '../../src/viewer/resolve';
-import { BUILTIN_LAYOUTS, withOverlayTracks } from '../../src/viewer/templates';
+import { BUILTIN_LAYOUTS, MODERN_LAYOUTS, withOverlayTracks } from '../../src/viewer/templates';
 
-const PETRO = BUILTIN_LAYOUTS.petrophysics as TrackSpec[];
+// Las recetas se prueban sobre la plantilla «Moderno» (la de fábrica hasta 0067): GR con dos rellenos y SW en
+// «Porosidad · Sw» ejercitan el traslado de rellenos de una y de dos curvas.
+const PETRO = MODERN_LAYOUTS.petrophysics as TrackSpec[];
 const ids = (ts: readonly TrackSpec[]) => ts.map((t) => t.id);
 const track = (ts: readonly TrackSpec[], id: string) => ts.find((t) => t.id === id)!;
 const sel = (t: TrackSpec) => (t.curves ?? []).map((c) => ('role' in c.select ? c.select.role : 'curveId' in c.select ? `#${c.select.curveId}` : `*${c.select.unassigned}`));
@@ -61,7 +63,7 @@ describe('recetas de pistas', () => {
     const b = addTrack(a, { ...t }, null);
     expect(ids(b).filter((x) => x.startsWith('u-caliper'))).toEqual(['u-caliper', 'u-caliper-2']);
     expect(uniqueTrackId([], 'Densidad · neutrón')).toBe('u-densidad-neutron');
-    expect(PETRO).toBe(BUILTIN_LAYOUTS.petrophysics); // nunca muta la de fábrica
+    expect(PETRO).toBe(MODERN_LAYOUTS.petrophysics); // nunca muta la de fábrica
   });
 
   it('mover, quitar, mostrar, ancho y nombre', () => {

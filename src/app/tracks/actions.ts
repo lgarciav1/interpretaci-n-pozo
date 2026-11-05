@@ -40,7 +40,9 @@ import { conventionEntry, curveEntryOf, trackForCurve, type TrackDraft } from '.
 import type { LayoutDropTarget } from '../../viewer/layoutEdit';
 import type { ViewerOverlay } from '../../viewer/overlay';
 import type { ResolvedCurve, ResolvedTrack } from '../../viewer/resolve';
-import { BUILTIN_LAYOUTS, layoutFor, withOverlayTracks } from '../../viewer/templates';
+import { factoryLayout, layoutFor, withOverlayTracks } from '../../viewer/templates';
+import { DEFAULT_LOOK, type ViewerLookId } from '../../viewer/look';
+import { setViewerLook } from '../../core/state/project';
 import { essentialPetrophysicsLayout } from '../../viewer/essential';
 import { useProject } from '../store/project';
 import type { DragPayload } from './dnd';
@@ -70,7 +72,7 @@ function safeCommit(label: string, recipe: (p: Project) => Project): boolean {
 
 /** Pistas que se ven de un espacio (propias o de fábrica, con las de superposiciones). */
 export function materializedLayout(project: Project, workspace: WorkspaceId, overlays: readonly ViewerOverlay[]): TrackSpec[] {
-  return withOverlayTracks(layoutFor(workspace, project.display.layouts), overlays, workspace);
+  return withOverlayTracks(layoutFor(workspace, project.display.layouts, project.display.look), overlays, workspace);
 }
 
 /** Qué plantilla está aplicada: la de fábrica, una propia o ninguna (pistas tocadas a mano). */
@@ -82,7 +84,7 @@ export function currentTemplate(project: Project, workspace: WorkspaceId, overla
   const now = materializedLayout(project, workspace, overlays);
   for (const t of trackTemplatesFor(project, workspace)) if (layoutsEqual(now, withOverlayTracks(t.tracks, overlays, workspace))) return { kind: 'template', id: t.id, name: t.name };
   if (workspace === 'petrophysics' && layoutsEqual(now, withOverlayTracks(essentialPetrophysicsLayout(), overlays, workspace))) return { kind: 'essential' };
-  if (layoutsEqual(now, withOverlayTracks(BUILTIN_LAYOUTS[workspace], overlays, workspace))) return { kind: 'factory' };
+  if (layoutsEqual(now, withOverlayTracks(factoryLayout(workspace, project.display.look ?? DEFAULT_LOOK), overlays, workspace))) return { kind: 'factory' };
   return { kind: 'custom' };
 }
 
@@ -385,6 +387,15 @@ export function applyEssentialTemplate(): void {
     return current && layoutsEqual(current, tracks) ? p : setTrackLayout(p, 'petrophysics', tracks);
   })) return;
   announce('Petrofísica esencial aplicada. Las demás curvas siguen disponibles en Armar pistas.');
+}
+
+/**
+ * Estilo del visor (docs/decisiones/0067): perfil clásico (el de fábrica) o «Moderno». Solo cambia el dibujo y la
+ * plantilla de fábrica de cada estilo; las pistas propias del proyecto se conservan.
+ */
+export function applyViewerLook(look: ViewerLookId, label: string): void {
+  if (!safeCommit(`Estilo del visor: ${label}`, (p) => setViewerLook(p, look))) return;
+  announce(`Estilo del visor: ${label}`);
 }
 
 export function deleteTemplate(id: string, name: string): void {

@@ -20,7 +20,7 @@ function MineralPanel(props: ModulePanelProps) {
       <MineralCrossplotButton template="pe-density">Ver PE–densidad</MineralCrossplotButton>
       <Button size="sm" variant="secondary" onClick={() => {
         useProject.getState().commit('Ver columna mineral en Geología', p => {
-          const current = layoutFor('geology', p.display.layouts);
+          const current = layoutFor('geology', p.display.layouts, p.display.look);
           if (current.some(t => t.id === MINERAL_TRACK.id && !t.hidden)) return p;
           return updateTrackLayout(p, 'geology', current, list => addTrack(list.filter(t => t.id !== MINERAL_TRACK.id), MINERAL_TRACK));
         });

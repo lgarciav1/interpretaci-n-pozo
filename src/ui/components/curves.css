@@ -33,3 +33,36 @@
 .ui-curve-legend__label { display: inline-flex; align-items: baseline; gap: calc(4px * var(--ui-scale)); min-width: 0; max-width: 100%; line-height: calc(14px * var(--ui-scale)); }
 .ui-curve-legend--inline .ui-curve-legend__name { flex: none; font-size: var(--text-xs); }
 .ui-curve-legend--inline .ui-curve-legend__value { margin-left: 0; overflow: hidden; font-size: var(--text-xs); text-overflow: ellipsis; }
+
+/*
+ * Perfil clásico (docs/decisiones/0067): «mínimo · MNEMÓNICO unidad · máximo» en monoespaciada y la muestra del trazo
+ * debajo, a todo el ancho. El nombre y la unidad pueden ir en dos líneas si la pista es angosta: nunca se cortan.
+ */
+.ui-curve-legend--classic { display: flex; flex-direction: column; gap: 0; padding: calc(2px * var(--ui-scale)) 0 calc(3px * var(--ui-scale)); }
+.ui-curve-legend--classic + .ui-curve-legend--classic { border-top: 0; }
+.ui-curve-legend--classic .ui-curve-legend__row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: end; column-gap: calc(3px * var(--ui-scale)); }
+.ui-curve-legend--classic.ui-curve-legend--noscale .ui-curve-legend__row { grid-template-columns: minmax(0, 1fr); }
+.ui-curve-legend--classic .ui-curve-legend__lo,
+.ui-curve-legend--classic .ui-curve-legend__hi,
+.ui-curve-legend--classic .ui-curve-legend__name,
+.ui-curve-legend--classic .ui-curve-legend__unit { font-family: var(--font-mono); font-size: calc(10px * var(--ui-scale)); line-height: calc(13px * var(--ui-scale)); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.ui-curve-legend--classic .ui-curve-legend__lo,
+.ui-curve-legend--classic .ui-curve-legend__hi { color: var(--color-text-muted); }
+.ui-curve-legend--classic .ui-curve-legend__label { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; column-gap: calc(4px * var(--ui-scale)); min-width: 0; max-width: none; line-height: calc(13px * var(--ui-scale)); text-align: center; }
+.ui-curve-legend--classic .ui-curve-legend__name { flex: none; overflow: visible; font-weight: var(--weight-semibold); white-space: nowrap; }
+.ui-curve-legend--classic .ui-curve-legend__unit { flex: none; margin-left: 0; color: var(--color-text-muted); }
+.ui-curve-legend__sample .ui-curve-legend__tag--alt { position: relative; padding: 0 calc(3px * var(--ui-scale)); background: var(--color-surface); font-size: calc(9px * var(--ui-scale)); line-height: calc(10px * var(--ui-scale)); }
+.ui-curve-legend__sample { gap: calc(3px * var(--ui-scale)); }
+.ui-curve-legend__sample { position: relative; display: flex; align-items: center; justify-content: center; height: calc(9px * var(--ui-scale)); }
+.ui-curve-legend__sample .ui-curve-legend__line { position: absolute; left: 0; top: 50%; width: 100%; transform: translateY(-50%); }
+.ui-curve-legend__sample .ui-curve-legend__value {
+  position: relative;
+  margin: 0;
+  padding: 0 calc(3px * var(--ui-scale));
+  border-radius: 3px;
+  background: var(--color-surface);
+  font-family: var(--font-mono);
+  font-size: calc(10px * var(--ui-scale));
+  line-height: calc(11px * var(--ui-scale));
+  font-weight: var(--weight-semibold);
+}

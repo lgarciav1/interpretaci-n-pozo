@@ -246,3 +246,21 @@ export function validateZoneName(zones: readonly Zone[], zoneId: string | null, 
   if (zones.some((z) => z.id !== zoneId && z.name.trim().toLowerCase() === t.toLowerCase())) return `Ya hay una zona «${t}».`;
   return null;
 }
+
+/**
+ * Crea un TOPE en la profundidad `d` (menú contextual del perfil, docs/decisiones/0067): una zona nueva que empieza en
+ * `d` y llega hasta la base de la zona donde cae (que queda arriba, con su id) o, en un hueco, hasta la zona siguiente
+ * o el fondo del pozo. Es la misma receta que «marcar zona» (`createZone`), así respeta el espesor mínimo y nunca pisa
+ * otras zonas. Partida una zona, la nueva hereda sus parámetros (es la misma roca hasta que el usuario diga otra cosa).
+ */
+export function addTopAt(zones: readonly Zone[], d: number, input: NewZoneInput, opts: ZoneEditOptions): CreateZoneResult {
+  const sorted = byTop(zones);
+  const host = sorted.find((z) => d >= z.top && d <= z.base) ?? null;
+  const n = opts.depth.length;
+  if (n < 2) return { error: 'El pozo no tiene muestras suficientes.' };
+  const end = host ? host.base : (sorted.find((z) => z.top > d)?.top ?? opts.depth[n - 1]!);
+  if (host && d - host.top < (opts.minThickness ?? MIN_ZONE_THICKNESS) - 1e-9) return { error: `El tope queda a menos de ${String(opts.minThickness ?? MIN_ZONE_THICKNESS).replace('.', ',')} m del tope de ${host.name}: arrastrá ese tope en vez de crear otro.` };
+  const r = createZone(zones, d, end, input, opts);
+  if ('error' in r || !host) return r;
+  return { ...r, clone: r.clone ?? { from: host.id, to: r.created.id } };
+}

@@ -2,6 +2,8 @@
  * Superposición de calidad del pozo: tramos con derrumbe o caliper inválido (del control de calidad,
  * `QcReport.borehole`) rayados sobre las pistas que tienen curvas afectadas (las de patín: densidad, PE, DRHO) y
  * marcados con una barra en el borde de la pista del caliper. Tooltip con el detalle.
+ * Perfil clásico (`frame.look === 'classic'`, docs/decisiones/0067): el rayado no cubre las curvas; queda en una franja
+ * angosta junto a la barra del borde derecho de cada pista afectada (el tooltip y el dato son los mismos).
  */
 import type { BoreholeInterval } from '../../io/qc';
 import { withAlpha } from '../../ui/color';
@@ -70,9 +72,13 @@ export function createQcOverlay(): ViewerOverlay {
         if (!rects.length) continue;
         const color = kind === 'washout' ? theme.color.warn : theme.color.error;
         // Un recorte y un rayado por pista (no uno por tramo): cuesta lo mismo con 5 que con 500 tramos.
+        const edgeOnly = frame.look === 'classic';
         for (const t of hatch) {
           const area = new Path2D();
-          for (const [y0, y1] of rects) area.rect(t.x, y0, t.width, y1 - y0);
+          // Clásico: 10 px junto al borde (la barra va en los últimos 4); las curvas quedan limpias.
+          const hx = edgeOnly ? t.x + Math.max(0, t.width - 14) : t.x;
+          const hw = edgeOnly ? Math.min(t.width, 10) : t.width;
+          for (const [y0, y1] of rects) area.rect(hx, y0, hw, y1 - y0);
           ctx.save();
           ctx.fillStyle = withAlpha(theme.viewer.nullPattern, 0.18);
           ctx.fill(area);

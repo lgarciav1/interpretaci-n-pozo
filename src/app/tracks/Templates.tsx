@@ -8,9 +8,10 @@ import type { WorkspaceId } from '../../core/workspaces';
 import { Button, Dialog, Field, Icon, Menu, TextField, type MenuEntry } from '../../ui';
 import type { ViewerOverlay } from '../../viewer/overlay';
 import { ESSENTIAL_NAME } from '../../viewer/essential';
+import { DEFAULT_LOOK, VIEWER_LOOKS, type ViewerLookId } from '../../viewer/look';
 import { useProject } from '../store/project';
 import { useUi } from '../store/ui';
-import { applyEssentialTemplate, applyTemplate, currentTemplate, renameTemplate, resetToFactory, saveTemplate, type CurrentTemplate, type LayoutEditor } from './actions';
+import { applyEssentialTemplate, applyTemplate, applyViewerLook, currentTemplate, renameTemplate, resetToFactory, saveTemplate, type CurrentTemplate, type LayoutEditor } from './actions';
 import { useTrackUi } from './store';
 
 export function templateName(c: CurrentTemplate): string {
@@ -25,10 +26,23 @@ export function useCurrentTemplate(workspace: WorkspaceId, overlays: readonly Vi
 
 /** Entradas del selector de plantillas (barra del visor y panel). */
 export function templateMenuItems(workspace: WorkspaceId, current: CurrentTemplate, extra: MenuEntry[] = []): MenuEntry[] {
-  const mine = trackTemplatesFor(useProject.getState().project, workspace);
+  const project = useProject.getState().project;
+  const mine = trackTemplatesFor(project, workspace);
   const check = (on: boolean) => (on ? { icon: 'check' as const } : {});
+  const look: ViewerLookId = project.display.look ?? DEFAULT_LOOK;
+  const lookEntry = (id: ViewerLookId): MenuEntry => ({
+    id: `look:${id}`,
+    label: id === DEFAULT_LOOK ? `${VIEWER_LOOKS[id].label} (de fábrica)` : VIEWER_LOOKS[id].label,
+    ...check(look === id),
+    description: VIEWER_LOOKS[id].description,
+    onSelect: () => look !== id && applyViewerLook(id, VIEWER_LOOKS[id].label),
+  });
   return [
-    { id: 'factory', label: 'De fábrica', ...check(current.kind === 'factory'), description: 'Vista clásica: las pistas que trae la app', onSelect: () => current.kind !== 'factory' && resetToFactory(workspace) },
+    { type: 'label', id: 'l-look', label: 'Estilo' },
+    lookEntry('classic'),
+    lookEntry('modern'),
+    { type: 'label', id: 'l-tracks', label: 'Pistas' },
+    { id: 'factory', label: 'De fábrica', ...check(current.kind === 'factory'), description: look === 'modern' ? 'Las pistas que trae la app (estilo Moderno)' : 'Las pistas que trae la app', onSelect: () => current.kind !== 'factory' && resetToFactory(workspace) },
     ...(workspace === 'petrophysics' ? [{ id: 'essential', label: ESSENTIAL_NAME, ...check(current.kind === 'essential'), description: 'GR, resistividades, densidad–neutrón y resultados en pistas separadas. Las demás curvas siguen en Armar pistas.', onSelect: () => current.kind !== 'essential' && applyEssentialTemplate() } satisfies MenuEntry] : []),
     { type: 'label', id: 'l-m', label: mine.length ? 'Mis plantillas' : 'Mis plantillas · ninguna todavía' },
     ...mine.map((t): MenuEntry => ({ id: `t:${t.id}`, label: t.name, ...check(current.kind === 'template' && current.id === t.id), description: t.savedAt ? `Guardada el ${new Date(t.savedAt).toLocaleDateString('es-AR')}` : 'Plantilla propia', onSelect: () => applyTemplate(t.id, t.name) })),
@@ -42,6 +56,7 @@ export function templateMenuItems(workspace: WorkspaceId, current: CurrentTempla
 /** Botón de la barra del visor: plantilla aplicada, cambio de plantilla y «Armar pistas». */
 export function TemplateMenu({ workspace, overlays }: { workspace: WorkspaceId; overlays: readonly ViewerOverlay[] }) {
   const current = useCurrentTemplate(workspace, overlays);
+  const look = useProject((s) => s.project.display.look ?? DEFAULT_LOOK);
   const building = useUi((s) => s.trackBuilder);
   const set = useUi((s) => s.set);
   return (
@@ -53,9 +68,9 @@ export function TemplateMenu({ workspace, overlays }: { workspace: WorkspaceId; 
         { id: 'build', label: building ? 'Terminar de armar pistas' : 'Armar pistas…', icon: building ? 'check' : 'tracks', onSelect: () => set({ trackBuilder: !building }) },
       ])}
       trigger={(tp) => (
-        <button {...tp} type="button" className={`tb-template-btn${current.kind === 'custom' ? ' is-custom' : ''}`} title="Plantilla de pistas: cambiarla, guardar la actual o armar pistas">
+        <button {...tp} type="button" className={`tb-template-btn${current.kind === 'custom' ? ' is-custom' : ''}`} title="Estilo y plantilla de pistas: perfil clásico o moderno, cambiar las pistas, guardar las actuales o armar pistas">
           <Icon name="tracks" size={14} />
-          <span className="tb-template-btn__label">{templateName(current)}</span>
+          <span className="tb-template-btn__label">{templateName(current)}{look !== DEFAULT_LOOK ? ` · ${VIEWER_LOOKS[look].label}` : ''}</span>
           <Icon name="chevron-down" size={12} />
         </button>
       )}

@@ -12,7 +12,12 @@
  * `onEditCurve` (el visor solo dice qué curva y dónde anclarlo).
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { CurveLegend, formatNumber, getResolvedTheme, getUiScaleFactor, Icon, IconButton, Menu, Popover, prefersReducedMotion, useResolvedTheme, useUiScaleFactor } from '../ui';
+import { ContextMenu, CurveLegend, formatNumber, getResolvedTheme, getUiScaleFactor, Icon, IconButton, Menu, Popover, prefersReducedMotion, toast, useResolvedTheme, useUiScaleFactor, type MenuEntry } from '../ui';
+import { pxPerMeterForScale } from '../io/export/figures/sizing';
+import { nearestCurveAt, readingsText } from './contextMenu';
+import { VIEWER_LOOKS, type ViewerLook } from './look';
+import { createMeasureTool } from './overlays/measure';
+import { matchingPrintScale, printScaleOptions, scaleButtonLabel } from './printScale';
 import { THEMES } from '../ui/tokens';
 import { LOAD_ANIMATION_MS, revealAt } from './animation';
 import { layoutTracks, MIN_TRACK_WIDTH, trackAt } from './layout';
@@ -92,6 +97,12 @@ export interface WellViewerProps {
    * (alineadas con `tracks`), a su derecha las actuales. Mover la línea solo redibuja (no recalcula nada).
    */
   curtain?: ViewerCurtain | null;
+  /** Estilo de dibujo (look.ts, docs/decisiones/0067). Ausente = «Moderno». */
+  look?: ViewerLook;
+  /** Menú contextual: crear un tope en esa profundidad (la app aplica la receta). Ausente = opción deshabilitada. */
+  onCreateTop?(depth: number): void;
+  /** Menú contextual: exportar lo visible como PNG (tramo, escala 1:N y ancho de las pistas en px CSS). */
+  onExportVisible?(request: { top: number; base: number; scale: number; widthPx: number }): void;
 }
 
 export interface ViewerCurtain {
@@ -112,6 +123,9 @@ function headEditClass(edit: ViewerLayoutEditing, t: ResolvedTrack): string {
   const active = edit.target?.kind === 'track' && edit.target.trackId === t.id;
   return ` is-editable${active ? (edit.accepts(t) ? ' is-drop-target' : ' is-drop-refused') : ''}`;
 }
+
+/** Unidad corta para los encabezados del perfil clásico («ohm·m» → «Ω·m»). */
+const headerUnit = (u: string) => (u === 'ohm·m' ? 'Ω·m' : u);
 
 const ZOOM_STEP = 1.25;
 
@@ -166,10 +180,10 @@ export function WellViewer(props: WellViewerProps) {
       layoutTracks(
         tracks.map((t) => ({ width: resizing?.id === t.id ? resizing.width : t.width, ...(t.fixed !== undefined ? { fixed: Math.round(t.fixed * ui) } : {}) })),
         size.width,
-        Math.round(MIN_TRACK_WIDTH * ui),
+        Math.round((props.look?.minTrackWidth ?? MIN_TRACK_WIDTH) * ui),
         { weightedMin: true },
       ),
-    [tracks, size.width, ui, resizing],
+    [tracks, size.width, ui, resizing, props.look],
   );
   const layoutRef = useRef(layout);
   layoutRef.current = layout;
@@ -199,6 +213,22 @@ export function WellViewer(props: WellViewerProps) {
   const [targets, setTargets] = useState<Target[]>([]);
   const targetsRef = useRef(targets);
   targetsRef.current = targets;
+  /** Estilo de dibujo (por defecto, el moderno: el componente sin la prop se ve como siempre). */
+  const look = props.look ?? VIEWER_LOOKS.modern;
+  const classic = look.headers === 'classic';
+  /** Herramienta «Medir un intervalo» del menú contextual: una superposición propia del visor. */
+  const [measuring, setMeasuring] = useState(false);
+  const measure = useRef<ReturnType<typeof createMeasureTool>>(null as unknown as ReturnType<typeof createMeasureTool>);
+  measure.current ??= createMeasureTool({
+    tvdss: () => propsRef.current.tracks.find((t) => t.kind === 'depth')?.tvdss ?? null,
+    measured: (text) => announceRef.current(text),
+    changed: (armed) => setMeasuring(armed),
+  });
+  const overlays = useMemo(() => [...props.overlays, measure.current.overlay], [props.overlays]);
+  const overlaysRef = useRef(overlays);
+  overlaysRef.current = overlays;
+  /** Menú contextual abierto: punto de la ventana, profundidad y pista donde se abrió. */
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; depth: number; track: number; localX: number } | null>(null);
 
   // ── dibujo ──────────────────────────────────────────────────────────────────────────────────────────────────
   const frameInput = useCallback((): FrameInput | null => {
@@ -213,9 +243,10 @@ export function WellViewer(props: WellViewerProps) {
       theme: THEMES[getResolvedTheme()],
       depth: p.depth,
       width: layoutRef.current.total,
-      overlays: p.overlays,
+      overlays: overlaysRef.current,
       data: p.data,
       invalidate: () => invalidateRef.current('base'),
+      ...(p.look ? { look: p.look } : {}),
       ...(reveal.current ? { reveal: reveal.current.value } : {}),
       active: gestures.current?.activeKey ?? null,
       ...(p.stackHints ? { stackHints: p.stackHints } : {}),
@@ -224,6 +255,7 @@ export function WellViewer(props: WellViewerProps) {
     };
   }, []);
   const invalidateRef = useRef<(what: 'base' | 'cursor') => void>(() => {});
+  const announceRef = useRef<(text: string) => void>(() => {});
 
   const prepare = (canvas: HTMLCanvasElement | null, width: number, height: number) => {
     if (!canvas) return null;
@@ -296,7 +328,7 @@ export function WellViewer(props: WellViewerProps) {
       const top = f.viewport.top;
       const bottom = baseOf(f.viewport);
       if (rangeRef.current) rangeRef.current.textContent = `${formatNumber(Math.max(top, f.depth[0] ?? top), { digits: 1, grouping: false })} – ${formatNumber(Math.min(bottom, f.depth[f.depth.length - 1] ?? bottom), { digits: 1, grouping: false })} m`;
-      if (scaleRef.current) scaleRef.current.textContent = `1:${formatNumber(+scaleRatio(f.viewport.pxPerM).toPrecision(2), { digits: 0 })}`;
+      if (scaleRef.current) scaleRef.current.textContent = propsRef.current.look ? scaleButtonLabel(f.viewport.pxPerM) : `1:${formatNumber(+scaleRatio(f.viewport.pxPerM).toPrecision(2), { digits: 0 })}`;
       miniRef.current?.setWindow(top, bottom);
       placeTargets(f.viewport);
       const prev = lastPublished.current;
@@ -428,7 +460,7 @@ export function WellViewer(props: WellViewerProps) {
   }, [wellKey, size.height, invalidate, startReveal]);
 
   // Cambios de pistas, datos, tema, tamaño de interfaz, ancho o cortina → redibujar.
-  useEffect(() => invalidate('base'), [tracks, props.data, props.overlays, theme, ui, layout, props.curtain, invalidate]);
+  useEffect(() => invalidate('base'), [tracks, props.data, overlays, theme, ui, layout, props.curtain, props.look, invalidate]);
 
   // ── cortina ─────────────────────────────────────────────────────────────────────────────────────────────────
   /** Ubica la manija y pide un cuadro: el único trabajo al arrastrar es redibujar (nada se recalcula). */
@@ -584,7 +616,7 @@ export function WellViewer(props: WellViewerProps) {
     const f = frameInput();
     if (!f) return null;
     const tracksO = overlayTracks(f.tracks, f.boxes);
-    return { f, tracksO, frame: { purpose: 'interactive' as const, theme: f.theme, viewport: overlayViewport(f.viewport), tracks: tracksO, data: f.data, invalidate: () => invalidate('base'), active: f.active ?? null, uiScale: f.uiScale ?? 1 } };
+    return { f, tracksO, frame: { purpose: 'interactive' as const, theme: f.theme, viewport: overlayViewport(f.viewport), tracks: tracksO, data: f.data, invalidate: () => invalidate('base'), active: f.active ?? null, uiScale: f.uiScale ?? 1, ...(f.look ? { look: f.look.id } : {}) } };
   }, [frameInput, invalidate]);
 
   const overlayPointer = useCallback(
@@ -836,6 +868,7 @@ export function WellViewer(props: WellViewerProps) {
       if (liveRef.current) liveRef.current.textContent = text;
     }, 200);
   };
+  announceRef.current = announceText;
 
   const moveKeyboardCursor = (depth: number) => {
     const vp = vpRef.current;
@@ -906,7 +939,14 @@ export function WellViewer(props: WellViewerProps) {
         fit();
         break;
       case 'Escape':
-        if (!gestures.current.cancel() && !propsRef.current.onEscape?.()) setCursor(null, null);
+        if (!gestures.current.cancel() && !measure.current.clear() && !propsRef.current.onEscape?.()) setCursor(null, null);
+        break;
+      case 'ContextMenu':
+        openContextMenuAt(current);
+        break;
+      case 'F10':
+        if (e.shiftKey) openContextMenuAt(current);
+        else handled = false;
         break;
       default:
         handled = false;
@@ -931,6 +971,152 @@ export function WellViewer(props: WellViewerProps) {
   const onBlur = () => {
     if (cursor.current.source === 'keyboard') setCursor(null, null);
   };
+
+  // ── menú contextual (docs/decisiones/0067, D12) ────────────────────────────────────────────────────────────
+  /** Clic derecho sobre el perfil. Mayús + clic derecho deja el menú del navegador. */
+  const onContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.shiftKey) return;
+    e.preventDefault();
+    const vp = vpRef.current;
+    if (!vp) return;
+    stopReveal();
+    gestures.current.cancel();
+    const p = localPoint(e);
+    bodyRef.current?.focus({ preventScroll: true });
+    setCtxMenu({ x: e.clientX, y: e.clientY, depth: depthOf(vp, p.y), track: trackAt(layoutRef.current.boxes, p.x), localX: p.x });
+  };
+  /** Tecla Menú o Mayús+F10 con el visor enfocado: el menú se abre en la profundidad del cursor (o en el medio). */
+  const openContextMenuAt = (depth: number) => {
+    const vp = vpRef.current;
+    const body = bodyRef.current;
+    if (!vp || !body) return;
+    const boxes = layoutRef.current.boxes;
+    const tracksNow = propsRef.current.tracks;
+    const ti = tracksNow.findIndex((t) => t.kind === 'curves' && t.curves.length > 0);
+    const box = boxes[ti] ?? boxes[0] ?? { x: 0, width: 0 };
+    const rect = body.getBoundingClientRect();
+    const localX = box.x + box.width / 2;
+    const scrollLeft = scrollRef.current?.scrollLeft ?? 0;
+    setCtxMenu({ x: rect.left + localX - scrollLeft, y: rect.top + Math.min(vp.height - 4, Math.max(4, yOf(vp, depth))), depth, track: ti, localX });
+  };
+  const copyText = async (text: string): Promise<boolean> => {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Sin permiso de portapapeles (archivo local en algunos navegadores): copia con un campo temporal.
+      const area = document.createElement('textarea');
+      area.value = text;
+      area.style.position = 'fixed';
+      area.style.opacity = '0';
+      document.body.appendChild(area);
+      area.select();
+      const ok = document.execCommand?.('copy') ?? false;
+      area.remove();
+      return ok;
+    }
+  };
+  const contextItems = (): { header: ReactNode; items: MenuEntry[] } => {
+    const m = ctxMenu!;
+    const p = propsRef.current;
+    const idx = nearestIndex(p.depth, m.depth);
+    const d = idx >= 0 ? p.depth[idx]! : m.depth;
+    const tv = p.tracks.find((t) => t.kind === 'depth')?.tvdss;
+    const zone = p.data.zones.find((z) => d >= z.top && d <= z.base);
+    const track = m.track >= 0 ? p.tracks[m.track] : undefined;
+    const box = m.track >= 0 ? layoutRef.current.boxes[m.track] : undefined;
+    const curve = track && box && track.kind === 'curves' && idx >= 0 ? nearestCurveAt(track, box, idx, m.localX) : null;
+    const vp = vpRef.current;
+    const header = (
+      <>
+        <strong className="num">{`MD ${formatDepth(d)} m${tv && idx >= 0 && Number.isFinite(tv[idx]!) ? ` · TVDSS ${formatDepth(tv[idx]!)} m` : ''}`}</strong>
+        {zone ? `Zona ${zone.name}` : 'Fuera de las zonas'}
+        {curve ? ` · ${curve.name} ${formatReadout(valueAt(curve.data, idx), curve.kind)}${curve.kind === 'line' && curve.unitLabel !== '—' ? ` ${curve.unitLabel}` : ''}` : ''}
+      </>
+    );
+    const items: MenuEntry[] = [
+      {
+        id: 'copy',
+        label: 'Copiar profundidad y lecturas',
+        icon: 'copy',
+        onSelect: () => {
+          void copyText(readingsText(p.tracks, idx, d, tv)).then((ok) => {
+            toast(ok ? { tone: 'ok', title: 'Lecturas copiadas', description: `${formatDepth(d)} m · se pegan en una planilla como dos columnas.` } : { tone: 'warn', title: 'No se pudo copiar', description: 'El navegador no dio acceso al portapapeles.' });
+          });
+        },
+      },
+      {
+        id: 'top',
+        label: `Crear un tope a ${formatDepth(d)} m`,
+        icon: 'zone-add',
+        disabled: !p.onCreateTop || idx < 0,
+        description: zone ? `Parte la zona ${zone.name} en esa profundidad` : 'Zona nueva desde esa profundidad',
+        onSelect: () => p.onCreateTop?.(d),
+      },
+      { type: 'separator', id: 's1' },
+      {
+        id: 'edit',
+        label: track && track.kind === 'curves' ? `Editar la pista «${track.title}»…` : 'Editar la pista…',
+        icon: 'tracks',
+        disabled: !curve || !p.onEditCurve,
+        ...(curve ? { description: `${curve.name}: escala, color y trazo` } : { description: 'Solo en las pistas de curvas' }),
+        onSelect: () => {
+          if (!curve || !track || !p.onEditCurve) return;
+          const row = headsRef.current?.querySelector<HTMLElement>(`.wv-head[data-track-id="${CSS.escape(track.id)}"] [data-curve-key="${CSS.escape(curve.key)}"]`);
+          // Si la curva quedó agrupada en «+N», el editor se ancla al título de la pista.
+          const anchor = row ?? headsRef.current?.querySelector<HTMLElement>(`.wv-head[data-track-id="${CSS.escape(track.id)}"]`) ?? bodyRef.current!;
+          p.onEditCurve({ track, curve }, anchor);
+        },
+      },
+      { id: 'measure', label: 'Medir un intervalo', icon: 'ruler', hint: 'arrastrá', onSelect: () => measure.current.arm() },
+      { type: 'separator', id: 's2' },
+      {
+        id: 'png',
+        label: 'Exportar lo visible como PNG…',
+        icon: 'download',
+        disabled: !p.onExportVisible || !vp,
+        description: vp ? `${formatNumber(Math.max(vp.top, p.depth[0] ?? vp.top), { digits: 1, grouping: false })}–${formatNumber(Math.min(baseOf(vp), p.depth[p.depth.length - 1] ?? baseOf(vp)), { digits: 1, grouping: false })} m a ${scaleButtonLabel(vp.pxPerM)}` : undefined,
+        onSelect: () => {
+          if (!vp) return;
+          p.onExportVisible?.({ top: Math.max(vp.top, p.depth[0] ?? vp.top), base: Math.min(baseOf(vp), p.depth[p.depth.length - 1] ?? baseOf(vp)), scale: Math.round(scaleRatio(vp.pxPerM)), widthPx: layoutRef.current.total });
+        },
+      },
+      { type: 'label', id: 'shift', label: 'Mayús + clic derecho: menú del navegador' },
+    ];
+    return { header, items };
+  };
+
+  // ── escala de impresión (docs/decisiones/0067, D11) ────────────────────────────────────────────────────────
+  const setPrintScale = (n: number) => {
+    const vp = vpRef.current;
+    const lim = limRef.current;
+    if (!vp || !lim) return;
+    stopReveal();
+    const c = cursor.current.depth;
+    const y = c !== null && c >= vp.top && c <= baseOf(vp) ? (c - vp.top) * vp.pxPerM : vp.height / 2;
+    setViewport(zoomAt(vp, pxPerMeterForScale(n) / vp.pxPerM, y, lim));
+  };
+  const scaleItems = (): MenuEntry[] => {
+    const vp = vpRef.current;
+    const lim = limRef.current;
+    const current = vp ? matchingPrintScale(vp.pxPerM) : null;
+    return [
+      { type: 'label', id: 'l', label: 'Escala de impresión' },
+      ...(lim ? printScaleOptions(lim) : []).map((o): MenuEntry => ({
+        id: `s${o.denominator}`,
+        label: o.label,
+        hint: o.detail,
+        ...(current === o.denominator ? { icon: 'check' as const } : {}),
+        disabled: !!o.disabled,
+        ...(o.disabled ? { description: o.disabled } : {}),
+        onSelect: () => setPrintScale(o.denominator),
+      })),
+      { type: 'separator', id: 'sep' },
+      { id: 'fit', label: 'Ajustar al pozo', icon: 'fit-height', hint: '0', onSelect: fit },
+    ];
+  };
+  // Las opciones leen el viewport y los límites (refs): un render al abrir el menú las deja al día.
+  const [, setScaleMenuTick] = useState(0);
 
   // Elementos de superposición con el teclado: Tab llega a cada uno; ↑/↓ lo mueven; Enter lo activa.
   const onTargetFocus = (t: Target) => {
@@ -980,12 +1166,13 @@ export function WellViewer(props: WellViewerProps) {
 
   const legend = (t: ResolvedTrack, c: ResolvedCurve, where: 'head' | 'pop', sharedScale = false) => {
     const k = `${t.id}|${c.key}${where === 'pop' ? '|pop' : ''}`;
+    const classicRow = classic && c.kind === 'line';
     const body = (
       <CurveLegend
         role={c.role}
         name={c.kind === 'band' ? c.short : c.name}
-        layout="inline"
-        {...(c.kind === 'line' && c.unitLabel !== '—' ? { unit: c.unitLabel } : {})}
+        layout={classicRow ? 'classic' : 'inline'}
+        {...(c.kind === 'line' && c.unitLabel !== '—' ? { unit: classicRow ? headerUnit(c.unitLabel) : c.unitLabel } : {})}
         curveStyle={c.styles[theme]}
         scale={c.kind === 'line' && !sharedScale}
         scaleTag={false}
@@ -995,7 +1182,7 @@ export function WellViewer(props: WellViewerProps) {
       />
     );
     const edit = where === 'head' ? layoutEdit : null;
-    if (!onEditCurve && !edit) return <div key={c.key}>{body}</div>;
+    if (!onEditCurve && !edit) return <div key={c.key} data-curve-key={c.key}>{body}</div>;
     const open = (el: HTMLElement) => {
       if (!onEditCurve) return;
       setOverflow(null);
@@ -1007,6 +1194,7 @@ export function WellViewer(props: WellViewerProps) {
         role="button"
         tabIndex={0}
         className="wv-legend"
+        data-curve-key={c.key}
         aria-haspopup="dialog"
         aria-label={`${c.name}${c.alternative ? ', alternativa' : ''}: editar escala y color${edit ? '. Alt y flechas la mueven' : ''}`}
         {...(edit ? { 'aria-keyshortcuts': 'Alt+ArrowUp Alt+ArrowDown Alt+ArrowLeft Alt+ArrowRight' } : {})}
@@ -1073,7 +1261,8 @@ export function WellViewer(props: WellViewerProps) {
     // Curvas con la MISMA escala (resistividades 0,2–2000): los extremos se muestran una vez abajo y cada fila queda
     // con todo el ancho para el nombre y la lectura (en pistas angostas no se corta el valor).
     const lines = t.curves.filter((c) => c.kind === 'line');
-    const shared = lines.length >= 2 && lines.length === t.curves.length && lines.every((c) => scaleKey(c.axis) === scaleKey(lines[0]!.axis)) ? lines[0]!.axis : null;
+    // Perfil clásico: cada curva con sus extremos y su unidad (0,2 · AT90 Ω·m · 2000), aunque compartan escala.
+    const shared = !classic && lines.length >= 2 && lines.length === t.curves.length && lines.every((c) => scaleKey(c.axis) === scaleKey(lines[0]!.axis)) ? lines[0]!.axis : null;
     const lo = shared ? (shared.reversed ? shared.max : shared.min) : 0;
     const hi = shared ? (shared.reversed ? shared.min : shared.max) : 0;
     const fmtEdge = (v: number) => formatNumber(v, { significant: 3, grouping: false });
@@ -1093,7 +1282,7 @@ export function WellViewer(props: WellViewerProps) {
             }}
           >
             <span className="wv-head__overflow-names">{list.slice(shown.length).map((c) => c.name).join(' · ')}</span>
-            <span className="wv-head__overflow-count">+{extra}</span>
+            <span className="wv-head__overflow-count">{classic ? `+${extra} curvas` : `+${extra}`}</span>
           </button>
         )}
         {shared && (
@@ -1123,7 +1312,7 @@ export function WellViewer(props: WellViewerProps) {
       <div className="wv-head__stack">
         {st.legend.map((item) => (
           <div key={item.id} className="wv-stack-item" title={item.label}>
-            <span className="wv-stack-item__swatch" style={{ background: stackFillColor(item.fill, THEMES[theme]) }} aria-hidden="true" />
+            <span className="wv-stack-item__swatch" style={{ background: stackFillColor(item.fill, THEMES[theme], look.palette) }} aria-hidden="true" />
             <span className="wv-stack-item__label">{item.short}</span>
             <span className="wv-stack-item__value num" ref={readoutRef(`${t.id}|stack:${item.id}`)} />
           </div>
@@ -1152,7 +1341,7 @@ export function WellViewer(props: WellViewerProps) {
   });
 
   return (
-    <div className="wv" ref={rootRef}>
+    <div className="wv" ref={rootRef} data-look={look.id}>
       <div className="wv-toolbar">
         <div className="wv-toolbar__start">{toolbarStart}</div>
         <div className="wv-toolbar__end">
@@ -1173,7 +1362,31 @@ export function WellViewer(props: WellViewerProps) {
               setViewport(next);
               return { top: next.top, base: baseOf(next) };
             }} />
-          <span className="wv-toolbar__scale num" ref={scaleRef} title="Escala vertical a 96 ppp" />
+          {props.look ? (
+            <Menu
+              aria-label="Escala vertical"
+              minWidth={230}
+              items={scaleItems()}
+              trigger={(tp) => (
+                <button
+                  {...tp}
+                  type="button"
+                  className="wv-toolbar__scale wv-scale-btn num"
+                  title="Escala vertical a 96 ppp: elegir una escala de impresión"
+                  onPointerDown={() => setScaleMenuTick((k) => k + 1)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') setScaleMenuTick((k) => k + 1);
+                    tp.onKeyDown(e);
+                  }}
+                >
+                  <span ref={scaleRef} />
+                  <Icon name="chevron-down" size={11} />
+                </button>
+              )}
+            />
+          ) : (
+            <span className="wv-toolbar__scale num" ref={scaleRef} title="Escala vertical a 96 ppp" />
+          )}
           <div className="wv-toolbar__zoom" role="group" aria-label="Zoom">
             <IconButton icon="zoom-out" size="sm" label="Alejar" hint="−" onClick={() => zoom(1 / ZOOM_STEP)} />
             <IconButton icon="zoom-in" size="sm" label="Acercar" hint="+" onClick={() => zoom(ZOOM_STEP)} />
@@ -1225,7 +1438,16 @@ export function WellViewer(props: WellViewerProps) {
                     {hiddenMenu(t)}
                   </div>
                   {t.kind === 'depth' ? (
-                    <div className="wv-head__depth num">m</div>
+                    t.tvdss ? (
+                      <div className="wv-head__depth wv-head__depth--two num" title="MD: profundidad medida · TVDSS: profundidad vertical bajo el nivel del mar">
+                        <span>MD</span>
+                        <span className="wv-head__tvdss">TVDSS</span>
+                        <span>m</span>
+                        <span className="wv-head__tvdss">m</span>
+                      </div>
+                    ) : (
+                      <div className="wv-head__depth num" title={classic ? 'MD: profundidad medida' : undefined}>{classic ? 'MD · m' : 'm'}</div>
+                    )
                   ) : t.kind === 'overlay' && props.overlays.find(o => o.id === t.overlayId)?.track?.axisLabels ? (
                     <div className="wv-head__categories">
                       <span className="wv-head__unit">{props.overlays.find(o => o.id === t.overlayId)?.track?.headerLabel}</span>
@@ -1253,7 +1475,7 @@ export function WellViewer(props: WellViewerProps) {
                       px={layout.boxes[ti]!.width}
                       room={flexRoom.room}
                       weights={flexRoom.weights}
-                      minPx={Math.round(MIN_TRACK_WIDTH * ui)}
+                      minPx={Math.round(look.minTrackWidth * ui)}
                       overflow={layout.total > size.width + 1}
                       onPreview={(w) => setResizing(w === null ? null : { id: t.id, width: w })}
                       onCommit={(w) => layoutEdit.onResize(t, w)}
@@ -1270,13 +1492,14 @@ export function WellViewer(props: WellViewerProps) {
               aria-roledescription="visor de perfiles"
               aria-label={label}
               aria-describedby={helpId}
-              aria-keyshortcuts="ArrowUp ArrowDown PageUp PageDown Home End + - 0 Escape"
+              aria-keyshortcuts="ArrowUp ArrowDown PageUp PageDown Home End + - 0 Escape ContextMenu Shift+F10"
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
               onPointerUp={endPointer}
               onPointerCancel={endPointer}
               onPointerLeave={onPointerLeave}
               onClick={onClick}
+              onContextMenu={onContextMenu}
               onKeyDown={onKeyDown}
               onFocus={onFocus}
               onBlur={onBlur}
@@ -1321,7 +1544,14 @@ export function WellViewer(props: WellViewerProps) {
                   </span>
                 </div>
               )}
-              {notice && <div className="wv-notice">{notice}</div>}
+              {measuring ? (
+                <div className="wv-notice">
+                  <Icon name="ruler" size={14} />
+                  Arrastrá sobre el perfil para medir un intervalo · <kbd>Esc</kbd> para salir
+                </div>
+              ) : (
+                notice && <div className="wv-notice">{notice}</div>
+              )}
             </div>
             {layoutEdit?.drag && <DropLayer tracks={tracks} boxes={layout.boxes} heads={size.heads} edit={layoutEdit} ui={ui} />}
             {targets.length > 0 && (
@@ -1374,10 +1604,15 @@ export function WellViewer(props: WellViewerProps) {
           </div>
         </Popover>
       )}
+      {ctxMenu && (() => {
+        const { header, items } = contextItems();
+        return <ContextMenu at={{ x: ctxMenu.x, y: ctxMenu.y }} items={items} header={header} onClose={() => setCtxMenu(null)} returnFocus={bodyRef} aria-label={`Perfil a ${formatDepth(ctxMenu.depth)} m`} minWidth={260} />;
+      })()}
       <p id={helpId} className="ui-visually-hidden">
         Flechas arriba y abajo mueven el cursor de profundidad (con Mayús, de a diez muestras); Re Pág y Av Pág desplazan
         una pantalla; Inicio y Fin van al tope y a la base; más y menos acercan y alejan; cero muestra todo el pozo. Con
-        Tab se llega a los topes y bases de las zonas, que se mueven con las flechas.
+        Tab se llega a los topes y bases de las zonas, que se mueven con las flechas. La tecla Menú o Mayús y F10 abren el
+        menú del perfil en la profundidad del cursor: copiar lecturas, crear un tope, editar la pista, medir y exportar.
       </p>
       <div className="ui-visually-hidden" aria-live="polite" ref={liveRef} />
     </div>

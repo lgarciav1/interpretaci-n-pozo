@@ -200,6 +200,8 @@ export interface ViewerColors {
   selection: string;
   /** Patrón de tramos sin dato. */
   nullPattern: string;
+  /** Línea de década de la grilla logarítmica en el perfil clásico (más marcada que `gridMajor`). */
+  gridDecade: string;
   /** Opacidad de las bandas de zona sobre las pistas (0–1). */
   zoneAlpha: number;
 }
@@ -320,6 +322,7 @@ const light: ThemeTokens = {
     cursorLabelText: '#ffffff',
     selection: 'rgba(79, 85, 216, 0.12)',
     nullPattern: '#c3c8cf',
+    gridDecade: '#b9bfc7',
     zoneAlpha: 0.14,
   },
   scene: {
@@ -415,6 +418,7 @@ const dark: ThemeTokens = {
     cursorLabelText: '#111316',
     selection: 'rgba(128, 134, 255, 0.16)',
     nullPattern: '#3a3f47',
+    gridDecade: '#3f4650',
     zoneAlpha: 0.18,
   },
   scene: {
