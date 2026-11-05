@@ -27,11 +27,18 @@ export interface ShellLayout {
   dockCollapsed: boolean;
   /** Franja de encabezado de pozo en el visor. */
   wellHeader: boolean;
+  /**
+   * Dónde viven los paneles (Resumen, Resultados, gráficos de los módulos; docs/decisiones/0068): `side` (de fábrica) en
+   * el panel derecho, junto al paso del flujo, con el perfil a toda la altura; `bottom`, en el dock debajo del visor.
+   */
+  panels: PanelPlacement;
 }
+
+export type PanelPlacement = 'side' | 'bottom';
 
 export const LAYOUT_LIMITS = {
   left: { min: 220, max: 480 },
-  right: { min: 300, max: 560 },
+  right: { min: 300, max: 760 },
   dock: { min: 120, max: 640 },
 } as const;
 
@@ -75,6 +82,7 @@ const DEFAULT_LAYOUT: ShellLayout = {
   dockAuto: true,
   dockCollapsed: false,
   wellHeader: true,
+  panels: 'side',
 };
 
 function loadLayout(): ShellLayout {
@@ -94,10 +102,52 @@ function loadLayout(): ShellLayout {
       rightCollapsed: raw.rightCollapsed === true,
       dockCollapsed: raw.dockCollapsed === true,
       wellHeader: raw.wellHeader !== false,
+      panels: raw.panels === 'bottom' ? 'bottom' : 'side',
     };
   } catch {
     return DEFAULT_LAYOUT;
   }
+}
+
+/** Pestaña de fábrica de los paneles: el resumen de un vistazo (`src/app/glance/`). */
+export const GLANCE_PANEL_ID = 'glance';
+
+export type SideView = 'step' | 'panels';
+
+/**
+ * Efecto de navegar (puro): elegir una pestaña de panel la muestra (despliega el dock o el panel lateral y, al costado,
+ * pasa a la vista de paneles); abrir un paso o un módulo del flujo pasa el panel lateral a la vista del paso. Así cada
+ * `set({ dockTab })` de los módulos (abrir Corona, Crossplot, Tendencias…) funciona con las dos disposiciones.
+ */
+export function navigationPatch(s: Pick<UiStore, 'layout' | 'sideView' | 'panelExpanded'>, patch: Partial<Pick<UiStore, 'dockTab' | 'activeStepId' | 'activeModuleId' | 'sideView'>>): Partial<UiStore> {
+  if (patch.sideView !== undefined) return {};
+  if (patch.dockTab !== undefined) {
+    const side = s.layout.panels === 'side';
+    const reveal = side ? s.layout.rightCollapsed : s.layout.dockCollapsed;
+    return {
+      readingMode: false,
+      ...(side && s.sideView !== 'panels' ? { sideView: 'panels' as const } : {}),
+      ...(reveal ? { layout: { ...s.layout, ...(side ? { rightCollapsed: false } : { dockCollapsed: false }) } } : {}),
+    };
+  }
+  if ((patch.activeStepId != null || patch.activeModuleId != null) && s.sideView !== 'step') return { sideView: 'step', ...(s.panelExpanded ? { panelExpanded: false } : {}) };
+  return {};
+}
+
+/**
+ * true si la pestaña `id` está a la vista (los paneles pesados se montan solo entonces: un gráfico oculto no recalcula
+ * ni redibuja). Con los paneles al costado: panel derecho abierto, en la vista de paneles y con esa pestaña; abajo:
+ * dock desplegado y esa pestaña. Nunca durante la lectura amplia.
+ */
+export function panelVisible(s: Pick<UiStore, 'layout' | 'sideView' | 'dockTab' | 'readingMode'>, id: string): boolean {
+  if (s.readingMode || s.dockTab !== id) return false;
+  return s.layout.panels === 'side' ? !s.layout.rightCollapsed && s.sideView === 'panels' : !s.layout.dockCollapsed;
+}
+
+/** true si el grupo de paneles (dock o panel lateral en su vista de paneles) está desplegado, sea cual sea la pestaña. */
+export function panelsOpen(s: Pick<UiStore, 'layout' | 'sideView' | 'readingMode'>): boolean {
+  if (s.readingMode) return false;
+  return s.layout.panels === 'side' ? !s.layout.rightCollapsed && s.sideView === 'panels' : !s.layout.dockCollapsed;
 }
 
 export interface UiStore {
@@ -107,8 +157,15 @@ export interface UiStore {
   activeStepId: string | null;
   /** Zona cuyos parámetros se están editando (null = valores globales). */
   editingZoneId: string | null;
-  /** Pestaña activa del dock. */
+  /** Pestaña activa del dock (o del grupo de paneles del panel lateral). */
   dockTab: string;
+  /**
+   * Con los paneles al costado (`layout.panels === 'side'`): qué muestra el panel derecho, el paso del flujo
+   * (`step`, el inspector) o la pestaña `dockTab`. Abrir un paso pasa a `step`; elegir una pestaña, a `panels`.
+   */
+  sideView: SideView;
+  /** Panel del dock agrandado en un diálogo sobre el área de trabajo (⤢). No se guarda. */
+  panelExpanded: boolean;
   /** Modo «marcar zona» del visor: arrastrar sobre el perfil crea una zona. */
   zoneMarking: boolean;
   /** Modo «Armar pistas»: catálogo al costado del visor y encabezados editables (docs/decisiones/0016). */
@@ -134,7 +191,11 @@ export interface UiStore {
   /** Vista amplia temporal: no modifica ni persiste la disposición elegida por el usuario. */
   readingMode: boolean;
   layout: ShellLayout;
-  set(patch: Partial<Omit<UiStore, 'set' | 'setLayout' | 'toggleReadingMode' | 'layout'>>): void;
+  set(patch: Partial<Omit<UiStore, 'set' | 'setLayout' | 'toggleReadingMode' | 'layout' | 'openPanel' | 'placePanels'>>): void;
+  /** Muestra la pestaña `id` (despliega su contenedor y sale de la lectura amplia). */
+  openPanel(id: string): void;
+  /** Mueve los paneles al costado o abajo (se recuerda) y los deja a la vista. */
+  placePanels(where: PanelPlacement): void;
   setLayout(patch: Partial<ShellLayout>): void;
   toggleReadingMode(): void;
 }
@@ -144,7 +205,9 @@ export const useUi = create<UiStore>()((set) => ({
   activeModuleId: null,
   activeStepId: null,
   editingZoneId: null,
-  dockTab: 'results',
+  dockTab: GLANCE_PANEL_ID,
+  sideView: 'step',
+  panelExpanded: false,
   zoneMarking: false,
   trackBuilder: false,
   toolStringOpen: false,
@@ -162,11 +225,28 @@ export const useUi = create<UiStore>()((set) => ({
     ...((patch.trackBuilder ?? s.trackBuilder) || (patch.toolStringOpen ?? s.toolStringOpen)
       || patch.activeStepId != null || patch.activeModuleId != null || patch.editingZoneId != null
       ? { readingMode: false } : {}),
+    ...navigationPatch(s, patch),
   })),
   // Una acción explícita de panel/tamaño sale de lectura y aplica el cambio a la disposición original.
   setLayout: (patch) => set((s) => ({ readingMode: false, layout: { ...s.layout, ...patch } })),
-  toggleReadingMode: () => set((s) => s.trackBuilder || s.toolStringOpen ? s : { readingMode: !s.readingMode }),
+  toggleReadingMode: () => set((s) => s.trackBuilder || s.toolStringOpen ? s : { readingMode: !s.readingMode, panelExpanded: false }),
+  openPanel: (id) => set((s) => {
+    const side = s.layout.panels === 'side';
+    return { dockTab: id, readingMode: false, ...(side ? { sideView: 'panels' as const } : {}), layout: { ...s.layout, ...(side ? { rightCollapsed: false } : { dockCollapsed: false }) } };
+  }),
+  placePanels: (where) => set((s) => ({
+    readingMode: false,
+    panelExpanded: false,
+    sideView: where === 'side' ? 'panels' : 'step',
+    layout: { ...s.layout, panels: where, ...(where === 'side' ? { rightCollapsed: false } : { dockCollapsed: false }) },
+  })),
 }));
+
+// Cambiar de disposición, plegar el contenedor o salir de la vista de paneles cierra el panel agrandado.
+useUi.subscribe((s, prev) => {
+  if (!s.panelExpanded) return;
+  if (s.layout.panels !== prev.layout.panels || !panelsOpen(s)) useUi.setState({ panelExpanded: false });
+});
 
 // «Armar pistas» y la sarta usan la columna izquierda: abrir uno cierra el otro.
 useUi.subscribe((s, prev) => {

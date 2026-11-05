@@ -10,7 +10,7 @@ import { canonicalCurveData } from '../../core/canonical';
 import { computedCurves } from '../../app/computed';
 import { selectActiveEntry, useProject } from '../../app/store/project';
 import { useResults } from '../../app/store/results';
-import { useUi } from '../../app/store/ui';
+import { panelVisible, useUi } from '../../app/store/ui';
 import { useViewer } from '../../app/store/viewer';
 import { useTrendsUi } from '../../app/trends/store';
 import { XY_FIGURE_THEME } from '../../plots/xy/figure';
@@ -312,7 +312,7 @@ function RadialPanel() {
  * no por píxel) y monta el panel solo a la vista: oculto no ajusta ni dibuja.
  */
 function RadialDock() {
-  const active = useUi((s) => s.dockTab === RADIAL_DOCK_ID && !s.layout.dockCollapsed);
+  const active = useUi((s) => panelVisible(s, RADIAL_DOCK_ID));
   const well = useProject((s) => selectActiveEntry(s)?.well ?? null);
   const note = useCallback(
     (d: number | null) => {

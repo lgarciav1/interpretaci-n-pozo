@@ -261,12 +261,19 @@ export function drawBars(ctx: CanvasRenderingContext2D, m: XYMapping, l: XYBarLa
       if (!(v > 0)) continue;
       const xa = m.x(l.edges[j]!);
       const xb = m.x(l.edges[j + 1]!);
-      const y = m.y(v);
-      if (![xa, xb, y].every(Number.isFinite)) continue;
+      const b = l.base ? l.base[j]! : 0;
+      const y = m.y(b + v);
+      const yb = l.base ? m.y(b) : y0;
+      if (![xa, xb, y, yb].every(Number.isFinite)) continue;
       // 1 px de aire entre barras vecinas si hay lugar.
       const gap = Math.abs(xb - xa) > 6 ? 0.5 : 0;
-      ctx.fillRect(Math.min(xa, xb) + gap, y, Math.abs(xb - xa) - 2 * gap, y0 - y);
+      ctx.fillRect(Math.min(xa, xb) + gap, y, Math.abs(xb - xa) - 2 * gap, yb - y);
     }
+  }
+  // Apilada: el contorno es el del total (otra capa).
+  if (l.base) {
+    ctx.restore();
+    return;
   }
   // Contorno escalonado.
   ctx.strokeStyle = l.color;

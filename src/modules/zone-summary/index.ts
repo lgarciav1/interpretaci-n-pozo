@@ -11,7 +11,10 @@
 import { defineModule, input, output, type TableCell, type ZoneScalarValue } from '../../core/module';
 import { summarizeRanges, type IntervalSummary, type SummaryOptions } from '../../petro/summary';
 
-/** La tabla todavía no muestra percentiles ni medias geo/armónica: no se pagan (ordenar ~2 ms por llamada) en cada recálculo. Quitar al agregarlos. */
+/**
+ * La tabla del motor no lleva percentiles ni medias geo/armónica: no se pagan (ordenar ~2 ms por llamada) en cada
+ * recálculo de cutoffs. El panel los calcula aparte, una vez por resultado, solo a la vista (`stats.ts`, 0068).
+ */
 const NO_DIST: SummaryOptions = { distributions: false };
 import type { ZoneKind } from '../../core/well';
 
@@ -180,6 +183,6 @@ export default defineModule({
       'Worthington, P. F. y Cosentino, L. (2005). The role of cut-offs in integrated reservoir studies. SPE Reservoir Evaluation & Engineering 8(4).',
     ],
     notes:
-      'Los percentiles, la media geométrica y la armónica se calculan sobre las mismas muestras que cada promedio (neto de reservorio para Vsh, φ y Sw; neto pay para esas y para k y RT). Los nulos (sin dato; para las medias geométrica y armónica, también valores ≤ 0) no entran y se informan aparte con su espesor. Los percentiles de Sw se ponderan por volumen poral h·φ, como la media; los demás, por espesor. Los tres espesores netos están anidados: pay ≤ reservorio ≤ arena ≤ bruto. Las muestras sin Vsh o porosidad que ningún corte descarta no se pueden clasificar y se informan como «sin dato». El reservorio sin Sw cuenta en «sin dato pay»: no se cuenta como no pay; si toda la zona carece de Sw, el pay queda sin dato. El total se calcula desde las sumas de todas las zonas, no promediando promedios; las muestras fuera de toda zona no cuentan.',
+      'Los percentiles, la media geométrica y la armónica se calculan sobre las mismas muestras que cada promedio (neto de reservorio para Vsh, φ, Sw y RT; neto pay para esas y para k). La media armónica de RT es la resistividad con corriente paralela a la estratificación, la que leen las herramientas de inducción. Los nulos (sin dato; para las medias geométrica y armónica, también valores ≤ 0) no entran y se informan aparte con su espesor. Los percentiles de Sw se ponderan por volumen poral h·φ, como la media; los demás, por espesor. Los tres espesores netos están anidados: pay ≤ reservorio ≤ arena ≤ bruto. Las muestras sin Vsh o porosidad que ningún corte descarta no se pueden clasificar y se informan como «sin dato». El reservorio sin Sw cuenta en «sin dato pay»: no se cuenta como no pay; si toda la zona carece de Sw, el pay queda sin dato. El total se calcula desde las sumas de todas las zonas, no promediando promedios; las muestras fuera de toda zona no cuentan.',
   },
 });

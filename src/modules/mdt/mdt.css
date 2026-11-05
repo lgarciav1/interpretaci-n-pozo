@@ -172,3 +172,14 @@
   .mdt-body { grid-template-columns: minmax(0, 1fr); }
   .mdt-points { border-right: 0; border-bottom: 1px solid var(--color-border-subtle); max-height: calc(300px * var(--ui-scale)); }
 }
+
+/* Panel angosto (panel lateral, docs/decisiones/0068): gradientes y contactos arriba, la tabla de pruebas debajo con
+   su propio desplazamiento; el nombre del conjunto no se corta. */
+.mdt { container: mdt / inline-size; }
+@container mdt (max-width: 40em) {
+  .mdt-bar { padding: var(--space-2) var(--space-3); }
+  .mdt-bar__name { white-space: normal; max-width: none; overflow: visible; }
+  .mdt-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: max-content max-content; overflow: auto; }
+  .mdt-side { order: -1; min-height: auto; overflow: visible; border-bottom: 1px solid var(--color-border-subtle); }
+  .mdt-points { border-right: 0; height: calc(320px * var(--ui-scale)); }
+}

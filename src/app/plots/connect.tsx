@@ -21,7 +21,7 @@ import { computedCurves } from '../computed';
 import { plotContextOf } from './context';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useResults } from '../store/results';
-import { useUi } from '../store/ui';
+import { panelVisible, useUi } from '../store/ui';
 
 /**
  * Contexto de series del pozo activo (pozo según la sarta, interpretación, calculadas activas, roles, curvas ocultas);
@@ -130,7 +130,7 @@ export function showHiddenTool(h: Pick<HiddenCurve, 'toolId' | 'toolName' | 'rea
  * redibuja con cada cambio de parámetros, y solo lo que está a la vista se ofrece para exportar como figura.
  */
 export function PlotDockGate({ id, icon, children }: { id: string; icon: 'histogram' | 'scatter' | 'boxplot'; children: (ctx: SeriesContext) => ReactNode }) {
-  const active = useUi((s) => s.dockTab === id && !s.layout.dockCollapsed);
+  const active = useUi((s) => panelVisible(s, id));
   const ctx = usePlotContext();
   if (!active) return null;
   if (!ctx) return <EmptyState size="sm" icon={icon} title="Sin pozo" description="Cargá un pozo para graficar sus curvas." />;

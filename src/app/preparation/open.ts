@@ -19,6 +19,11 @@ export function openPreparation(curveId: string | null = null, tool: string | nu
   usePreparationUi.setState({ request: { curveId, seq: ++seq, ...(tool ? { tool } : {}) } });
   const ui = useUi.getState();
   ui.set({ dockTab: PREPARATION_DOCK_ID });
+  // Con los paneles al costado (0068) la preparación (tarjetas, tubería y gráfico) necesita ancho: se abre agrandada.
+  if (ui.layout.panels === 'side') {
+    useUi.setState({ panelExpanded: true });
+    return;
+  }
   // Despliega el dock (también sale del modo lectura) y, si está bajo o en automático, le da alto para el gráfico.
   // Nunca más del 55 % de la ventana: el visor sigue a la vista. El store guarda px de Compacto (× factor en pantalla).
   const { dockAuto, dockHeight } = ui.layout;

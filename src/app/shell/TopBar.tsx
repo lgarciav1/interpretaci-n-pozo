@@ -19,8 +19,6 @@ const WORKSPACE_ICON: Record<WorkspaceId, 'sliders' | 'mountain'> = { petrophysi
 
 function EngineStatus() {
   const { busy, error, result, mode } = useResults();
-  const setUi = useUi((s) => s.set);
-  const setLayout = useUi((s) => s.setLayout);
   const where = mode === 'worker' ? 'en un Web Worker' : mode === 'in-process' ? 'en el hilo principal (sin worker)' : '';
   const label = error ? 'Error del motor' : busy ? 'Calculando…' : result ? `Listo · ${formatNumber(result.stats.ms, { digits: result.stats.ms < 10 ? 1 : 0 })} ms` : 'Motor listo';
   return (
@@ -30,8 +28,7 @@ function EngineStatus() {
         className="shell-engine"
         data-testid="engine-status"
         onClick={() => {
-          setUi({ dockTab: 'engine' });
-          setLayout({ dockCollapsed: false });
+          useUi.getState().openPanel('engine');
         }}
       >
         {busy ? <Spinner size={12} /> : <StatusDot tone={error ? 'error' : 'ok'} label={error ? 'Con error' : 'Listo'} />}

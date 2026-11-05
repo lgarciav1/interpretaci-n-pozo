@@ -14,7 +14,7 @@ import { STEP_STATUS_LABEL } from '../flow/flow';
 import { currentFlow, openStep } from '../flow/useFlow';
 import { useTrendsUi } from '../trends/store';
 import { useProject } from '../store/project';
-import { useUi } from '../store/ui';
+import { panelVisible, useUi } from '../store/ui';
 import { useViewer } from '../store/viewer';
 import { DOCK_PANELS } from './dockPanels';
 import { IS_MAC, REDO_SHORTCUT, redoChange, undoChange } from './historyActions';
@@ -36,11 +36,10 @@ function flowCommands(): Command[] {
 }
 
 function dockCommands(): Command[] {
-  const open = (id: string) => {
-    useUi.getState().set({ dockTab: id });
-    useUi.getState().setLayout({ dockCollapsed: false });
-  };
-  const { dockTab, layout } = useUi.getState();
+  const open = (id: string) => useUi.getState().openPanel(id);
+  const ui = useUi.getState();
+  const { layout } = ui;
+  const side = layout.panels === 'side';
   return [
     ...DOCK_PANELS.map(
       (p): Command => ({
@@ -49,7 +48,7 @@ function dockCommands(): Command[] {
         group: 'Paneles',
         keywords: ['pestana', 'panel', 'dock', p.id],
         icon: p.icon,
-        ...(dockTab === p.id && !layout.dockCollapsed ? { detail: 'abierta' } : {}),
+        ...(panelVisible(ui, p.id) ? { detail: 'abierta' } : {}),
         run: () => open(p.id),
       }),
     ),
@@ -63,13 +62,25 @@ function dockCommands(): Command[] {
       run: () => useUi.getState().toggleReadingMode(),
     },
     {
-      id: 'layout:dock',
-      title: layout.dockCollapsed ? 'Mostrar los paneles de abajo' : 'Ocultar los paneles de abajo',
+      id: 'layout:placement',
+      title: side ? 'Mover los paneles abajo del perfil' : 'Mover los paneles al costado del perfil',
       group: 'Paneles',
-      keywords: ['dock', 'pestanas'],
-      icon: 'panel-bottom',
-      run: () => useUi.getState().setLayout({ dockCollapsed: !useUi.getState().layout.dockCollapsed }),
+      keywords: ['dock', 'pestanas', 'disposicion', 'lateral', 'abajo', 'costado', 'graficos'],
+      icon: side ? 'panel-bottom' : 'panel-right',
+      run: () => useUi.getState().placePanels(side ? 'bottom' : 'side'),
     },
+    ...(side
+      ? []
+      : [
+          {
+            id: 'layout:dock',
+            title: layout.dockCollapsed ? 'Mostrar los paneles de abajo' : 'Ocultar los paneles de abajo',
+            group: 'Paneles',
+            keywords: ['dock', 'pestanas'],
+            icon: 'panel-bottom' as const,
+            run: () => useUi.getState().setLayout({ dockCollapsed: !useUi.getState().layout.dockCollapsed }),
+          },
+        ]),
     {
       id: 'layout:left',
       title: layout.leftCollapsed ? 'Mostrar la columna del pozo' : 'Ocultar la columna del pozo',
@@ -80,7 +91,7 @@ function dockCommands(): Command[] {
     },
     {
       id: 'layout:right',
-      title: layout.rightCollapsed ? 'Mostrar el panel del paso' : 'Ocultar el panel del paso',
+      title: side ? (layout.rightCollapsed ? 'Mostrar el panel lateral' : 'Plegar el panel lateral') : layout.rightCollapsed ? 'Mostrar el panel del paso' : 'Ocultar el panel del paso',
       group: 'Paneles',
       keywords: ['derecha', 'inspector', 'lateral', 'parametros'],
       icon: 'panel-right',

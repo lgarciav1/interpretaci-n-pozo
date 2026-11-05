@@ -131,3 +131,10 @@
 @media (max-width: 1100px) {
   .trend-detail__body { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Panel angosto (panel lateral, 0068): lista arriba y detalle debajo. */
+.trends { container: trends / inline-size; }
+@container trends (max-width: 40em) {
+  .trends { grid-template-columns: minmax(0, 1fr); }
+  .trend-detail__body { grid-template-columns: minmax(0, 1fr); }
+}

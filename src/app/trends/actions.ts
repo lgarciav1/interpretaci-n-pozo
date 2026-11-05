@@ -9,7 +9,7 @@ import { nextTrendName, type TrendSpec } from '../../core/trends';
 import { createTrendsOverlays, type NewTrendInput, type TrendTool } from '../../plots/trend/overlay';
 import { toast } from '../../ui';
 import { useProject } from '../store/project';
-import { useUi } from '../store/ui';
+import { panelVisible, useUi } from '../store/ui';
 import { resolveSeries } from './providers';
 import { staleTrendsUi, useTrendsUi } from './store';
 
@@ -51,10 +51,7 @@ export function createTrend(input: NewTrendInput): TrendSpec | null {
   useTrendsUi.getState().set({ selectedId: spec.id });
   // El panel muestra la ecuación y los gradientes: se abre (sin robar el foco).
   const ui = useUi.getState();
-  if (input.openPanel !== false && (ui.dockTab !== 'trends' || ui.layout.dockCollapsed)) {
-    ui.set({ dockTab: 'trends' });
-    if (ui.layout.dockCollapsed) ui.setLayout({ dockCollapsed: false });
-  }
+  if (input.openPanel !== false && !panelVisible(ui, 'trends')) ui.openPanel('trends');
   return spec;
 }
 
