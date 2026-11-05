@@ -35,8 +35,7 @@ export const ZONE_DISTRIBUTION_DOCK_ID = 'zone-distribution';
 
 /** Abre la pestaña (desde el Sumario o la paleta de comandos). */
 export function openZoneDistribution(): void {
-  useUi.getState().set({ dockTab: ZONE_DISTRIBUTION_DOCK_ID });
-  useUi.getState().setLayout({ dockCollapsed: false });
+  useUi.getState().openPanel(ZONE_DISTRIBUTION_DOCK_ID);
 }
 
 /** Id del módulo de incertidumbre del volumen (Monte Carlo). */

@@ -170,6 +170,34 @@ describe('petro/summary: percentiles de Sw por volumen poral h·φ', () => {
   });
 });
 
+describe('petro/summary: RT en el reservorio (statsRes.rt) y media armónica de RT', () => {
+  // RT = [1, 2, 3, 4] con h iguales; todo reservorio, pay solo las dos primeras.
+  const s = summarizeRanges(
+    { thickness: [1, 1, 1, 1], netRes: [1, 1, 1, 1], netPay: [1, 1, 0, 0], phi: [0.2, 0.2, 0.2, 0.2], sw: [0.3, 0.3, 0.8, 0.8], rt: [1, 2, 3, 4] },
+    [{ start: 0, end: 4 }],
+  );
+  it('Hazen con pesos iguales: c = [0,125; 0,375; 0,625; 0,875] → P10 = 1 (extremo), P50 = 2,5, P90 = 4 (extremo)', () => {
+    expect(s.statsRes.rt.p10).toBe(1);
+    expect(s.statsRes.rt.p50).toBeCloseTo(2.5, 12);
+    expect(s.statsRes.rt.p90).toBe(4);
+    expect(s.statsRes.rt.n).toBe(4);
+    expect(s.statsRes.rt.thickness).toBe(4);
+    expect(s.statsRes.rt.nullCount).toBe(0);
+  });
+  it('el pay solo ve sus muestras: P50 de RT del pay = 1,5; armónica = 2/(1 + 1/2) = 4/3 (capas en paralelo)', () => {
+    expect(s.statsPay.rt.p50).toBeCloseTo(1.5, 12);
+    expect(s.rtMeansPay.harm).toBeCloseTo(4 / 3, 12);
+    expect(s.rtMeansPay.geo).toBeCloseTo(Math.SQRT2, 12);
+  });
+  it('RT sin dato en el reservorio es nulo con su espesor; sin curva RT, nulos NaN', () => {
+    const t = summarizeRanges({ thickness: [1, 2, 1], netRes: [1, 1, 0], netPay: [0, 0, 0], phi: [0.2, 0.2, 0.2], sw: [1, 1, 1], rt: [5, NaN, 9] }, [{ start: 0, end: 3 }]);
+    expect(t.statsRes.rt).toMatchObject({ n: 1, thickness: 1, nullCount: 1, nullThickness: 2, p50: 5 });
+    const u = summarizeRanges({ thickness: [1], netRes: [1], netPay: [1], phi: [0.2], sw: [0.3] }, [{ start: 0, end: 1 }]);
+    expect(u.statsRes.rt.nullCount).toBeNaN();
+    expect(u.statsRes.rt.p50).toBeNaN();
+  });
+});
+
 describe('petro/summary: opción distributions = false', () => {
   it('deja las estadísticas sin dato (n = 0, NaN) y no cambia ningún otro campo', () => {
     const full = summarizeRanges(TEN, ALL10);
@@ -177,7 +205,7 @@ describe('petro/summary: opción distributions = false', () => {
     const { statsRes: _a, statsPay: _b, kMeansPay: _c, rtMeansPay: _d, ...restFull } = full;
     const { statsRes, statsPay, kMeansPay, rtMeansPay, ...restLean } = lean;
     expect(restLean).toEqual(restFull);
-    for (const d of [statsRes.phi, statsRes.sw, statsRes.vsh, statsPay.phi, statsPay.sw, statsPay.vsh, statsPay.k, statsPay.rt]) {
+    for (const d of [statsRes.phi, statsRes.sw, statsRes.vsh, statsRes.rt, statsPay.phi, statsPay.sw, statsPay.vsh, statsPay.k, statsPay.rt]) {
       expect(d.n).toBe(0);
       expect(d.p50).toBeNaN();
     }
@@ -287,6 +315,9 @@ describe('petro/summary: pozo del TP (datos/pozo_tp_perfiles.csv)', () => {
     expect(whole.statsRes.sw.thickness / 0.1524).toBeCloseTo(3213, 6); // el espesor con dato sigue siendo espesor, no h·φ
     near(p(whole.statsPay.k), [0.25401600000000013, 1.8745101572001275, 6.138734948096887]);
     near(p(whole.statsPay.rt), [2.168, 3.148, 5.433]);
+    // RT en todo el reservorio neto (NumPy, scripts/qa/sumario-estadisticas-referencia.py «rt res»).
+    near(p(whole.statsRes.rt), [0.521, 1.362, 3.8522000000000025]);
+    expect(whole.statsRes.rt.nullCount).toBe(0);
     expect(whole.statsPay.k.nullCount).toBe(0);
     expect(whole.kMeansPay.nullCount).toBe(0);
   });
@@ -305,5 +336,6 @@ describe('petro/summary: pozo del TP (datos/pozo_tp_perfiles.csv)', () => {
     [0.30791907621579484, 0.4972949636361411, 0.5914470724010171].forEach((w, i) => expect([a.statsPay.sw.p10, a.statsPay.sw.p50, a.statsPay.sw.p90][i]).toBeCloseTo(w, 9));
     [1.60123903012737, 3.4850188846787007, 5.732011643934247].forEach((w, i) => expect([a.statsPay.k.p10, a.statsPay.k.p50, a.statsPay.k.p90][i]).toBeCloseTo(w, 9));
     [2.1776, 2.4595000000000002, 5.4223].forEach((w, i) => expect([a.statsPay.rt.p10, a.statsPay.rt.p50, a.statsPay.rt.p90][i]).toBeCloseTo(w, 9));
+    [0.3995, 0.5845, 2.0545].forEach((w, i) => expect([a.statsRes.rt.p10, a.statsRes.rt.p50, a.statsRes.rt.p90][i]).toBeCloseTo(w, 9));
   });
 });

@@ -1,6 +1,7 @@
 /**
  * Armazón de la app (docs/decisiones/0004-sistema-de-diseno.md, D6):
- * barra superior · flujo guiado · [pozo/curvas/zonas | visor + dock | inspector del paso].
+ * barra superior · flujo guiado · [pozo/curvas/zonas | visor | panel lateral: paso del flujo y paneles] (de fábrica,
+ * docs/decisiones/0068) o, con «Paneles abajo», [pozo/curvas/zonas | visor + dock | inspector del paso].
  * Laterales redimensionables y colapsables; el dock se redimensiona en alto.
  *
  * Rendimiento: arrastrar un separador NO re-renderiza el armazón. Las medidas se aplican como variables CSS por
@@ -19,6 +20,7 @@ import { EquationsDialog } from './ecuaciones/EquationsDialog';
 import { ExportDialog } from './export/ExportDialog';
 import { Inspector } from './shell/Inspector';
 import { TopBar } from './shell/TopBar';
+import { SidePanel } from './shell/SidePanel';
 import { ViewerSlot } from './shell/ViewerSlot';
 import { TrackBuilderSlot } from './tracks/TrackBuilder';
 import { ToolStringPanel } from './toolString/ToolStringPanel';
@@ -77,7 +79,7 @@ type HandleKind = ShellPart;
 
 const HANDLES: Record<HandleKind, { key: 'leftWidth' | 'rightWidth' | 'dockHeight'; auto: 'leftAuto' | 'rightAuto' | 'dockAuto'; collapse: 'leftCollapsed' | 'rightCollapsed' | 'dockCollapsed'; label: string; invert: boolean }> = {
   left: { key: 'leftWidth', auto: 'leftAuto', collapse: 'leftCollapsed', label: 'Ancho de la columna del pozo', invert: false },
-  right: { key: 'rightWidth', auto: 'rightAuto', collapse: 'rightCollapsed', label: 'Ancho del panel del paso', invert: true },
+  right: { key: 'rightWidth', auto: 'rightAuto', collapse: 'rightCollapsed', label: 'Ancho del panel derecho', invert: true },
   dock: { key: 'dockHeight', auto: 'dockAuto', collapse: 'dockCollapsed', label: 'Alto de los paneles', invert: true },
 };
 
@@ -123,6 +125,8 @@ export function App() {
   const leftCollapsed = useUi((s) => s.readingMode || s.layout.leftCollapsed);
   const rightCollapsed = useUi((s) => s.readingMode || s.layout.rightCollapsed);
   const dockCollapsed = useUi((s) => s.readingMode || s.layout.dockCollapsed);
+  // Paneles al costado (de fábrica) o abajo (docs/decisiones/0068).
+  const side = useUi((s) => s.layout.panels === 'side');
   const setLayout = useUi((s) => s.setLayout);
   const loadDialog = useUi((s) => s.loadDialog);
   const setUi = useUi((s) => s.set);
@@ -173,8 +177,8 @@ export function App() {
         <main className="shell-center">
           <div className={`shell-center__content${toolStringOpen ? ' is-covered' : ''}`} inert={toolStringOpen}>
             <ViewerSlot />
-            {!dockCollapsed && <ShellHandle kind="dock" />}
-            <Dock />
+            {!side && !dockCollapsed && <ShellHandle kind="dock" />}
+            {!side && <Dock />}
           </div>
           {toolStringOpen && (
             <div className="shell-stage__cover">
@@ -183,7 +187,12 @@ export function App() {
           )}
         </main>
 
-        {rightCollapsed ? (
+        {side ? (
+          <>
+            {!rightCollapsed && <ShellHandle kind="right" />}
+            <SidePanel />
+          </>
+        ) : rightCollapsed ? (
           <Rail side="right" onExpand={() => setLayout({ rightCollapsed: false })} />
         ) : (
           <>

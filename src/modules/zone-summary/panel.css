@@ -15,3 +15,9 @@
 .zsum-block__unit { text-transform: none; letter-spacing: normal; font-weight: var(--weight-regular); }
 .zsum-gap { color: var(--color-warn-text); }
 .zsum-more { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.zsum-g { font-size: 0.8em; vertical-align: sub; margin-left: 1px; }
+.zsum-stat { border-radius: 3px; cursor: help; text-decoration: underline dotted var(--color-border-strong); text-underline-offset: 3px; }
+.zsum-stat:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+.zsum-tip { display: flex; flex-direction: column; gap: 2px; max-width: calc(280px * var(--ui-scale)); }
+.zsum-tip__title { font-weight: var(--weight-semibold); }
+.zsum-tip__muted { opacity: 0.8; font-size: var(--text-xs); }

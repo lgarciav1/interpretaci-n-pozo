@@ -29,7 +29,8 @@
  *                                                     horizontal de capas en paralelo, Σhᵢ/Σ(hᵢ/Rᵢ)); solo xᵢ > 0
  *                     Ambas ponderadas por espesor; con k = 0 en el pay, `kMeansPay.arith` (aritmética sobre los
  *                     k > 0) es ≥ `kPay` (que incluye los ceros): la desigualdad x̄h ≤ x̄g ≤ x̄a vale con `arith`.
- *   Percentiles       P10, P50, P90 ponderados (`statsRes`, `statsPay`): por espesor hᵢ en φ, Vsh, k y RT; por volumen poral
+ *   Percentiles       P10, P50, P90 ponderados (`statsRes`, `statsPay`; RT también en el reservorio, `statsRes.rt`):
+ *                     por espesor hᵢ en φ, Vsh, k y RT; por volumen poral
  *                     hᵢφᵢ en Sw. P10 = el 10 % del peso tiene un valor MENOR (percentil, no la excedencia de reservas).
  *   Definición de percentil ponderado (la de `weightedQuantiles`, src/petro/distribution.ts, la misma de los boxplots de
  *   Distribución por zona): con las muestras ordenadas por valor y pesos wⱼ = hⱼ, cada muestra se ubica en el punto
@@ -127,8 +128,11 @@ export interface IntervalSummary {
   hphiShRes: number;
   hphiPay: number;
   hphiShPay: number;
-  /** Percentiles y nulos sobre el neto de reservorio. */
-  statsRes: { phi: SampleDistribution; sw: SampleDistribution; vsh: SampleDistribution };
+  /**
+   * Percentiles y nulos sobre el neto de reservorio. `rt` (RT, ohm·m, peso h): la resistividad de todo el reservorio,
+   * no solo del pay, para comparar el pay con el resto (nulos = RT sin dato; NaN si no se pasó la curva).
+   */
+  statsRes: { phi: SampleDistribution; sw: SampleDistribution; vsh: SampleDistribution; rt: SampleDistribution };
   /** Percentiles y nulos sobre el neto pay (mismo conjunto que phiPay…kPay). */
   statsPay: { phi: SampleDistribution; sw: SampleDistribution; vsh: SampleDistribution; k: SampleDistribution; rt: SampleDistribution };
   /** k del pay: geométrica y armónica ponderadas por espesor (mD); nulos = k ≤ 0 o sin dato. La aritmética sobre las mismas muestras k > 0 es `.arith`; `kPay` incluye los k = 0. */
@@ -221,10 +225,10 @@ export function summarizeRanges(
   // Muestras para percentiles y medias geométrica/armónica (mismos conjuntos que los promedios).
   // Con `distributions: false` no se reúnen ni se ordenan las muestras (todas las columnas null → estadísticas sin dato).
   const mk = (present = true): Col | null => (dist && present ? newCol() : null);
-  const colsRes = { phi: mk(), sw: mk(), vsh: mk(!!vsh) };
+  const colsRes = { phi: mk(), sw: mk(), vsh: mk(!!vsh), rt: mk(!!rt) };
   const colsPay = { phi: mk(), sw: mk(), vsh: mk(!!vsh), k: mk(!!perm), rt: mk(!!rt) };
 
-  const collect = (c: typeof colsRes, h: number, p: number, w: number, v: number): void => {
+  const collect = (c: Pick<typeof colsRes, 'phi' | 'sw' | 'vsh'>, h: number, p: number, w: number, v: number): void => {
     if (!dist) return;
     pushCol(c.phi!, p, h);
     // Conjunto y peso de S̄w: con φ y Sw, ponderada por volumen poral h·φ (como Distribución por zona).
@@ -274,6 +278,7 @@ export function summarizeRanges(
       const k = perm ? perm[i]! : NaN;
       add(res, h, p, w, v, k);
       collect(colsRes, h, p, w, v);
+      if (colsRes.rt) pushCol(colsRes.rt, rt![i]!, h);
       nRes++;
       if (!Number.isNaN(p) && !Number.isNaN(w)) nResWithSw++;
       const pf = netPay[i]!;
@@ -313,7 +318,7 @@ export function summarizeRanges(
     hphiShRes: nRes > 0 && nResWithSw === 0 ? NaN : res.hPhiSh,
     hphiPay: unk(pay.hPhi),
     hphiShPay: unk(pay.hPhiSh),
-    statsRes: { phi: distOf(colsRes.phi), sw: distOf(colsRes.sw), vsh: distOf(colsRes.vsh) },
+    statsRes: { phi: distOf(colsRes.phi), sw: distOf(colsRes.sw), vsh: distOf(colsRes.vsh), rt: distOf(colsRes.rt) },
     statsPay: {
       phi: distOf(colsPay.phi),
       sw: distOf(colsPay.sw),

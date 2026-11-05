@@ -12,7 +12,7 @@ import { serializeProject } from '../../src/core/state/serialize';
 const custom: ShellLayout = {
   leftWidth: 241, rightWidth: 329, dockHeight: 183,
   leftAuto: false, rightAuto: false, dockAuto: false,
-  leftCollapsed: true, rightCollapsed: false, dockCollapsed: false, wellHeader: false,
+  leftCollapsed: true, rightCollapsed: false, dockCollapsed: false, wellHeader: false, panels: 'bottom',
 };
 const write = vi.fn();
 const demo = syntheticWell(200);

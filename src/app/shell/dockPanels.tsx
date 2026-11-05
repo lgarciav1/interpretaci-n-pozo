@@ -13,6 +13,8 @@ import type { DockPanelDef } from '../../ui/dockPanel';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useResults } from '../store/results';
 import { TrendsPanel } from '../trends/TrendsPanel';
+import { GlancePanel } from '../glance/GlancePanel';
+import { GLANCE_PANEL_ID } from '../store/ui';
 
 export type { DockPanelDef } from '../../ui/dockPanel';
 
@@ -258,6 +260,8 @@ export function collectDockPanels(files: Record<string, { dockPanels?: DockPanel
 }
 
 const APP_PANELS: readonly DockPanelDef[] = [
+  // Primera: el resumen de un vistazo de la zona elegida (docs/decisiones/0068).
+  { id: GLANCE_PANEL_ID, title: 'Resumen', icon: 'sigma', component: GlancePanel },
   {
     id: 'results',
     title: 'Resultados',

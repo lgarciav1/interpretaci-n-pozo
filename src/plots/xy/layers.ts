@@ -63,6 +63,11 @@ export interface XYBarLayer {
   fillAlpha?: number;
   /** Solo el contorno escalonado, sin relleno (superposición de varias series). */
   outlineOnly?: boolean;
+  /**
+   * Histograma apilado (resumen por zona, docs/decisiones/0068): base de cada clase (n). La barra va de `base` a
+   * `base + values`; sin contorno propio (el contorno del total va en otra capa con `outlineOnly`).
+   */
+  base?: ArrayLike<number>;
 }
 
 export interface XYTrendLayer {

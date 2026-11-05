@@ -27,7 +27,7 @@ import { undoChange } from '../../app/shell/historyActions';
 import { selectActiveEntry, useProject } from '../../app/store/project';
 import { useWellQc } from '../../app/store/qc';
 import { useResults } from '../../app/store/results';
-import { useUi } from '../../app/store/ui';
+import { panelVisible, useUi } from '../../app/store/ui';
 import { useViewer } from '../../app/store/viewer';
 import { BeforeAfterChart } from './BeforeAfterChart';
 import { CurveCards, type CardInfo } from './CurveCards';
@@ -125,7 +125,7 @@ let remembered: Remembered | null = null;
 
 export function PreparationPanel() {
   const entry = useProject(selectActiveEntry);
-  const active = useUi((s) => s.dockTab === PREPARATION_DOCK_ID && !s.layout.dockCollapsed && !s.readingMode);
+  const active = useUi((s) => panelVisible(s, PREPARATION_DOCK_ID));
   if (!active) return null;
   if (!entry) {
     return (

@@ -116,3 +116,7 @@
   .core-col + .core-col { border-left: 0; border-top: 1px solid var(--color-border-subtle); }
   .core-plugs { max-height: calc(300px * var(--ui-scale)); }
 }
+
+/* Panel angosto (panel lateral, 0068): el nombre del conjunto no se corta. */
+.core { container: core / inline-size; }
+@container core (max-width: 40em) { .core-bar__name { white-space: normal; max-width: none; overflow: visible; } }

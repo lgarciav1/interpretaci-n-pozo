@@ -53,8 +53,7 @@ export const commands: CommandSource = () => {
           return;
         }
         commitPlotConfig('crossplot', r.patch, r.label);
-        useUi.getState().set({ dockTab: CROSSPLOT_DOCK_ID });
-        useUi.getState().setLayout({ dockCollapsed: false });
+        useUi.getState().openPanel(CROSSPLOT_DOCK_ID);
       },
     }),
   )];

@@ -47,9 +47,23 @@ describe('acción de la paleta «Abrir Preparar datos»', () => {
     expect(find().enabled?.()).toBe(true);
   });
 
-  it('abre la pestaña, despliega el dock con alto suficiente y no cambia el proyecto', () => {
+  it('con los paneles al costado (de fábrica, 0068) abre la pestaña agrandada en el panel lateral', () => {
     const before = useProject.getState().project;
-    useUi.getState().setLayout({ dockCollapsed: true, dockAuto: true });
+    useUi.getState().setLayout({ panels: 'side', rightCollapsed: true });
+    find().run?.();
+    const ui = useUi.getState();
+    expect(ui.dockTab).toBe(PREPARATION_DOCK_ID);
+    expect(ui.sideView).toBe('panels');
+    expect(ui.layout.rightCollapsed).toBe(false);
+    expect(ui.panelExpanded).toBe(true);
+    expect(useProject.getState().project).toBe(before);
+    expect(contextEquationId()).toBe(PREPARATION_DOCK_ID);
+    useUi.setState({ panelExpanded: false });
+  });
+
+  it('con los paneles abajo abre la pestaña, despliega el dock con alto suficiente y no cambia el proyecto', () => {
+    const before = useProject.getState().project;
+    useUi.getState().setLayout({ panels: 'bottom', dockCollapsed: true, dockAuto: true });
     find().run?.();
     const ui = useUi.getState();
     expect(ui.dockTab).toBe(PREPARATION_DOCK_ID);

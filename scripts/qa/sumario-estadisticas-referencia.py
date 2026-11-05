@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Referencia independiente (NumPy) de tests/petro-sumario-estadisticas.test.ts: medias geométrica/armónica de k y RT
-y P10/P50/P90 ponderados del pozo del TP, completo y zona A.
+y P10/P50/P90 ponderados del pozo del TP, completo y zona A (también RT en el reservorio neto, `statsRes.rt`).
 
 No traduce el TS: implementa la definición matemática del cuantil ponderado (Hazen ponderado): muestras ordenadas por
 valor, cada una en el punto medio de su tramo de la acumulada, c_j = (S_{j-1} + w_j/2)/W, e interpolación lineal de
@@ -69,6 +69,10 @@ def report(label, mask_zone):
     pr('sw pay (peso h·φ)', sw[p], phi[p])
     pr('k pay', kp, np.ones(p.sum()))
     pr('rt pay', rp, np.ones(p.sum()))
+    # RT en el reservorio neto (statsRes.rt): mismo conjunto que φ de reservorio, peso h; nulos = RT sin dato.
+    rr = rt[r]
+    pr('rt res', rr, np.ones(r.sum()))
+    print(f'  rt res: nulos = {int(np.sum(~np.isfinite(rr)))}')
 
 
 report('pozo completo', np.ones(len(rows), bool))
