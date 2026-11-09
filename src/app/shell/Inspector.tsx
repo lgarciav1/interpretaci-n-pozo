@@ -343,13 +343,11 @@ function ModulesView({ state }: { state: StepState }) {
               aria-checked={m.id === active.id}
               className="method"
               onClick={() => setUi({ activeModuleId: m.id })}
-              {...(unavailable ? { title: sarta!.reason, 'data-unavailable': unavailable } : {})}
+              {...(unavailable ? { title: sarta!.reason, 'data-unavailable': unavailable } : m.description ? { title: m.description } : {})}
             >
               <StatusDot tone={st.tone} label={st.text} />
-              <span className="method__body">
-                <span className="method__name">{m.name}</span>
-                <span className="method__ports mono">{ports.join(' · ')}</span>
-              </span>
+              <span className="method__name">{m.name}</span>
+              <span className="method__ports mono" title={`Calcula ${ports.join(', ')}`}>{ports.join(' · ')}</span>
               {unavailable ? (
                 <Badge tone="neutral" variant="outline">
                   {AVAILABILITY_LABEL[unavailable]}

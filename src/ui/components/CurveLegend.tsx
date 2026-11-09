@@ -60,8 +60,10 @@ export function CurveLegend({ role, name, unit, catalog, scale = true, theme: fi
   const s = resolved ?? curveStyle(role, theme, catalog, name);
   const lo = s.reversed ? s.max : s.min;
   const hi = s.reversed ? s.min : s.max;
+  // El tooltip lleva también la escala: con los encabezados compactos del visor es donde se lee.
+  const span = scale && lo !== undefined && hi !== undefined ? ` · escala ${range(lo)} a ${range(hi)}${s.scale === 'log' ? ' (log)' : ''}` : '';
   if (layout === 'classic') {
-    const tip = `${title ?? s.label}${unit ? ` (${unit})` : ''}`;
+    const tip = `${title ?? s.label}${unit ? ` (${unit})` : ''}${span}`;
     return (
       <div className={`ui-curve-legend ui-curve-legend--classic${scale ? '' : ' ui-curve-legend--noscale'}`} title={tip}>
         <div className="ui-curve-legend__row">
@@ -100,7 +102,7 @@ export function CurveLegend({ role, name, unit, catalog, scale = true, theme: fi
       </span>
     );
     // En una fila no hay lugar para la unidad: va en el tooltip (y en la lectura accesible del visor).
-    const tip = `${title ?? s.label}${unit ? ` (${unit})` : ''}`;
+    const tip = `${title ?? s.label}${unit ? ` (${unit})` : ''}${span}`;
     return (
       <div className={`ui-curve-legend ui-curve-legend--inline${scale ? '' : ' ui-curve-legend--noscale'}`} title={tip}>
         {scale && <span className="ui-curve-legend__lo num">{lo !== undefined ? range(lo) : ''}</span>}

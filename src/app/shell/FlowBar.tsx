@@ -8,6 +8,9 @@ import { FREE_MODULE_VIEW } from './freeModuleView';
 export function FlowBar() {
   const { states, active, suggested } = useFlow();
   const freeModule = useUi((s) => s.activeStepId === FREE_MODULE_VIEW);
+  // Con los paneles al costado y un panel a la vista (Crossplot, Resumen…), ningún paso está abierto: la barra no
+  // marca uno como activo (docs/decisiones/0069). Elegir un paso vuelve a su vista.
+  const panelShown = useUi((s) => s.layout.panels === 'side' && s.sideView === 'panels' && !s.layout.rightCollapsed);
   const { resolved, total } = flowProgress(states);
   return (
     <div className="shell-flowbar">
@@ -26,7 +29,7 @@ export function FlowBar() {
             </>
           ),
         }))}
-        activeId={freeModule ? null : active.def.id}
+        activeId={freeModule || panelShown ? null : active.def.id}
         suggestedId={suggested?.def.id ?? null}
         onSelect={(id) => openStep(states.find((s) => s.def.id === id)!)}
       />

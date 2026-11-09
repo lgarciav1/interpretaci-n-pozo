@@ -113,6 +113,35 @@
 .wv-head__category-axis span { position: absolute; transform: translateX(-50%); }
 .wv-head--flags .ui-curve-legend__scale { display: none; }
 
+/*
+ * Encabezados compactos a pedido (docs/decisiones/0069): título y mnemónicos con su color y su trazo, en fila. Escalas,
+ * unidades y lecturas quedan en el tooltip, el editor de la curva y el cursor. Nunca mientras se arman pistas.
+ */
+.wv[data-heads='compact'] .wv-head { min-height: 0; padding-bottom: var(--space-1); }
+.wv[data-heads='compact'] .wv-head__top { margin-bottom: 2px; }
+.wv[data-heads='compact'] .wv-head__curves { flex-direction: row; flex-wrap: wrap; align-items: flex-end; align-content: flex-end; justify-content: flex-start; gap: 1px var(--space-2); }
+.wv[data-heads='compact'] .wv-legend { margin: 0; padding: 0 1px; }
+.wv[data-heads='compact'] .ui-curve-legend { padding: 0; }
+.wv[data-heads='compact'] .ui-curve-legend__lo,
+.wv[data-heads='compact'] .ui-curve-legend__hi,
+.wv[data-heads='compact'] .ui-curve-legend__unit,
+.wv[data-heads='compact'] .ui-curve-legend__value,
+.wv[data-heads='compact'] .ui-curve-legend__tag,
+.wv[data-heads='compact'] .wv-head__shared,
+.wv[data-heads='compact'] .wv-head__overflow-names,
+.wv[data-heads='compact'] .wv-head__hint,
+.wv[data-heads='compact'] .wv-stack-item__value { display: none; }
+.wv[data-heads='compact'] .ui-curve-legend--classic .ui-curve-legend__row,
+.wv[data-heads='compact'] .ui-curve-legend--inline { display: block; }
+.wv[data-heads='compact'] .ui-curve-legend__sample { height: calc(5px * var(--ui-scale)); }
+.wv[data-heads='compact'] .ui-curve-legend--inline .ui-curve-legend__mid { height: calc(18px * var(--ui-scale)); }
+.wv[data-heads='compact'] .wv-head__overflow { height: calc(16px * var(--ui-scale)); margin: 0; padding: 0; }
+.wv[data-heads='compact'] .wv-head__stack { flex-direction: row; flex-wrap: wrap; justify-content: flex-start; align-content: flex-end; gap: 0 var(--space-2); }
+.wv[data-heads='compact'] .wv-stack-item { display: inline-flex; gap: calc(3px * var(--ui-scale)); }
+.wv[data-heads='compact'] .wv-head__scale,
+.wv[data-heads='compact'] .wv-head__categories { margin-top: 0; }
+.wv[data-heads='compact'] .wv-head__category-axis { display: none; }
+
 /* Encabezados compactos solo en lectura amplia; las figuras y la vista normal no cambian. */
 .shell.is-reading .wv-head { padding: var(--space-1) var(--space-1-5); overflow: hidden; }
 .shell.is-reading .wv-head--flags { padding-inline: var(--space-1); }
@@ -231,6 +260,12 @@
 .wv-head__shared::before { content: ''; order: 1; flex: 1; height: 1px; background: var(--color-border); }
 .wv-head__shared span:last-child { order: 3; }
 .wv-head__shared-tag { order: 2; padding: 0 calc(4px * var(--ui-scale)); border-radius: 3px; background: var(--color-surface-active); color: var(--color-text-muted); font-weight: var(--weight-semibold); text-transform: uppercase; letter-spacing: 0.04em; }
+
+/* Alternar encabezados compactos (en el encabezado de la pista de profundidad; docs/decisiones/0069) */
+.wv-head__collapse { display: inline-grid; place-items: center; flex: none; width: calc(16px * var(--ui-scale)); height: calc(16px * var(--ui-scale)); padding: 0; border: 0; border-radius: var(--radius-xs); background: var(--color-surface-active); color: var(--color-text-muted); cursor: pointer; }
+.wv-head__collapse:hover { color: var(--color-text); }
+.wv-head__collapse[aria-pressed='true'] { background: var(--color-accent-soft); color: var(--color-accent-text); }
+.wv-head__collapse:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
 
 /* Curvas ocultas (en el título de la pista) */
 .wv-head__hidden {

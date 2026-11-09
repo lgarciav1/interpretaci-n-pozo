@@ -10,7 +10,7 @@ import { clearParam, setCompare, setParam, setSource } from '../../core/state/pr
 import { setToolOn } from '../../core/state/toolString';
 import { offToolsFor } from '../../core/toolString';
 import { registry } from '../../modules';
-import { Badge, Button, Callout, Field, IconButton, SegmentedControl, Section, Select, StatusDot, Switch, Tooltip, formatNumber } from '../../ui';
+import { Badge, Button, Callout, Field, Icon, IconButton, SegmentedControl, Section, Select, StatusDot, Switch, Tooltip, formatNumber } from '../../ui';
 import { openEquations } from '../ecuaciones/open';
 import { collectPanels } from '../modulePanels';
 import { selectActiveEntry, useProject } from '../store/project';
@@ -99,8 +99,16 @@ export function ModulePanelView({ module }: { module: AnyModule }) {
       {sartaNotice}
       <header className="module-panel__head">
         <div className="module-panel__titles">
-          <h3 className="module-panel__name">{module.name}</h3>
-          {module.description && <p className="module-panel__desc">{module.description}</p>}
+          <h3 className="module-panel__name">
+            {module.name}
+            {module.description && (
+              <Tooltip content={module.description} placement="bottom">
+                <span className="module-panel__info" tabIndex={0} role="note" aria-label={module.description} data-testid="module-description">
+                  <Icon name="info" size={13} />
+                </span>
+              </Tooltip>
+            )}
+          </h3>
           <div className="module-panel__status num" data-testid="module-status">
             {statusView}
           </div>

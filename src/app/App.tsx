@@ -22,6 +22,7 @@ import { Inspector } from './shell/Inspector';
 import { TopBar } from './shell/TopBar';
 import { SidePanel } from './shell/SidePanel';
 import { ViewerSlot } from './shell/ViewerSlot';
+import { SmallScreenNotice } from './shell/SmallScreenNotice';
 import { TrackBuilderSlot } from './tracks/TrackBuilder';
 import { ToolStringPanel } from './toolString/ToolStringPanel';
 import { ToolStringView } from './toolString/ToolStringView';
@@ -214,6 +215,7 @@ export function App() {
       <CommandLayer />
       <Toaster />
     </div>
+    <SmallScreenNotice shellRef={ref} />
     <HomeRoot />
     </>
   );

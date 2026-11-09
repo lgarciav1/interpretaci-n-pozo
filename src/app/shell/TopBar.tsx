@@ -1,11 +1,11 @@
 /**
  * Barra superior: marca, proyecto y pozo, espacio de trabajo, estado del motor, acciones agrupadas y preferencias
- * (tamaño de interfaz y tema). Si no entra (ventana angosta o tamaño Grande), se compacta por etapas con consultas de
+ * (tamaño de interfaz y tema, en un menú). Si no entra (ventana angosta o tamaño Grande), se compacta por etapas con consultas de
  * contenedor en `em` (shell.css): el umbral sigue al tamaño del texto.
  */
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { WORKSPACES, type WorkspaceId } from '../../core/workspaces';
-import { BrandMark, Button, Icon, IconButton, IS_MAC_PLATFORM, Menu, openCommandPalette, SegmentedControl, Spinner, StatusDot, ThemeToggle, Tooltip, UiScaleToggle, formatNumber } from '../../ui';
+import { BrandMark, Button, Icon, IconButton, IS_MAC_PLATFORM, Menu, openCommandPalette, Popover, SegmentedControl, Spinner, StatusDot, ThemeToggle, Tooltip, UiScaleToggle, formatNumber } from '../../ui';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useResults } from '../store/results';
 import { useUi } from '../store/ui';
@@ -63,6 +63,31 @@ function HistoryButtons() {
         data-testid="redo"
       />
     </div>
+  );
+}
+
+/**
+ * Preferencias de este navegador (tamaño de interfaz y tema) detrás de un botón: se cambian una vez, no merecen siete
+ * botones fijos en la barra (docs/decisiones/0069). El espacio lo gana el nombre del pozo.
+ */
+function Preferences() {
+  const [open, setOpen] = useState(false);
+  const anchor = useRef<HTMLButtonElement>(null);
+  return (
+    <>
+      <IconButton ref={anchor} icon="settings" label="Preferencias: tamaño de interfaz y tema" aria-haspopup="dialog" aria-expanded={open} pressed={open} onClick={() => setOpen((o) => !o)} data-testid="prefs-open" />
+      <Popover open={open} anchorRef={anchor} onClose={() => setOpen(false)} label="Preferencias" align="end" width={248} className="shell-prefs-pop">
+        <div className="shell-prefs-pop__row">
+          <span className="shell-prefs-pop__label">Tamaño</span>
+          <UiScaleToggle />
+        </div>
+        <div className="shell-prefs-pop__row">
+          <span className="shell-prefs-pop__label">Tema</span>
+          <ThemeToggle />
+        </div>
+        <p className="shell-prefs-pop__note">Se guardan en este navegador, no en el proyecto.</p>
+      </Popover>
+    </>
   );
 }
 
@@ -154,8 +179,7 @@ export function TopBar() {
         />
         <IconButton icon="sigma" label="Ecuaciones de los métodos" onClick={() => openEquations()} data-testid="equations-open" />
         <IconButton icon="search" label="Paleta de comandos" hint={IS_MAC_PLATFORM ? '⌘K' : 'Ctrl+K'} aria-keyshortcuts={IS_MAC_PLATFORM ? 'Meta+K' : 'Control+K'} onClick={openCommandPalette} data-testid="command-open" />
-        <UiScaleToggle />
-        <ThemeToggle />
+        <Preferences />
       </div>
     </header>
   );

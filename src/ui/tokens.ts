@@ -44,7 +44,7 @@ export const BASE_TOKENS = {
     iconMd: 16,
     iconLg: 20,
     topbar: 52,
-    flowbar: 52,
+    flowbar: 44,
     rail: 40,
     sidebarLeft: 292,
     sidebarRight: 368,

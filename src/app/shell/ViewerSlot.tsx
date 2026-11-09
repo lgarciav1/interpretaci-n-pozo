@@ -97,6 +97,7 @@ export function ViewerSlot() {
   const editingZoneId = useUi((s) => s.editingZoneId);
   const marking = useUi((s) => s.zoneMarking);
   const showHeader = useUi((s) => !s.readingMode && s.layout.wellHeader);
+  const compactHeads = useUi((s) => s.layout.compactHeads);
   const setUi = useUi((s) => s.set);
   const setLayout = useUi((s) => s.setLayout);
   const trendTool = useTrendsUi((s) => s.tool);
@@ -488,6 +489,8 @@ export function ViewerSlot() {
         label={`Perfiles del pozo ${well.name}`}
         toolbarStart={toolbarStart}
         toolbarEnd={toolbarEnd}
+        compactHeads={compactHeads}
+        onToggleCompactHeads={() => useUi.getState().setLayout({ compactHeads: !compactHeads })}
         header={showHeader ? <WellHeader well={well} zones={data.zones} computedCount={computed.filter((c) => c.active).length} onZone={showZone} /> : undefined}
         notice={
           marking ? (
