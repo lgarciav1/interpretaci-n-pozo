@@ -5,7 +5,7 @@ import { GLANCE_PANEL_ID, panelsOpen, panelVisible, useUi, type ShellLayout } fr
 
 const base: ShellLayout = {
   leftWidth: 292, rightWidth: 368, dockHeight: 260, leftAuto: true, rightAuto: true, dockAuto: true,
-  leftCollapsed: false, rightCollapsed: false, dockCollapsed: false, wellHeader: true, panels: 'side',
+  leftCollapsed: false, rightCollapsed: false, dockCollapsed: false, wellHeader: true, compactHeads: false, panels: 'side',
 };
 const write = vi.fn();
 
@@ -86,5 +86,39 @@ describe('paneles', () => {
     useUi.getState().openPanel('crossplot');
     useUi.getState().toggleReadingMode();
     expect(panelVisible(useUi.getState(), 'crossplot')).toBe(false);
+  });
+});
+
+describe('barra del panel lateral y disposición de fábrica (docs/decisiones/0069)', () => {
+  it('los módulos obligatorios quedan fijos en la barra y el resto va a «Más» sin perderse', async () => {
+    const { RAIL_PINNED, splitRail } = await import('../../src/app/shell/SidePanel');
+    const { pinned, extra, more } = splitRail(DOCK_PANELS, null);
+    expect(pinned.map((p) => p.id)).toEqual(RAIL_PINNED.map((r) => r.id));
+    for (const id of ['crossplot', 'histogram', 'mdt', 'core', 'trends']) expect(pinned.map((p) => p.id)).toContain(id);
+    expect(extra).toBeNull();
+    expect(pinned.length + more.length).toBe(DOCK_PANELS.length);
+    expect(more.map((p) => p.id)).toContain('engine');
+  });
+
+  it('un panel de «Más» abierto se suma a la barra; uno fijo no se duplica', async () => {
+    const { splitRail } = await import('../../src/app/shell/SidePanel');
+    expect(splitRail(DOCK_PANELS, 'formation-water').extra?.id).toBe('formation-water');
+    expect(splitRail(DOCK_PANELS, 'crossplot').extra).toBeNull();
+  });
+
+  it('la columna del pozo arranca plegada solo en ventanas angostas', async () => {
+    const { defaultLeftCollapsed, LEFT_OPEN_MIN_WIDTH } = await import('../../src/app/store/ui');
+    expect(defaultLeftCollapsed(1366)).toBe(true);
+    expect(defaultLeftCollapsed(LEFT_OPEN_MIN_WIDTH)).toBe(false);
+    expect(defaultLeftCollapsed(1920)).toBe(false);
+    expect(defaultLeftCollapsed(undefined)).toBe(false);
+  });
+
+  it('pantalla chica: manda el menor entre la ventana y la pantalla', async () => {
+    const { isSmallScreen } = await import('../../src/app/shell/SmallScreenNotice');
+    expect(isSmallScreen(390, 390)).toBe(true);
+    expect(isSmallScreen(1024, 390)).toBe(true);
+    expect(isSmallScreen(1366, 1366)).toBe(false);
+    expect(isSmallScreen(1366, undefined)).toBe(false);
   });
 });

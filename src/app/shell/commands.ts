@@ -105,6 +105,14 @@ function dockCommands(): Command[] {
       icon: 'well',
       run: () => useUi.getState().setLayout({ wellHeader: !useUi.getState().layout.wellHeader }),
     },
+    {
+      id: 'layout:compact-heads',
+      title: layout.compactHeads ? 'Mostrar escalas en los encabezados de pista' : 'Encabezados de pista compactos',
+      group: 'Paneles',
+      keywords: ['cabecera', 'visor', 'escala', 'alto', 'leyenda'],
+      icon: 'tracks',
+      run: () => useUi.getState().setLayout({ compactHeads: !useUi.getState().layout.compactHeads }),
+    },
   ];
 }
 

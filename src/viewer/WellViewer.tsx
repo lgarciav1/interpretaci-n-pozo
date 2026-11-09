@@ -67,6 +67,10 @@ export interface WellViewerProps {
   toolbarEnd?: ReactNode;
   /** Franja bajo la barra (encabezado de pozo). */
   header?: ReactNode;
+  /** Encabezados de pista compactos: título y mnemónicos; escalas y unidades en el tooltip (docs/decisiones/0069). */
+  compactHeads?: boolean;
+  /** Si está, el encabezado de la pista de profundidad muestra el botón que alterna los encabezados compactos. */
+  onToggleCompactHeads?(): void;
   /** Aviso flotante sobre el perfil (p. ej. «modo marcar zona»). */
   notice?: ReactNode;
   /** Clic o Enter en el encabezado de una curva: abrir su editor anclado a `anchor`. */
@@ -1341,7 +1345,7 @@ export function WellViewer(props: WellViewerProps) {
   });
 
   return (
-    <div className="wv" ref={rootRef} data-look={look.id}>
+    <div className="wv" ref={rootRef} data-look={look.id} {...(props.compactHeads && !layoutEdit ? { 'data-heads': 'compact' } : {})}>
       <div className="wv-toolbar">
         <div className="wv-toolbar__start">{toolbarStart}</div>
         <div className="wv-toolbar__end">
@@ -1436,6 +1440,19 @@ export function WellViewer(props: WellViewerProps) {
                       {t.title}
                     </div>
                     {hiddenMenu(t)}
+                    {t.kind === 'depth' && props.onToggleCompactHeads && !layoutEdit && (
+                      <button
+                        type="button"
+                        className="wv-head__collapse"
+                        aria-pressed={!!props.compactHeads}
+                        aria-label="Encabezados compactos"
+                        title={props.compactHeads ? 'Mostrar escalas y unidades en los encabezados' : 'Encabezados compactos: más alto para las curvas'}
+                        onClick={props.onToggleCompactHeads}
+                        data-testid="compact-heads"
+                      >
+                        <Icon name={props.compactHeads ? 'chevron-down' : 'chevron-up'} size={12} />
+                      </button>
+                    )}
                   </div>
                   {t.kind === 'depth' ? (
                     t.tvdss ? (

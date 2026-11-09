@@ -116,7 +116,7 @@ describe('preferencia en ejecución', () => {
 });
 
 describe('medidas del armazón', () => {
-  const layout: ShellLayout = { leftWidth: 292, rightWidth: 368, leftCollapsed: false, rightCollapsed: false, dockHeight: 260, leftAuto: true, rightAuto: true, dockAuto: true, dockCollapsed: false, wellHeader: true, panels: 'side' };
+  const layout: ShellLayout = { leftWidth: 292, rightWidth: 368, leftCollapsed: false, rightCollapsed: false, dockHeight: 260, leftAuto: true, rightAuto: true, dockAuto: true, dockCollapsed: false, wellHeader: true, compactHeads: false, panels: 'side' };
   const notebook = { width: 1366, height: 768 };
 
   it('automáticas: la guardada × factor, sin pasar del tope por ventana', () => {

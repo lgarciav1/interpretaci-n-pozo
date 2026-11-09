@@ -28,6 +28,11 @@ export interface ShellLayout {
   /** Franja de encabezado de pozo en el visor. */
   wellHeader: boolean;
   /**
+   * Encabezados de pista compactos (docs/decisiones/0069): solo el título y los mnemónicos con su color; escalas y
+   * unidades quedan en el tooltip y en el editor de la curva. Devuelve alto al perfil en pantallas bajas.
+   */
+  compactHeads: boolean;
+  /**
    * Dónde viven los paneles (Resumen, Resultados, gráficos de los módulos; docs/decisiones/0068): `side` (de fábrica) en
    * el panel derecho, junto al paso del flujo, con el perfil a toda la altura; `bottom`, en el dock debajo del visor.
    */
@@ -70,11 +75,25 @@ export function shellSizeCss(part: ShellPart, layout: ShellLayout): string {
 }
 
 const LAYOUT_KEY = 'pozo.ui.layout';
+/**
+ * Versión de la disposición de fábrica. Al subirla, lo guardado antes conserva sus medidas pero vuelve a tomar los
+ * valores de fábrica que cambiaron (v2, docs/decisiones/0069: la columna del pozo arranca plegada en ventanas angostas).
+ */
+const LAYOUT_VERSION_KEY = 'pozo.ui.layout.v';
+const LAYOUT_VERSION = '2';
+
+/** Ancho de ventana (px) desde el que la columna del pozo entra de fábrica sin quitarle pistas al perfil. */
+export const LEFT_OPEN_MIN_WIDTH = 1600;
+
+/** Puro: la columna del pozo arranca plegada si la ventana es más angosta que `LEFT_OPEN_MIN_WIDTH`. */
+export function defaultLeftCollapsed(viewportWidth: number | undefined): boolean {
+  return viewportWidth !== undefined && viewportWidth > 0 && viewportWidth < LEFT_OPEN_MIN_WIDTH;
+}
 
 const DEFAULT_LAYOUT: ShellLayout = {
   leftWidth: BASE_TOKENS.size.sidebarLeft,
   rightWidth: BASE_TOKENS.size.sidebarRight,
-  leftCollapsed: false,
+  leftCollapsed: defaultLeftCollapsed(typeof window === 'undefined' ? undefined : window.innerWidth),
   rightCollapsed: false,
   dockHeight: BASE_TOKENS.size.dock,
   leftAuto: true,
@@ -82,12 +101,15 @@ const DEFAULT_LAYOUT: ShellLayout = {
   dockAuto: true,
   dockCollapsed: false,
   wellHeader: true,
+  compactHeads: false,
   panels: 'side',
 };
 
 function loadLayout(): ShellLayout {
   try {
     const raw = JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? 'null') as Partial<ShellLayout> | null;
+    const current = localStorage.getItem(LAYOUT_VERSION_KEY) === LAYOUT_VERSION;
+    if (!current) localStorage.setItem(LAYOUT_VERSION_KEY, LAYOUT_VERSION);
     if (!raw || typeof raw !== 'object') return DEFAULT_LAYOUT;
     const num = (v: unknown, d: number, lim: { min: number; max: number }) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(lim.max, Math.max(lim.min, v)) : d);
     return {
@@ -98,10 +120,11 @@ function loadLayout(): ShellLayout {
       leftAuto: typeof raw.leftAuto === 'boolean' ? raw.leftAuto : raw.leftWidth === undefined || raw.leftWidth === DEFAULT_LAYOUT.leftWidth,
       rightAuto: typeof raw.rightAuto === 'boolean' ? raw.rightAuto : raw.rightWidth === undefined || raw.rightWidth === DEFAULT_LAYOUT.rightWidth,
       dockAuto: typeof raw.dockAuto === 'boolean' ? raw.dockAuto : raw.dockHeight === undefined || raw.dockHeight === DEFAULT_LAYOUT.dockHeight,
-      leftCollapsed: raw.leftCollapsed === true,
+      leftCollapsed: current && typeof raw.leftCollapsed === 'boolean' ? raw.leftCollapsed : DEFAULT_LAYOUT.leftCollapsed,
       rightCollapsed: raw.rightCollapsed === true,
       dockCollapsed: raw.dockCollapsed === true,
       wellHeader: raw.wellHeader !== false,
+      compactHeads: raw.compactHeads === true,
       panels: raw.panels === 'bottom' ? 'bottom' : 'side',
     };
   } catch {

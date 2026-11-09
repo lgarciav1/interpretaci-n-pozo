@@ -13,7 +13,26 @@
    viewport de layout a 1024 px y el Inicio (fixed, inset 0) quedaba más grande que la pantalla, con el botón
    «Entrar al pozo» fuera de vista y sin scroll. Al soltarse el cubrimiento vuelve el mínimo del espacio de trabajo. */
 .shell[aria-hidden='true'] { min-width: 0; overflow: clip; }
+.shell.is-small-blocked { min-width: 0; overflow: clip; }
 .shell-spacer { flex: 1; }
+
+/* Aviso de pantalla chica (docs/decisiones/0069): tapa el espacio de trabajo en un teléfono. */
+.small-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-6) var(--space-5);
+  background: var(--color-bg);
+  text-align: center;
+}
+.small-screen__title { margin: var(--space-2) 0 0; font-size: var(--text-xl); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-tight); }
+.small-screen__text { max-width: 34em; margin: 0; color: var(--color-text-muted); line-height: var(--leading-normal); }
+.small-screen__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); margin-top: var(--space-2); }
 
 /* Lectura temporal: se conserva la disposición guardada y se recupera al salir. */
 .shell.is-reading { grid-template-rows: var(--size-topbar) minmax(0, 1fr); }
@@ -86,7 +105,11 @@
 }
 .shell-topbar__divider { flex: none; width: 1px; height: calc(20px * var(--ui-scale)); background: var(--color-border); }
 .shell-workspace, .shell-engine, .shell-history, .shell-actions { flex: none; }
-.shell-prefs { display: flex; align-items: center; flex: none; gap: var(--space-2); }
+.shell-prefs { display: flex; align-items: center; flex: none; gap: var(--space-1); }
+.shell-prefs-pop { display: flex; flex-direction: column; gap: var(--space-2-5); padding: var(--space-3); }
+.shell-prefs-pop__row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.shell-prefs-pop__label { color: var(--color-text-muted); font-size: var(--text-sm); font-weight: var(--weight-medium); }
+.shell-prefs-pop__note { margin: 0; color: var(--color-text-subtle); font-size: var(--text-xs); }
 
 /*
  * Barra angosta (ventana chica o tamaño de interfaz grande): se compacta por etapas. Los umbrales van en em del texto
@@ -270,31 +293,38 @@
 .zone-name { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: var(--weight-medium); }
 .zone-swatch { width: calc(10px * var(--ui-scale)); height: calc(10px * var(--ui-scale)); border-radius: 3px; flex: none; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12); }
 
-.method-list { display: flex; flex-direction: column; gap: var(--space-1-5); padding: var(--space-3) var(--space-4) 0; }
+.method-list { display: flex; flex-direction: column; gap: 2px; padding: var(--space-2-5) var(--space-3) 0; }
+/* Una fila por método (docs/decisiones/0069): la lista no empuja los parámetros fuera de la pantalla. */
 .method {
   display: flex;
   align-items: center;
-  gap: var(--space-2-5);
-  padding: var(--space-2) var(--space-2-5);
-  border: 1px solid var(--color-border);
+  gap: var(--space-2);
+  min-height: calc(28px * var(--ui-scale));
+  padding: calc(3px * var(--ui-scale)) var(--space-2);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
-  background: var(--color-surface);
+  background: none;
+  color: inherit;
+  font: inherit;
   text-align: left;
   cursor: pointer;
   transition: border-color var(--dur-fast) var(--ease-standard), background-color var(--dur-fast) var(--ease-standard);
 }
-.method:hover { border-color: var(--color-border-strong); }
+.method:hover { background: var(--color-surface-hover); }
 .method[aria-checked='true'] { border-color: var(--color-accent-border); background: var(--color-accent-soft); }
 .method:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
-.method__body { display: flex; flex-direction: column; flex: 1; min-width: 0; }
-.method__name { font-weight: var(--weight-medium); }
-.method__ports { color: var(--color-text-muted); font-size: var(--text-xs); }
+.method__name { flex: 0 1 auto; min-width: 0; overflow: hidden; font-weight: var(--weight-medium); text-overflow: ellipsis; white-space: nowrap; }
+.method[aria-checked='true'] .method__name { color: var(--color-accent-text); }
+.method__ports { flex: 1 100 0; min-width: 0; overflow: hidden; color: var(--color-text-subtle); font-size: var(--text-xs); text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+.method > .ui-badge { flex: none; }
 
-.module-panel__head { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-4) var(--space-4) var(--space-3); }
-.module-panel__titles { flex: 1; min-width: 0; }
-.module-panel__name { font-size: var(--text-lg); font-weight: var(--weight-semibold); }
-.module-panel__desc { margin-top: 2px; color: var(--color-text-muted); }
-.module-panel__status { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-2); color: var(--color-text-muted); font-size: var(--text-sm); }
+.module-panel__head { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4) var(--space-1); }
+.module-panel__titles { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--space-3); flex: 1; min-width: 0; }
+.module-panel__name { display: inline-flex; align-items: center; gap: var(--space-1-5); font-size: var(--text-lg); font-weight: var(--weight-semibold); }
+.module-panel__info { display: inline-grid; place-items: center; width: calc(18px * var(--ui-scale)); height: calc(18px * var(--ui-scale)); border-radius: var(--radius-full); color: var(--color-text-subtle); cursor: help; }
+.module-panel__info:hover, .module-panel__info:focus-visible { background: var(--color-surface-hover); color: var(--color-text); }
+.module-panel__info:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+.module-panel__status { display: flex; align-items: center; gap: var(--space-1-5); color: var(--color-text-muted); font-size: var(--text-xs); white-space: nowrap; }
 .module-panel__methods { display: flex; flex-direction: column; gap: var(--space-2-5); }
 .module-panel__zones { margin-bottom: var(--space-4); }
 .module-panel__params { display: flex; flex-direction: column; gap: var(--space-5); }
@@ -309,8 +339,8 @@
  * Panel lateral (docs/decisiones/0068): una columna con el paso del flujo o los paneles y, pegada al borde derecho,
  * la barra vertical de pestañas. Plegado queda solo la barra.
  */
-.shell-side--panels { flex-direction: row; width: calc(var(--shell-right, var(--size-sidebar-right)) + var(--size-rail)); border-left: 1px solid var(--color-border-subtle); }
-.shell-side--panels.is-collapsed { width: var(--size-rail); border-left-color: var(--color-border); }
+.shell-side--panels { --side-rail-w: calc(54px * var(--ui-scale)); flex-direction: row; width: calc(var(--shell-right, var(--size-sidebar-right)) + var(--side-rail-w)); border-left: 1px solid var(--color-border-subtle); }
+.shell-side--panels.is-collapsed { width: var(--side-rail-w); border-left-color: var(--color-border); }
 .side-views { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
 .side-view { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .side-view[hidden], .side-panels[hidden] { display: none; }
@@ -334,7 +364,7 @@
   flex-direction: column;
   align-items: center;
   flex: none;
-  width: var(--size-rail);
+  width: var(--side-rail-w);
   min-height: 0;
   padding: var(--space-1-5) 0 var(--space-1-5);
   border-left: 1px solid var(--color-border-subtle);
@@ -343,32 +373,40 @@
 .shell-side--panels.is-collapsed .side-rail { border-left: 0; }
 .side-rail__tabs { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; min-height: 0; width: 100%; overflow-y: auto; scrollbar-width: none; }
 .side-rail__tabs::-webkit-scrollbar { display: none; }
+.side-rail__tabs > .ui-tooltip-anchor { display: flex; flex: none; }
+/* Ícono con su rótulo debajo: la barra se lee sin pasar el mouse (docs/decisiones/0069). */
 .side-rail__tab {
   position: relative;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
   flex: none;
-  width: calc(28px * var(--ui-scale));
-  height: calc(28px * var(--ui-scale));
-  padding: 0;
+  width: calc(48px * var(--ui-scale));
+  min-height: calc(38px * var(--ui-scale));
+  padding: calc(4px * var(--ui-scale)) 0 calc(3px * var(--ui-scale));
   border: 0;
   border-radius: var(--radius-md);
   background: none;
   color: var(--color-text-muted);
+  font: inherit;
   cursor: pointer;
   transition: background-color var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard);
 }
+.side-rail__label { max-width: 100%; overflow: hidden; font-size: calc(9.5px * var(--ui-scale)); font-weight: var(--weight-medium); line-height: calc(12px * var(--ui-scale)); letter-spacing: -0.01em; white-space: nowrap; }
 .side-rail__tab:hover { background: var(--color-surface-hover); color: var(--color-text); }
-.side-rail__tab[aria-selected='true'] { background: var(--color-accent-soft); color: var(--color-accent-text); }
+.side-rail__tab[aria-selected='true'], .side-rail__more[aria-expanded='true'] { background: var(--color-accent-soft); color: var(--color-accent-text); }
 /* Marca del lado del contenido: la pestaña elegida «sale» hacia el panel. */
-.side-rail__tab[aria-selected='true']::before { content: ''; position: absolute; left: calc(-1 * (var(--size-rail) - 28px * var(--ui-scale)) / 2); top: 22%; bottom: 22%; width: 2px; border-radius: 2px; background: var(--color-accent); }
+.side-rail__tab[aria-selected='true']::before { content: ''; position: absolute; left: calc(-1 * (var(--side-rail-w) - 48px * var(--ui-scale)) / 2); top: 22%; bottom: 22%; width: 2px; border-radius: 2px; background: var(--color-accent); }
 .side-rail__tab:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
-/* El paso del flujo queda separado de los paneles. */
-.side-rail .ui-tooltip-anchor:first-child { padding-bottom: var(--space-1); margin-bottom: var(--space-1); border-bottom: 1px solid var(--color-border); }
+/* Grupos: paso · resumen y tablas · módulos obligatorios · más. */
+.side-rail__tab--sep { margin-top: calc(9px * var(--ui-scale)); }
+.side-rail__tab--sep::after { content: ''; position: absolute; top: calc(-5px * var(--ui-scale)); left: 18%; right: 18%; height: 1px; background: var(--color-border); }
 .side-rail__badge {
   position: absolute;
   top: calc(1px * var(--ui-scale));
-  right: calc(-1px * var(--ui-scale));
+  right: calc(4px * var(--ui-scale));
   min-width: calc(14px * var(--ui-scale));
   height: calc(14px * var(--ui-scale));
   padding: 0 calc(3px * var(--ui-scale));
