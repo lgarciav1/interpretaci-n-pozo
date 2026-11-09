@@ -48,5 +48,14 @@ El primer slider del paso Cutoffs empezaba en y ≈ 690 de 768. La barra del pan
 `npm run typecheck`, `npm test` (incluye `tests/ui/panel-placement.test.ts`: barra, plegado de fábrica y pantalla
 chica) y recorrido con Playwright a 1366 × 768, 1920 × 1080 (oscuro) y 390 × 844 sin errores de página.
 
-Nota para las capturas de QA: `side-tab-<id>` existe solo para las pestañas fijas y para el panel de «Más» que esté
-abierto; el resto se abre desde `side-more`.
+## Scripts de QA (seguimiento)
+
+- La franja de la columna del pozo plegada conserva «Preparar datos» y «Digitalizar registro» (mismos nombre accesible
+  y `data-testid` que en la columna), así los accesos no dependen del ancho de la ventana.
+- `side-tab-<id>` existe solo para las pestañas fijas y para el panel de «Más» que esté abierto; el resto se abre desde
+  `side-more`. `scripts/qa/panel-lateral.cjs` lo hace con `openTab` (vuelve a cubrir Distribuciones).
+- `thomas-stieber.cjs`, `normalization-panel.cjs` y `preparation-panel.cjs` recorren el dock de abajo y fallaban desde
+  la 0068: ahora fijan `panels: 'bottom'` al empezar y vuelven a pasar.
+- Sin tocar: `panel-lateral.cjs` sigue marcando la descripción de los plugs de Corona como texto cortado (es una elipsis
+  con tooltip, anterior a esta revisión); `inicio.cjs` falla por rendimiento sin GPU; `log-digitizer.cjs` necesita un
+  registro de entrada que no está en el repositorio; los scripts `.py` no se corrieron (falta Playwright para Python).

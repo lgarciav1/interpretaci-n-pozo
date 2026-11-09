@@ -9,7 +9,9 @@
  * cambio de tamaño por su ResizeObserver.
  */
 import { useLayoutEffect, useRef, useSyncExternalStore, type RefObject } from 'react';
-import { CommandLayer, IconButton, ResizeHandle, Toaster, useUiScaleFactor } from '../ui';
+import { CommandLayer, IconButton, listCommands, ResizeHandle, Toaster, useUiScaleFactor } from '../ui';
+import { openPreparation } from './preparation/open';
+import { selectActiveEntry, useProject } from './store/project';
 import './commands';
 import { LoadWellDialog } from './components/LoadWellDialog';
 import { WellPanel } from './components/WellPanel';
@@ -111,10 +113,26 @@ function ShellHandle({ kind }: { kind: HandleKind }) {
   );
 }
 
+/** La misma acción de la paleta que usa la columna del pozo: el botón desaparece si el módulo no está. */
+const DIGITIZER_COMMAND = 'digitizer:open';
+
+/**
+ * Columna plegada. La del pozo arranca así en una notebook (docs/decisiones/0069), así que la franja conserva sus dos
+ * accesos de trabajo, Preparar datos y Digitalizar registro, además del botón que la vuelve a abrir.
+ */
 function Rail({ side, onExpand }: { side: 'left' | 'right'; onExpand: () => void }) {
+  const hasWell = useProject((s) => !!selectActiveEntry(s));
+  const digitizer = side === 'left' ? listCommands().find((c) => c.id === DIGITIZER_COMMAND) : undefined;
   return (
     <div className={`shell-rail shell-rail--${side}`}>
       <IconButton icon={side === 'left' ? 'panel-left' : 'panel-right'} label={side === 'left' ? 'Mostrar datos del pozo' : 'Mostrar el panel del paso'} onClick={onExpand} />
+      {side === 'left' && hasWell && (
+        <>
+          <span className="shell-rail__sep" aria-hidden="true" />
+          <IconButton icon="filter" label="Preparar datos" onClick={() => openPreparation()} data-testid="rail-preparation" />
+          {digitizer?.run && <IconButton icon="pen" label="Digitalizar registro" onClick={() => digitizer.run?.()} data-testid="well-panel-digitizer" />}
+        </>
+      )}
     </div>
   );
 }

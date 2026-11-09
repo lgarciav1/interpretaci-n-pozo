@@ -57,6 +57,29 @@ async function settle(page, ms = 700) {
   await page.waitForTimeout(150);
 }
 
+/**
+ * Abre un panel del panel lateral (docs/decisiones/0069): por su pestaña fija de la barra o, si no es fija, desde el
+ * menú «Más» (por el título del panel). Devuelve false si no está en ninguno de los dos.
+ */
+const MORE_TITLES = { 'zone-distribution': 'Distribuciones', 'formation-water': 'Agua de formación', 'rock-typing': 'Tipos de roca', preparation: 'Preparar datos', engine: 'Motor' };
+async function openTab(page, id) {
+  const tab = page.getByTestId(`side-tab-${id}`);
+  if (await tab.count()) {
+    await tab.click();
+    return true;
+  }
+  const title = MORE_TITLES[id];
+  if (!title || !(await page.getByTestId('side-more').count())) return false;
+  await page.getByTestId('side-more').click();
+  const item = page.getByRole('menuitem', { name: title });
+  if (!(await item.count())) {
+    await page.keyboard.press('Escape');
+    return false;
+  }
+  await item.click();
+  return true;
+}
+
 /** Textos cortados dentro de `root` (elementos hoja con texto, overflow oculto y contenido más ancho que la caja). */
 async function clipped(page, root) {
   return page.evaluate((sel) => {
@@ -113,9 +136,10 @@ async function run(browser, width, height) {
     const cutC = await clipped(page, '[data-testid=side-panel]');
     check(`${tag}: crossplot sin textos cortados`, cutC.length === 0, cutC.slice(0, 4).join(' | '));
     for (const id of ['mdt', 'core', 'trends', 'zone-distribution', 'results']) {
-      const t = page.getByTestId(`side-tab-${id}`);
-      if (!(await t.count())) continue;
-      await t.click();
+      if (!(await openTab(page, id))) {
+        check(`${tag}: el panel ${id} se puede abrir`, false, 'no está en la barra ni en «Más»');
+        continue;
+      }
       await settle(page, 500);
       // Datos del TP para ver los módulos obligatorios con datos (presiones MDT y plugs de corona).
       const load = { mdt: 'Cargar presiones del TP', core: 'Cargar corona del TP' }[id];

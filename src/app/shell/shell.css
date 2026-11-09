@@ -170,6 +170,9 @@
   padding-top: var(--space-2);
   background: var(--color-surface);
 }
+/* Accesos de la columna plegada (docs/decisiones/0069). */
+.shell-rail { gap: var(--space-0-5); }
+.shell-rail__sep { width: 55%; height: 1px; margin: var(--space-1) 0; background: var(--color-border); }
 .shell-rail--left { border-right: 1px solid var(--color-border); }
 .shell-rail--right { border-left: 1px solid var(--color-border); }
 

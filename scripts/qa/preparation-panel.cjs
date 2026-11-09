@@ -78,6 +78,16 @@ async function shot(page, name, target = '.shell-dock') {
 (async () => {
   const browser = await chromium.launch({ args: ['--no-sandbox'] });
   const ctx = await browser.newContext({ viewport: { width: 1600, height: 1300 }, acceptDownloads: true });
+  // Estas comprobaciones recorren el dock de abajo: se fija esa disposición (la de fábrica es el panel lateral,
+  // docs/decisiones/0068, y la columna del pozo arranca plegada en ventanas angostas, 0069).
+  await ctx.addInitScript(() => {
+    try {
+      if (localStorage.getItem('pozo.ui.layout') === null) {
+        localStorage.setItem('pozo.ui.layout.v', '2');
+        localStorage.setItem('pozo.ui.layout', JSON.stringify({ panels: 'bottom', leftCollapsed: false }));
+      }
+    } catch {}
+  });
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
