@@ -10,7 +10,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { registry } from '../../modules';
-import { BrandMark, Button, curveStyle, formatNumber, Icon, IconButton, prefersReducedMotion, ThemeToggle, useResolvedTheme, useThemeTokens } from '../../ui';
+import { BrandMark, BrandName, Button, PRODUCT_NAME, curveStyle, formatNumber, Icon, IconButton, prefersReducedMotion, ThemeToggle, useResolvedTheme, useThemeTokens } from '../../ui';
 import { effectiveWell } from '../preparation/data';
 import { loadDemoWell } from '../demo/loadDemo';
 import { pickProjectFile } from '../shell/projectActions';
@@ -30,7 +30,7 @@ import { Silhouette, SILHOUETTE_RADIAL_EXAGGERATION } from './Silhouette';
 import { ENTRY_TIMING, entryKind, useHome, type EntryKind } from './store';
 import './home.css';
 
-export const PRODUCT_NAME = 'fiubaLog';
+
 
 type GlState = 'ok' | 'unavailable' | 'lost' | 'error';
 
@@ -352,6 +352,7 @@ function HomeScreen() {
       data-entry={entryShown ?? undefined}
     >
       <div className="home__backdrop" aria-hidden="true" />
+      <div className="home__grid" aria-hidden="true" />
       <div className="home__floor" aria-hidden="true" />
       {gl === 'ok' ? (
         <div ref={hostRef} className={`home__scene${tip ? ' is-hovering' : ''}`} aria-hidden="true" data-testid="home-scene">
@@ -365,18 +366,22 @@ function HomeScreen() {
 
       <div className="home__layout" onScroll={() => rendererRef.current?.reframe()}>
         <header className="home__top">
-          <div className="home__brand">
-            <BrandMark size={26} />
-            <span>{PRODUCT_NAME}</span>
-          </div>
+          <p className="home__eyebrow">
+            <span className="home__eyebrow-dot" aria-hidden="true" />
+            <span className="home__eyebrow-long">Interpretación de perfiles · </span>FIUBA
+          </p>
           <ThemeToggle />
         </header>
 
         <section className="home__copy" aria-labelledby="home-title">
-          <p className="home__overline">Interpretación de perfiles · FIUBA</p>
-          <h1 id="home-title" className="home__title">
-            {PRODUCT_NAME}
-          </h1>
+          <div className="home__lockup">
+            <span className="home__emblem" aria-hidden="true">
+              <BrandMark size={84} animate />
+            </span>
+            <h1 id="home-title" className="home__title" aria-label={PRODUCT_NAME}>
+              <BrandName />
+            </h1>
+          </div>
           <p className="home__lead">Del perfil medido a la interpretación petrofísica: visor multipista, zonas, cutoffs y sumario, en el navegador y sin conexión.</p>
 
           {entry ? (

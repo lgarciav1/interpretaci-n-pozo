@@ -23,7 +23,8 @@ export { contrastRatio, ensureContrast, mix, withAlpha } from './color';
 export { decimalsForStep, formatNumber, formatParamValue, parseDecimal } from './format';
 export { positionToValue, stepValue, valueToPosition } from './scale';
 
-export { BrandMark, Icon, ICON_NAMES, type IconName } from './components/Icon';
+export { Icon, ICON_NAMES, type IconName } from './components/Icon';
+export { BrandMark, BrandName, BrandWordmark, PRODUCT_NAME, type BrandMarkProps } from './components/Brand';
 export { Button, IconButton, type ButtonProps, type ButtonVariant } from './components/Button';
 export { Checkbox, SegmentedControl, Switch, TabPanel, Tabs, type SegmentOption, type TabItem } from './components/Choice';
 export { Field, NumberField, Select, Slider, SliderField, TextField, type SelectOption } from './components/Fields';

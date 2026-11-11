@@ -1,0 +1,24 @@
+/* Marca y wordmark (src/ui/components/Brand.tsx, docs/decisiones/0070-marca.md). */
+.ui-brand-mark { display: block; flex: none; overflow: visible; }
+.ui-brand-mark.is-compact { filter: drop-shadow(0 1px 1.5px rgba(10, 11, 20, 0.22)); }
+
+.ui-wordmark { display: inline-flex; align-items: center; gap: var(--space-2-5); }
+.ui-wordmark__name { display: inline-flex; align-items: baseline; letter-spacing: -0.022em; white-space: nowrap; }
+.ui-wordmark__a { font-weight: var(--weight-regular); opacity: 0.74; }
+.ui-wordmark__b { font-weight: var(--weight-semibold); }
+
+/* Entrada de la marca en Inicio: la traza se registra de arriba hacia abajo y el relleno la acompaña. */
+@media (prefers-reduced-motion: no-preference) {
+  .ui-brand-mark.is-animated .ui-brand-mark__trace,
+  .ui-brand-mark.is-animated .ui-brand-mark__halo {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: ui-brand-draw 1.5s cubic-bezier(0.55, 0, 0.25, 1) 0.2s forwards;
+  }
+  .ui-brand-mark.is-animated .ui-brand-mark__fill {
+    clip-path: inset(0 0 100% 0);
+    animation: ui-brand-reveal 1.5s cubic-bezier(0.55, 0, 0.25, 1) 0.2s forwards;
+  }
+}
+@keyframes ui-brand-draw { to { stroke-dashoffset: 0; } }
+@keyframes ui-brand-reveal { to { clip-path: inset(0 0 0 0); } }

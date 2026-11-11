@@ -134,7 +134,8 @@ Escala por `devicePixelRatio`, redibuja al cambiar el tamaño (ResizeObserver), 
 | `UiScaleToggle` | Tamaño de interfaz: compacto / normal / grande. |
 | `CommandLayer` | Paleta de comandos (Ctrl/Cmd+K) y hoja de atajos («?»); se monta una vez en la raíz. Las acciones se registran con `registerCommandSource` o con un `commands.ts` descubierto (ver `commands.ts` y 0018). |
 | `CurveLegend`, `CurveSwatch` | Encabezado de curva (nombre en su color, rango, log, unidad, muestra del trazo); `tag` agrega una etiqueta («alternativa»). |
-| `Icon`, `BrandMark` | Íconos SVG propios (`ICON_NAMES`); para agregar uno, una entrada en `ICONS`. |
+| `Icon` | Íconos SVG propios (`ICON_NAMES`); para agregar uno, una entrada en `ICONS`. |
+| `BrandMark`, `BrandWordmark`, `BrandName` | Marca de fiubaLog (0070): compacta hasta 39 px, detallada desde 40; `animate` dibuja la traza (Inicio). Colores en `BASE_TOKENS.brand` (`--brand-*`), solo para marca e Inicio. |
 
 Puro y testeado (`tests/ui/`): `tokens.ts` (incluidos los niveles de tamaño), `uiScale.ts`, `color.ts`, `curves.ts`,
 `format.ts`, `scale.ts`, `computePosition` de `components/layer.tsx`.

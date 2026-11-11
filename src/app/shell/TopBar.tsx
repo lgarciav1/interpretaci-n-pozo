@@ -5,7 +5,7 @@
  */
 import { useRef, useState } from 'react';
 import { WORKSPACES, type WorkspaceId } from '../../core/workspaces';
-import { BrandMark, Button, Icon, IconButton, IS_MAC_PLATFORM, Menu, openCommandPalette, Popover, SegmentedControl, Spinner, StatusDot, ThemeToggle, Tooltip, UiScaleToggle, formatNumber } from '../../ui';
+import { BrandMark, BrandName, Button, Icon, IconButton, IS_MAC_PLATFORM, Menu, openCommandPalette, Popover, SegmentedControl, Spinner, StatusDot, ThemeToggle, Tooltip, UiScaleToggle, formatNumber } from '../../ui';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useResults } from '../store/results';
 import { useUi } from '../store/ui';
@@ -106,7 +106,7 @@ export function TopBar() {
     <header className="shell-topbar">
       <button type="button" className="shell-brand" onClick={openHome} aria-label="Inicio" title="Inicio: la sarta en 3D y la entrada al pozo (el trabajo queda como está)" data-testid="open-home">
         <BrandMark />
-        <span className="shell-brand__name">fiubaLog</span>
+        <BrandName className="shell-brand__name" />
         <span className="shell-brand__home">Inicio</span>
       </button>
       <nav className="shell-context" aria-label="Proyecto y pozo">
