@@ -232,6 +232,17 @@ describe('texto', () => {
     expect(parseFont('basura').size).toBe(10);
   });
 
+  it('strokeText: el mismo <text> sin relleno y con el trazo vigente (halo de los nombres de zona)', () => {
+    const c = make();
+    c.font = '600 10px sans-serif';
+    c.textBaseline = 'middle';
+    c.lineJoin = 'round';
+    c.lineWidth = 3;
+    c.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+    c.strokeText('A', 4, 10);
+    expect(body(c)).toBe('<text x="4" y="10" dy="0.35em" font-family="sans-serif" font-size="10" font-weight="600" fill="none" stroke="#ffffff" stroke-opacity="0.9" stroke-width="3" stroke-linejoin="round">A</text>');
+  });
+
   it('un texto vacío o con posición inválida no emite nada', () => {
     const c = make();
     c.fillText('', 1, 1);
@@ -281,7 +292,6 @@ describe('documento', () => {
   it('las operaciones que no existen fallan en voz alta y pintar un Path2D nativo/ajeno es un error claro', () => {
     const c = make() as unknown as Record<string, unknown>;
     expect(c['drawImage']).toBeUndefined();
-    expect(c['strokeText']).toBeUndefined();
     expect(() => make().fill({} as never)).toThrow(/Path2D/);
   });
 

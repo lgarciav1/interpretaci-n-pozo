@@ -22,7 +22,7 @@ import {
   type RawTable,
 } from '../../io';
 import { registry } from '../../modules';
-import { Badge, Button, Callout, DataTable, Dialog, Field, FileDrop, Section, Select, Spinner, TextField, Tooltip, WizardSteps, type Column, type SelectOption, type Tone } from '../../ui';
+import { Badge, Button, Callout, DataTable, Dialog, Field, FileDrop, Icon, Section, Select, Spinner, TextField, Tooltip, WizardSteps, type Column, type SelectOption, type Tone } from '../../ui';
 import { useProject } from '../store/project';
 import { computeQc, setWellQc } from '../store/qc';
 import { BoreholeSummary, QcCounts, QcCurveTable } from './Qc';
@@ -317,6 +317,7 @@ export function LoadWellDialog({ onClose, initialSource }: { onClose: () => void
       onClose={onClose}
       dismissible={!busy}
       size="xl"
+      className="lw-dialog"
       title="Cargar pozo"
       footer={footer}
       headerExtra={<WizardSteps steps={STEPS} current={step} aria-label="Pasos del asistente" />}
@@ -346,6 +347,9 @@ export function LoadWellDialog({ onClose, initialSource }: { onClose: () => void
             <span>o</span>
           </div>
           <div className="lw-tp">
+            <span className="lw-tp__icon ui-brand-tile" aria-hidden="true">
+              <Icon name="well" size={18} />
+            </span>
             <div className="lw-tp__text">
               <div className="lw-tp__title">Datos del TP</div>
               <div className="ui-text-muted">Perfiles medidos del pozo del TP: 5.810 muestras entre 7.633 y 8.518 m, zonas A–E. Incluidos en la app.</div>

@@ -25,6 +25,7 @@ export { positionToValue, stepValue, valueToPosition } from './scale';
 
 export { Icon, ICON_NAMES, type IconName } from './components/Icon';
 export { BrandMark, BrandName, BrandWordmark, PRODUCT_NAME, type BrandMarkProps } from './components/Brand';
+export { brandMarkSvg } from './brandSvg';
 export { Button, IconButton, type ButtonProps, type ButtonVariant } from './components/Button';
 export { Checkbox, SegmentedControl, Switch, TabPanel, Tabs, type SegmentOption, type TabItem } from './components/Choice';
 export { Field, NumberField, Select, Slider, SliderField, TextField, type SelectOption } from './components/Fields';

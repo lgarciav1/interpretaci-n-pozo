@@ -74,12 +74,11 @@
 }
 /* Papel de perfil: grilla logarítmica de 3 décadas × profundidad, que se desvanece desde la sarta hacia los bordes. */
 .home__grid {
-  --home-grid-svg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='48'%3E%3Cg stroke='white' stroke-width='1' shape-rendering='crispEdges' fill='none'%3E%3Cpath d='M0.0 0V48' stroke-opacity='0.9'/%3E%3Cpath d='M30.1 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M47.71 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M60.21 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M69.9 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M77.82 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M84.51 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M90.31 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M95.42 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M100.0 0V48' stroke-opacity='0.9'/%3E%3Cpath d='M130.1 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M147.71 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M160.21 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M169.9 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M177.82 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M184.51 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M190.31 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M195.42 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M200.0 0V48' stroke-opacity='0.9'/%3E%3Cpath d='M230.1 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M247.71 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M260.21 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M269.9 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M277.82 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M284.51 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M290.31 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M295.42 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M0 0H300' stroke-opacity='0.9'/%3E%3Cpath d='M0 8H300' stroke-opacity='0.4'/%3E%3Cpath d='M0 16H300' stroke-opacity='0.4'/%3E%3Cpath d='M0 24H300' stroke-opacity='0.4'/%3E%3Cpath d='M0 32H300' stroke-opacity='0.4'/%3E%3Cpath d='M0 40H300' stroke-opacity='0.4'/%3E%3C/g%3E%3C/svg%3E");
   position: absolute;
   inset: 0;
   background: radial-gradient(55% 62% at 67% 46%, var(--home-grid), transparent);
-  -webkit-mask-image: var(--home-grid-svg);
-  mask-image: var(--home-grid-svg);
+  -webkit-mask-image: var(--brand-logpaper);
+  mask-image: var(--brand-logpaper);
   transition: opacity var(--dur-slow) var(--ease-exit);
 }
 .home.is-entering .home__grid, .home.is-leaving .home__grid { opacity: 0; }

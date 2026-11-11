@@ -12,22 +12,40 @@
   color: var(--color-text-muted);
   cursor: pointer;
   transition: background-color var(--dur-fast) var(--ease-standard), border-color var(--dur-fast) var(--ease-standard);
+  /* Papel de perfil detrás del texto (0070): tenue en reposo, del color de acento al pasar o arrastrar. */
+  --filedrop-grid: color-mix(in srgb, var(--color-text) 9%, transparent);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
 }
+.ui-filedrop::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(58% 95% at 50% 50%, var(--filedrop-grid), transparent);
+  -webkit-mask-image: var(--brand-logpaper);
+  mask-image: var(--brand-logpaper);
+  -webkit-mask-position: center;
+  mask-position: center;
+  pointer-events: none;
+}
+.ui-filedrop:hover, .ui-filedrop.is-over { --filedrop-grid: color-mix(in srgb, var(--color-accent) 30%, transparent); }
 .ui-filedrop:hover, .ui-filedrop.is-over { border-color: var(--color-accent); background: var(--color-accent-soft); }
 .ui-filedrop:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-color: var(--color-accent); }
 .ui-filedrop.is-disabled { cursor: default; opacity: 0.6; }
 .ui-filedrop.is-disabled:hover { border-color: var(--color-border-strong); background: var(--color-surface-subtle); }
 .ui-filedrop__icon {
+  transition: transform var(--dur-base) var(--ease-standard), box-shadow var(--dur-base) var(--ease-standard);
   display: grid;
   place-items: center;
   width: calc(44px * var(--ui-scale));
   height: calc(44px * var(--ui-scale));
   margin-bottom: var(--space-1-5);
-  border: 1px solid var(--color-border);
+  border: 1px solid transparent;
   border-radius: var(--radius-lg);
-  background: var(--color-surface);
-  color: var(--color-accent-text);
-  box-shadow: var(--shadow-xs);
+  /* Fondo, color y sombra: `.ui-brand-tile` (brand.css). */
 }
 .ui-filedrop__title { font-size: var(--text-lg); font-weight: var(--weight-semibold); color: var(--color-text); }
 .ui-filedrop__text { max-width: calc(460px * var(--ui-scale)); line-height: var(--leading-relaxed); }
+.ui-filedrop:hover:not(.is-disabled) .ui-filedrop__icon, .ui-filedrop.is-over .ui-filedrop__icon { transform: translateY(-2px); box-shadow: 0 10px 20px -8px color-mix(in srgb, var(--brand-thermal3) 85%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.10); }

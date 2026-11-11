@@ -11,34 +11,25 @@
  *   el movimiento).
  * - `BrandWordmark`: el cuadro y el nombre («fiuba» liviano, «Log» semibold).
  *
- * Colores: `BASE_TOKENS.brand` (iguales en los dos temas).
+ * Colores: `BASE_TOKENS.brand` (iguales en los dos temas). Geometría: `../brandSvg.ts` (compartida con el informe).
  */
 import { useId } from 'react';
 import { BASE_TOKENS } from '../tokens';
+import {
+  BRAND_GRID_H as GRID_H,
+  BRAND_GRID_V as GRID_V,
+  BRAND_HEAT_STOPS,
+  BRAND_STRATA as STRATA,
+  BRAND_TRACE_COMPACT as TRACE_COMPACT,
+  BRAND_TRACE_DETAIL as TRACE_DETAIL,
+  brandFillOf as fillOf,
+  brandStroke,
+} from '../brandSvg';
 import './brand.css';
 
-/** Nombre del producto. */
-export const PRODUCT_NAME = 'fiubaLog';
+export { PRODUCT_NAME } from '../brandSvg';
 
 const B = BASE_TOKENS.brand;
-
-/** Traza compacta (viewBox 64): pocos quiebres, esquinas redondeadas. */
-const TRACE_COMPACT =
-  'M37 0 L37.4 10.4 Q37.5 13 34.97 13.61 L25.53 15.89 Q23 16.5 22.85 19.1 L22.65 22.4 Q22.5 25 25.05 25.51 L37.45 27.99 Q40 28.5 40 31.1 L40 33.4 Q40 36 37.48 36.66 L31.02 38.34 Q28.5 39 31 39.73 L38 41.77 Q40.5 42.5 38.46 44.11 L23.54 55.89 Q21.5 57.5 21.7 60.09 L22 64';
-
-/** Traza detallada (viewBox 64): arcilla, arena en bloque, arcilla, arena delgada y embudo granocreciente. */
-const TRACE_DETAIL =
-  'M37 0 L37.37 4.41 Q37.5 6 37 7.5 Q36.5 9 37.52 10.23 L37.98 10.77 Q39 12 38.25 13.25 Q37.5 14.5 35.92 14.73 L25.58 16.27 Q24 16.5 23 17.75 Q22 19 22.72 20.43 L22.78 20.57 Q23.5 22 22.61 23.33 L22.39 23.67 Q21.5 25 22.96 25.65 L24.54 26.35 Q26 27 27.59 27.17 L38.41 28.33 Q40 28.5 40.5 30 Q41 31.5 39.87 32.63 L39.63 32.87 Q38.5 34 39.5 35.25 Q40.5 36.5 38.92 36.75 L29.58 38.25 Q28 38.5 28.75 39.5 Q29.5 40.5 31.09 40.71 L39.41 41.79 Q41 42 40.11 43.33 L39.89 43.67 Q39 45 37.63 45.82 L22.87 55.13 Q21 57 21.23 58.58 L22 64';
-
-/** Cierra la traza por la derecha: el área del relleno térmico. */
-const fillOf = (trace: string) => `${trace} L64 64 L64 0 Z`;
-
-/** Estratos: contactos suavemente inclinados que cruzan el cuadro. */
-const STRATA = ['M0 15.5 C18 14 40 17 64 15', 'M0 27.5 C20 26 42 29.5 64 27', 'M0 37.5 C18 36 44 39.5 64 37', 'M0 47 C16 45.5 44 49 64 46'];
-
-/** Grilla de papel de perfil (solo se ve sobre la tinta): verticales cada 5, horizontales cada 4 (más marcada cada 5). */
-const GRID_V = [5, 10, 15, 20, 25, 30];
-const GRID_H = Array.from({ length: 16 }, (_, i) => 2 + i * 4);
 
 export interface BrandMarkProps {
   /** Lado en px en el nivel Compacto (escala con el tamaño de interfaz). Por defecto 22. */
@@ -58,7 +49,7 @@ export function BrandMark({ size = 22, detail, animate = false, label, className
   const full = (detail ?? (size >= 40 ? 'full' : 'compact')) === 'full';
   const trace = full ? TRACE_DETAIL : TRACE_COMPACT;
   // El trazo se afina con el tamaño: grueso en 16 px (si no, desaparece), fino en el emblema.
-  const stroke = full ? (size >= 96 ? 1.8 : 2.2) : size <= 18 ? 4.2 : 3.4;
+  const stroke = brandStroke(full, size);
   const side = `calc(${size}px * var(--ui-scale, 1))`;
   const classes = ['ui-brand-mark', full ? 'is-full' : 'is-compact', animate ? 'is-animated' : '', className ?? ''].filter(Boolean).join(' ');
 
@@ -77,10 +68,9 @@ export function BrandMark({ size = 22, detail, animate = false, label, className
           <stop offset="1" stopColor={B.inkDeep} />
         </linearGradient>
         <linearGradient id={id('heat')} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor={B.thermal1} />
-          <stop offset="0.42" stopColor={B.thermal2} />
-          <stop offset="0.75" stopColor={B.thermal3} />
-          <stop offset="1" stopColor={B.thermal4} />
+          {BRAND_HEAT_STOPS.map(([o, c]) => (
+            <stop key={o} offset={o} stopColor={c} />
+          ))}
         </linearGradient>
         <linearGradient id={id('edge')} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#fff" stopOpacity="0.24" />

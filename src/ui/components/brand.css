@@ -1,4 +1,14 @@
 /* Marca y wordmark (src/ui/components/Brand.tsx, docs/decisiones/0070-marca.md). */
+
+/*
+ * Papel de perfil: grilla logarítmica de 3 décadas × profundidad (300 × 48 px), en blanco para usarla como máscara:
+ * `background: <color o gradiente>; mask-image: var(--brand-logpaper)`. Inicio, la zona para soltar archivos y los
+ * estados vacíos. Nunca detrás de datos.
+ */
+:root {
+  --brand-logpaper: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='48'%3E%3Cg stroke='white' stroke-width='1' shape-rendering='crispEdges' fill='none'%3E%3Cpath d='M0.0 0V48' stroke-opacity='0.9'/%3E%3Cpath d='M30.1 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M47.71 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M60.21 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M69.9 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M77.82 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M84.51 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M90.31 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M95.42 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M100.0 0V48' stroke-opacity='0.9'/%3E%3Cpath d='M130.1 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M147.71 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M160.21 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M169.9 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M177.82 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M184.51 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M190.31 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M195.42 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M200.0 0V48' stroke-opacity='0.9'/%3E%3Cpath d='M230.1 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M247.71 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M260.21 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M269.9 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M277.82 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M284.51 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M290.31 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M295.42 0V48' stroke-opacity='0.45'/%3E%3Cpath d='M0 0H300' stroke-opacity='0.9'/%3E%3Cpath d='M0 8H300' stroke-opacity='0.4'/%3E%3Cpath d='M0 16H300' stroke-opacity='0.4'/%3E%3Cpath d='M0 24H300' stroke-opacity='0.4'/%3E%3Cpath d='M0 32H300' stroke-opacity='0.4'/%3E%3Cpath d='M0 40H300' stroke-opacity='0.4'/%3E%3C/g%3E%3C/svg%3E");
+}
+
 .ui-brand-mark { display: block; flex: none; overflow: visible; }
 .ui-brand-mark.is-compact { filter: drop-shadow(0 1px 1.5px rgba(10, 11, 20, 0.22)); }
 
@@ -22,3 +32,13 @@
 }
 @keyframes ui-brand-draw { to { stroke-dashoffset: 0; } }
 @keyframes ui-brand-reveal { to { clip-path: inset(0 0 0 0); } }
+
+/* Cuadro de ícono «de marca»: tinta y, al pie, el gradiente térmico (como la marca: caliente en profundidad). */
+.ui-brand-tile {
+  background:
+    linear-gradient(90deg, var(--brand-thermal2), var(--brand-thermal3) 60%, var(--brand-thermal4)) bottom / 100% 2px no-repeat,
+    linear-gradient(160deg, var(--brand-ink), var(--brand-ink-deep));
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 6px 14px -8px color-mix(in srgb, var(--brand-thermal3) 70%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.10);
+}

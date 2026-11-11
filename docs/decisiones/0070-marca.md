@@ -4,7 +4,10 @@
 - Alcance: `src/ui/components/Brand.tsx` y `brand.css` (nuevos), `src/ui/tokens.ts` (`BASE_TOKENS.brand`),
   `src/ui/components/Icon.tsx` (sale la marca vieja), `src/ui/index.ts`, `src/ui/showcase/DesignSystemPage.tsx`,
   `src/app/home/` (`HomeScreen.tsx`, `home.css`), `src/app/shell/` (`TopBar.tsx`, `SmallScreenNotice.tsx`),
-  `index.html` (favicon). Amplía la 0065 (pantalla de Inicio) y la 0004 (sistema de diseño).
+  `index.html` (favicon); en una segunda pasada, `src/ui/brandSvg.ts`, `FileDrop`, `EmptyState`, el diálogo de carga
+  (`src/app/components/LoadWellDialog.tsx`), el informe (`src/app/report/report.ts`), el indicador del motor y el
+  grabador SVG de figuras (`src/io/export/figures/svg.ts`). Amplía la 0065 (Inicio), la 0004 (sistema de diseño) y la
+  0012 (figuras).
   Capturas antes/después: `docs/capturas/marca/`.
 
 ## Contexto
@@ -52,9 +55,37 @@ interfaz sigue siendo el índigo de 0004, y los colores de curva siguen la palet
 | Ondas de agua, vidrio acanalado, paisajes monocromos, pasto | No | Fotográficos o ilusionistas: sin relación con el dominio, pesan en un HTML único y distraen. |
 | Paletas de dos colores + acento | Solo la idea | El índigo de acento + un acento cálido es justamente el par de la marca; no se cambia la paleta de la interfaz. |
 
-**El espacio de trabajo no cambia**: el visor, los gráficos y los paneles siguen neutros. La prioridad 2 del proyecto
+**Donde se leen datos no cambia nada**: el visor, los gráficos y los paneles siguen neutros. La prioridad 2 del proyecto
 pide una interfaz moderna *respetando las convenciones de lectura del perfil*; un fondo con textura o gradientes detrás
-de las pistas compite con los rellenos y los colores de curva. Ahí la marca aparece solo en la barra superior.
+de las pistas compite con los rellenos y los colores de curva.
+
+### Fuera de los datos: los bordes del trabajo
+
+La marca sí entra en las superficies que rodean el trabajo y no muestran curvas:
+
+- **Zona para soltar archivos** (`FileDrop`, la usan la carga de pozo, la corona y el digitalizador): papel de perfil
+  tenue detrás del texto, que toma el color de acento al pasar o arrastrar; el ícono en un cuadro de marca
+  (`.ui-brand-tile`: tinta con el filo térmico al pie) que se levanta al pasar.
+- **Diálogo «Cargar pozo»**: filo térmico arriba (el primer diálogo del trabajo) y la tarjeta «Datos del TP» con el
+  mismo cuadro de marca.
+- **Estados vacíos** (`EmptyState`, ~30 en los paneles de módulos): papel de perfil dentro del cuadro del ícono y el
+  filo térmico al pie. Se resuelve en el componente, sin tocar los módulos. El espacio de trabajo sin pozo no existe
+  como estado (la app arranca en Inicio o con la demostración), así que no hay una pantalla vacía que diseñar.
+- **Informe**: marca, nombre y «Interpretación de perfiles · FIUBA» arriba, con una franja térmica que se imprime
+  (`print-color-adjust: exact`). La marca va como SVG en línea generado por `brandMarkSvg` (`src/ui/brandSvg.ts`, puro;
+  la misma geometría que el componente), sin filtros para que imprima igual en cualquier navegador.
+- **Indicador del motor**: el giro de «Calculando…» usa los colores de la marca; listo y error siguen verde y rojo.
+- **Las figuras exportadas no llevan marca**: van dentro del informe o de la entrega del TP y tienen que poder usarse
+  sueltas.
+
+La textura de papel de perfil se define una vez como `--brand-logpaper` (máscara blanca, en `brand.css`).
+
+### Arreglo encontrado de paso: nombres de zona en las figuras SVG
+
+El perfil clásico (0067) dibuja el nombre de cada zona con un halo (`strokeText`), que el grabador SVG de figuras no
+implementaba: la superposición de zonas fallaba en cada figura del perfil (dos errores de consola al generar el
+informe, ya presentes en `main`) y los nombres no salían. El grabador ahora implementa `strokeText` como el mismo
+`<text>` sin relleno y con el trazo vigente; la pantalla no cambia y las figuras recuperan los nombres con su halo.
 
 ### Costo
 
@@ -68,4 +99,6 @@ estas capas son texturas fijas.
 
 - `BrandMark` se importa de `src/ui` como antes (ahora desde `components/Brand.tsx`); `PRODUCT_NAME` pasa a `src/ui`.
 - El favicon es la marca compacta en SVG embebido (sigue funcionando sin internet).
+- Un componente nuevo con ícono destacado puede usar `.ui-brand-tile`; un fondo vacío, `--brand-logpaper` como máscara.
+  Ninguno de los dos va detrás de datos.
 - La marca no cambia con el tema: si se agrega un tema nuevo, no hay que tocarla.
