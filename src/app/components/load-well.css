@@ -12,7 +12,23 @@
   border-radius: var(--radius-lg);
   background: var(--color-surface);
 }
+.lw-tp__icon { display: grid; flex: none; place-items: center; width: calc(36px * var(--ui-scale)); height: calc(36px * var(--ui-scale)); border: 1px solid transparent; border-radius: var(--radius-md); }
 .lw-tp__text { flex: 1; min-width: 0; }
+
+/* Primer diálogo del trabajo: el filo térmico de la marca arriba, como la cabecera del informe (0070). */
+.lw-dialog { position: relative; }
+.lw-dialog::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 1;
+  height: 3px;
+  border-radius: inherit;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  background: linear-gradient(90deg, var(--brand-thermal2), var(--brand-thermal3) 60%, var(--brand-thermal4));
+  pointer-events: none;
+}
 .lw-tp__title { font-weight: var(--weight-semibold); }
 
 .lw-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3) var(--space-5); }

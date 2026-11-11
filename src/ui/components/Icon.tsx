@@ -371,14 +371,3 @@ export function Icon({ name, size = 16, strokeWidth = 1.75, className, style, la
   );
 }
 
-/** Marca de la app: traza de perfil dentro de un cuadrado redondeado. */
-export function BrandMark({ size = 22 }: { size?: number }) {
-  return (
-    <svg className="ui-brand-mark" width={size} height={size} style={{ width: scaledSide(size), height: scaledSide(size) }} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <rect x="1" y="1" width="22" height="22" rx="6" fill="var(--color-accent)" />
-      <path d="M6.5 6.5h11M6.5 12h11M6.5 17.5h11" stroke="rgba(255,255,255,0.22)" strokeWidth="1.2" />
-      <path d="M9 4.5l3.2 2.8-2.4 2.6 4.6 2.4-3.6 2.6 2.4 2.4-2.2 2.2" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-

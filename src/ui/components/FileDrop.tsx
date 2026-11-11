@@ -5,6 +5,7 @@
 import { useRef, useState, type DragEvent, type ReactNode } from 'react';
 import './filedrop.css';
 import { Icon, type IconName } from './Icon';
+import './brand.css';
 
 export interface FileDropProps {
   onFile(file: File): void;
@@ -49,7 +50,7 @@ export function FileDrop({ onFile, accept, title, description, icon = 'upload', 
         onDragLeave={() => setOver(false)}
         onDrop={onDrop}
       >
-        <span className="ui-filedrop__icon" aria-hidden="true">
+        <span className="ui-filedrop__icon ui-brand-tile" aria-hidden="true">
           <Icon name={icon} size={22} />
         </span>
         <span className="ui-filedrop__title">{title}</span>

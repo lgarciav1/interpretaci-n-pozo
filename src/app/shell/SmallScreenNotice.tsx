@@ -55,7 +55,7 @@ export function SmallScreenNotice({ shellRef }: { shellRef: RefObject<HTMLDivEle
   if (!show) return null;
   return (
     <div className="small-screen" role="alertdialog" aria-modal="true" aria-labelledby="small-screen-title" aria-describedby="small-screen-text" data-testid="small-screen-notice">
-      <BrandMark />
+      <BrandMark size={48} />
       <h2 id="small-screen-title" className="small-screen__title">Mejor en una pantalla más grande</h2>
       <p id="small-screen-text" className="small-screen__text">
         El perfil, los gráficos y los parámetros necesitan al menos 1024 px de ancho. Abrí fiubaLog en una computadora o girá el dispositivo; el trabajo queda como está.

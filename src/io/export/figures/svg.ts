@@ -16,7 +16,7 @@
  * - `clearRect` solo vacía el documento si cubre todo el lienzo sin transformar; en otro caso se ignora (el dibujo de
  *   las figuras siempre pinta primero su fondo).
  * - Los mosaicos declarativos usan `fillTiledRect` y se emiten como `<pattern>` vectoriales repetibles.
- * - Lo que no está implementado (`drawImage`, `strokeText`, patrones nativos arbitrarios…) no existe: llamarlo falla con un TypeError en
+ * - Lo que no está implementado (`drawImage`, patrones nativos arbitrarios…) no existe: llamarlo falla con un TypeError en
  *   vez de dibujar mal en silencio (las superposiciones están aisladas con `guard`: el error se registra y el resto
  *   de la figura sigue).
  */
@@ -385,12 +385,21 @@ export class SvgContext2D {
   }
 
   fillText(text: string, x: number, y: number): void {
+    this.text(text, x, y, this.paint('fill', this.fillStyle));
+  }
+
+  /** Contorno del texto (el halo de los nombres de zona del perfil clásico): mismo `<text>`, sin relleno. */
+  strokeText(text: string, x: number, y: number): void {
+    this.text(text, x, y, ` fill="none"${this.strokeAttrs()}`);
+  }
+
+  private text(text: string, x: number, y: number, paint: string): void {
     if (!text || !Number.isFinite(x) || !Number.isFinite(y)) return;
     const f = parseFont(this.font);
     const dy = BASELINE_DY[this.textBaseline] ?? 0;
     const anchor = ANCHOR[this.textAlign] ?? 'start';
     this.emit(
-      `<text x="${num(x)}" y="${num(y)}"${dy ? ` dy="${num(dy)}em"` : ''} font-family="${escAttr(f.family)}" font-size="${num(f.size)}"${f.weight !== '400' ? ` font-weight="${f.weight}"` : ''}${f.style ? ` font-style="${f.style}"` : ''}${anchor !== 'start' ? ` text-anchor="${anchor}"` : ''}${this.paint('fill', this.fillStyle)}${transformAttr(this.ctm)}>${escText(text)}</text>`,
+      `<text x="${num(x)}" y="${num(y)}"${dy ? ` dy="${num(dy)}em"` : ''} font-family="${escAttr(f.family)}" font-size="${num(f.size)}"${f.weight !== '400' ? ` font-weight="${f.weight}"` : ''}${f.style ? ` font-style="${f.style}"` : ''}${anchor !== 'start' ? ` text-anchor="${anchor}"` : ''}${paint}${transformAttr(this.ctm)}>${escText(text)}</text>`,
     );
   }
 

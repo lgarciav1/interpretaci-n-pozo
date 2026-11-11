@@ -28,6 +28,15 @@ describe('tokens', () => {
     expect(css).toMatch(/prefers-reduced-motion: reduce[\s\S]*--dur-base: 0ms;/);
   });
 
+  it('la marca: colores iguales en los dos temas, como variables --brand-*', () => {
+    const css = tokensToCss();
+    expect(css).toContain(`--brand-thermal1: ${BASE_TOKENS.brand.thermal1};`);
+    expect(css).toContain(`--brand-ink-deep: ${BASE_TOKENS.brand.inkDeep};`);
+    // Viven en :root (base), no en los bloques de tema.
+    const dark = /\[data-theme="dark"\] \{[^}]*\}/.exec(css)?.[0] ?? '';
+    expect(dark).not.toContain('--brand-');
+  });
+
   it('todo var(--x) usado en los CSS de src existe (tokens o declarado en el mismo CSS)', () => {
     const defined = definedCssVars();
     const all = Object.values(CSS_FILES).join('\n');

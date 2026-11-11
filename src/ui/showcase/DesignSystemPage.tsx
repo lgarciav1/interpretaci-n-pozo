@@ -11,6 +11,7 @@ import { BASE_TOKENS, THEMES } from '../tokens';
 import {
   Badge,
   BrandMark,
+  BrandWordmark,
   Button,
   Callout,
   Checkbox,
@@ -404,6 +405,19 @@ export function DesignSystemPage() {
       </header>
 
       <main className="showcase-main">
+        <Block title="Marca (compacta hasta 39 px, detallada desde 40)" wide>
+          <Row label="Cuadro">
+            {[16, 22, 32, 48, 96].map((s) => (
+              <BrandMark key={s} size={s} label={`Marca a ${s} px`} />
+            ))}
+          </Row>
+          <Row label="Wordmark">
+            <span style={{ fontSize: 'var(--text-lg)' }}>
+              <BrandWordmark />
+            </span>
+          </Row>
+        </Block>
+
         <Block title="Paleta de curvas por rol (claro y oscuro)" wide>
           <div className="showcase-grid2">
             <Palette theme="light" />

@@ -109,6 +109,9 @@ describe('informe automático', () => {
     expect(html).not.toContain('Advertencias y limitaciones');
     expect(html).toContain('@media print');
     expect(html).toContain('window.print()');
+    // Cabecera con la marca (0070): SVG en línea, sin recursos externos.
+    expect(html).toContain('<span class="brand-name"><span>fiuba</span><b>Log</b></span>');
+    expect(html).toMatch(/<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" width="40" height="40" viewBox="0 0 64 64" role="img" aria-label="fiubaLog">/);
     expect(html).not.toMatch(/(?:src|href)="https?:/);
   });
 

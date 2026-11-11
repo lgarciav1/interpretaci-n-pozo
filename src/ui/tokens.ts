@@ -50,6 +50,19 @@ export const BASE_TOKENS = {
     sidebarRight: 368,
     dock: 260,
   },
+  /**
+   * Marca (docs/decisiones/0070-marca.md). Iguales en los dos temas: el cuadro de la marca es siempre tinta oscura y
+   * el gradiente térmico (frío arriba, caliente en profundidad) es la firma. Solo para la marca y la pantalla de
+   * Inicio; nunca en datos, curvas ni controles.
+   */
+  brand: {
+    ink: '#20243f',
+    inkDeep: '#0a0b14',
+    thermal1: '#9599ff',
+    thermal2: '#5e64e6',
+    thermal3: '#c2549a',
+    thermal4: '#ff9a52',
+  },
 } as const;
 
 /** Unidad CSS de cada grupo numérico de BASE_TOKENS ('' = sin unidad). */
@@ -65,6 +78,7 @@ const BASE_UNITS: Record<keyof typeof BASE_TOKENS, string> = {
   dur: 'ms',
   ease: '',
   size: 'px',
+  brand: '',
 };
 
 // ---------------------------------------------------------------------------------------------------------------

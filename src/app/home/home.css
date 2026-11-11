@@ -14,6 +14,10 @@
   --home-steel-lo: #4a525c;
   --home-glass: rgba(255, 255, 255, 0.72);
   --home-glass-border: rgba(20, 28, 40, 0.08);
+  --home-grid: rgba(40, 52, 90, 0.10);
+  --home-glow-1: color-mix(in srgb, var(--brand-thermal2) 20%, transparent);
+  --home-glow-2: color-mix(in srgb, var(--brand-thermal3) 14%, transparent);
+  --home-glow-3: color-mix(in srgb, var(--brand-thermal4) 12%, transparent);
   position: fixed;
   inset: 0;
   z-index: var(--z-home);
@@ -32,6 +36,10 @@
   --home-steel-lo: #2c3138;
   --home-glass: rgba(22, 26, 34, 0.72);
   --home-glass-border: rgba(255, 255, 255, 0.07);
+  --home-grid: rgba(170, 185, 255, 0.1);
+  --home-glow-1: color-mix(in srgb, var(--brand-thermal2) 30%, transparent);
+  --home-glow-2: color-mix(in srgb, var(--brand-thermal3) 22%, transparent);
+  --home-glow-3: color-mix(in srgb, color-mix(in srgb, var(--brand-thermal3) 45%, var(--brand-thermal4)) 22%, transparent);
 }
 
 .home.is-returning { animation: home-in var(--dur-slow) var(--ease-enter) both; }
@@ -39,21 +47,46 @@
 .home.is-leaving { opacity: 0; pointer-events: none; transition: opacity var(--home-fade) var(--ease-standard); }
 @keyframes home-in { from { opacity: 0; } to { opacity: 1; } }
 
+/*
+ * Fondo con la marca (docs/decisiones/0070), todo en un solo elemento para no sumar capas que recomponer en cada
+ * cuadro de la escena 3D: grano (para que los gradientes no se vean planos), resplandor térmico detrás de la sarta
+ * (frío arriba, caliente al pie) y el fondo de estudio. Solo en Inicio: el espacio de trabajo queda neutro.
+ */
 .home__backdrop {
+  --home-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.06'/%3E%3C/svg%3E");
+  --home-glow:
+    radial-gradient(30% 34% at 66% 28%, var(--home-glow-1), transparent 70%),
+    radial-gradient(22% 26% at 88% 52%, var(--home-glow-2), transparent 70%),
+    radial-gradient(26% 16% at 64% 63%, var(--home-glow-3), transparent 72%);
   position: absolute;
   inset: 0;
   background:
+    var(--home-grain),
+    var(--home-glow),
     radial-gradient(85% 75% at 66% 44%, var(--home-bg-0) 0%, var(--home-bg-1) 58%, var(--home-bg-2) 100%);
 }
 [data-theme='dark'] .home__backdrop {
   background:
+    var(--home-grain),
+    var(--home-glow),
     radial-gradient(60% 55% at 70% 40%, rgba(150, 170, 210, 0.10), transparent 70%),
     radial-gradient(90% 80% at 66% 44%, var(--home-bg-0) 0%, var(--home-bg-1) 55%, var(--home-bg-2) 100%);
 }
+/* Papel de perfil: grilla logarítmica de 3 décadas × profundidad, que se desvanece desde la sarta hacia los bordes. */
+.home__grid {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(55% 62% at 67% 46%, var(--home-grid), transparent);
+  -webkit-mask-image: var(--brand-logpaper);
+  mask-image: var(--brand-logpaper);
+  transition: opacity var(--dur-slow) var(--ease-exit);
+}
+.home.is-entering .home__grid, .home.is-leaving .home__grid { opacity: 0; }
 
 /* Sombra de apoyo bajo la pieza (exhibición): se va al entrar al pozo. */
 .home__floor { position: absolute; inset: 0; background: radial-gradient(var(--floor-w, 34%) 8% at var(--floor-x, 67%) var(--floor-y, 60%), var(--home-floor), transparent 70%); transition: opacity var(--dur-slow) var(--ease-exit); }
 .home.is-entering .home__floor, .home.is-leaving .home__floor { opacity: 0; }
+
 .home__scene { position: absolute; inset: 0; touch-action: none; cursor: grab; }
 .home__scene:active { cursor: grabbing; }
 .home__scene.is-hovering { cursor: pointer; }
@@ -89,7 +122,40 @@
 .home__stage > * { pointer-events: auto; }
 
 .home__top { grid-area: top; display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
-.home__brand { display: flex; align-items: center; gap: var(--space-2-5); font-size: var(--text-lg); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-tight); }
+.home__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-2-5);
+  border: 1px solid var(--home-glass-border);
+  border-radius: var(--radius-full);
+  background: var(--home-glass);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  backdrop-filter: blur(8px);
+}
+@media (max-width: 480px) { .home__eyebrow-long { display: none; } }
+.home__eyebrow-dot { width: 7px; height: 7px; border-radius: 50%; background: linear-gradient(180deg, var(--brand-thermal1), var(--brand-thermal3) 60%, var(--brand-thermal4)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-thermal3) 18%, transparent); }
+
+/* Marca grande + nombre: el emblema apoya sobre su propio resplandor térmico. */
+.home__lockup { display: flex; align-items: center; gap: clamp(14px, 1.4vw, 22px); }
+.home__emblem { position: relative; flex: none; display: block; }
+.home__emblem::after {
+  content: '';
+  position: absolute;
+  inset: 22% 8% -18%;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--brand-thermal3) 55%, transparent), transparent);
+  filter: blur(14px);
+  opacity: 0.75;
+}
+.home__emblem .ui-brand-mark { filter: drop-shadow(0 14px 22px rgba(10, 11, 20, 0.28)); }
 
 .home__copy {
   grid-area: copy;
@@ -101,15 +167,24 @@
   padding: var(--space-8) 0;
   transition: opacity var(--dur-slow) var(--ease-exit), transform var(--dur-slow) var(--ease-exit);
 }
-.home__overline { margin: 0; color: var(--color-text-subtle); font-size: var(--text-xs); font-weight: var(--weight-semibold); letter-spacing: 0.14em; text-transform: uppercase; }
 .home__title {
-  margin: calc(-1 * var(--space-2)) 0 0;
-  font-size: clamp(34px, 3.6vw, 56px);
+  margin: 0;
+  font-size: clamp(40px, 4.4vw, 68px);
   font-weight: var(--weight-semibold);
-  line-height: 1.04;
-  letter-spacing: -0.028em;
-  text-wrap: balance;
+  line-height: 1;
+  letter-spacing: -0.035em;
 }
+.home__title .ui-wordmark__name { letter-spacing: inherit; }
+.home__title .ui-wordmark__a { font-weight: 300; opacity: 0.9; }
+/* «Log» con el gradiente térmico (más oscuro en claro para que conserve contraste de texto grande). */
+.home__title .ui-wordmark__b {
+  padding-right: 0.04em;
+  background: linear-gradient(100deg, #4f55d8 0%, #a5458f 55%, #d5641f 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+[data-theme='dark'] .home__title .ui-wordmark__b { background-image: linear-gradient(100deg, var(--brand-thermal1) 0%, var(--brand-thermal3) 55%, var(--brand-thermal4) 100%); }
 .home__lead { margin: 0; max-width: 30rem; color: var(--color-text-muted); font-size: var(--text-xl); line-height: var(--leading-relaxed); text-wrap: pretty; }
 .home__empty { margin: 0; max-width: 30rem; color: var(--color-text-muted); font-size: var(--text-md); line-height: var(--leading-relaxed); }
 
@@ -255,7 +330,8 @@
     overflow-y: auto;
   }
   .home__copy { justify-content: flex-start; gap: var(--space-4); padding: var(--space-2) 0 var(--space-4); max-width: none; }
-  .home__title { font-size: 34px; }
+  .home__title { font-size: 40px; }
+  .home__emblem .ui-brand-mark { width: 60px !important; height: 60px !important; }
   .home__lead { font-size: var(--text-lg); }
   .home__well { grid-template-columns: repeat(2, auto); }
   .home__actions > .ui-btn--primary { align-self: stretch; justify-content: center; }
