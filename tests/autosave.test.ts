@@ -12,7 +12,7 @@ import { deserializeProject, serializeProject } from '../src/core/state/serializ
 import { createWell } from '../src/core/well';
 import { syntheticWell } from '../src/app/demo/syntheticWell';
 import { ProjectFileClient, type FileWorker } from '../src/app/projectFiles/client';
-import { isContentError, ProjectFileContentError, runProjectFileTask, type ProjectFileResult, type ProjectFileTask } from '../src/app/projectFiles/task';
+import { isContentError, isResourceFailure, ProjectFileContentError, runProjectFileTask, type ProjectFileResult, type ProjectFileTask } from '../src/app/projectFiles/task';
 import { AUTOSAVE_DELAY_MS, AutosaveSession, fileVersionOf, MAX_SESSIONS, RETRY_DELAYS_MS, validateMeta, type AutosaveNotice } from '../src/app/autosave/session';
 import { MemoryStorage, SESSION_SCHEMA, type SessionMeta } from '../src/app/autosave/storage';
 import { DEFAULT_PROJECT_NAME, formatAgo, sessionTitle } from '../src/app/autosave/store';
@@ -530,6 +530,25 @@ describe('autoguardado: revisión (escrituras lentas, fallos, infraestructura, d
     expect(a.session.snapshot()).toMatchObject({ status: 'saved', error: null });
   });
 
+  it('abrir un archivo después de una racha de fallos empieza sin error y el primer fallo nuevo vuelve a avisar', async () => {
+    const s = new MemoryStorage();
+    s.write = async () => { throw Object.assign(new Error('cupo'), { name: 'QuotaExceededError' }); };
+    const a = harness({ storage: s });
+    const p = richProject();
+    a.set(p);
+    await advance(AUTOSAVE_DELAY_MS);
+    expect(a.session.snapshot().status).toBe('error');
+    const opened = setParam(p, p.wells[0]!.well.id, 'grClean', 31);
+    a.session.openedFromFile(opened);
+    a.set(opened);
+    expect(a.session.snapshot().error).toBeNull();
+    a.set(setParam(opened, p.wells[0]!.well.id, 'grClean', 32));
+    expect(a.session.snapshot().status).toBe('dirty');
+    await advance(AUTOSAVE_DELAY_MS);
+    expect(a.session.snapshot().status).toBe('error');
+    expect(a.notices).toHaveLength(2);
+  });
+
   it('recuperar con una escritura en curso espera a que termine: no descarta la sesión y la recupera', async () => {
     const storage = await savedSession('vieja', richProject());
     const gate = deferred();
@@ -650,6 +669,15 @@ describe('worker de archivos: errores de contenido e infraestructura', () => {
     expect(isContentError(await odd.catch((e) => e))).toBe(false);
     const slow = await client.run({ kind: 'open', text: '{}' }).catch((e) => e);
     expect(isContentError(slow)).toBe(false);
+  });
+});
+
+describe('isResourceFailure', () => {
+  it('falta de memoria (RangeError) o algo que no es un Error es infraestructura; el resto, contenido', () => {
+    expect(isResourceFailure(new RangeError('Array buffer allocation failed'))).toBe(true);
+    expect(isResourceFailure('raro')).toBe(true);
+    expect(isResourceFailure(new Error('El archivo no es un proyecto de esta app.'))).toBe(false);
+    expect(isResourceFailure(new TypeError('x is undefined'))).toBe(false);
   });
 });
 

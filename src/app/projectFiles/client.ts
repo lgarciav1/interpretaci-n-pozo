@@ -1,6 +1,6 @@
 /** Una sola tarea de persistencia a la vez; no se transfieren buffers del proyecto activo. */
 import { freezeRevisionMetadata } from '../../core/state/archive/projectV7';
-import { ProjectFileContentError, runProjectFileTask, type ProjectFileTask, type ProjectFileResult, type ProjectFileResponse } from './task';
+import { isResourceFailure, ProjectFileContentError, runProjectFileTask, type ProjectFileTask, type ProjectFileResult, type ProjectFileResponse } from './task';
 export interface FileWorker {
   onmessage: ((event: { data: ProjectFileResponse }) => void) | null;
   onerror: ((event: { message?: string; preventDefault?(): void }) => void) | null;
@@ -20,6 +20,7 @@ export class ProjectFileClient {
         try {
           return await runProjectFileTask(task);
         } catch (err) {
+          if (isResourceFailure(err)) throw err instanceof Error ? err : new Error(String(err));
           throw new ProjectFileContentError(err instanceof Error ? err.message : String(err));
         }
       }

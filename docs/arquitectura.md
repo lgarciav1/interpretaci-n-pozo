@@ -301,6 +301,18 @@ conjuntos de puntos y sus decisiones se validan: lo inválido se descarta con av
 "byte shuffle", lo que salga más chico) en base64: exactos bit a bit. Los perfiles del TP quedan en menos de la
 mitad del binario sin comprimir.
 
+Guardar, abrir y recuperar corren en el worker de archivos (`src/app/projectFiles/`), una tarea a la vez por cliente:
+`save`, `open` y `recover` (`recoverProject`, para un v7 dañado). Si la tarea falla por el contenido del archivo, el
+cliente tira `ProjectFileContentError`. Los demás errores (worker ocupado o caído, tiempo agotado, respuesta mal
+formada, falta de memoria) son errores comunes: no dicen nada del archivo.
+
+**Autoguardado** (`src/app/autosave/`, docs/decisiones/0071): 3 s después del último cambio, el mismo texto de
+`serializeProject` se guarda en IndexedDB (base `fiubalog-autoguardado`). Usa un cliente de archivos propio, para no
+chocar con «Guardar proyecto». Guarda la última copia de cada sesión de trabajo, hasta 3 sesiones, y la demostración no
+se guarda. Inicio ofrece «Seguir donde quedaste», y la barra superior muestra el estado. `beforeunload` avisa si el
+proyecto no está ni en el archivo ni en el autoguardado. `projectActions` le avisa al autoguardado cuando se guarda o
+se abre un archivo (`notifySavedToFile`, `notifyOpenedFromFile`). El formato del proyecto no cambia.
+
 ## Scripts
 
 | Comando | Qué hace |

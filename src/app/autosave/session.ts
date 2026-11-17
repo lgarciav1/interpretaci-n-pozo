@@ -258,6 +258,9 @@ export class AutosaveSession {
     this.fileOrigin = 'opened';
     this.autoRef = null;
     this.autoSavedAt = null;
+    // Sesión nueva: la racha de fallos de la anterior no cuenta (ni para la barra ni para el aviso del primer fallo).
+    this.failures = 0;
+    this.lastError = null;
     this.cancelTimer();
   }
 
@@ -420,8 +423,8 @@ export class AutosaveSession {
       await this.discard(id);
       return false;
     };
-    const newer = (version: number) => {
-      notify({ title: 'La sesión es de una versión más nueva de la app', description: `${name} (formato v${version}): actualizá la app para seguir. La sesión se conserva (podés descartarla).`, tone: 'warn' });
+    const newer = (version: number | null) => {
+      notify({ title: 'La sesión es de una versión más nueva de la app', description: `${name}${version === null ? '' : ` (formato v${version})`}: actualizá la app para seguir. La sesión se conserva (podés descartarla).`, tone: 'warn' });
       return false;
     };
     this.restoring = true;
@@ -454,7 +457,7 @@ export class AutosaveSession {
         console.warn('Autoguardado: la sesión no abre', err);
         if (!isContentError(err)) return keep(message);
         // Respaldo: la versión no estaba en la cabecera ni en los metadatos, pero el lector la rechazó por nueva.
-        if (/versión más nueva/i.test(message)) return newer(version ?? NaN);
+        if (/versión más nueva/i.test(message)) return newer(version);
         if (version === REVISION_PROJECT_VERSION) {
           try {
             const r = await this.deps.files.run({ kind: 'recover', text });

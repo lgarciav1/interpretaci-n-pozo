@@ -39,6 +39,8 @@ varios MB serializado, y la app se entrega como un único HTML que se abre por `
    proyecto o al hacer el primer cambio sobre un proyecto vacío, y continúa al recuperarla. Cada guardado reemplaza la
    copia de su sesión. Después de escribir se borran las sesiones más viejas que la tercera. Inicio ofrece la más
    reciente como «Seguir donde quedaste» y las otras dos debajo; cada una se puede descartar a mano.
+   - Límite aceptado: tres sesiones nuevas que no son la demostración (por ejemplo, tres recargas seguidas de cargar un
+     CSV de prueba) desplazan la más vieja aunque sea la del TP. Para no perderla, el `.pozo.json`.
 6. **Recuperar.** Inicio (con el proyecto vacío, o sea al arrancar) muestra «Seguir donde quedaste» con el nombre, los
    pozos y hace cuánto se guardó. Recuperar reemplaza el proyecto (historial de deshacer vacío) y continúa en la misma
    sesión de trabajo. No se recupera solo al arrancar: la usuaria elige (puede querer empezar de cero).
@@ -55,7 +57,8 @@ varios MB serializado, y la app se entrega como un único HTML que se abre por `
    - **Qué borra y qué conserva.** Solo un error del contenido borra la sesión: datos ausentes, texto que no es JSON o
      no es un proyecto, un v7 dañado que tampoco se recupera. Un error de infraestructura (worker ocupado, caído o
      que tarda demasiado, respuesta mal formada, base que no devuelve los datos) avisa y la conserva: no dice nada del
-     texto. El cliente de archivos los distingue (`ProjectFileContentError` para lo que tiró la tarea misma).
+     texto. El cliente de archivos los distingue (`ProjectFileContentError` para lo que tiró la tarea misma). La falta
+     de memoria al decodificar (`RangeError`) cuenta como infraestructura: una sesión sana y grande puede provocarla.
    - **La versión más nueva se decide antes de abrir**, con la versión de los metadatos o de la cabecera del texto
      contra la más nueva que la app sabe leer (`PROJECT_VERSION`, `REVISION_PROJECT_VERSION`): no se llama al worker.
      El mensaje del lector («versión más nueva») queda solo como respaldo.
@@ -76,7 +79,7 @@ varios MB serializado, y la app se entrega como un único HTML que se abre por `
 
 | Navegador | Resultado |
 |---|---|
-| Chromium (Playwright, 2026-11-17) | Funciona: `dist/index.html` por `file://` escribe y lee 5 MB, y la sesión se recupera tras recargar. Todos los archivos `file://` comparten un mismo origen. |
+| Chromium (Playwright, 2026-11-17) | Funciona: `dist/index.html` por `file://` escribe y lee 5 MB, y el pozo del TP con un parámetro cambiado, un snapshot, las 58 presiones MDT y los 151 plugs de corona se recupera tras recargar, con el historial de deshacer vacío. Todos los archivos `file://` comparten un mismo origen. |
 | Edge | **Sin probar** (no hay Edge en el entorno). Es Chromium: se espera lo mismo. |
 | Firefox | **Sin probar** (no hay Firefox en el entorno). Firefox da a cada archivo `file://` un origen propio; si niega IndexedDB, rige el punto 10. |
 

@@ -20,6 +20,13 @@ export class ProjectFileContentError extends Error {
   override readonly name = 'ProjectFileContentError';
 }
 
+/**
+ * Un error de la tarea que no habla del contenido: falta de memoria o de recursos (`RangeError`: «Array buffer
+ * allocation failed», «Invalid string length») o algo que ni siquiera es un `Error`. Una sesión sana y grande puede
+ * tirarlos, así que cuentan como infraestructura.
+ */
+export const isResourceFailure = (err: unknown): boolean => !(err instanceof Error) || err instanceof RangeError;
+
 export const isContentError = (err: unknown): boolean => err instanceof ProjectFileContentError || (err instanceof Error && err.name === 'ProjectFileContentError');
 export async function runProjectFileTask(task: ProjectFileTask): Promise<ProjectFileResult> {
   if (task.kind === 'save') return { kind: 'save', text: await serializeProject(task.project) };
