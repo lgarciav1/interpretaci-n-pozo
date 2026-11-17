@@ -1,0 +1,185 @@
+/* Panel Origen — «¿De dónde sale este número?» (docs/decisiones/0074). Prefijo propio: prov-. */
+.prov-panel { display: flex; flex-direction: column; min-height: 100%; container-type: inline-size; }
+
+/* Barra fija: salida + profundidad (una muestra arriba/abajo) + zona. */
+.prov-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-surface);
+}
+.prov-toolbar > .ui-select { flex: 1 1 16em; min-width: 0; }
+.prov-toolbar__depth { display: flex; align-items: center; gap: var(--space-1); min-width: 0; }
+.prov-toolbar__depth .ui-chip { margin-left: var(--space-1-5); height: calc(22px * var(--ui-scale)); font-size: var(--text-xs); }
+.prov-toolbar__depth .ui-chip__main { padding: 0 var(--space-2); }
+.prov-depth { font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--color-text); white-space: nowrap; }
+.prov-toolbar__busy { margin-left: var(--space-2); font-size: var(--text-xs); color: var(--color-text-subtle); white-space: nowrap; }
+
+/* Resumen: el número que se está explicando. */
+.prov-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  margin: var(--space-3) var(--space-4) 0;
+  padding: var(--space-2-5) var(--space-3);
+  border: 1px solid var(--color-accent-border);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-soft);
+}
+.prov-summary.is-alternative { border-color: var(--color-info-border); background: var(--color-info-soft); }
+.prov-summary__what { display: flex; flex-direction: column; gap: var(--space-0-5); min-width: 0; flex: 1 1 12em; }
+.prov-summary__label { display: inline-flex; align-items: center; gap: var(--space-1-5); font-weight: var(--weight-semibold); color: var(--color-text); }
+.prov-summary__by { font-size: var(--text-xs); color: var(--color-text-muted); }
+.prov-summary > .prov-val { font-size: var(--text-xl); }
+.prov-summary__alt { flex-basis: 100%; justify-content: center; }
+
+.prov-gap { margin: var(--space-3) var(--space-4) 0; }
+
+/* Cadena: lista numerada con un riel que une los eslabones (de las curvas medidas hacia la salida). */
+.prov-chain { margin: 0; padding: var(--space-3) var(--space-4) var(--space-4); list-style: none; }
+.prov-link { position: relative; scroll-margin-top: calc(104px * var(--ui-scale)); display: grid; grid-template-columns: calc(24px * var(--ui-scale)) minmax(0, 1fr); gap: var(--space-2-5); }
+.prov-link + .prov-link { margin-top: var(--space-2-5); }
+.prov-link__rail { position: relative; display: flex; justify-content: center; }
+/* Línea que baja hasta el próximo eslabón. */
+.prov-link:not(:last-child) .prov-link__rail::after {
+  content: '';
+  position: absolute;
+  top: calc(26px * var(--ui-scale));
+  bottom: calc(-1 * var(--space-2-5) - 2px);
+  left: 50%;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--color-border);
+}
+.prov-link__num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(22px * var(--ui-scale));
+  height: calc(22px * var(--ui-scale));
+  margin-top: var(--space-1-5);
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+}
+.prov-link.is-target .prov-link__num { border-color: var(--color-accent); background: var(--color-accent); color: var(--color-text-on-accent); }
+.prov-link.is-gap .prov-link__num { border-color: var(--color-warn); color: var(--color-warn-text); }
+
+.prov-link__card {
+  min-width: 0;
+  padding: var(--space-2) var(--space-3) var(--space-2-5);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  transition: border-color var(--dur-fast) var(--ease-standard), box-shadow var(--dur-fast) var(--ease-standard);
+}
+.prov-link.is-target .prov-link__card { border-color: var(--color-accent-border); }
+.prov-link.is-gap .prov-link__card { border-color: var(--color-warn-border); }
+.prov-link.is-pinged .prov-link__card { animation: prov-ping 1.2s var(--ease-standard); }
+@keyframes prov-ping { 0%, 40% { box-shadow: 0 0 0 3px var(--color-accent-soft-hover); border-color: var(--color-accent); } 100% { box-shadow: 0 0 0 0 transparent; } }
+@media (prefers-reduced-motion: reduce) { .prov-link.is-pinged .prov-link__card { animation: none; } }
+
+.prov-link__head { display: flex; align-items: flex-start; gap: var(--space-2); }
+.prov-link__title { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.prov-link__name { font-weight: var(--weight-semibold); color: var(--color-text); line-height: var(--leading-tight); overflow-wrap: anywhere; }
+.prov-link__cat { font-size: var(--text-xs); color: var(--color-text-subtle); }
+.prov-link__eq { flex: none; margin: calc(-1 * var(--space-0-5)) calc(-1 * var(--space-1-5)) 0 0; color: var(--color-accent-text); }
+.prov-link__gap { margin-top: var(--space-1-5); font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--color-warn-text); }
+
+/* Salidas del eslabón: la que sigue la cadena, resaltada. */
+.prov-outs, .prov-rows, .prov-params { margin: 0; padding: 0; list-style: none; }
+.prov-outs { margin-top: var(--space-1-5); }
+.prov-out { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); padding: var(--space-0-5) 0; color: var(--color-text-muted); }
+.prov-out.is-chain { color: var(--color-text); }
+.prov-out.is-target .prov-val { color: var(--color-accent-text); }
+.prov-out--more { font-size: var(--text-xs); color: var(--color-text-subtle); }
+
+.prov-block { margin-top: var(--space-2); padding-top: var(--space-1-5); border-top: 1px dashed var(--color-border-subtle); }
+.prov-block__title { margin-bottom: var(--space-0-5); font-size: var(--text-xs); font-weight: var(--weight-semibold); letter-spacing: 0.04em; text-transform: uppercase; color: var(--color-text-subtle); }
+
+/* Entrada: nombre y fuente a la izquierda, valor a la derecha. */
+.prov-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: var(--space-0-5) var(--space-3); padding: var(--space-1) 0; }
+.prov-row + .prov-row { border-top: 1px solid var(--color-border-subtle); }
+.prov-row.is-gap .prov-val { color: var(--color-warn-text); }
+.prov-row__main { display: flex; flex-direction: column; gap: var(--space-0-5); min-width: 0; }
+.prov-row__name { display: inline-flex; align-items: baseline; gap: var(--space-1-5); min-width: 0; }
+.prov-row__label { min-width: 0; overflow-wrap: anywhere; }
+.prov-row__port { font-size: var(--text-xs); font-family: var(--font-mono); color: var(--color-text-subtle); }
+.prov-row__alt { font-size: var(--text-xs); color: var(--color-info-text); }
+.prov-row__note, .prov-row__others { font-size: var(--text-xs); color: var(--color-text-subtle); overflow-wrap: anywhere; }
+.prov-row__note { color: var(--color-text-muted); }
+
+.prov-src { font-size: var(--text-xs); color: var(--color-text-muted); overflow-wrap: anywhere; }
+.prov-src strong { font-weight: var(--weight-semibold); color: var(--color-text); }
+.prov-src.is-muted { color: var(--color-text-subtle); }
+.prov-src__warn { color: var(--color-warn-text); }
+.prov-src--ref {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: none;
+  font: inherit;
+  font-size: var(--text-xs);
+  color: var(--color-accent-text);
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition: text-decoration-color var(--dur-fast) var(--ease-standard);
+}
+.prov-src--ref:hover { text-decoration-color: currentColor; }
+.prov-src--ref:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.prov-src__step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  min-width: calc(16px * var(--ui-scale));
+  height: calc(16px * var(--ui-scale));
+  border: 1px solid currentColor;
+  border-radius: var(--radius-full);
+  font-size: calc(10px * var(--ui-scale));
+  font-weight: var(--weight-semibold);
+}
+
+/* Parámetros de la zona de la muestra. */
+.prov-param { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); padding: var(--space-0-5) 0; }
+.prov-param__label { min-width: 0; color: var(--color-text-muted); overflow-wrap: anywhere; }
+.prov-param__value { display: inline-flex; align-items: baseline; gap: var(--space-2); flex: none; }
+.prov-param__value .ui-badge { align-self: center; }
+.prov-param__scope { font-size: var(--text-xs); color: var(--color-text-subtle); }
+
+/* Valores: tabulares, unidad en gris. */
+.prov-val { padding: 0 var(--space-0-5); border-radius: var(--radius-xs); font-weight: var(--weight-medium); color: var(--color-text); white-space: nowrap; text-align: right; }
+.prov-val.is-strong { font-weight: var(--weight-semibold); }
+.prov-val.is-muted { font-weight: var(--weight-regular); color: var(--color-text-subtle); }
+.prov-val.is-missing { color: var(--color-warn-text); }
+.prov-val__unit { margin-left: 0.3em; font-size: var(--text-xs); font-weight: var(--weight-regular); color: var(--color-text-subtle); }
+
+.prov-swatch { flex: none; width: calc(10px * var(--ui-scale)); height: 3px; border-radius: 2px; align-self: center; }
+.prov-swatch.is-empty { background: var(--color-border); }
+
+/* Panel angosto (al costado): menos sangría. */
+@container (max-width: 26em) {
+  .prov-chain { padding-left: var(--space-3); padding-right: var(--space-3); }
+  .prov-summary, .prov-gap { margin-left: var(--space-3); margin-right: var(--space-3); }
+  .prov-toolbar { padding-left: var(--space-3); padding-right: var(--space-3); }
+  .prov-link { gap: var(--space-2); }
+}

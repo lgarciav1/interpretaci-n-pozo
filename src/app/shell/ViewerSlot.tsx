@@ -58,6 +58,7 @@ import { TRACK_WIDTH_STEP } from '../../core/state/tracks';
 import { clearPlotSelection, getPlotLink, selectionTitle } from '../../plots/link';
 import { usePlotSelection } from '../../plots/useLink';
 import { formatNumber } from '../../ui';
+import { openProvenance } from '../provenance/store';
 
 /**
  * Devuelve el foco después de mover con el teclado: el elemento enfocado puede volver a montarse en otra pista (una
@@ -565,6 +566,7 @@ export function ViewerSlot() {
         curtain={curtain}
         look={look}
         onCreateTop={createTop}
+        onTraceSample={openProvenance}
         onExportVisible={exportVisible}
       />
       {editing && editingCurve && <CurveEditor key={`${editing.trackId}|${editing.key}`} wellId={well.id} curve={editingCurve} anchorRef={anchorRef} onClose={() => setEditing(null)} />}

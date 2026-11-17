@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ContextMenu, CurveLegend, copyText, formatNumber, getResolvedTheme, getUiScaleFactor, Icon, IconButton, Menu, Popover, prefersReducedMotion, toast, useResolvedTheme, useUiScaleFactor, type MenuEntry } from '../ui';
 import { pxPerMeterForScale } from '../io/export/figures/sizing';
-import { nearestCurveAt, readingsText } from './contextMenu';
+import { nearestCurveAt, outputKeyOfViewerCurve, readingsText } from './contextMenu';
 import { VIEWER_LOOKS, type ViewerLook } from './look';
 import { createMeasureTool } from './overlays/measure';
 import { matchingPrintScale, printScaleOptions, scaleButtonLabel } from './printScale';
@@ -105,6 +105,11 @@ export interface WellViewerProps {
   look?: ViewerLook;
   /** Menú contextual: crear un tope en esa profundidad (la app aplica la receta). Ausente = opción deshabilitada. */
   onCreateTop?(depth: number): void;
+  /**
+   * Menú contextual: «¿De dónde sale este número?» sobre una curva calculada (docs/decisiones/0074). `outputKey` es
+   * `<moduleId>:<puerto>` (la clave de la salida del motor). Ausente = opción deshabilitada.
+   */
+  onTraceSample?(target: { outputKey: string; depth: number }): void;
   /** Menú contextual: exportar lo visible como PNG (tramo, escala 1:N y ancho de las pistas en px CSS). */
   onExportVisible?(request: { top: number; base: number; scale: number; widthPx: number }): void;
 }
@@ -1013,6 +1018,7 @@ export function WellViewer(props: WellViewerProps) {
     const track = m.track >= 0 ? p.tracks[m.track] : undefined;
     const box = m.track >= 0 ? layoutRef.current.boxes[m.track] : undefined;
     const curve = track && box && track.kind === 'curves' && idx >= 0 ? nearestCurveAt(track, box, idx, m.localX) : null;
+    const traceKey = curve ? outputKeyOfViewerCurve(curve) : null;
     const vp = vpRef.current;
     const header = (
       <>
@@ -1056,6 +1062,20 @@ export function WellViewer(props: WellViewerProps) {
         },
       },
       { id: 'measure', label: 'Medir un intervalo', icon: 'ruler', hint: 'arrastrá', onSelect: () => measure.current.arm() },
+      {
+        id: 'origin',
+        label: '¿De dónde sale este número?',
+        icon: 'lineage',
+        disabled: !traceKey || !p.onTraceSample,
+        description: traceKey
+          ? `Cadena de ${curve!.name} en ${formatDepth(d)} m, con fuentes y parámetros`
+          : curve && curve.origin !== 'computed'
+            ? `${curve.name} es una curva ${curve.origin === 'prepared' ? 'preparada' : 'medida'}: no sale de un cálculo`
+            : 'Solo sobre una curva calculada (Sw, φ, Vsh…)',
+        onSelect: () => {
+          if (traceKey) p.onTraceSample?.({ outputKey: traceKey, depth: d });
+        },
+      },
       { type: 'separator', id: 's2' },
       {
         id: 'png',

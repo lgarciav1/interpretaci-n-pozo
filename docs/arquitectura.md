@@ -59,6 +59,16 @@ Este documento resume cómo encajan las piezas y cómo agregar un módulo.
 El `EngineSupervisor` decide si el motor corre en un worker o en proceso y lo recrea si se cae.
 Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia con caché), sin worker.
 
+**Lo que publica cada corrida (0074).** Además de salidas, fuentes y candidatas, el motor publica lo que *usó*: cada
+`NodeReport` con `status: 'ok'` (recalculado o reusado de caché) trae `inputs` (clave local → `SourceRef | null`, con
+las opcionales soltadas en tiempo de ejecución en `null`) y `params` (`{ global, byZone }`, los valores resueltos que
+recibió `compute`), y `EngineRunResult.segments` da los tramos `{ start, end, zoneId }` de las zonas que vio. Es JSON
+chico y viaja por el worker sin cambios en el protocolo. `src/core/engine/provenance.ts` (`traceSample`, puro) recorre
+`nodes[].inputs` hacia arriba desde una salida y arma la cadena de una muestra —cada módulo una vez, en el orden del
+motor, con el valor publicado de cada salida y entrada, la fuente y los parámetros de su zona— sin recalcular nada.
+La muestra el panel del dock **Origen** (`src/app/provenance/`, id `provenance`), que se abre desde el menú contextual
+del perfil («¿De dónde sale este número?», prop `onTraceSample` del visor) y se actualiza solo con cada corrida.
+
 ## Carpetas
 
 | Carpeta | Qué hay | Puede importar React |
