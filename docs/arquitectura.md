@@ -894,3 +894,13 @@ Decisión: [`docs/decisiones/0063-log-digitizer-interfaz.md`](decisiones/0063-lo
   impresa del registro; las curvas sin rol no están en las pistas de fábrica, que se arman por rol (0063).
 - Fase futura (propuesta, no implementada): lectura de PDF con pdf.js en la etapa de entrada, sin tocar el motor.
   Ver [`0064`](decisiones/0064-log-digitizer-lectura-de-pdf.md).
+
+## Notas de profundidad (F05)
+
+`Interpretation.notes?` contiene notas JSON (`id`, `text`, `top`, `base?`) en metros MD. No participa de
+`sameEngineInputs`: anotar no cambia curvas ni parámetros. Las recetas de `core/state/notes.ts` conservan
+inmutabilidad e historial; mover traslada el intervalo completo y lo acota al pozo manteniendo espesor.
+Los lectores v6/v7 aceptan el campo opcional en pozos y snapshots; los archivos anteriores no lo requieren.
+`viewer/overlays/notes.ts` comparte dibujo entre pantalla y figuras PNG/SVG, con instancias separadas para
+que el arrastre provisional no contamine exportaciones. El informe copia las notas y escapa el texto.
+Se crean/editan/borran desde «Notas de profundidad…» en el menú contextual del perfil (también Shift+F10).
