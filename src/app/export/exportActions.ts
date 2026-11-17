@@ -65,6 +65,15 @@ export function exportSources(well: Well, result: ClientResult | null, includeAl
     let data = qualityColumns.get(p);
     if (!data) { data = Float64Array.from(p.quality); qualityColumns.set(p, data); }
     const a = result.preparation.plan.artifacts.find(a => a.id === p.id)!;
+    if (a.density && p.density) {
+      const prepared = columns.find(c => c.id === `m:${p.id}`);
+      const description = `Densidad estimada ML density-rf-v1; parámetros ${JSON.stringify(a.density)}; validación en buen pozo ${JSON.stringify(p.density.report)}. No es corrección ambiental ni verdad en derrumbes. Banda nominal 90%.`;
+      if (prepared) prepared.description = description;
+      columns.push({ id: `q:${p.id}`, mnemonic: `${a.mnemonic}_QC`, unit: 'unitless', data, origin: 'prepared', description: 'Bits QC: 1=faltante original; 512=estimada ML; 1024=sin estimación válida. ' + description });
+      columns.push({ id: `lo:${p.id}`, mnemonic: `${a.mnemonic}_LO90`, unit: a.unit, data: p.density.lower, origin: 'prepared', description: 'Límite inferior de banda nominal 90% calibrada; ' + description });
+      columns.push({ id: `hi:${p.id}`, mnemonic: `${a.mnemonic}_HI90`, unit: a.unit, data: p.density.upper, origin: 'prepared', description: 'Límite superior de banda nominal 90% calibrada; ' + description });
+      continue;
+    }
     if (a.mgt) {
       const corrected = columns.find(c => c.id === `m:${p.id}`);
       if (corrected) corrected.description = `MGT: ${JSON.stringify(a.correctionLedger)}; QC 1=faltante GR; 64=corregida; 128=fuera de dominio o sin caliper. No incertidumbre cuantificada.`;

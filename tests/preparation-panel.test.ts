@@ -23,9 +23,9 @@ const shifted: PreparationNode = {
 };
 
 describe('banderas de calidad', () => {
-  it('nombra los nueve bits de Quality en orden (256 = normalizada, 0060), con leyenda en español', () => {
-    expect(QUALITY_FLAGS.map((f) => f.bit)).toEqual([1, 2, 4, 8, 16, 32, 64, 128, 256]);
-    expect(QUALITY_FLAGS.at(-1)!.label).toBe('Normalizada');
+  it('nombra los once bits de Quality en orden (F20 distingue estimaciones y falta de soporte), con leyenda en español', () => {
+    expect(QUALITY_FLAGS.map((f) => f.bit)).toEqual([1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]);
+    expect(QUALITY_FLAGS.at(-1)!.label).toBe('Sin soporte ML');
     expect(QUALITY_FLAGS.map((f) => f.bit)).toEqual(Object.values(Quality));
     for (const f of QUALITY_FLAGS) {
       expect(f.label.trim()).not.toBe('');

@@ -1,3 +1,5 @@
+import { DENSITY_POLICY, type DensityReconstructionReport } from '../../ml/densityReconstruction';
+import { densityIntervalMask, densityPredictorUnit, type DensityReconstructionConfig } from './density';
 import { curveInputKey, curveProvenance, engineDecisionKey, identityKey, sameContext, wellInputKey, type CurveProvenance, type EngineContext } from '../engine/context';
 import type { EngineCurve, EngineWell } from '../engine/engine';
 import type { Interpretation } from '../interpretation';
@@ -14,6 +16,7 @@ import { convert, getUnit } from '../units';
 
 export interface ShiftFrame { referenceId: string; sourceDatum: string | null; targetDatum: string | null }
 export interface MaskBinding {
+  density?: { curveId: string; contentVersion: string; unit: string; role: string | null; mnemonic: string }[];
   mgt?: {
     caliperContentVersion: string;
     caliperUnit: string;
@@ -28,6 +31,9 @@ export interface MaskBinding {
 }
 export type PreparationBindings = Readonly<Record<string, MaskBinding | null>>;
 export interface PlannedPreparation {
+  density?: DensityReconstructionConfig;
+  densityTargetMask?: Uint8Array;
+  densityActive?: boolean;
   id: string;
   nodeId: string;
   sourceCurveId: string;
@@ -66,7 +72,7 @@ export interface PreparationPlan {
   diagnostics: { nodeId: string; status: 'disabled' | 'needs-input'; message: string }[];
   toolString?: Interpretation['toolString'];
 }
-export interface PreparedPayload { sourceCounts?: { interpolated: number; filtered: number }; normalization?: NormalizationStats; id: string; version: string; data: Float64Array; quality: Uint16Array }
+export interface PreparedPayload { density?: { lower: Float64Array; upper: Float64Array; status: Uint8Array; report: DensityReconstructionReport }; sourceCounts?: { interpolated: number; filtered: number }; normalization?: NormalizationStats; id: string; version: string; data: Float64Array; quality: Uint16Array }
 /** Artefactos que necesitan un buffer de trabajo del tamaño de la curva (uno compartido por el evaluador). */
 export const needsScratch = (a: Pick<PlannedPreparation, 'filter' | 'shift' | 'normalization'>): boolean => !!(a.filter || a.shift || a.normalization);
 export interface PreparedPackage { plan: PreparationPlan; artifacts: PreparedPayload[] }
@@ -88,6 +94,18 @@ export function planPreparation(well: EngineWell, i: Interpretation, inputRevisi
     const id = preparedCurveId(node.id, 'masked');
     if (well.curves.some(c => c.id === id)) throw new Error('El identificador preparado colisiona con un original.');
     const ranges = maskRanges(node.intervals);
+    if (node.kind === 'density-reconstruction') {
+      if (c.role !== 'RHOB' || c.unit !== 'g/cm3' || !binding.density || binding.density.length !== node.density.predictors.length) throw new Error('Entradas de reconstrucción inválidas.');
+      const parents = node.density.predictors.map(p => {
+        const source = originals.find(x => x.id === p.curveId), fixed = binding.density!.find(x => x.curveId === p.curveId);
+        if (!source || source.id === c.id || !fixed || fixed.contentVersion !== source.provenance.contentVersion || fixed.unit !== source.unit || fixed.role !== source.role || fixed.mnemonic !== source.mnemonic) throw new Error('Predictor de densidad obsoleto o incompatible.');
+        densityPredictorUnit(source, p.role); return source;
+      });
+      const recipeKey = JSON.stringify(['density-rf-v1', c.id, c.provenance.contentVersion, depthKey, node.input.inputRevisionId, node.density, binding.density]);
+      const provenance: CurveProvenance = { origin: 'prepared', contentVersion: `density:${recipeKey}`, depthKey, ancestorToolIds: [...new Set([c, ...parents].flatMap(p => { const t = registry.tools.ownerOf(p); return t ? [t.id] : []; }))].sort(), qualityKey: `density-quality:${recipeKey}` };
+      artifacts.push({ id, nodeId: node.id, sourceCurveId: c.id, mnemonic: `${c.mnemonic} estimada ML`, role: c.role, unit: c.unit, recipeKey, ranges: [], provenance, density: node.density, densityTargetMask: densityIntervalMask(well.depth, node.density.washoutIntervals), densityActive: Object.values(i.sources).some(s => s.kind === 'curve' && s.curveId === id), correctionLedger: [] });
+      continue;
+    }
     if (node.kind === "mgt-borehole") {
       const caliper = originals.find((x) => x.id === node.mgt.caliperCurveId);
       if (
@@ -176,7 +194,7 @@ export function planPreparation(well: EngineWell, i: Interpretation, inputRevisi
     const provenance: CurveProvenance = { origin: 'prepared', contentVersion: `mask:${recipeKey}`, depthKey, ancestorToolIds: owner ? [owner.id] : [], qualityKey: `mask-quality:${recipeKey}` };
     artifacts.push({ id, nodeId: node.id, sourceCurveId: c.id, mnemonic: `${c.mnemonic} preparada`, role: c.role, unit: c.unit, recipeKey, ranges, ...(gapFill ? { gapFill: { ...gapFill }, boundaries } : {}), ...(filter ? { filter: { ...filter }, boundaries } : {}), ...(shift ? { shift: { ...shift }, boundaries } : {}), ...(normalization ? { normalization: { config: { ...normalization }, domain } } : {}), provenance, correctionLedger: [] });
   }
-  if (well.depth.length * 10 * (artifacts.length + (artifacts.some(needsScratch) ? 1 : 0)) > PREPARATION_BUDGET) throw new Error('La preparación supera 128 MiB de artefactos y memoria de trabajo. Reducí la cantidad de curvas.');
+  if (well.depth.length * (artifacts.reduce((sum, a) => sum + (a.density ? 27 : 10), 0) + (artifacts.some(needsScratch) ? 10 : 0)) > PREPARATION_BUDGET) throw new Error('La preparación supera 128 MiB de artefactos y memoria de trabajo. Reducí la cantidad de curvas.');
   const preparationKey = nodes.length ? JSON.stringify([artifacts.map(a => [a.id, a.provenance]), diagnostics]) : 'identity';
   const context: EngineContext = Object.freeze({ wellId: well.id, inputRevisionId, depthKey, preparationKey,
     engineKey: curveInputKey(well.id, depthKey, [...originals, ...artifacts]) + '|' + engineDecisionKey(i) });
@@ -196,6 +214,29 @@ export function validatePreparedPayloads(plan: PreparationPlan, payloads: unknow
       const twoPoint = expected.normalization.config.method === 'two-point';
       if (!stats || typeof stats !== 'object' || Object.keys(stats).length !== 5 || !Number.isInteger(stats.samples) || stats.samples < MIN_NORMALIZATION_SAMPLES || stats.samples > n || !Number.isFinite(stats.sourceLow) || (twoPoint ? !(Number.isFinite(stats.sourceHigh) && stats.sourceHigh! > stats.sourceLow) : stats.sourceHigh !== null) || !Number.isFinite(stats.gain) || !(stats.gain > 0) || !Number.isInteger(stats.outOfDomain) || stats.outOfDomain < 0 || stats.outOfDomain > n) throw new Error('Estadísticas de normalización inválidas.');
     } else if (stats !== undefined) throw new Error('Estadísticas de normalización en un artefacto sin normalización.');
+    if (expected.density) {
+      const d = p.density;
+      if (!d || !(d.lower instanceof Float64Array) || !(d.upper instanceof Float64Array) || !(d.status instanceof Uint8Array) || d.lower.length !== n || d.upper.length !== n || d.status.length !== n || !d.report || d.report.version !== 'density-rf-v1' || typeof d.report.accepted !== 'boolean' || !Array.isArray(d.report.reasons) || d.report.reasons.some((x: unknown) => typeof x !== 'string')) throw new Error('Banda o reporte de reconstrucción inválidos.');
+      for (const key of ['rmse','r2','bandCoverage','halfWidth'] as const) if (d.report[key] !== null && !Number.isFinite(d.report[key])) throw new Error('Métricas ML inválidas.');
+      for (const key of ['trainingCount','validationCount','calibrationCount','targetCount','estimatedCount'] as const) if (!Number.isInteger(d.report[key]) || d.report[key] < 0 || d.report[key] > n) throw new Error('Conteos ML inválidos.');
+      if (!Number.isFinite(d.report.elapsedMs) || d.report.elapsedMs < 0 || d.report.nominalCoverage !== .9 || !Number.isFinite(d.report.validationCoverage) || d.report.validationCoverage < 0 || d.report.validationCoverage > 1 || (d.report.bandCoverage !== null && (d.report.bandCoverage < 0 || d.report.bandCoverage > 1))) throw new Error('Cobertura ML inválida.');
+      if (d.report.accepted && (d.report.trainingCount < DENSITY_POLICY.minTrain || d.report.validationCount < DENSITY_POLICY.minValidation || d.report.calibrationCount < DENSITY_POLICY.minCalibration || d.report.rmse === null || d.report.rmse > DENSITY_POLICY.maxRmse || d.report.rmse < 0 || d.report.r2 === null || d.report.r2 < DENSITY_POLICY.minR2 || d.report.r2 > 1 || d.report.halfWidth === null || d.report.halfWidth < .005 || d.report.halfWidth > DENSITY_POLICY.maxHalfWidth || d.report.bandCoverage === null || d.report.bandCoverage < DENSITY_POLICY.minBandCoverage || d.report.validationCoverage < DENSITY_POLICY.minValidationCoverage || d.report.reasons.length)) throw new Error('El reporte no cumple la política de admisión ML.');
+      let estimatedCount = 0, targetCount = 0;
+      for (let k = 0; k < n; k++) {
+        const status = d.status[k]!, q = p.quality[k]!, value = p.data[k]!;
+        if (!expected.densityTargetMask || expected.densityTargetMask.length !== n || (status > 0) !== (expected.densityTargetMask[k] === 1)) throw new Error('Reconstrucción fuera del derrumbe declarado.');
+        const estimated = status === 1; if (estimated) estimatedCount++; if (status > 0) targetCount++;
+        if (!Number.isInteger(status) || status < 0 || status > 4 || (q & ~(Quality.OriginallyMissing | Quality.EstimatedML | Quality.UnsupportedML))) throw new Error('Estado de reconstrucción inválido.');
+        if (estimated) {
+          if (!d.report.accepted || !(q & Quality.EstimatedML) || (q & Quality.UnsupportedML) || ![value, d.lower[k], d.upper[k]].every(Number.isFinite) || Math.abs(d.lower[k]! - (value - d.report.halfWidth!)) > 1e-10 || Math.abs(d.upper[k]! - (value + d.report.halfWidth!)) > 1e-10) throw new Error('Estimación ML o banda incoherente.');
+        } else {
+          if ((q & Quality.EstimatedML) || !Number.isNaN(d.lower[k]) || !Number.isNaN(d.upper[k])) throw new Error('Banda en una muestra no estimada.');
+          if (status > 0 ? !(q & Quality.UnsupportedML) || !Number.isNaN(value) : (q & Quality.UnsupportedML) || (Number.isFinite(value) ? !!(q & Quality.OriginallyMissing) : !Number.isNaN(value) || !(q & Quality.OriginallyMissing))) throw new Error('Calidad ML incoherente.');
+        }
+      }
+      if (estimatedCount !== d.report.estimatedCount || targetCount !== d.report.targetCount) throw new Error('Conteos ML incompatibles con la curva.');
+      seen.add(p.id); continue;
+    } else if (p.density !== undefined) throw new Error('Banda ML sin receta de reconstrucción.');
     let outOfDomain = 0;
     for (let k = 0; k < n; k++) {
       let q = p.quality[k]!;

@@ -1,3 +1,4 @@
+import { densityPredictorUnit } from './density';
 import { curveProvenance, identityKey } from '../engine/context';
 import type { InputRevision } from '../inputs/revisions';
 import type { Interpretation } from '../interpretation';
@@ -25,6 +26,23 @@ export function preparationBindings(i: Interpretation, wellId: string, revisions
     const normalization = nodeNormalization(node);
     if (normalization && (normalization.top < revision.well.depth.values[0]! || normalization.base > revision.well.depth.values.at(-1)!)) throw new Error('El intervalo de referencia de la normalización está fuera de las entradas fijadas.');
     const target = activeRevisionId ? revisions?.[activeRevisionId] : revision;
+    let density;
+    if (node.kind === 'density-reconstruction') {
+      if (c.role !== 'RHOB' || c.unit !== 'g/cm3') throw new Error('Reconstrucción requiere densidad original en g/cm3.');
+      const depth = revision.well.depth.values;
+      const ranges = [...node.density.goodIntervals, ...node.density.washoutIntervals, ...node.density.predictors.flatMap(p => p.reliableIntervals)];
+      if (ranges.some(r => r.top < depth[0]! || r.base > depth.at(-1)!)) throw new Error('Intervalos de densidad fuera del pozo.');
+      density = node.density.predictors.map(p => {
+        const source = revision.well.curves.find(x => x.id === p.curveId);
+        const current = target?.well.curves.find(x => x.id === p.curveId);
+        if (!source || source.id === c.id) throw new Error('Falta un predictor original independiente.');
+        densityPredictorUnit(source, p.role);
+        if (!current || current.data !== source.data || current.role !== source.role || current.unit !== source.unit || current.mnemonic !== source.mnemonic) return null;
+        if (node.enabled && i.preparation!.nodes.some(n => n.enabled && n.id !== node.id && n.input.curveId === source.id)) throw new Error('Retirá la preparación del predictor: F20 requiere entradas originales revisadas.');
+        return { curveId: source.id, contentVersion: curveProvenance(source, `depth:${identityKey(depth)}`).contentVersion, unit: source.unit, role: source.role, mnemonic: source.mnemonic };
+      });
+      if (density.some(p => !p)) return [node.id, null];
+    }
     let mgt;
       if (node.kind === "mgt-borehole") {
         const inputs = validateMgtInputs(
@@ -71,6 +89,6 @@ export function preparationBindings(i: Interpretation, wellId: string, revisions
       const shiftFrame = shift ? { referenceId: wellId, sourceDatum: revision.acquisition.depth.datum, targetDatum: target?.acquisition.depth.datum ?? null } : undefined;
     if (shift && (shift.referenceId !== wellId || !target || target.wellId !== wellId || [shiftFrame!.sourceDatum, shiftFrame!.targetDatum].some(d => d !== null && d !== shift.datum))) throw new Error('La referencia o datum de la alineación no coincide con las entradas.');
     const depthKey = `depth:${identityKey(revision.well.depth.values)}`;
-    return [node.id, { ...(shiftFrame ? { shiftFrame } : {}), ...(mgt ? { mgt } : {}), depthKey, contentVersion: curveProvenance(c, depthKey).contentVersion, mnemonic: c.mnemonic, unit: c.unit, role: c.role }];
+    return [node.id, { ...(shiftFrame ? { shiftFrame } : {}), ...(mgt ? { mgt } : {}), ...(density ? { density: density as NonNullable<typeof density[number]>[] } : {}), depthKey, contentVersion: curveProvenance(c, depthKey).contentVersion, mnemonic: c.mnemonic, unit: c.unit, role: c.role }];
   }));
 }

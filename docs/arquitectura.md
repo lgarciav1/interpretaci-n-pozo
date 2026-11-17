@@ -904,3 +904,34 @@ Los lectores v6/v7 aceptan el campo opcional en pozos y snapshots; los archivos 
 `viewer/overlays/notes.ts` comparte dibujo entre pantalla y figuras PNG/SVG, con instancias separadas para
 que el arrastre provisional no contamine exportaciones. El informe copia las notas y escapa el texto.
 Se crean/editan/borran desde «Notas de profundidad…» en el menú contextual del perfil (también Shift+F10).
+
+### F20: densidad estimada en derrumbes
+
+Decisión científica: [0077](decisiones/0077-reconstruccion-densidad.md). `density-reconstruction` es una receta exclusiva
+sobre RHOB original en g/cm³. Exige preparación esquema 7, dentro del proyecto v7; esquemas anteriores conservan sus
+claves y siguen admitidos. Guarda solo intervalos MD de buen pozo/derrumbe, referencias de predictores y declaraciones
+explícitas de confianza por intervalo. No consume notas, resultados petrofísicos ni curvas preparadas como predictores.
+Todos los originales, roles, unidades y mnemónicos de los predictores quedan fijados por la revisión de entrada; cambiar
+cualquiera bloquea la receta. La procedencia hereda la unión de herramientas de densidad y predictores.
+
+`setDensityReconstruction` acepta la receta sin cambiar fuentes. `activateDensityReconstruction` representa la elección
+expresa posterior a una previsualización aceptada; retirar la receta vuelve explícitamente al original. No se combinan
+máscaras, interpolación, filtros, alineación ni normalización con esta receta. `MaskEvaluator` ejecuta el modelo puro en
+el coordinador del motor; conserva caché por contexto y reserva 32 MiB de trabajo dentro del presupuesto de 128 MiB.
+El modelo limita la entrada a 20.000 muestras; el ajuste es síncrono dentro del worker y se comprueba cancelación antes
+y después, sin publicación parcial. La cancelación de una tarea ya ajustándose espera el retorno del modelo.
+
+`PreparedPayload.density` transporta bandas inferior/superior, estado por muestra y reporte de validación. Son derivados,
+no JSON del proyecto. Las bandas y estados se copian y transfieren con el paquete completo; snapshots contabilizan esos
+bytes y recalculan con sus originales y receta fijados. La frontera cliente comprueba dimensiones, estados respecto de
+la máscara explícita de derrumbe, flags, contadores, bandas respecto del semiancho y puertas científicas del reporte.
+QC512 distingue estimación ML; QC1024 indica que no se obtuvo una estimación válida, conservando QC1 si faltaba el
+original. En derrumbes sin soporte o con validación rechazada la preparada contiene NaN, mientras el original permanece
+accesible. Fuera del derrumbe la preparada conserva el original sin banda. Un modelo rechazado permite auditar el
+reporte en preview, pero una fuente seleccionada que no supera validación bloquea la evaluación, también con caché;
+nunca vuelve automáticamente a los originales.
+
+Exportación de datos agrega dos columnas de banda nominal 90%, calidad y parámetros/métricas/procedencia de la curva.
+Las métricas proceden de buen pozo retenido: no hay verdad de densidad en derrumbes del TP. El ledger ambiental queda
+vacío: esta estimación estadística no declara corregidos efectos físicos de herramienta. La comparación de fuentes y
+porosidad usa las vistas originales y la cortina de snapshots existente.

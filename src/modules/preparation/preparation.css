@@ -246,3 +246,10 @@ button.prep-pipe__node:hover { background: var(--color-surface-hover); }
   .prep-card, .prep-tile, .prep-pipe__node { transition: none; }
   .prep-tile:active { transform: none; }
 }
+
+/* F20: formularios y métricas siguen tokens y tarjetas de preparación. */
+.prep-density { display: grid; gap: var(--space-3); }
+.prep-density__columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--space-3); }
+.prep-density__row, .prep-density__predictors, .prep-density__metrics { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.prep-density .prep-card-box { padding: var(--space-3); }
+.prep-density__metrics > span { display: grid; gap: var(--space-1); }

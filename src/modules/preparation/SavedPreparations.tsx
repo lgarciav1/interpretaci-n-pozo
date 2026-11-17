@@ -6,8 +6,11 @@ import type { ClientResult } from '../../core/engine/client';
 import { nodeFilter, nodeGapFill, nodeNormalization, nodeShift } from '../../core/preparation/state';
 import { NORMALIZATION_METHOD_LABEL, normalizationAnchorsList } from '../../core/preparation/normalization';
 import { preparedCurveId } from '../../core/preparation/source';
-import { removeDepthShift, removeGapFill, removeMedianFilter, removeNormalization, restoreMaskInterval } from '../../core/state/preparation';
+import { activateDensityReconstruction, removeDepthShift, removeGapFill, removeMedianFilter, removeNormalization, restoreMaskInterval } from '../../core/state/preparation';
 import { makeId, setSource, type Project, type WellEntry } from '../../core/state/project';
+import { sameContext } from '../../core/engine/context';
+import { entryPreparationPlan } from '../../core/state/preparation';
+import { registry } from '../../modules';
 import { useProject } from '../../app/store/project';
 import { Badge, Button, Callout, EmptyState, formatNumber } from '../../ui';
 import { formatOffset } from './pipeline';
@@ -21,6 +24,9 @@ export function SavedPreparations({ entry, result, onError, onOpenCurve }: {
   onOpenCurve(curveId: string): void;
 }) {
   const commit = useProject((s) => s.commit);
+  const project = useProject(s => s.project);
+  const context = entryPreparationPlan(project, entry, registry).context;
+  const currentResult = result && sameContext(result.context, context) ? result : null;
   const wellId = entry.well.id;
   const nodes = entry.interpretation.preparation?.nodes ?? [];
   const run = (label: string, recipe: (p: Project) => Project, group: string) => {
@@ -42,6 +48,7 @@ export function SavedPreparations({ entry, result, onError, onOpenCurve }: {
         const source = c?.role ? entry.interpretation.sources[c.role] : undefined;
         const active = source?.kind === 'curve' && source.curveId === preparedId;
         const gapFill = nodeGapFill(node), filter = nodeFilter(node), shift = nodeShift(node), normalization = nodeNormalization(node);
+        const densityReport = currentResult?.preparation?.artifacts.find(a => a.id === preparedId)?.density?.report;
         const stats = result?.preparation?.artifacts.find((a) => a.id === preparedId)?.normalization;
         const name = c?.mnemonic ?? node.input.curveId;
         return (
@@ -51,10 +58,11 @@ export function SavedPreparations({ entry, result, onError, onOpenCurve }: {
                 {name}
               </button>
               {c?.role && <Badge tone={active ? 'accent' : 'neutral'}>{active ? `En uso como ${c.role}` : 'Sin usar'}</Badge>}
+              {node.kind === 'density-reconstruction' && <Badge tone="info">Estimada ML</Badge>}
               {node.kind === 'mgt-borehole' && <Badge tone="info">MGT</Badge>}
               <span className="prep-spacer" />
               {c?.role && (
-                <Button size="sm" onClick={() => run(`Usar ${active ? 'original' : 'preparada'} de ${c.mnemonic}`, (p) => setSource(p, wellId, c.role!, { kind: 'curve', curveId: active ? c.id : preparedId }), 'source')}>
+                <Button size="sm" disabled={node.kind === 'density-reconstruction' && !active && (!densityReport?.accepted || !densityReport.estimatedCount)} onClick={() => run(`Usar ${active ? 'original' : 'preparada'} de ${c.mnemonic}`, (p) => node.kind === 'density-reconstruction' && !active ? activateDensityReconstruction(p, wellId, node.id) : setSource(p, wellId, c.role!, { kind: 'curve', curveId: active ? c.id : preparedId }), 'source')}>
                   {active ? 'Usar original' : 'Usar preparada'}
                 </Button>
               )}
@@ -70,6 +78,7 @@ export function SavedPreparations({ entry, result, onError, onOpenCurve }: {
                 </Callout>
               ))}
             <ul className="prep-saved__stages">
+              {node.kind === 'density-reconstruction' && <li><span className="prep-saved__stage">Reconstrucción de densidad</span><span>Estimación en derrumbes con banda y validación por bloques. Revisá el reporte en Densidad; no es una corrección ambiental.</span></li>}
               {node.intervals.map((r) => (
                 <li key={r.id}>
                   <span className="prep-saved__stage">Exclusión</span>

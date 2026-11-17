@@ -29,6 +29,7 @@ import { useWellQc } from '../../app/store/qc';
 import { useResults } from '../../app/store/results';
 import { panelVisible, useUi } from '../../app/store/ui';
 import { useViewer } from '../../app/store/viewer';
+import { DensityPanel } from './DensityPanel';
 import { BeforeAfterChart } from './BeforeAfterChart';
 import { CurveCards, type CardInfo } from './CurveCards';
 import { EnvironmentDiagnosticPanel } from './EnvironmentDiagnosticPanel';
@@ -382,7 +383,7 @@ function Workspace({ wellId }: { wellId: string }) {
   const zoneValue = sameRange(view, wellRange) ? 'well' : (zones.find((z) => sameRange(view, z))?.id ?? 'custom');
   const toolRange = selection ?? view;
   const problem = curve ? interpolationSourceProblem(curve) : 'Elegí una curva.';
-  const mgtBlocked = appliedNode?.kind === 'mgt-borehole' ? 'Retirá la corrección MGT (pestaña Correcciones / MGT) para usar las etapas de limpieza.' : null;
+  const mgtBlocked = appliedNode?.kind === 'density-reconstruction' ? 'Retirá la reconstrucción en Densidad antes de usar las etapas de limpieza.' : appliedNode?.kind === 'mgt-borehole' ? 'Retirá la corrección MGT (pestaña Correcciones / MGT) para usar las etapas de limpieza.' : null;
   const acquisition = project.inputRevisions?.[entry.inputRevisionId ?? '']?.acquisition;
   const runCurveIds = acquisition?.runs.find((r) => r.id === runId)?.curveIds ?? [];
   const style = curve ? curveStyle(curve.role, theme, registry.roles, curve.id) : null;
@@ -401,6 +402,7 @@ function Workspace({ wellId }: { wellId: string }) {
     { id: 'xrd', label: 'DRX y GR', icon: 'layers' as const, badge: xrdSets || null },
     { id: 'env', label: 'Ambiente', icon: 'activity' as const, badge: borehole || null },
     { id: 'mgt', label: 'Correcciones', icon: 'sliders' as const, badge: nodes?.some((n) => n.kind === 'mgt-borehole') ? 'activa' : null },
+    { id: 'density', label: 'Densidad', icon: 'activity' as const, badge: nodes?.some(n => n.kind === 'density-reconstruction') ? 'guardada' : null },
     { id: 'runs', label: 'Corridas', icon: 'swap' as const, badge: acquisition?.runs.length || null },
     { id: 'saved', label: 'Guardadas', icon: 'save' as const, badge: nodes?.length || null },
   ];
@@ -652,6 +654,9 @@ function Workspace({ wellId }: { wellId: string }) {
       </TabPanel>
       <TabPanel id="mgt" idBase="prep" active={tab === 'mgt'} className="prep-tab prep-tab--legacy">
         {tab === 'mgt' && (curve ? <EnvironmentPanel project={project} entry={entry} curveId={curveId} /> : null)}
+      </TabPanel>
+      <TabPanel id="density" idBase="prep" active={tab === 'density'} className="prep-tab">
+        {tab === 'density' && <DensityPanel project={project} entry={entry} view={view} />}
       </TabPanel>
       <TabPanel id="runs" idBase="prep" active={tab === 'runs'} className="prep-tab prep-tab--legacy">
         {tab === 'runs' && curve && (

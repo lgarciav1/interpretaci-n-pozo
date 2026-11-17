@@ -37,6 +37,10 @@ export function flagColor(key: FlagKey, theme: ThemeTokens): string {
       return c.ok;
     case 'outOfDomain':
       return cat[1]!;
+    case 'estimated':
+      return c.info;
+    case 'unsupported':
+      return c.warn;
     case 'normalized':
       return cat[6]!;
   }
@@ -102,6 +106,9 @@ export interface ChartInput {
   original: Float64Array;
   /** Preparada vigente o vista previa (null = solo el original, en el color de la curva). */
   after: Float64Array | null;
+  /** Banda calibrada F20, sólo donde hay estimación. */
+  lower?: Float64Array;
+  upper?: Float64Array;
   /** Banderas de la ventana (de `after` o del original), con «sospechosa» de vista. */
   quality: Uint16Array;
   color: string;
@@ -182,8 +189,8 @@ function finiteRange(min: Float64Array, max: Float64Array): { min: number; max: 
 }
 
 /** Eje de valores de la ventana (original y preparada juntas). */
-export function valueAxis(input: Pick<ChartInput, 'original' | 'after' | 'start' | 'end' | 'log'>): XYAxis | null {
-  const series = [input.original.subarray(input.start, input.end), ...(input.after ? [input.after.subarray(input.start, input.end)] : [])];
+export function valueAxis(input: Pick<ChartInput, 'original' | 'after' | 'lower' | 'upper' | 'start' | 'end' | 'log'>): XYAxis | null {
+  const series = [input.original.subarray(input.start, input.end), ...(input.after ? [input.after.subarray(input.start, input.end)] : []), ...(input.lower ? [input.lower.subarray(input.start, input.end)] : []), ...(input.upper ? [input.upper.subarray(input.start, input.end)] : [])];
   const r = niceRange(series, input.log ? 'log' : 'linear', { pad: 0.06 });
   return r ? { kind: input.log ? 'log' : 'linear', min: r.min, max: r.max, label: '' } : null;
 }
@@ -349,6 +356,20 @@ export function drawBeforeAfter(ctx: CanvasRenderingContext2D, size: { width: nu
     ctx.textAlign = 'center';
     ctx.fillStyle = c.textMuted;
     ctx.fillText(input.unit, 0, 0);
+    ctx.restore();
+  }
+
+  // Banda de error calibrada: se corta en faltantes y nunca une derrumbes separados.
+  if (axis && input.lower && input.upper) {
+    ctx.save();
+    ctx.fillStyle = withAlpha(input.color, 0.18);
+    for (let i = start; i < end; i++) {
+      const lo = input.lower[i]!, hi = input.upper[i]!;
+      if (!Number.isFinite(lo) || !Number.isFinite(hi)) continue;
+      const x0 = L.gutter + ((i - start) / n) * S.plotWidth;
+      const y0 = yOf(hi), y1 = yOf(lo);
+      ctx.fillRect(x0, y0, Math.max(1, S.plotWidth / n), Math.max(1, y1 - y0));
+    }
     ctx.restore();
   }
 
