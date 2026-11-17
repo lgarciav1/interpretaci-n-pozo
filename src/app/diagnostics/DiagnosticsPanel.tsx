@@ -144,6 +144,10 @@ function Item({ item, zones, all }: { item: DiagnosticItem; zones: readonly Zone
 export function DiagnosticsPanel() {
   const error = useResults((s) => s.error);
   const diags = useActiveDiagnostics();
+  const result = useResults((s) => s.result);
+  const busy = useResults((s) => s.busy);
+  const activeWellId = useProject((s) => s.project.activeWellId);
+  const pending = activeWellId !== null && (result === null || result.wellId !== activeWellId);
   const entry = useProject(selectActiveEntry);
   const workspace = useUi((s) => s.workspace);
   const { hiddenLevels, hideSeen, openGroups, toggleLevel, setHideSeen, setGroupOpen } = useDiagnosticsUi();
@@ -156,6 +160,7 @@ export function DiagnosticsPanel() {
   const counts = useMemo(() => countByLevel(diags), [diags]);
   const seenCount = groups.reduce((n, g) => n + g.total - g.unseen.error - g.unseen.warning - g.unseen.info, 0);
 
+  if (diags.length === 0 && !error && pending && busy) return <EmptyState size="sm" icon="info" title="Calculando…" description="Los avisos aparecen al terminar el cálculo del pozo." />;
   if (diags.length === 0 && !error) return <EmptyState size="sm" icon="check-circle" title="Sin avisos" description="Los módulos no reportaron problemas en el último cálculo." />;
 
   return (
@@ -205,9 +210,10 @@ export function DiagnosticsPanel() {
             title={g.title}
             meta={
               <span className="diag-group__meta" title={groupMeta(g)}>
-                <span className="num" aria-label={groupMeta(g)}>
+                <span className="num" aria-hidden="true">
                   {g.total}
                 </span>
+                <span className="ui-visually-hidden">{groupMeta(g)}</span>
                 <LevelDots counts={g.unseen} />
               </span>
             }
