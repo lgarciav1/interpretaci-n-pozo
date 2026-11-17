@@ -47,6 +47,8 @@
 /* Estados */
 .ui-step--done .ui-step__marker { background: var(--color-ok); border-color: var(--color-ok); color: #fff; }
 .ui-step--done .ui-step__button { color: var(--color-text); }
+/* Completo sin revisar (calculado con valores de fábrica): anillo verde con el tilde, sin relleno. */
+.ui-step--done.is-unreviewed .ui-step__marker { background: var(--color-surface); border-color: var(--color-ok); color: var(--color-ok); }
 .ui-step--partial .ui-step__marker {
   border-color: var(--color-accent);
   color: var(--color-accent-text);

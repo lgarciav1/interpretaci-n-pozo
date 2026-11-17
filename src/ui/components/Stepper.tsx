@@ -23,6 +23,11 @@ export interface StepperItem {
   status: StepperStatus;
   /** Texto del tooltip (estado y qué hacer). */
   hint?: ReactNode;
+  /**
+   * Si hubo una decisión del usuario en el paso. Solo con `false` explícito y estado `done` el marcador se dibuja como
+   * anillo (calculado con valores de fábrica); sin definir, el paso se ve como siempre.
+   */
+  reviewed?: boolean;
 }
 
 export interface StepperProps {
@@ -108,8 +113,10 @@ export function Stepper({ items, activeId, suggestedId, onSelect, ...aria }: Ste
         {items.map((s, i) => {
           const active = s.id === activeId;
           const prevDone = i > 0 && (items[i - 1]!.status === 'done' || items[i - 1]!.status === 'skipped');
+          const unreviewed = s.reviewed === false && s.status === 'done';
+          const review = s.reviewed ? ', revisado' : unreviewed ? ', calculado con valores de fábrica' : '';
           return (
-            <li key={s.id} className={`ui-step ui-step--${s.status}${active ? ' is-active' : ''}${s.id === suggestedId ? ' is-suggested' : ''}`}>
+            <li key={s.id} className={`ui-step ui-step--${s.status}${unreviewed ? ' is-unreviewed' : ''}${active ? ' is-active' : ''}${s.id === suggestedId ? ' is-suggested' : ''}`}>
               {i > 0 && <span className={`ui-step__line${prevDone ? ' is-filled' : ''}`} aria-hidden="true" />}
               <Tooltip content={s.hint} placement="bottom">
                 <button
@@ -119,7 +126,7 @@ export function Stepper({ items, activeId, suggestedId, onSelect, ...aria }: Ste
                   type="button"
                   className="ui-step__button"
                   aria-current={active ? 'step' : undefined}
-                  aria-label={`Paso ${i + 1}: ${s.label}, ${STATUS_TEXT[s.status]}`}
+                  aria-label={`Paso ${i + 1}: ${s.label}, ${STATUS_TEXT[s.status]}${review}`}
                   onClick={() => onSelect(s.id)}
                   onKeyDown={(e) => {
                     const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;

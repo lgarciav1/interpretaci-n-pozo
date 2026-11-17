@@ -18,7 +18,7 @@ del TP eso no deja ver qué se interpretó de verdad.
 2. **Se deriva, no se guarda.** No hay un estado nuevo que mantener a mano. Un paso cuenta como revisado si:
    - tiene una marca manual (`FlowProgress.marks`: completo o saltado), o
    - **paso de módulos:** algún parámetro de sus módulos difiere del valor de fábrica, globalmente o como override de
-     alguna zona (en `ParamState` lo ausente es fábrica; un valor guardado igual al de fábrica no cuenta; números con
+     alguna zona que siga existiendo (en `ParamState` lo ausente es fábrica; un valor guardado igual al de fábrica no cuenta; números con
      tolerancia relativa 1e-9 para que volver un slider a su lugar lo «desrevise»; valores inválidos no cuentan), o
    - **paso de módulos:** se eligió una fuente (`Interpretation.sources`) para algún puerto que producen sus módulos o
      para alguno de sus `targets` (elegir método o curva medida es una decisión), o
@@ -28,7 +28,9 @@ del TP eso no deja ver qué se interpretó de verdad.
 3. **Parámetros compartidos cuentan para todos los pasos que los usan.** `a`, `m`, `n` y los cutoffs compartidos viven
    con una sola clave (`paramStorageKey` sin prefijo): cambiarlos es una decisión que afecta a cada paso que los lee, y
    así se muestra.
-4. **El contador.** La barra pasa de «11/11» a «11 calculados · 4 revisados». La barrita de progreso muestra las dos
+4. **El contador.** La barra pasa de «11/11» a «11 calculados · 4 revisados» si la barra mide más de 1560 px;
+   por debajo (1366 incluido) se compacta a «11 · 4 rev.» para que los pasos conserven sus rótulos, con el texto largo
+   en el `aria-label` (el contador es enfocable) y en el tooltip. La barrita de progreso muestra las dos
    capas: lo calculado en tono suave y lo revisado lleno. `flowProgress` conserva `resolved` y suma `reviewed`.
 5. **En la barra de pasos.** Un paso completo sin revisar muestra el tilde verde sobre fondo vacío (anillo); revisado,
    el círculo verde lleno de siempre. El tooltip y el `aria-label` dicen «calculado con valores de fábrica» o

@@ -164,11 +164,24 @@
   padding: 0 var(--space-4) 0 var(--space-3);
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
+  container: flowbar / inline-size;
 }
 .shell-flowbar .ui-stepper { flex: 1; }
 .shell-flowbar__progress { display: flex; align-items: center; gap: var(--space-2); color: var(--color-text-muted); font-size: var(--text-sm); white-space: nowrap; }
-.shell-progress { width: calc(72px * var(--ui-scale)); height: calc(4px * var(--ui-scale)); border-radius: var(--radius-full); background: var(--color-surface-active); overflow: hidden; }
-.shell-progress > span { display: block; height: 100%; border-radius: inherit; background: var(--color-ok); transition: width var(--dur-slow) var(--ease-standard); }
+.shell-flowbar__progress:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
+/* El contador largo («11 calculados · 4 revisados») se compacta a «11 · 4 rev.» si la barra no es muy ancha (el texto largo sigue
+   en el aria-label y en el tooltip). */
+.shell-flowbar__count--short { display: none; }
+@container flowbar (max-width: 1560px) {
+  .shell-flowbar__count--long { display: none; }
+  .shell-flowbar__count--short { display: inline; }
+}
+/* Dos capas: lo calculado en tono suave debajo y lo revisado lleno encima (revisado ≤ total, no siempre ≤ calculado:
+   un paso saltado a mano está revisado sin estar calculado). */
+.shell-progress { position: relative; width: calc(72px * var(--ui-scale)); height: calc(4px * var(--ui-scale)); border-radius: var(--radius-full); background: var(--color-surface-active); overflow: hidden; }
+.shell-progress > span { position: absolute; inset: 0 auto 0 0; border-radius: inherit; transition: width var(--dur-slow) var(--ease-standard); }
+.shell-progress__computed { background: var(--color-ok-border); }
+.shell-progress__reviewed { background: var(--color-ok); }
 
 /* Tres zonas */
 .shell-main { display: flex; min-width: 0; min-height: 0; }
@@ -291,6 +304,9 @@
 .inspector-tools { display: inline-flex; gap: var(--space-0-5); margin-right: calc(var(--space-2) * -1); }
 .inspector-head__title { font-size: var(--text-xl); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-tight); }
 .inspector-head__reason { color: var(--color-text-muted); }
+/* Estado «revisado» (0073): discreto, bajo la razón del paso. */
+.inspector-head__review { display: flex; align-items: center; gap: var(--space-1-5); color: var(--color-text-subtle); font-size: var(--text-xs); }
+.inspector-head__review.is-reviewed { color: var(--color-ok-text); }
 .inspector-head__actions { display: flex; flex-wrap: wrap; gap: var(--space-1-5); margin-top: var(--space-1); }
 .inspector-head__next { margin-left: auto; }
 .inspector-pad { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); }
