@@ -60,7 +60,11 @@ export function installStopwatch(): void {
     // `replace` vacía el historial y deja su etiqueta; `cancelGroup` también puede vaciarlo, pero sin etiqueta.
     const replaced = s.history !== prev.history && s.history.past.length === 0 && s.history.future.length === 0 && s.lastChange !== null;
     const id = walkthroughStartFor(prev.project, s.project, { replaced, label: s.lastChange }, useStopwatch.getState().watch);
-    if (id) useStopwatch.setState({ watch: startFor(id, stopwatchClock.now()) });
+    if (!id) return;
+    useStopwatch.setState({ watch: startFor(id, stopwatchClock.now()) });
+    // Cargar un pozo estando en el Sumario no lo «reabre»: sin esto el reloj correría sin frenar nunca (el freno
+    // salta al entrar al paso). Se vuelve al paso sugerido, como hacen abrir proyecto y el pozo de demostración.
+    if (useUi.getState().activeStepId === WALKTHROUGH_END_STEP) useUi.getState().set({ activeStepId: null });
   });
   // Freno: la primera vez que se abre el Sumario con el pozo que se mide; después queda fijo.
   useUi.subscribe((s, prev) => {

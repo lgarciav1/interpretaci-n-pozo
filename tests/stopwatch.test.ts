@@ -152,6 +152,20 @@ describe('cronómetro: arranque y freno en la app', () => {
     expect(isRunning(useStopwatch.getState().watch)).toBe(true);
   });
 
+  it('cargar un pozo estando en el Sumario no deja el reloj corriendo sin freno', () => {
+    now = 1000;
+    useProject.getState().commit('Cargar Pozo A', (p) => addWell(p, wellA));
+    useUi.getState().set({ activeStepId: 'summary' });
+    expect(useStopwatch.getState().watch.stoppedAt).toBe(1000);
+    now = 5000;
+    useProject.getState().commit('Cargar Pozo B', (p) => setActiveWell(addWell(p, wellB), 'pozo-b'));
+    expect(useStopwatch.getState().watch).toEqual({ wellId: 'pozo-b', startedAt: 5000, stoppedAt: null });
+    expect(useUi.getState().activeStepId).toBeNull();
+    now = 9000;
+    useUi.getState().set({ activeStepId: 'summary' });
+    expect(useStopwatch.getState().watch.stoppedAt).toBe(9000);
+  });
+
   it('ocultar se recuerda en localStorage', () => {
     const setItem = vi.fn();
     vi.stubGlobal('localStorage', { getItem: () => null, setItem });
