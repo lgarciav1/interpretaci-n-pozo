@@ -104,6 +104,8 @@ export const BUILTIN_ROLES: readonly RoleDef[] = [
   // Agua de formación (fase 6a): Rw a temperatura de formación, por muestra, y Rw aparente
   { id: 'RW', label: 'Resistividad del agua (Rw)', unit: 'ohm.m', family: 'resistivity', origin: 'computed', display: { color: '#0b5394', scale: 'log', min: 0.01, max: 10 } },
   { id: 'RWA', label: 'Resistividad aparente del agua (Rwa)', unit: 'ohm.m', family: 'resistivity', origin: 'computed', display: { color: '#3d85c6', scale: 'log', min: 0.01, max: 10 } },
+  // Resistividad mojada (F16): la de la roca con Sw = 1 (a·Rw/φ^m), en la misma escala que RT para superponerlas
+  { id: 'R0', label: 'Resistividad mojada (R0)', unit: 'ohm.m', family: 'resistivity', origin: 'computed', display: { color: '#1f6feb', scale: 'log', min: 0.2, max: 2000 } },
   // Perfil de invasión escalonada (fase 8b): diámetro de invasión (convención de la industria: 2·ri) y calidad del ajuste
   { id: 'DI', label: 'Diámetro de invasión', unit: 'in', family: 'resistivity', origin: 'computed', display: { color: '#0f766e', scale: 'linear', min: 0, max: 200 } },
   { id: 'INV_MISFIT', label: 'Desajuste del perfil de invasión', unit: 'unitless', family: 'other', origin: 'computed', display: { color: '#be185d', scale: 'linear', min: 0, max: 0.5 } },

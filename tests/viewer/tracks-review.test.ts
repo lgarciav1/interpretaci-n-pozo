@@ -47,7 +47,7 @@ describe('acciones de «Armar pistas»', () => {
     expect(res.curves.map((c) => c.name)).not.toContain('AT30');
     expect(res.hidden?.map((h) => h.name)).toEqual(['AT30']);
     editor.removeCurve(res, res.curves.find((c) => c.name === 'AT60')!);
-    expect(sel(spec('resistivity'))).toEqual(['RXO', '#AT20', '#AT30', 'RA10', 'RA20', 'RA30', 'RS', 'RM', 'RT']);
+    expect(sel(spec('resistivity'))).toEqual(['RXO', '#AT20', '#AT30', 'RA10', 'RA20', 'RA30', 'RS', 'RM', 'R0', 'RT']);
     // AT30 sigue oculta y su pista la ofrece para volver a mostrarla
     const after = editorFor(useProject.getState().project).displayed.find((t) => t.id === 'resistivity')!;
     expect(after.hidden?.map((h) => h.name)).toEqual(['AT30']);
@@ -79,7 +79,7 @@ describe('acciones de «Armar pistas»', () => {
     editor.moveCurveToTrack(res, res.curves.find((c) => c.name === 'AT30')!, { kind: 'track', trackId: 'sonic' });
     expect(useProject.getState().history.past).toHaveLength(1);
     expect(useProject.getState().undoLabel).toBe('Mover AT30 a Sónico');
-    expect(sel(spec('resistivity'))).toEqual(['RXO', '#AT20', '#AT60', 'RA10', 'RA20', 'RA30', 'RS', 'RM', 'RT']);
+    expect(sel(spec('resistivity'))).toEqual(['RXO', '#AT20', '#AT60', 'RA10', 'RA20', 'RA30', 'RS', 'RM', 'R0', 'RT']);
     expect(sel(spec('sonic'))).toEqual(['DT', 'DTS', '#AT30']);
     useProject.getState().undo();
     expect(useProject.getState().project.display.layouts[WS]).toBeUndefined();

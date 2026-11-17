@@ -150,18 +150,18 @@ describe('recetas de pistas', () => {
 
   it('una entrada de grupo se expande en curvas puntuales para mover o quitar una sola', () => {
     const res = track(PETRO, 'resistivity');
-    expect(sel(res)).toEqual(['RXO', '*resistivity', 'RA10', 'RA20', 'RA30', 'RS', 'RM', 'RT']);
+    expect(sel(res)).toEqual(['RXO', '*resistivity', 'RA10', 'RA20', 'RA30', 'RS', 'RM', 'R0', 'RT']);
     const e = expandGroupEntry(PETRO, 'resistivity', 1, ['AT10', 'AT20', 'RS']);
-    expect(sel(track(e, 'resistivity'))).toEqual(['RXO', '#AT10', '#AT20', '#RS', 'RA10', 'RA20', 'RA30', 'RS', 'RM', 'RT']);
+    expect(sel(track(e, 'resistivity'))).toEqual(['RXO', '#AT10', '#AT20', '#RS', 'RA10', 'RA20', 'RA30', 'RS', 'RM', 'R0', 'RT']);
     const moved = moveCurveEntry(e, 'resistivity', 2, 'sonic');
-    expect(sel(track(moved, 'resistivity'))).toEqual(['RXO', '#AT10', '#RS', 'RA10', 'RA20', 'RA30', 'RS', 'RM', 'RT']);
+    expect(sel(track(moved, 'resistivity'))).toEqual(['RXO', '#AT10', '#RS', 'RA10', 'RA20', 'RA30', 'RS', 'RM', 'R0', 'RT']);
     expect(sel(track(moved, 'sonic'))).toEqual(['DT', 'DTS', '#AT20']);
     expect(expandGroupEntry(PETRO, 'resistivity', 0, ['X'])).toBe(PETRO); // no es grupo
   });
 
   it('qué entrada puso cada curva dibujada', () => {
     const res = track(PETRO, 'resistivity');
-    expect(entryIndexFor(res, { role: 'RT', curveId: 'AT90', origin: 'measured' })).toBe(7);
+    expect(entryIndexFor(res, { role: 'RT', curveId: 'AT90', origin: 'measured' })).toBe(8);
     expect(entryIndexFor(res, { role: 'RA10', curveId: 'AT10', origin: 'measured' })).toBe(2);
     expect(entryIndexFor(res, { role: null, curveId: 'AT10', origin: 'measured' })).toBe(1);
     expect(entryIndexFor(track(PETRO, 'computed'), { role: 'VSH', origin: 'computed' })).toBe(0);

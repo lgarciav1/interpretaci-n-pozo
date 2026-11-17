@@ -12,12 +12,18 @@
  *   densidad queda a la izquierda del neutrón; separación de arcilla donde el neutrón queda a la izquierda.
  * - Las curvas se dibujan en el orden listado: la última queda encima.
  */
-import type { StackSpec, TrackSpec } from '../core/display';
+import type { FillSpec, StackSpec, TrackSpec } from '../core/display';
 import type { WorkspaceId } from '../core/workspaces';
 import { DEFAULT_LOOK, type ViewerLookId } from './look';
 import { guard, type OverlayTrackContext, type ViewerOverlay } from './overlay';
 
 const RESISTIVITY_SCALE = { kind: 'log', min: 0.2, max: 2000 } as const;
+
+/**
+ * Relleno de la resistividad mojada (F16): entre R0 (a) y Rt (b), hidrocarburo donde R0 < Rt. Compara VALORES, así
+ * sigue bien aunque el usuario cambie la escala de una de las dos. Opacidad moderada: no tapa las curvas ni la grilla.
+ */
+export const R0_FILL: FillSpec = { kind: 'between', a: 'R0', b: 'RT', aLeft: 'hydrocarbon', compare: 'value', opacity: 0.6 };
 
 /**
  * Columna volumétrica (de izquierda a derecha, como ELAN/Techlog): arcilla = VSH, matriz = 1 − VSH − PHIE y la
@@ -105,7 +111,10 @@ export const MODERN_LAYOUTS: Readonly<Record<WorkspaceId, readonly TrackSpec[]>>
       title: 'Resistividad',
       kind: 'curves',
       scale: RESISTIVITY_SCALE,
-      curves: [{ select: { role: 'RXO' } }, { select: { unassigned: 'resistivity' } }, { select: { role: 'RA10' } }, { select: { role: 'RA20' } }, { select: { role: 'RA30' } }, { select: { role: 'RS' } }, { select: { role: 'RM' } }, { select: { role: 'RT' } }],
+      curves: [{ select: { role: 'RXO' } }, { select: { unassigned: 'resistivity' } }, { select: { role: 'RA10' } }, { select: { role: 'RA20' } }, { select: { role: 'RA30' } }, { select: { role: 'RS' } }, { select: { role: 'RM' } }, { select: { role: 'R0' } }, { select: { role: 'RT' } }],
+      // R0 (resistividad mojada, F16) antes de Rt: la profunda queda encima. Donde Rt > R0 (comparando valores, no la
+      // posición) hay hidrocarburo: el relleno aparece solo ahí y solo si el pozo tiene PHIE y Rw para calcular R0.
+      fills: [R0_FILL],
       emptyHint: 'Sin resistividades: asigná Rt (AT90, ILD…) en la lista de curvas.',
     },
     {
