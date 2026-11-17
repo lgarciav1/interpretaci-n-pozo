@@ -145,6 +145,11 @@ export function toEngineWell(well: { id: string; depth: { values: Float64Array }
 }
 
 export interface EngineOptions {
+  /** Optional task scope: resolve the complete production graph, but execute only these modules and
+   * their exact transitive dependencies. Does not change source selection or the interpretation.
+   * Omitted means the complete chain (normal application engine).
+   */
+  targetModuleIds?: readonly string[];
   /**
    * Verifica en cada cálculo que el módulo no haya modificado sus entradas (curvas, profundidad, espesor):
    * las hashea antes y después de `compute` y lanza `InputMutationError` si cambiaron. Cuesta una pasada por
@@ -252,6 +257,19 @@ export class Engine {
     if (!well) throw new Error('No hay pozo cargado en el motor.');
     const registry = this.registry;
     const plan: Plan = planGraph(registry, well.curves, interp);
+    let executionOrder = plan.order;
+    if (this.options.targetModuleIds) {
+      const included = new Set<string>();
+      const include = (id: string): void => {
+        if (included.has(id)) return;
+        const node = plan.nodes.get(id);
+        if (!node) return;
+        included.add(id);
+        for (const dependency of node.deps) include(dependency);
+      };
+      for (const target of this.options.targetModuleIds) include(target);
+      executionOrder = plan.order.filter(id => included.has(id));
+    }
     const diagnostics: Diagnostic[] = [...plan.diagnostics];
     const layout = this.zoneLayout(interp);
     for (const p of layout.problems) diagnostics.push({ level: 'warning', code: 'zones', message: p });
@@ -264,7 +282,7 @@ export class Engine {
     const recomputed: string[] = [];
     const reused: string[] = [];
 
-    for (const id of plan.order) {
+    for (const id of executionOrder) {
       const node = plan.nodes.get(id)!;
       const m = registry.get(id)!;
       const report: NodeReport = { moduleId: id, reason: node.reason, status: node.status === 'ready' ? 'ok' : node.status, computed: false, ms: 0 };
@@ -433,7 +451,7 @@ export class Engine {
     }
 
     const outputs: OutputRecord[] = [];
-    for (const id of plan.order) {
+    for (const id of executionOrder) {
       if (!okNodes.has(id)) continue;
       const m = registry.get(id)!;
       const cached = this.cache.get(id)!;

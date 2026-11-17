@@ -935,3 +935,11 @@ Exportación de datos agrega dos columnas de banda nominal 90%, calidad y parám
 Las métricas proceden de buen pozo retenido: no hay verdad de densidad en derrumbes del TP. El ledger ambiental queda
 vacío: esta estimación estadística no declara corregidos efectos físicos de herramienta. La comparación de fuentes y
 porosidad usa las vistas originales y la cortina de snapshots existente.
+
+## Torneo exploratorio contra corona (F22, ADR 0078)
+
+`src/petro/modelTournament.ts` define 75 combinaciones Vsh × PHIT × Sw y reutiliza el motor productivo. El motor admite `targetModuleIds` opcional para ejecutar la clausura de dependencias del plan completo ya resuelto; el torneo solicita Vsh, PHIT y el Sw candidato, evitando consumidores ajenos sin cambiar defaults ni fuentes. Evalúa PHIT contra φ de laboratorio en MD corregida, conserva métodos/fuentes restantes y preparación, y separa cobertura propia de pares comunes. No mezcla variables en una puntuación. Vsh y Sw quedan no evaluables sin referencias compatibles; cobertura calculada no equivale a validación. Las observaciones declaradas de ajuste quedan excluidas y guardadas en evidencia JSON; todo resultado es exploratorio.
+
+`src/core/tournament/observations.ts` obtiene plugs incluidos, convierte unidades y exige alineación explícita; `run.ts` valida el contexto y ejecuta la preparación central, incluidas recetas F20, antes de evaluar. `src/app/tournament/` contiene tarea worker inline propia y cliente con timeout, sin fallback pesado sincrónico ni dependencia de slots pendientes. No transfiere buffers de originales.
+
+`recipe.ts` rechaza resultados de otro contexto u obsoletos y candidatos sin soporte común o sin salidas calculadas. Una operación fija revisiones, aplica la interpretación exacta del candidato y guarda evidencia y snapshot comparable. La operación completa entra en deshacer/rehacer. El panel `src/modules/model-tournament/` informa métricas, soporte, límites y selección explícita; documentación matemática en Ecuaciones. Ninguna combinación es una ganadora integral cuando faltan referencias Vsh/Sw.
