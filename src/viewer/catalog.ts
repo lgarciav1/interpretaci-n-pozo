@@ -14,7 +14,7 @@ import { defaultToolCatalog, type ToolCatalog, type ToolFamily } from '../core/t
 import { getUnit } from '../core/units';
 import type { Curve } from '../core/well';
 import { SW_MODELS_TRACK } from './swModels';
-import { BUILTIN_LAYOUTS, NMR_SCALE, NMR_TRACK, VOLUMETRIC_STACK } from './templates';
+import { BUILTIN_LAYOUTS, NMR_SCALE, NMR_TRACK, R0_FILL, VOLUMETRIC_STACK } from './templates';
 
 /** Pista sin id (la receta le pone uno único al crearla). */
 export type TrackDraft = Omit<TrackSpec, 'id'> & { id?: string };
@@ -184,6 +184,7 @@ export const OWN_FILLS: Readonly<Record<string, FillSpec[]>> = {
   IGR: [{ kind: 'edge', curve: 'IGR', side: 'left', fill: 'shale', opacity: 0.35 }],
   VSH: [{ kind: 'edge', curve: 'VSH', side: 'left', fill: 'shale', opacity: 0.6 }],
   SW: [{ kind: 'edge', curve: 'SW', side: 'left', fill: 'hydrocarbon', opacity: 0.6 }],
+  R0: [R0_FILL],
   BVI_NMR: [NMR_BVI, NMR_FFI],
   PHIE_NMR: [NMR_FFI, NMR_CBW],
   PHIT_NMR: [NMR_CBW],

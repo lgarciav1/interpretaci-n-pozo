@@ -82,6 +82,8 @@ export const CURVE_PALETTE: Readonly<Record<RoleId, CurvePaletteEntry>> = {
   SH: { light: '#4d7c0f', dark: '#a3d65c', line: 'solid' },
   RW: { light: '#0b5394', dark: '#6fa8f5', line: 'solid', width: 1.5 },
   RWA: { light: '#0e7490', dark: '#5fd3e8', line: 'dashed' },
+  // R0 (F16): azul cielo punteado, para leerse junto a la Rt roja sin confundirse con la media (azul rayada)
+  R0: { light: '#0284c7', dark: '#38bdf8', line: 'dotted', width: 1.75 },
   // Perfil de invasión escalonada (fase 8b)
   DI: { light: '#0f766e', dark: '#2dd4bf', line: 'solid', width: 1.5 },
   INV_MISFIT: { light: '#be185d', dark: '#f472b6', line: 'dotted', width: 1.25 },
@@ -151,6 +153,7 @@ export const CLASSIC_CURVE_PALETTE: Readonly<Partial<Record<RoleId, Partial<Curv
   PHIE: { light: '#2b5d8a', dark: '#86b4dc', line: 'solid', width: 1.25 },
   PHIT: { light: '#3a3f46', dark: '#c3c8cf', line: 'solid' },
   SW: { light: '#1f2f5c', dark: '#a9bde6', line: 'solid' },
+  R0: { light: '#0b6fa8', dark: '#6cc0ee', line: 'dotted', width: 1.25 },
   BVW: { light: '#3f6f96', dark: '#8fb3d3', line: 'solid' },
   PERM: { light: '#9a4a1f', dark: '#e09a6c', line: 'solid' },
   NET_SAND: { light: '#cdbf9c', dark: '#8f8366' },

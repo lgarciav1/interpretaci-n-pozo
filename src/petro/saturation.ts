@@ -1,7 +1,7 @@
 /**
- * Saturación de agua (Archie, Simandoux, Indonesia), BVW y saturación de hidrocarburos.
+ * Saturación de agua (Archie, Simandoux, Indonesia), BVW, saturación de hidrocarburos y resistividad mojada (R0).
  *
- * Unidades: resistividades (Rt, Rw, Rsh) en Ω·m; φ, Vsh, Sw, BVW y Sh en v/v (fracción, NO %). Rw a temperatura de
+ * Unidades: resistividades (Rt, Rw, Rsh, R0) en Ω·m; φ, Vsh, Sw, BVW y Sh en v/v (fracción, NO %). Rw a temperatura de
  * formación. Sin dato (NaN) → NaN. Parámetros degenerados → NaN: Rt ≤ 0, Rw ≤ 0, φ ≤ 0, a ≤ 0, m ≤ 0, n ≤ 0, o
  * Rsh ≤ 0 cuando Vsh > 0 (con Vsh = 0 Rsh no interviene y se ignora). Valores no finitos (±Infinity) → NaN.
  * Vsh se recorta a [0, 1] antes de calcular; la Sw resultante se recorta a [0, 1] (el recorte oculta valores no
@@ -16,8 +16,13 @@
  *                → Sw = { (1/√Rt) / [ Vsh^(1 − Vsh/2)/√Rsh + φ^(m/2)/√(a·Rw) ] }^(2/n)       (Poupon y Leveaux)
  *   BVW          BVW = φ · Sw
  *   Hidrocarb.   Sh = 1 − Sw
+ *   R0 (mojada)  R0 = a·Rw / φ^m                 resistividad de la roca con Sw = 1 (Archie con Sw = 1)
  *
  * Notas:
+ *  - R0 y Archie son la misma ley: Sw = (R0/Rt)^(1/n), es decir Rt = R0 / Sw^n. Donde Rt = R0, Sw = 1 (agua); donde
+ *    Rt > R0 hay menos agua que poros y, de ser una arena limpia, hidrocarburo (quick-look de Archie, Asquith y
+ *    Krygowski cap. 5: la separación Rt − R0 sobre la curva de R0 señala el hidrocarburo). R0 NO se recorta: crece
+ *    sin cota cuando φ → 0 (la pista de resistividad la acota con su escala, 0,2–2000 Ω·m).
  *  - Simandoux con a = 0,81 y m = 2 reproduce, a menos de redondeo, la forma que presentan Asquith y Krygowski:
  *    Sw = (0,4·Rw/φ²)·[ √((Vsh/Rsh)² + 5·φ²/(Rw·Rt)) − Vsh/Rsh ], porque a/2 = 0,405 ≈ 0,4 y 4/a = 4,94 ≈ 5
  *    (diferencia numérica < 1 % en casos típicos). Con a = 1 y m = 2 es la forma "clásica" 0,5/4.
@@ -75,6 +80,21 @@ export function archieSw(rt: number, phi: number, rw: number, a: number, m: numb
     return NaN;
   }
   return clip01(Math.pow((a * rw) / (Math.pow(phi, m) * rt), 1 / n));
+}
+
+/**
+ * Resistividad mojada (R0): la que tendría la roca con 100 % de agua, R0 = a·Rw / φ^m (Archie con Sw = 1). Contra Rt
+ * en la pista de resistividad: Rt > R0 marca hidrocarburo (Sw = (R0/Rt)^(1/n), ver `archieSw`). Sin recortar.
+ * @param phi porosidad (v/v), > 0
+ * @param rw  resistividad del agua de formación (Ω·m), > 0
+ * @param a   factor de tortuosidad (> 0)
+ * @param m   exponente de cementación (> 0)
+ * Referencias: Archie (1942), Trans. AIME 146; Asquith y Krygowski (2004), Basic Well Log Analysis, cap. 5.
+ */
+export function wetResistivity(phi: number, rw: number, a: number, m: number): number {
+  if (!isPositiveFinite(phi) || !isPositiveFinite(rw) || !isPositiveFinite(a) || !isPositiveFinite(m)) return NaN;
+  const r0 = (a * rw) / Math.pow(phi, m);
+  return isPositiveFinite(r0) ? r0 : NaN; // φ muy chica desborda a Infinity: sin valor, no un número que la escala no puede dibujar
 }
 
 /** Variante por tramo [start, end) de `rt`, escrita en `out` (mismo índice). */

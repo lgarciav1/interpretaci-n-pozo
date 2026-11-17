@@ -28,6 +28,7 @@ import rwManual from './rw-manual';
 import rwSp from './rw-sp';
 import rwRwa from './rw-rwa';
 import swArchie from './sw-archie';
+import r0 from './r0';
 import swSimandoux from './sw-simandoux';
 import swIndonesia from './sw-indonesia';
 import bvwSh from './bvw-sh';
@@ -75,6 +76,7 @@ export const MODULES = [
   rwSp,
   rwRwa,
   swArchie,
+  r0,
   swSimandoux,
   swIndonesia,
   bvwSh,
