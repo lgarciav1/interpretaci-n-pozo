@@ -32,7 +32,7 @@ async function bootShowcase() {
 
 async function boot() {
   try {
-    const [{ registry }, { App }, { startEngineBridge }, { useProject }, { syntheticWell }, { addWell, createProject }, { installUiSync }, { installHistoryShortcuts }, { useHome }, { installAutosave }] = await Promise.all([
+    const [{ registry }, { App }, { startEngineBridge }, { useProject }, { syntheticWell }, { addWell, createProject }, { installUiSync }, { installHistoryShortcuts }, { useHome }, { installAutosave }, { installStopwatch }, { BOOT_DEMO_LABEL }] = await Promise.all([
       import('../modules'),
       import('./App'),
       import('./engineBridge'),
@@ -43,18 +43,22 @@ async function boot() {
       import('./shell/historyActions'),
       import('./home/store'),
       import('./autosave'),
+      import('./flow/stopwatchStore'),
+      import('./flow/stopwatch'),
     ]);
     const params = new URLSearchParams(location.search);
     if (params.get('inicio') === 'no' || params.has('muestras')) {
       // `?muestras=50000` genera un pozo sintético más largo (pruebas de rendimiento del visor).
       const requested = Number(params.get('muestras'));
       const demo = syntheticWell(Number.isInteger(requested) && requested >= 100 && requested <= 1_000_000 ? requested : undefined);
-      useProject.getState().replace(addWell(createProject('Demostración'), demo.well, demo.zones), 'Pozo de demostración');
+      useProject.getState().replace(addWell(createProject('Demostración'), demo.well, demo.zones), BOOT_DEMO_LABEL);
     } else {
       useHome.getState().set({ phase: 'open', via: 'boot' });
     }
     installUiSync((id) => registry.get(id) !== undefined);
     installHistoryShortcuts();
+    // Cronómetro del recorrido (F19): arranca al cargar un pozo y frena al abrir el Sumario. No mide el sintético del arranque.
+    installStopwatch();
     // Autoguardado (docs/decisiones/0071): no demora el arranque ni lo rompe si IndexedDB falla.
     void installAutosave().catch((err) => console.warn('Autoguardado no disponible', err));
     for (const w of registry.warnings) console.warn(`Registro de módulos: ${w}`);

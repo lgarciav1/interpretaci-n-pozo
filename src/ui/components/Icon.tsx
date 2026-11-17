@@ -54,6 +54,13 @@ const ICONS = {
       <path d="M4 4v4.5h4.5M12 8v4.5l3 2" />
     </>
   ),
+  /** Cronómetro: esfera con corona y aguja. */
+  stopwatch: (
+    <>
+      <circle cx="12" cy="13.5" r="7" />
+      <path d="M10 3h4M12 3v3.5M12 13.5V10M18 7.5l1.3-1.3" />
+    </>
+  ),
   /** Cortina antes/después: marco partido por una línea con manija. */
   curtain: (
     <>

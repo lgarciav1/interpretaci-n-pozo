@@ -13,6 +13,7 @@ import type { Project } from '../../core/state/project';
 import { AutosaveSession } from './session';
 import { openStorage } from './storage';
 import { useAutosave } from './store';
+import { RESTORE_SESSION_LABEL } from '../flow/stopwatch';
 
 let session: AutosaveSession | null = null;
 
@@ -30,7 +31,7 @@ export async function installAutosave(): Promise<void> {
       getProject: () => useProject.getState().project,
       isDragging: () => useViewer.getState().dragging,
       applyRestored: (project: Project) => {
-        useProject.getState().replace(project, 'Recuperar sesión');
+        useProject.getState().replace(project, RESTORE_SESSION_LABEL);
         useUi.getState().set({ activeStepId: null, activeModuleId: null, editingZoneId: null });
       },
       notify: (n) => toast({ title: n.title, description: n.description, tone: n.tone }),

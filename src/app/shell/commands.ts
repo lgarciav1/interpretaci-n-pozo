@@ -12,6 +12,7 @@ import { getThemePreference, setThemePreference, UI_SCALES, getUiScale, setUiSca
 import { DEMO_WELL_ID, loadDemoWell } from '../demo/loadDemo';
 import { STEP_STATUS_LABEL } from '../flow/flow';
 import { currentFlow, openStep } from '../flow/useFlow';
+import { useStopwatch } from '../flow/stopwatchStore';
 import { useTrendsUi } from '../trends/store';
 import { useProject } from '../store/project';
 import { panelVisible, useUi } from '../store/ui';
@@ -33,6 +34,33 @@ function flowCommands(): Command[] {
     detail: s.def.id === active.def.id ? 'abierto' : STEP_STATUS_LABEL[s.status].toLowerCase(),
     run: () => openStep(s),
   }));
+}
+
+/** Cronómetro del recorrido (F19): estado de interfaz, no pasa por deshacer. */
+function walkthroughCommands(): Command[] {
+  const { visible } = useStopwatch.getState();
+  return [
+    {
+      id: 'walkthrough:toggle',
+      title: visible ? 'Ocultar el cronómetro del recorrido' : 'Mostrar el cronómetro del recorrido',
+      group: 'Vista',
+      keywords: ['cronometro', 'reloj', 'tiempo', 'meta', '5 minutos', 'recorrido'],
+      icon: visible ? 'eye-off' : 'stopwatch',
+      run: () => useStopwatch.getState().setVisible(!useStopwatch.getState().visible),
+    },
+    {
+      id: 'walkthrough:restart',
+      title: 'Reiniciar el cronómetro del recorrido',
+      group: 'Vista',
+      keywords: ['cronometro', 'reloj', 'tiempo', 'meta', 'reiniciar', 'recorrido'],
+      icon: 'stopwatch',
+      enabled: hasWell,
+      run: () => {
+        useStopwatch.getState().restart();
+        if (!useStopwatch.getState().visible) useStopwatch.getState().setVisible(true);
+      },
+    },
+  ];
 }
 
 function dockCommands(): Command[] {
@@ -281,5 +309,5 @@ const documented = (): Command[] => [
   { id: 'doc:number-esc', title: 'Confirmar o descartar el valor escrito', group: 'Campos', keys: 'Intro · Esc' },
 ];
 
-export const commands: CommandSource = () => [...flowCommands(), ...dockCommands(), ...historyCommands(), ...projectCommands(), ...zoneCommands(), ...viewCommands(), ...documented()];
+export const commands: CommandSource = () => [...flowCommands(), ...dockCommands(), ...historyCommands(), ...projectCommands(), ...zoneCommands(), ...viewCommands(), ...walkthroughCommands(), ...documented()];
 

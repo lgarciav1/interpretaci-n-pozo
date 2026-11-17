@@ -17,14 +17,17 @@ import type { AcquisitionMetadata } from '../../core/inputs/acquisition';
 import { buildPreparationReport, preparationReportHtml, type PreparationReport } from './preparationReport';
 import { brandMarkSvg } from '../../ui/brandSvg';
 import { BASE_TOKENS } from '../../ui/tokens';
+import { formatElapsedLong, type WalkthroughReport } from '../flow/stopwatch';
 
 export interface ReportOptions {
   title: string; author: string;
   includeParameters: boolean; includeSummary: boolean; includeVolumes: boolean; includeWarnings: boolean;
   includePreparation?: boolean;
+  /** Tiempo del recorrido (F19) en el encabezado, si hay cronómetro. De fábrica, sí. */
+  includeWalkthrough?: boolean;
   profile: 'none' | 'well' | 'zones'; trackIds: readonly string[] | null; xyIds: readonly string[];
 }
-export const defaultReportOptions = (): ReportOptions => ({ title: '', author: '', includeParameters: true, includeSummary: true, includeVolumes: true, includeWarnings: true, includePreparation: true, profile: 'well', trackIds: null, xyIds: [] });
+export const defaultReportOptions = (): ReportOptions => ({ title: '', author: '', includeParameters: true, includeSummary: true, includeVolumes: true, includeWarnings: true, includePreparation: true, includeWalkthrough: true, profile: 'well', trackIds: null, xyIds: [] });
 export interface ReportTable { title: string; columns: readonly TableColumn[]; rows: Record<string, TableCell>[] }
 export interface ReportModel {
   wellName: string; date: string; samples: number; top: number; base: number;
@@ -34,6 +37,8 @@ export interface ReportModel {
   parameters: { module: string; status: string; rows: { label: string; global: string; zones: string[] }[] }[];
   summary: ReportTable | null; volumes: ReportTable | null; warnings: string[];
   preparation?: PreparationReport;
+  /** Cronómetro del recorrido (F19): lo agrega quien genera el informe; el modelo no lee stores. */
+  walkthrough?: WalkthroughReport;
 }
 export interface ReportFigure { title: string; dataUrl: string; caption: string }
 const number = (v: number) => Number.isFinite(v) ? v.toLocaleString('es-AR', { maximumSignificantDigits: 6 }) : '—';
@@ -110,6 +115,11 @@ export function buildReportModel(well: Well, interpretation: Interpretation, res
 }
 export const escapeReportText = (s: unknown): string => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 const e = escapeReportText;
+/** «Tiempo de interpretación: 3 min 42 s (meta: menos de 5 min)»; si no frenó, «… (en curso; meta: …)». */
+export function walkthroughLine(w: WalkthroughReport): string {
+  const goal = `meta: menos de ${number(w.goalMs / 60_000)} min`;
+  return `Tiempo de interpretación: ${formatElapsedLong(w.elapsedMs)} (${w.finished ? goal : `en curso; ${goal}`})`;
+}
 const cell = (v: TableCell | undefined) => e(typeof v === 'number' ? number(v) : v ?? '—');
 function dataTable(t: ReportTable | null, title: string): string {
   if (!t || t.rows.length === 0) return `<section><h2>${e(title)}</h2><p>Sin resultados disponibles en esta corrida.</p></section>`;
@@ -123,7 +133,7 @@ export function reportHtml(model: ReportModel, figures: readonly ReportFigure[] 
   const title = options.title.trim() || `Informe de interpretación · ${model.wellName}`;
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${e(title)}</title><style>
   *{box-sizing:border-box}body{margin:0;background:#eceff3;color:#162235;font:14px Arial,sans-serif;line-height:1.5}.toolbar{position:sticky;top:0;background:${BASE_TOKENS.brand.inkDeep};color:white;padding:12px 24px;display:flex;gap:16px;align-items:center;z-index:1}.toolbar button{padding:9px 18px;border:0;border-radius:6px;background:white;color:#162235;cursor:pointer}main{max-width:1100px;margin:24px auto;padding:40px;background:white}h1{font-size:28px;line-height:1.2;margin:0 0 12px}h2{font-size:19px;margin:30px 0 12px;border-bottom:2px solid #dce3eb;padding-bottom:8px}h3{margin:18px 0 8px;font-size:15px}p{margin:8px 0}small{display:block;color:#59667a;font-size:10px}table{border-collapse:collapse;width:100%;font-size:11px;margin:12px 0}th,td{border-bottom:1px solid #dce3eb;padding:7px 6px;text-align:right;vertical-align:top}th{background:#eef2f7;color:#243b58}th:first-child,td:first-child{text-align:left}thead{display:table-header-group}tr{break-inside:avoid}.meta{color:#59667a}.figure{break-before:page;page-break-before:always}.figure img{display:block;max-width:100%;max-height:235mm;margin:auto}figcaption{font-size:12px;color:#59667a;margin-top:10px}.table-wrap{overflow:auto}footer{border-top:1px solid #dce3eb;margin-top:28px;padding-top:12px;font-size:11px;color:#59667a}.brand{display:flex;align-items:center;gap:12px;margin:0 0 16px}.brand svg{flex:none;display:block}.brand-name{font-size:20px;letter-spacing:-.02em;color:#162235}.brand-name span{color:#59667a}.brand-name b{font-weight:700}.brand-org{margin-left:auto;font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#59667a}.heat{height:3px;margin:0 0 22px;border-radius:2px;background:linear-gradient(90deg,${BASE_TOKENS.brand.thermal2},${BASE_TOKENS.brand.thermal3} 60%,${BASE_TOKENS.brand.thermal4});-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{size:A4 landscape;margin:14mm}@media print{body{background:white;font-size:11px}.toolbar{display:none}main{margin:0;padding:0;max-width:none}h2,h3{break-after:avoid}.table-wrap{overflow:visible}.figure img{max-height:145mm}footer{font-size:9px}}
-  </style></head><body><div class="toolbar"><button type="button" onclick="window.print()">Imprimir / Guardar como PDF</button><span>Elegí «Guardar como PDF» en el destino de impresión. A4 horizontal recomendado.</span></div><main><header><div class="brand">${brandMarkSvg({ size: 40, idPrefix: 'informe', title: 'fiubaLog' })}<span class="brand-name"><span>fiuba</span><b>Log</b></span><span class="brand-org">Interpretación de perfiles · FIUBA</span></div><div class="heat"></div><h1>${e(title)}</h1><p class="meta">${e(model.wellName)} · ${e(model.date)}${options.author.trim() ? ` · ${e(options.author.trim())}` : ''}</p><p>${number(model.samples)} muestras · ${number(model.top)}–${number(model.base)} m MD</p></header>
+  </style></head><body><div class="toolbar"><button type="button" onclick="window.print()">Imprimir / Guardar como PDF</button><span>Elegí «Guardar como PDF» en el destino de impresión. A4 horizontal recomendado.</span></div><main><header><div class="brand">${brandMarkSvg({ size: 40, idPrefix: 'informe', title: 'fiubaLog' })}<span class="brand-name"><span>fiuba</span><b>Log</b></span><span class="brand-org">Interpretación de perfiles · FIUBA</span></div><div class="heat"></div><h1>${e(title)}</h1><p class="meta">${e(model.wellName)} · ${e(model.date)}${options.author.trim() ? ` · ${e(options.author.trim())}` : ''}</p><p>${number(model.samples)} muestras · ${number(model.top)}–${number(model.base)} m MD</p>${options.includeWalkthrough !== false && model.walkthrough ? `<p class="meta walkthrough">${e(walkthroughLine(model.walkthrough))}</p>` : ''}</header>
   <section><h2>Encabezado del pozo</h2>${model.header.length ? `<table><tbody>${model.header.map((h) => `<tr><th>${e(h.label)}</th><td>${e(h.value)}</td></tr>`).join('')}</tbody></table>` : '<p>Sin metadatos de encabezado.</p>'}</section>
   <section><h2>Zonas interpretadas</h2>${model.zones.length ? `<table><thead><tr><th>Zona</th><th>Tope (m MD)</th><th>Base (m MD)</th><th>Tipo</th></tr></thead><tbody>${model.zones.map((z) => `<tr><td>${e(z.name)}</td><td>${number(z.top)}</td><td>${number(z.base)}</td><td>${e(({ formation: 'Formación', reservoir: 'Reservorio', seal: 'Sello', other: 'Otra' } as Record<string, string>)[z.kind] ?? z.kind)}</td></tr>`).join('')}</tbody></table>` : '<p>No se definieron zonas.</p>'}</section>
   ${options.includeParameters ? `<section><h2>Métodos y parámetros efectivos</h2><p>Fuentes que alimentan la cadena de cálculo:</p><table><thead><tr><th>Puerto</th><th>Fuente elegida</th></tr></thead><tbody>${model.methods.map((m) => `<tr><td>${e(m.port)}</td><td>${e(m.source)}</td></tr>`).join('')}</tbody></table><p>Las columnas de zona incluyen el valor global heredado cuando no existe una modificación local.</p>${model.parameters.map((p) => `<h3>${e(p.module)}</h3><p class="meta">${e(p.status)}</p>${p.rows.length ? `<table><thead><tr><th>Parámetro</th><th>Global</th>${model.zones.map((z) => `<th>${e(z.name)}</th>`).join('')}</tr></thead><tbody>${p.rows.map((r) => `<tr><td>${e(r.label)}</td><td>${e(r.global)}</td>${r.zones.map((v) => `<td>${e(v)}</td>`).join('')}</tr>`).join('')}</tbody></table>` : '<p>Sin parámetros configurables.</p>'}`).join('')}</section>` : ''}

@@ -35,6 +35,10 @@ Este documento resume cómo encajan las piezas y cómo agregar un módulo.
 5. **Estado en tres capas.** Proyecto (se guarda), UI (no se guarda), resultados (derivados, no se guardan).
    La configuración del visor (pistas propias, overrides de escala y color) es parte del proyecto, fuera de la
    interpretación.
+   El cronómetro del recorrido (F19, `src/app/flow/stopwatch.ts` puro y `stopwatchStore.ts`) es estado de UI: arranca
+   al cargar un pozo (no con el sintético del arranque ni con la sesión recuperada) y frena al abrir el Sumario; no
+   entra en el proyecto, en deshacer ni en el archivo, y solo se recuerda si se muestra. El informe recibe el tiempo
+   como dato de quien lo genera.
 
 ## Flujo
 
@@ -75,7 +79,7 @@ Tests y Monte Carlo usan `Engine` directamente (`computeOnce` o una instancia co
 | `src/app/toolString/` | sarta en la interfaz (0032, 0033): curvas visibles y disponibilidad del pozo activo con caché (`select.ts`), lista de la columna izquierda (`ToolStringPanel.tsx`), vista 3D (`ToolStringView.tsx`) con la escena como descripción pura (`scene.ts`, sin three ni DOM, testeada), la columna litológica del pozo para la formación (`formation.ts`, pura; `wellColumn.ts` la toma del pozo, también para Inicio) y su dibujo con three.js (`render3d.ts`, extensible por herencia: Inicio, 0065), ficha (`ToolSheetCard.tsx`) y atajos en la paleta (`commands.ts`) | `scene.ts` no |
 | `src/app/home/` | pantalla de Inicio (0065): capa sobre el armazón (`HomeScreen.tsx`, `home.css`), estado de interfaz y duraciones de la entrada (`store.ts`), abrir y cerrar (`actions.ts`), composición de demostración (`demoString.ts`), la sarta exhibida y la entrada al pozo (`showcase3d.ts`, hereda `ToolStringRenderer`), esquema sin WebGL (`Silhouette.tsx`) y «Ir a Inicio» en la paleta (`commands.ts`) | sí |
 | `src/app/chatContext/` | «Copiar contexto para un chat» (F25): texto plano del pozo armado desde el modelo del informe, con tope de 12 000 caracteres, avisos agrupados por zona y recorte por prioridad (`chatContext.ts`, puro y testeado); copiado del resultado vigente (`actions.ts`, usa `copyText` de `src/ui/clipboard.ts`, con respaldo para file://) y comando de la paleta (`commands.ts`). No envía nada | `chatContext.ts` no |
-| `src/app/flow/` | flujo guiado: definición de pasos y evaluación de estados (`flow.ts`, puro y testeado) | `flow.ts` no |
+| `src/app/flow/` | flujo guiado: definición de pasos y evaluación de estados (`flow.ts`, puro y testeado); cronómetro del recorrido (`stopwatch.ts`, puro y testeado; estado en `stopwatchStore.ts`) | `flow.ts`, `stopwatch.ts` no |
 | `src/ui/` | sistema de diseño: tokens, tema, paleta de curvas, componentes, `useCanvas`; contrato de panel. Guía en `src/ui/README.md`; muestra en `#ui` | sí |
 | `src/viewer/` | visor multipista: plantillas, resolución de pistas, viewport, ticks, reducción M4, rellenos, pilas (`stack.ts`), lectura, contrato de superposiciones (con elementos del teclado), gestos (`interaction.ts`), catálogo de herramientas y curvas para armar pistas (`catalog.ts`), dibujo en canvas (`*.ts`, puros o canvas) y los componentes `WellViewer.tsx`, `Minimap.tsx`, `WellHeader.tsx`, `layoutEdit.tsx` (modo «Armar pistas»: destinos y bordes de ancho). Guía en `src/viewer/README.md` | solo los `.tsx` |
 | `src/io/` | lectores Excel/LAS/CSV, mnemónicos, control de calidad, tablas de presiones (`pressures.ts`) (ver su README) | no |
