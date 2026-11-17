@@ -404,6 +404,10 @@ Decisión y catálogo completo: [`docs/decisiones/0007-modulos-fase-6a.md`](deci
   categorías **o** los que producen sus puertos (Rw: categoría `water` o cualquier productor de `RW`/`RWA`/`TEMP`),
   así que agregar un módulo lo suma al paso sin tocar nada más. Lo derivado (pozo, zonas, puertos calculados) no se
   guarda; las marcas del usuario (completo/saltado) van en `WellEntry.progress` (formato de proyecto v2).
+  Cada paso tiene además un eje «revisado» (0073), derivado y sin estado propio: marca manual, parámetro de sus
+  módulos distinto del de fábrica (global u override de zona viva), o fuente elegida para sus puertos. `FlowModule`
+  lleva `params` y `name`; `FlowContext` suma `params`, `sources` y `zoneIds` opcionales. La barra cuenta «N
+  calculados · M revisados».
 - **Panel Avisos** (0072, `src/app/diagnostics/`): agrupa los diagnósticos por paso del flujo y por módulo
   (`grouping.ts`, puro), con filtro por gravedad, salto al módulo y a la zona. Las marcas «visto» van en
   `WellEntry.seenDiagnostics?: string[]` (huellas `moduleId|code|zoneId|message`), fuera de `interpretation` como

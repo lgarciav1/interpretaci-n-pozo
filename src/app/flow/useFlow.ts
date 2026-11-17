@@ -11,7 +11,7 @@ import { useUi } from '../store/ui';
 import { evaluateFlow, FLOWS, suggestedStep, type FlowModule, type StepState } from './flow';
 
 export function toFlowModule(m: AnyModule): FlowModule {
-  return { id: m.id, category: m.category, outputPorts: Object.values(m.outputs).map(portOf) };
+  return { id: m.id, name: m.name, category: m.category, outputPorts: Object.values(m.outputs).map(portOf), params: m.params };
 }
 
 export function workspaceModules(workspace: WorkspaceId): AnyModule[] {
@@ -45,6 +45,7 @@ export function computeFlow(workspace: WorkspaceId, activeStepId: string | null,
     producedPorts: producedPorts(result),
     okModules: new Set(result?.nodes.filter((n) => n.status === 'ok').map((n) => n.moduleId) ?? []),
     marks: entry?.progress.marks ?? {},
+    ...(entry ? { params: entry.interpretation.params, sources: entry.interpretation.sources, zoneIds: entry.interpretation.zones.map((z) => z.id) } : {}),
   });
   const suggested = suggestedStep(states);
   // Elegido → sugerido → primero sin completar (p. ej. un paso sin módulos) → el primero.

@@ -1,6 +1,6 @@
 # Masterplan: funciones nuevas (calidad de vida, validación y lucimiento)
 
-- Estado: **en ejecución.** Hechas: F01, F02. Cada función se marca en la tabla de la sección 3 a medida que se entrega.
+- Estado: **en ejecución.** Hechas: F01, F02, F08. Cada función se marca en la tabla de la sección 3 a medida que se entrega.
 - Fecha: 2026-11-17. Base inspeccionada: `main`, commit `c74ba09`.
 - Origen: auditoría de la app corriendo con los datos del TP (recorrido con Playwright a 1600 × 900) y del código.
 - Entrega del TP: diciembre de 2026. **No entra todo.** La sección 4 fija el orden y la línea de corte.
@@ -42,7 +42,7 @@ Tamaño: **C** chico (una sesión corta), **M** mediano (una sesión), **G** gra
 |---|---|---|---|---|---|---|
 | F01 | Autoguardado y «Recuperar sesión» | 0 | C | desarrollador-ui | — | hecha ([0071](decisiones/0071-autoguardado.md)) |
 | F02 | Avisos agrupados y navegables | 1 | C | desarrollador-ui | — | hecha ([0072](decisiones/0072-avisos-agrupados.md)) |
-| F08 | Estado «revisado» por paso | 1 | C | desarrollador-ui | — | pendiente |
+| F08 | Estado «revisado» por paso | 1 | C | desarrollador-ui | — | hecha ([0073](decisiones/0073-estado-revisado.md)) |
 | F16 | Resistividad mojada (R0) en la pista | 1 | C | analista-numerico | — | pendiente |
 | F25 | Copiar contexto para un chat | 1 | C | investigador | — | pendiente |
 | F19 | Cronómetro del recorrido | 1 | C | desarrollador-ui | — | pendiente |

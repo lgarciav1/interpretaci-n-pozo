@@ -5,6 +5,7 @@
  * Un paso de módulos agrupa los módulos de sus `categories` y los que producen alguno de sus `ports`: agregar un
  * módulo nuevo lo suma al paso correcto sin tocar este archivo.
  */
+import { isValidParamValue, paramScope, paramStorageKey, type ParamSpec, type ParamsSpec, type ParamState, type ParamValue } from '../../core/params';
 import type { StepMark } from '../../core/state/project';
 import type { WorkspaceId } from '../../core/workspaces';
 
@@ -95,6 +96,10 @@ export interface FlowModule {
   category: string;
   /** Puertos que produce (roles de curva, ids de escalares y tablas). */
   outputPorts: readonly string[];
+  /** Nombre en español (para las razones de «revisado»). */
+  name?: string;
+  /** Esquema de parámetros: un valor guardado distinto del de fábrica marca el paso como revisado. */
+  params?: ParamsSpec;
 }
 
 export interface FlowContext {
@@ -107,6 +112,12 @@ export interface FlowContext {
   /** Módulos que corrieron sin error en el último cálculo. */
   okModules: ReadonlySet<string>;
   marks: Readonly<Record<string, StepMark>>;
+  /** Valores de parámetros guardados en el pozo (lo ausente es de fábrica). Sin esto, ningún parámetro cuenta. */
+  params?: ParamState;
+  /** Fuentes elegidas por la usuaria (puerto → fuente). Sin esto, ninguna fuente cuenta. */
+  sources?: Readonly<Record<string, unknown>>;
+  /** Ids de las zonas actuales: un override de una zona borrada no cuenta. Sin esto, cuentan todas. */
+  zoneIds?: readonly string[];
 }
 
 export interface StepState {
@@ -120,6 +131,13 @@ export interface StepState {
   modules: string[];
   /** Explicación corta en español del estado. */
   reason: string;
+  /**
+   * true si hubo una decisión de la usuaria en el paso (marca, parámetro distinto del de fábrica, fuente elegida o,
+   * en Cargar, el pozo). Es un eje independiente de `status`: ver docs/decisiones/0073-estado-revisado.md.
+   */
+  reviewed: boolean;
+  /** Por qué cuenta como revisado (null si no lo está). */
+  reviewReason: string | null;
 }
 
 export function stepModules(def: FlowStepDef, modules: readonly FlowModule[]): FlowModule[] {
@@ -134,11 +152,13 @@ export function stepsOfModule(steps: readonly FlowStepDef[], module: FlowModule)
 
 const list = (ports: readonly string[]) => ports.join(', ');
 
-export function evaluateStep(def: FlowStepDef, index: number, ctx: FlowContext): StepState {
+type StatusState = Omit<StepState, 'reviewed' | 'reviewReason'>;
+
+function evaluateStatus(def: FlowStepDef, index: number, ctx: FlowContext): StatusState {
   const mods = stepModules(def, ctx.modules);
   const mark = ctx.marks[def.id] ?? null;
   const base = { def, index, mark, modules: mods.map((m) => m.id) };
-  const done = (reason: string, derived = true): StepState => ({ ...base, status: 'done', derived, reason });
+  const done = (reason: string, derived = true): StatusState => ({ ...base, status: 'done', derived, reason });
 
   if (def.kind !== 'load' && !ctx.hasWell) return { ...base, status: 'locked', derived: true, reason: 'Cargá un pozo para empezar.' };
 
@@ -172,6 +192,76 @@ export function evaluateStep(def: FlowStepDef, index: number, ctx: FlowContext):
   return { ...base, status: 'todo', derived: true, reason: def.hint };
 }
 
+/** Tolerancia relativa para comparar números con el valor de fábrica (volver un slider a su lugar lo «desrevisa»). */
+const REL_TOL = 1e-9;
+
+function sameValue(a: ParamValue, b: ParamValue): boolean {
+  if (typeof a === 'number' && typeof b === 'number') return a === b || Math.abs(a - b) <= REL_TOL * Math.max(Math.abs(a), Math.abs(b));
+  return a === b;
+}
+
+/** Parámetros de los módulos que difieren del valor de fábrica (global u override de alguna zona), sin repetir claves compartidas. */
+export function changedParams(mods: readonly FlowModule[], state: ParamState | undefined, zoneIds?: readonly string[]): ParamSpec[] {
+  if (!state) return [];
+  const seen = new Set<string>();
+  const changed: ParamSpec[] = [];
+  for (const m of mods) {
+    for (const [key, spec] of Object.entries(m.params ?? {})) {
+      const storage = paramStorageKey(m.id, key, spec);
+      if (seen.has(storage)) continue;
+      seen.add(storage);
+      const differs = (raw: unknown) => raw !== undefined && isValidParamValue(spec, raw) && !sameValue(raw, spec.default);
+      // Los overrides por zona solo se aplican a parámetros con alcance de zona (igual que resolveModuleParams).
+      const zoned = paramScope(spec) === 'zone' && Object.entries(state.zones).some(([id, z]) => (!zoneIds || zoneIds.includes(id)) && differs(z[storage]));
+      if (differs(state.global[storage]) || zoned) changed.push(spec);
+    }
+  }
+  return changed;
+}
+
+const MAX_LISTED = 3;
+const listLabels = (labels: readonly string[]) =>
+  labels.length <= MAX_LISTED ? labels.join(', ') : `${labels.slice(0, MAX_LISTED).join(', ')} y ${labels.length - MAX_LISTED} más`;
+
+/** Nombre legible de una fuente elegida: el módulo o «curva medida» (null si no se reconoce). */
+function sourceName(ref: unknown, modules: readonly FlowModule[]): string | null {
+  if (typeof ref !== 'object' || ref === null) return null;
+  const r = ref as { kind?: unknown; moduleId?: unknown };
+  if (r.kind === 'curve') return 'curva medida';
+  if (r.kind === 'module') return modules.find((m) => m.id === r.moduleId)?.name ?? null;
+  return null;
+}
+
+function reviewOf(def: FlowStepDef, status: StepStatus, mark: StepMark | null, mods: readonly FlowModule[], ctx: FlowContext): string | null {
+  if (status === 'locked') return null;
+  if (def.kind === 'load') return ctx.hasWell ? 'Revisado: elegiste el pozo.' : null;
+  if (def.kind === 'modules') {
+    const changed = changedParams(mods, ctx.params, ctx.zoneIds);
+    if (changed.length > 0) {
+      const labels = changed.map((p) => p.label);
+      return changed.length === 1 ? `Revisado: cambiaste ${labels[0]}.` : `Revisado: cambiaste ${changed.length} parámetros (${listLabels(labels)}).`;
+    }
+    const sources = ctx.sources ?? {};
+    const ports = new Set([...mods.flatMap((m) => m.outputPorts), ...(def.targets ?? [])]);
+    const chosen = [...ports].filter((p) => sources[p] !== undefined && sources[p] !== null);
+    if (chosen.length === 1) {
+      const port = chosen[0]!;
+      const what = sourceName(sources[port], ctx.modules);
+      return `Revisado: elegiste la fuente de ${port}${what ? ` (${what})` : ''}.`;
+    }
+    if (chosen.length > 1) return `Revisado: elegiste las fuentes de ${listLabels(chosen)}.`;
+  }
+  if (mark === 'done') return def.kind === 'qc' ? 'Revisado: revisaste la calidad.' : 'Revisado: marcado a mano.';
+  if (mark === 'skipped') return 'Revisado: lo saltaste a mano.';
+  return null;
+}
+
+export function evaluateStep(def: FlowStepDef, index: number, ctx: FlowContext): StepState {
+  const state = evaluateStatus(def, index, ctx);
+  const reviewReason = reviewOf(def, state.status, state.mark, stepModules(def, ctx.modules), ctx);
+  return { ...state, reviewed: reviewReason !== null, reviewReason };
+}
+
 export function evaluateFlow(steps: readonly FlowStepDef[], ctx: FlowContext): StepState[] {
   return steps.map((def, i) => evaluateStep(def, i, ctx));
 }
@@ -181,7 +271,22 @@ export function suggestedStep(states: readonly StepState[]): StepState | null {
   return states.find((s) => s.status === 'todo' || s.status === 'partial') ?? null;
 }
 
-/** Pasos resueltos (completos o saltados) sobre el total, para el indicador de progreso. */
-export function flowProgress(states: readonly StepState[]): { resolved: number; total: number } {
-  return { resolved: states.filter((s) => s.status === 'done' || s.status === 'skipped').length, total: states.length };
+export interface FlowProgressCount {
+  /** Pasos completos o saltados. */
+  resolved: number;
+  total: number;
+  /** Pasos con resultado (completos). */
+  computed: number;
+  /** Pasos con una decisión de la usuaria. */
+  reviewed: number;
+}
+
+/** Conteos para el indicador de progreso: resueltos, calculados y revisados sobre el total. */
+export function flowProgress(states: readonly StepState[]): FlowProgressCount {
+  return {
+    resolved: states.filter((s) => s.status === 'done' || s.status === 'skipped').length,
+    total: states.length,
+    computed: states.filter((s) => s.status === 'done').length,
+    reviewed: states.filter((s) => s.reviewed).length,
+  };
 }

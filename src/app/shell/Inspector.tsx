@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import type { AnyModule } from '../../core/module';
 import { portOf } from '../../core/module';
 import { registry } from '../../modules';
-import { Badge, Button, Callout, DataTable, EmptyState, IconButton, Menu, Spinner, StatusDot, formatNumber, type IconName, type MenuEntry, type Tone } from '../../ui';
+import { Badge, Button, Callout, DataTable, EmptyState, Icon, IconButton, Menu, Spinner, StatusDot, formatNumber, type IconName, type MenuEntry, type Tone } from '../../ui';
 import { BoreholeSummary, QcCounts, QcDot, QC_STATUS_LABEL } from '../components/Qc';
 import { ModulePanelView } from '../components/ModulePanelView';
 import { STEP_STATUS_LABEL, stepsOfModule, FLOWS, type StepState, type StepStatus } from '../flow/flow';
@@ -93,6 +93,14 @@ function StepHeader({ state, next, total }: { state: StepState; next: StepState 
       </div>
       <h2 className="inspector-head__title">{state.def.title}</h2>
       <p className="inspector-head__reason">{state.reason}</p>
+      {state.reviewReason ? (
+        <p className="inspector-head__review is-reviewed">
+          <Icon name="check" size={12} strokeWidth={2.5} />
+          {state.reviewReason}
+        </p>
+      ) : (
+        state.status === 'done' && <p className="inspector-head__review">Calculado con valores de fábrica: todavía no lo tocaste.</p>
+      )}
       {(showDone || showSkip || showReopen || next) && (
         <div className="inspector-head__actions">
           {showDone && (
