@@ -1,0 +1,41 @@
+/* Panel de capas de pay y punzados sugeridos (prefijo pay-). Solo tokens del sistema de diseño. */
+.pay { display: flex; flex-direction: column; gap: var(--space-3); }
+
+.pay-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+.pay-kpi { padding: var(--space-2) var(--space-2-5); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-subtle); min-width: 0; }
+.pay-kpi__label { color: var(--color-text-muted); font-size: var(--text-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pay-kpi__value { font-size: var(--text-xl); line-height: var(--leading-tight); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-tight); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pay-kpi__value--muted { color: var(--color-text-subtle); }
+.pay-kpi__unit { color: var(--color-text-muted); font-size: var(--text-sm); font-weight: var(--weight-regular); }
+.pay-kpi__sub { color: var(--color-text-muted); font-size: var(--text-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.pay-picks { display: flex; flex-direction: column; gap: var(--space-1-5); }
+.pay-picks__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-0-5) var(--space-2); min-width: 0; }
+.pay-picks__title { color: var(--color-text-muted); font-size: var(--text-xs); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-wide); text-transform: uppercase; white-space: nowrap; }
+.pay-picks__sum { color: var(--color-text); font-size: var(--text-xs); white-space: nowrap; }
+.pay-picks__actions { display: flex; align-items: center; gap: var(--space-1-5); }
+.pay-picks__clear { margin-left: auto; }
+
+.pay-table .ui-table { font-size: var(--text-sm); }
+.pay-table .ui-table th, .pay-table .ui-table td { padding-left: var(--space-1); padding-right: var(--space-1); }
+.pay-table .ui-table th:first-child, .pay-table .ui-table td:first-child { padding-left: var(--space-2); padding-right: 0; }
+.pay-table .ui-table th:last-child, .pay-table .ui-table td:last-child { padding-right: var(--space-2); }
+.pay-table tbody tr[data-picked] td:first-child { box-shadow: inset 3px 0 0 var(--color-error); }
+.pay-table tbody tr[data-picked] .pay-rank { color: var(--color-error-text); }
+.pay-check { display: inline-flex; align-items: center; }
+.pay-rankcell { display: inline-flex; flex-direction: column; align-items: flex-start; line-height: var(--leading-tight); }
+.pay-rank { font-weight: var(--weight-semibold); color: var(--color-text-muted); }
+.pay-zone { color: var(--color-text-muted); font-size: var(--text-xs); white-space: nowrap; }
+.pay-depth, .pay-stack { display: inline-flex; flex-direction: column; align-items: flex-end; line-height: var(--leading-tight); }
+.pay-sub { color: var(--color-text-muted); font-size: var(--text-xs); }
+
+.pay-kh { display: inline-flex; flex-direction: column; align-items: flex-end; line-height: var(--leading-tight); }
+.pay-kh__pct { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--color-text-muted); font-size: var(--text-xs); }
+.pay-bar { display: block; width: calc(20px * var(--ui-scale)); height: 3px; border-radius: var(--radius-full); background: var(--color-border-subtle); overflow: hidden; }
+.pay-bar__fill { display: block; height: 100%; width: var(--pct); border-radius: inherit; background: var(--color-accent); }
+
+.pay-foot { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.pay-note { color: var(--color-text-muted); font-size: var(--text-xs); }
+.pay-note--warn { color: var(--color-warn-text); }
+.pay-link { padding: 0; border: 0; background: none; color: var(--color-accent-text); font: inherit; text-decoration: underline; cursor: pointer; }
+.pay-link:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-xs); }

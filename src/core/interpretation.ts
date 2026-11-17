@@ -43,6 +43,41 @@ export interface Interpretation {
    * herramienta apagada (o fuera de la sarta planificada) no son candidatas de ningún puerto.
    */
   toolString?: ToolStringState;
+  /**
+   * Estado que un módulo guarda con la interpretación, por id de módulo (JSON puro: objetos, listas, textos, números
+   * finitos, booleanos y null). Ausente = nada guardado (proyectos anteriores). Lo escribe la interfaz del módulo con
+   * `setModuleState` (entra en deshacer, en los snapshots y en el archivo); el motor NO lo lee (`sameEngineInputs` no lo
+   * compara). P. ej. los tramos elegidos como punzados sugeridos de `pay-intervals`.
+   */
+  moduleState?: Readonly<Record<string, JsonValue>>;
+}
+
+/** Valor JSON (lo que admite `Interpretation.moduleState`). */
+export type JsonValue = string | number | boolean | null | readonly JsonValue[] | { readonly [key: string]: JsonValue };
+
+/** true si `v` es JSON puro (sin NaN/∞, sin funciones ni typed arrays, objetos planos). */
+export function isJsonValue(v: unknown, depth = 0): v is JsonValue {
+  if (depth > 32) return false;
+  if (v === null || typeof v === 'string' || typeof v === 'boolean') return true;
+  if (typeof v === 'number') return Number.isFinite(v);
+  if (Array.isArray(v)) return v.every((x) => isJsonValue(x, depth + 1));
+  if (typeof v === 'object' && Object.getPrototypeOf(v) === Object.prototype) return Object.values(v as object).every((x) => isJsonValue(x, depth + 1));
+  return false;
+}
+
+/** `moduleState` leído de un archivo: lo que no es JSON puro se descarta con aviso (por módulo). */
+export function sanitizeModuleState(raw: unknown, where: string, warn: (m: string) => void): Record<string, JsonValue> | undefined {
+  if (raw === undefined) return undefined;
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    warn(`${where}: el estado de módulos no es un objeto; se descarta.`);
+    return undefined;
+  }
+  const out: Record<string, JsonValue> = {};
+  for (const [id, v] of Object.entries(raw)) {
+    if (isJsonValue(v)) out[id] = v;
+    else warn(`${where}: el estado guardado del módulo '${id}' no es válido; se descarta.`);
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 export function emptyInterpretation(zones: Zone[] = []): Interpretation {

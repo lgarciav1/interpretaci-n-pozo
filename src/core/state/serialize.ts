@@ -9,7 +9,7 @@
  * Si el entorno no tiene CompressionStream se usa 'f64le-b64' (sin compresión). Todas se leen siempre.
  */
 import { emptyDisplay, sanitizeDisplay, type DisplaySettings } from '../display';
-import type { Interpretation } from '../interpretation';
+import { sanitizeModuleState, type Interpretation } from '../interpretation';
 import { createPointSet, isNumericColumn, sanitizePointSetDecisions, type PointColumn, type PointSet } from '../pointSets';
 import { sanitizeToolString } from '../toolString';
 import { sanitizeTrends } from '../trends';
@@ -239,13 +239,15 @@ export async function deserializeProject(text: string, opts: DeserializeOptions 
   /** Tendencias y decisiones sobre puntos validadas al abrir: lo inválido se descarta con aviso (como `display`). */
   const cleanInterp = (i: Interpretation, where: string): Interpretation => {
     if (i.preparation !== undefined) throw new Error('Una receta de preparación requiere un archivo con revisiones de entradas.');
-    const { toolString: rawToolString, ...rest } = i;
+    const { toolString: rawToolString, moduleState: rawModuleState, ...rest } = i;
     const toolString = sanitizeToolString(rawToolString, where, warn);
+    const moduleState = sanitizeModuleState(rawModuleState, where, warn);
     return {
       ...rest,
       trends: sanitizeTrends(i.trends, where, warn),
       pointSets: sanitizePointSetDecisions(i.pointSets, where, warn),
       ...(toolString ? { toolString } : {}),
+      ...(moduleState ? { moduleState } : {}),
     };
   };
   const wells = await Promise.all(
