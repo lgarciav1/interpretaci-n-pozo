@@ -89,6 +89,7 @@ del perfil («¿De dónde sale este número?», prop `onTraceSample` del visor) 
 | `src/app/toolString/` | sarta en la interfaz (0032, 0033): curvas visibles y disponibilidad del pozo activo con caché (`select.ts`), lista de la columna izquierda (`ToolStringPanel.tsx`), vista 3D (`ToolStringView.tsx`) con la escena como descripción pura (`scene.ts`, sin three ni DOM, testeada), la columna litológica del pozo para la formación (`formation.ts`, pura; `wellColumn.ts` la toma del pozo, también para Inicio) y su dibujo con three.js (`render3d.ts`, extensible por herencia: Inicio, 0065), ficha (`ToolSheetCard.tsx`) y atajos en la paleta (`commands.ts`) | `scene.ts` no |
 | `src/app/home/` | pantalla de Inicio (0065): capa sobre el armazón (`HomeScreen.tsx`, `home.css`), estado de interfaz y duraciones de la entrada (`store.ts`), abrir y cerrar (`actions.ts`), composición de demostración (`demoString.ts`), la sarta exhibida y la entrada al pozo (`showcase3d.ts`, hereda `ToolStringRenderer`), esquema sin WebGL (`Silhouette.tsx`) y «Ir a Inicio» en la paleta (`commands.ts`) | sí |
 | `src/app/chatContext/` | «Copiar contexto para un chat» (F25): texto plano del pozo armado desde el modelo del informe, con tope de 12 000 caracteres, avisos agrupados por zona y recorte por prioridad (`chatContext.ts`, puro y testeado); copiado del resultado vigente (`actions.ts`, usa `copyText` de `src/ui/clipboard.ts`, con respaldo para file://) y comando de la paleta (`commands.ts`). No envía nada | `chatContext.ts` no |
+| `src/app/views/` | vistas guardadas y modo defensa (0075): estado de interfaz del modo (`store.ts`: recorrido, pistas de reemplazo, foto), partes puras (`defense.ts`: foto y restauración, parche de cada vista, siguiente/anterior), acciones (`actions.ts`: guardar, ir a una vista, entrar/salir/pasar, teclado en captura), panel «Vistas» y diálogos (`ViewsPanel.tsx`), indicador «3 / 5 · Nombre» (`DefenseHud.tsx`) y paleta (`commands.ts`). Las recetas puras están en `src/core/state/views.ts` | `defense.ts` no |
 | `src/app/flow/` | flujo guiado: definición de pasos y evaluación de estados (`flow.ts`, puro y testeado); cronómetro del recorrido (`stopwatch.ts`, puro y testeado; estado en `stopwatchStore.ts`) | `flow.ts`, `stopwatch.ts` no |
 | `src/ui/` | sistema de diseño: tokens, tema, paleta de curvas, componentes, `useCanvas`; contrato de panel. Guía en `src/ui/README.md`; muestra en `#ui` | sí |
 | `src/viewer/` | visor multipista: plantillas, resolución de pistas, viewport, ticks, reducción M4, rellenos, pilas (`stack.ts`), lectura, contrato de superposiciones (con elementos del teclado), gestos (`interaction.ts`), catálogo de herramientas y curvas para armar pistas (`catalog.ts`), dibujo en canvas (`*.ts`, puros o canvas) y los componentes `WellViewer.tsx`, `Minimap.tsx`, `WellHeader.tsx`, `layoutEdit.tsx` (modo «Armar pistas»: destinos y bordes de ancho). Guía en `src/viewer/README.md` | solo los `.tsx` |
@@ -497,6 +498,39 @@ Decisión: [`docs/decisiones/0016-pistas-armables.md`](decisiones/0016-pistas-ar
   aplicar, restablecer la de fábrica, renombrar y borrar. El selector de la barra muestra la aplicada.
 - La figura del perfil (0012) resuelve las mismas pistas armadas.
 
+
+## Vistas guardadas y modo defensa (F07)
+
+Decisión: [`docs/decisiones/0075-vistas-guardadas.md`](decisiones/0075-vistas-guardadas.md).
+
+- **Dónde viven.** `Project.display.views?: SavedView[]` (`src/core/display.ts`): espacio, tramo, copia de las pistas
+  propias del espacio (`null` = las de fábrica), rótulo de la plantilla, zona activa (con su nombre), panel a la vista y
+  fecha. El orden de la lista es el del recorrido. Se guardan en el archivo y en el autoguardado; un proyecto sin vistas
+  no escribe el campo y uno anterior abre igual. `sanitizeDisplay` descarta con aviso lo que no tiene forma de vista
+  (sin nombre, sin pozo, tramo inválido, nombre repetido en el pozo).
+- **Qué no tocan.** No están en `Interpretation`: no entran en `sameEngineInputs`, en la firma de los módulos ni en los
+  snapshots, y no disparan cálculos. Guardar, renombrar, subir, bajar y borrar son recetas puras
+  (`src/core/state/views.ts`) con `commit` (se deshacen). `resolveView` dice qué falta (zona borrada, panel quitado, pozo
+  ausente); nada impide abrir una vista. Las pistas se copian: tocar la plantilla después no cambia la vista.
+- **Ir a una vista** (fuera del modo): espacio, zona activa, panel y tramo a la interfaz; las pistas con un `commit`
+  «Abrir vista «X»» solo si difieren.
+- **Modo defensa** (`useUi.presenting` + `src/app/views/store.ts`): estado de interfaz, fuera del historial y del
+  archivo. Al entrar se toma una **foto** de la interfaz (espacio, zona en edición, paso y módulo, pestaña y vista del
+  panel lateral, disposición, lectura amplia, panel agrandado, tramo visible y pozo); cada vista se muestra con un
+  parche que parte de la disposición de la foto, y al salir se restaura la foto tal cual (el tramo, si el pozo es el
+  mismo). Mientras dura, la disposición no se escribe en localStorage. Si cambia el pozo activo o se reemplaza el
+  proyecto, `uiSync` sale antes de corregir referencias.
+- **Reemplazo de pistas en el visor.** `ViewerSlot` toma las pistas del modo (`defense.tracks`, o las de fábrica si es
+  `null`) en lugar de `display.layouts[espacio]`, sin `commit`: recorrer no cambia el proyecto. La barra del visor queda
+  sin herramientas de edición; abajo al centro, el indicador (`DefenseHud`).
+- **Armazón y teclado.** Sin barra superior, flujo, columna del pozo ni rieles; el panel de la vista va donde estén los
+  paneles. → ← pasan de vista sin vuelta circular y Esc sale (escucha en captura sobre la ventana, antes que el visor);
+  Ctrl+Z y Ctrl+Y no hacen nada; ↑ ↓, Re Pág, Av Pág, + − y 0 siguen siendo del visor (con el foco suelto al entrar, la
+  primera de esas teclas enfoca el visor y se le reenvía). El tramo se pide después de que el armazón se acomoda (dos
+  cuadros) y se comprueba contra el visible; si no coincide, se vuelve a pedir.
+- **Pruebas.** `tests/views.test.ts` (recetas, saneamiento, resolución, ciclo de cinco vistas por archivo, foto,
+  parches, recorrido y teclado con los stores) y `scripts/qa/vistas.cjs` (de punta a punta sobre `dist/index.html`;
+  publica el tramo visible en `data-testid="viewer-visible"`).
 
 ## Tendencias y gradientes (fase 6b-1)
 

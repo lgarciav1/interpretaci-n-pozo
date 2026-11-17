@@ -152,6 +152,34 @@ export interface TrackTemplate {
 }
 
 /**
+ * Vista guardada (docs/decisiones/0075): un encuadre del visor con nombre (espacio, tramo, pistas, zona activa y panel)
+ * para volver a él o recorrerlo en el modo defensa. Es configuración del visor, no interpretación: no recalcula nada.
+ */
+export interface SavedView {
+  id: string;
+  /** Único por pozo (sin distinguir mayúsculas); guardar con un nombre que existe la reemplaza. */
+  name: string;
+  wellId: string;
+  /** Espacio de trabajo. */
+  workspace: string;
+  /** Tramo de profundidad (m), top < base. */
+  top: number;
+  base: number;
+  /** Copia de las pistas propias del espacio al guardar; null = las de fábrica (siguen al estilo del visor). */
+  tracks: TrackSpec[] | null;
+  /** Plantilla aplicada al guardar (solo rótulo). */
+  templateName?: string;
+  /** Zona activa (la de los parámetros en edición). */
+  zoneId: string | null;
+  /** Nombre de la zona al guardar, para avisar si ya no existe. */
+  zoneName?: string;
+  /** Pestaña de panel a la vista, o null si no había ninguno abierto. */
+  panel: string | null;
+  /** ISO 8601. */
+  savedAt?: string;
+}
+
+/**
  * Estilo de dibujo del visor (docs/decisiones/0067): 'classic' (perfil clásico, el de fábrica) o 'modern' (el estilo
  * anterior). Lo interpreta `src/viewer/look.ts`; acá solo se guarda.
  */
@@ -185,6 +213,11 @@ export interface DisplaySettings {
    * fase 7b). Aplicar una copia sus pistas a `layouts[espacio]`.
    */
   trackTemplates?: TrackTemplate[];
+  /**
+   * Vistas guardadas, en el orden del recorrido del modo defensa (docs/decisiones/0075). Ausente = ninguna (proyectos
+   * anteriores a F07; uno sin vistas no escribe el campo).
+   */
+  views?: SavedView[];
 }
 
 /**
@@ -397,6 +430,59 @@ function sanitizeTemplates(raw: unknown, warn: (m: string) => void): TrackTempla
   return out.length ? out : null;
 }
 
+/** Vistas guardadas validadas: sin nombre, sin pozo o con un tramo inválido se descartan (con aviso). */
+function sanitizeViews(raw: unknown, warn: (m: string) => void): SavedView[] | null {
+  if (raw === undefined || raw === null) return null;
+  if (!Array.isArray(raw)) {
+    warn('Las vistas guardadas del proyecto no son una lista; se descartan.');
+    return null;
+  }
+  const out: SavedView[] = [];
+  const ids = new Set<string>();
+  const names = new Set<string>();
+  raw.forEach((v, i) => {
+    if (!isObj(v) || !isStr(v['id']) || typeof v['name'] !== 'string' || !v['name'].trim() || !isStr(v['wellId']) || !isStr(v['workspace'])) {
+      warn(`Vista guardada ${i + 1}: le falta el id, el nombre, el pozo o el espacio de trabajo; se descarta.`);
+      return;
+    }
+    const name = v['name'].trim();
+    const top = v['top'];
+    const base = v['base'];
+    if (!isNum(top) || !isNum(base) || !(top < base)) {
+      warn(`Vista «${name}»: el tramo de profundidad es inválido; se descarta.`);
+      return;
+    }
+    if (ids.has(v['id'])) {
+      warn(`Vista «${name}»: el id está repetido; se descarta la segunda.`);
+      return;
+    }
+    const nameKey = `${v['wellId']}|${name.toLocaleLowerCase('es')}`;
+    if (names.has(nameKey)) {
+      warn(`Vista «${name}»: ya hay otra con ese nombre en el mismo pozo; se descarta la segunda.`);
+      return;
+    }
+    let tracks: TrackSpec[] | null = null;
+    if (Array.isArray(v['tracks'])) {
+      tracks = sanitizeTrackList(v['tracks'], `Vista «${name}»`, warn);
+      if (!tracks.length) {
+        warn(`Vista «${name}»: no tiene pistas válidas; se abre con las de fábrica.`);
+        tracks = null;
+      }
+    } else if (v['tracks'] !== null && v['tracks'] !== undefined) warn(`Vista «${name}»: las pistas no son una lista; se abre con las de fábrica.`);
+    ids.add(v['id']);
+    names.add(nameKey);
+    const { panel } = v;
+    const view: SavedView = { id: v['id'], name, wellId: v['wellId'], workspace: v['workspace'], top, base, tracks, zoneId: isStr(v['zoneId']) ? v['zoneId'] : null, panel: isStr(panel) ? panel : null };
+    if (isStr(v['templateName'])) view.templateName = v['templateName'];
+    if (view.zoneId && isStr(v['zoneName'])) view.zoneName = v['zoneName'];
+    const savedAt = v['savedAt'];
+    if (typeof savedAt === 'string' && Number.isFinite(Date.parse(savedAt))) view.savedAt = savedAt;
+    else if (savedAt !== undefined) warn(`Vista «${name}»: la fecha de guardado es inválida; se descarta la fecha.`);
+    out.push(view);
+  });
+  return out.length ? out : null;
+}
+
 /** Valida `display` leído de un archivo: devuelve solo lo válido y avisa lo que descartó. */
 export function sanitizeDisplay(raw: unknown, warn: (message: string) => void = () => {}): DisplaySettings {
   const out = emptyDisplay();
@@ -451,5 +537,7 @@ export function sanitizeDisplay(raw: unknown, warn: (message: string) => void = 
   if (plots) out.plots = plots;
   const templates = sanitizeTemplates(raw['trackTemplates'], warn);
   if (templates) out.trackTemplates = templates;
+  const views = sanitizeViews(raw['views'], warn);
+  if (views) out.views = views;
   return out;
 }

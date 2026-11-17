@@ -4,6 +4,9 @@
  * docs/decisiones/0068) o, con «Paneles abajo», [pozo/curvas/zonas | visor + dock | inspector del paso].
  * Laterales redimensionables y colapsables; el dock se redimensiona en alto.
  *
+ * Modo defensa (docs/decisiones/0075): sin barra superior, sin flujo, sin columna del pozo ni rieles; el visor ocupa la
+ * pantalla y, si la vista tiene panel, ese panel se ve donde estén los paneles (costado o abajo).
+ *
  * Rendimiento: arrastrar un separador NO re-renderiza el armazón. Las medidas se aplican como variables CSS por
  * suscripción al store (useShellVars) y cada separador lee solo su propio valor. El visor (fase 4) se entera del
  * cambio de tamaño por su ResizeObserver.
@@ -28,6 +31,8 @@ import { ToolStringPanel } from './toolString/ToolStringPanel';
 import { ToolStringView } from './toolString/ToolStringView';
 import { HomeRoot } from './home/HomeScreen';
 import { useHome } from './home/store';
+import { VisibleRangeProbe } from './views/DefenseHud';
+import { ViewsDialogs } from './views/ViewsPanel';
 import { LAYOUT_LIMITS, shellSize, shellSizeCss, useUi, type ShellLayout, type ShellPart } from './store/ui';
 import './shell/shell.css';
 
@@ -123,6 +128,7 @@ export function App() {
   const ref = useRef<HTMLDivElement>(null);
   useShellVars(ref);
   const readingMode = useUi((s) => s.readingMode);
+  const presenting = useUi((s) => s.presenting);
   const leftCollapsed = useUi((s) => s.readingMode || s.layout.leftCollapsed);
   const rightCollapsed = useUi((s) => s.readingMode || s.layout.rightCollapsed);
   const dockCollapsed = useUi((s) => s.readingMode || s.layout.dockCollapsed);
@@ -140,11 +146,11 @@ export function App() {
 
   return (
     <>
-    <div className={`shell${readingMode ? ' is-reading' : ''}`} ref={ref}>
-      <TopBar />
-      {!readingMode && <FlowBar />}
+    <div className={`shell${readingMode ? ' is-reading' : ''}${presenting ? ' is-presenting' : ''}`} ref={ref}>
+      {!presenting && <TopBar />}
+      {!readingMode && !presenting && <FlowBar />}
       <div className="shell-main">
-        {toolStringOpen ? (
+        {presenting ? null : toolStringOpen ? (
           <>
             <aside className="shell-side shell-side--left shell-side--builder" aria-label="Sarta de perfilaje">
               <ToolStringPanel />
@@ -179,7 +185,7 @@ export function App() {
           <div className={`shell-center__content${toolStringOpen ? ' is-covered' : ''}`} inert={toolStringOpen}>
             <ViewerSlot />
             {!side && !dockCollapsed && <ShellHandle kind="dock" />}
-            {!side && <Dock />}
+            {!side && !(presenting && dockCollapsed) && <Dock />}
           </div>
           {toolStringOpen && (
             <div className="shell-stage__cover">
@@ -189,11 +195,13 @@ export function App() {
         </main>
 
         {side ? (
-          <>
-            {!rightCollapsed && <ShellHandle kind="right" />}
-            <SidePanel />
-          </>
-        ) : rightCollapsed ? (
+          presenting && rightCollapsed ? null : (
+            <>
+              {!rightCollapsed && <ShellHandle kind="right" />}
+              <SidePanel />
+            </>
+          )
+        ) : presenting ? null : rightCollapsed ? (
           <Rail side="right" onExpand={() => setLayout({ rightCollapsed: false })} />
         ) : (
           <>
@@ -212,6 +220,8 @@ export function App() {
       <ExportDialog />
       <QcReportDialog />
       <EquationsDialog />
+      <ViewsDialogs />
+      <VisibleRangeProbe />
       <CommandLayer />
       <Toaster />
     </div>

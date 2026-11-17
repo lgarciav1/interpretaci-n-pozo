@@ -4,7 +4,9 @@
  * corregir (puro); `installUiSync` lo aplica en cada cambio del proyecto.
  */
 import { activeWellEntry, type Project } from '../../core/state/project';
+import type { History } from '../../core/state/history';
 import { clearPlotSelection, getPlotLink } from '../../plots/link';
+import { exitDefense } from '../views/actions';
 import { useProject } from './project';
 import { useUi, type UiStore } from './ui';
 
@@ -29,12 +31,23 @@ export function staleUiPatch(ui: UiRefs, project: Project, moduleExists: (id: st
   return patch;
 }
 
+/**
+ * ¿Hay que salir del modo defensa (docs/decisiones/0075)? Si cambió el pozo activo o se reemplazó el proyecto (abrir un
+ * archivo, recuperar una sesión: `replace` deja el historial vacío).
+ */
+export function defenseExitNeeded(prev: { project: Project; history: History }, next: { project: Project; history: History }): boolean {
+  if (next.project.activeWellId !== prev.project.activeWellId) return true;
+  return next.history !== prev.history && next.history.past.length === 0 && next.history.future.length === 0;
+}
+
 let installed = false;
 export function installUiSync(moduleExists?: (id: string) => boolean): void {
   if (installed) return;
   installed = true;
   useProject.subscribe((s, prev) => {
     if (s.project === prev.project) return;
+    // Primero se sale del modo defensa (restaura la foto); después se corrige lo que haya quedado colgado.
+    if (useUi.getState().presenting && defenseExitNeeded(prev, s)) exitDefense();
     const patch = staleUiPatch(useUi.getState(), s.project, moduleExists);
     if (Object.keys(patch).length > 0) useUi.getState().set(patch);
     // La selección de los gráficos (0021) es de un pozo: otro pozo activo (u otra importación) la limpia.

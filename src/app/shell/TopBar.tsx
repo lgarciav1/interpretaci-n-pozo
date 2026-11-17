@@ -15,6 +15,7 @@ import { openProjectFile, saveProject } from './projectActions';
 import { openEquations } from '../ecuaciones/open';
 import { openHome } from '../home/actions';
 import { formatAgo, formatClock, useAutosave } from '../autosave';
+import { toggleDefense } from '../views/actions';
 
 const WORKSPACE_ICON: Record<WorkspaceId, 'sliders' | 'mountain'> = { petrophysics: 'sliders', geology: 'mountain' };
 
@@ -253,6 +254,14 @@ export function TopBar() {
           disabled={!entry || editingLayout || viewerDragging}
           onClick={() => useUi.getState().toggleReadingMode()}
           data-testid="reading-mode-toggle"
+        />
+        <IconButton
+          icon="present"
+          label="Modo defensa: recorrer las vistas guardadas en pantalla limpia"
+          hint="← → · Esc"
+          disabled={!entry || viewerDragging}
+          onClick={toggleDefense}
+          data-testid="defense-toggle"
         />
         <IconButton icon="sigma" label="Ecuaciones de los métodos" onClick={() => openEquations()} data-testid="equations-open" />
         <IconButton icon="search" label="Paleta de comandos" hint={IS_MAC_PLATFORM ? '⌘K' : 'Ctrl+K'} aria-keyshortcuts={IS_MAC_PLATFORM ? 'Meta+K' : 'Control+K'} onClick={openCommandPalette} data-testid="command-open" />
