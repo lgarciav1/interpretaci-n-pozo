@@ -339,6 +339,15 @@ const ICONS = {
       <path d="M5 8l7 4 7-4M12 12v8" />
     </>
   ),
+  /** Origen de un número (panel «Origen», 0074): dos fuentes que confluyen en un resultado. */
+  lineage: (
+    <>
+      <circle cx="6" cy="6" r="2.25" />
+      <circle cx="6" cy="18" r="2.25" />
+      <circle cx="18" cy="12" r="2.25" fill="currentColor" />
+      <path d="M8.2 6.6c3.6 1 5.4 2.7 7.6 4.6M8.2 17.4c3.6-1 5.4-2.7 7.6-4.6" />
+    </>
+  ),
 } satisfies Record<string, ReactElement>;
 
 export type IconName = keyof typeof ICONS;

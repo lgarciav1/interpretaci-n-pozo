@@ -16,6 +16,8 @@ import { TrendsPanel } from '../trends/TrendsPanel';
 import { GlancePanel } from '../glance/GlancePanel';
 import { DiagnosticsPanel, useUnseenDiagnosticsBadge } from '../diagnostics/DiagnosticsPanel';
 import { GLANCE_PANEL_ID } from '../store/ui';
+import { ProvenancePanel } from '../provenance/ProvenancePanel';
+import { PROVENANCE_PANEL_ID } from '../provenance/store';
 
 export type { DockPanelDef } from '../../ui/dockPanel';
 
@@ -253,6 +255,8 @@ const APP_PANELS: readonly DockPanelDef[] = [
     // Solo los no vistos (docs/decisiones/0072).
     useBadge: useUnseenDiagnosticsBadge,
   },
+  // «¿De dónde sale este número?»: la cadena de una muestra (docs/decisiones/0074). Se abre desde el menú del perfil.
+  { id: PROVENANCE_PANEL_ID, title: 'Origen', icon: 'lineage', component: ProvenancePanel },
   {
     id: 'trends',
     title: 'Tendencias',

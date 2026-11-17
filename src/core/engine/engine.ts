@@ -21,7 +21,7 @@ import {
   type ReadonlyCurve,
   type TableValue,
 } from '../module';
-import { resolveModuleParams, type ParamsSpec, type ParamValues } from '../params';
+import { resolveModuleParams, type ParamsSpec, type ParamValue, type ParamValues } from '../params';
 import type { Registry } from '../registry';
 import type { RoleId } from '../roles';
 import { convertArray, getUnit, unitLabel, type UnitId } from '../units';
@@ -71,6 +71,26 @@ export interface NodeReport {
   /** true si se recalculó en esta corrida (false = reusado de caché o no corrió). */
   computed: boolean;
   ms: number;
+  /**
+   * Solo nodos `ok` (también los reusados de caché): la fuente que recibió cada entrada en ESTA corrida, por clave
+   * local, después de soltar las opcionales cuyo módulo falló (`null` = ausente). Es lo usado, no lo planeado (0074).
+   */
+  inputs?: Record<string, SourceRef | null>;
+  /** Solo nodos `ok`: los parámetros resueltos que recibió `compute` (globales y efectivos por zona, clave local). */
+  params?: NodeParams;
+}
+
+/** Parámetros resueltos de un nodo (lo que vio `compute`): globales y efectivos por zona (globales + overrides). */
+export interface NodeParams {
+  global: Record<string, ParamValue>;
+  byZone: Record<string, Record<string, ParamValue>>;
+}
+
+/** Tramo de muestras [start, end) y su zona (null = fuera de las zonas: parámetros globales). */
+export interface RunSegment {
+  start: number;
+  end: number;
+  zoneId: string | null;
 }
 
 export interface EngineRunResult {
@@ -81,6 +101,8 @@ export interface EngineRunResult {
   sources: Record<string, SourceRef>;
   /** Fuentes disponibles por puerto (para el selector de método). */
   candidates: Record<string, SourceRef[]>;
+  /** Tramos de zonas que vio el motor (`layoutZones`): qué zona, y qué parámetros, aplicaron a cada muestra (0074). */
+  segments: RunSegment[];
   stats: { recomputed: string[]; reused: string[]; ms: number; samples: number };
 }
 
@@ -263,10 +285,13 @@ export class Engine {
 
       // Entradas y su firma
       const inputs: Record<string, ReadonlyCurve | OutputValue | undefined> = {};
+      // Fuente usada por entrada (lo que se publica en el reporte; las opcionales soltadas quedan null).
+      const used: Record<string, SourceRef | null> = {};
       const inputStamps: string[] = [];
       let inputError: string | null = null;
       for (const [key, spec] of Object.entries(m.inputs)) {
         const src = node.inputs[key] ?? null;
+        used[key] = src;
         if (!src) {
           inputs[key] = undefined;
           inputStamps.push('-');
@@ -275,6 +300,7 @@ export class Engine {
         if (src.kind === 'module' && !okNodes.has(src.moduleId)) {
           // Solo llega acá si la entrada es opcional (ver failedDep): corre sin ella.
           inputs[key] = undefined;
+          used[key] = null;
           inputStamps.push('-');
           diagnostics.push({
             level: 'warning',
@@ -330,11 +356,16 @@ export class Engine {
       const params = resolveModuleParams(id, m.params, interp.params, zoneIds);
       for (const p of params.problems) diagnostics.push({ level: 'warning', code: 'params', moduleId: id, message: `'${m.name}': ${p}` });
       const stamp = JSON.stringify([params.key, layout.spans.map((s) => [s.id, s.name, s.kind, s.start, s.end]), inputStamps]);
+      const publish = () => {
+        report.inputs = used;
+        report.params = { global: params.global, byZone: Object.fromEntries(params.byZone) };
+      };
 
       const cached = this.cache.get(id);
       if (cached && cached.ok && cached.stamp === stamp) {
         for (const w of cached.warnings) diagnostics.push(warningDiagnostic(id, m.name, w));
         okNodes.add(id);
+        publish();
         reused.push(id);
         continue;
       }
@@ -397,6 +428,7 @@ export class Engine {
       this.cache.set(id, { stamp, version: this.nextVersion++, ok: true, outputs, warnings });
       for (const w of warnings) diagnostics.push(warningDiagnostic(id, m.name, w));
       okNodes.add(id);
+      publish();
       recomputed.push(id);
     }
 
@@ -431,6 +463,7 @@ export class Engine {
       diagnostics,
       sources: Object.fromEntries(plan.sources),
       candidates: Object.fromEntries(plan.candidates),
+      segments: layout.segments.map((g) => ({ start: g.start, end: g.end, zoneId: g.zoneId })),
       stats: { recomputed, reused, ms: now() - t0, samples: n },
     };
   }

@@ -26,6 +26,14 @@ export function nearestCurveAt(track: ResolvedTrack, box: Pick<TrackBox, 'x' | '
   return best ?? lines[lines.length - 1]!;
 }
 
+/**
+ * Clave de la salida del motor (`<moduleId>:<puerto>`) de una curva calculada del visor (`c:<moduleId>:<puerto>`), para
+ * «¿De dónde sale este número?» (docs/decisiones/0074). null si la curva es medida o preparada.
+ */
+export function outputKeyOfViewerCurve(curve: Pick<ResolvedCurve, 'key' | 'origin'>): string | null {
+  return curve.origin === 'computed' && curve.key.startsWith('c:') ? curve.key.slice(2) : null;
+}
+
 const m = (d: number) => `${formatNumber(d, { digits: 2, grouping: false })} m`;
 
 /**
