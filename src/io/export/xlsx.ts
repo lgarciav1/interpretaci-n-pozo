@@ -51,11 +51,12 @@ function sheetXml(rows: readonly (readonly Cell[])[], widths: readonly number[],
     }
     body.push(`<row r="${r + 1}">${cells.join('')}</row>`);
   }
-  const cols = widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('');
+  // `<cols>` vacío no es válido en OOXML (Excel ofrece «reparar» el libro): sin columnas, sin el elemento.
+  const cols = widths.length ? `<cols>${widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>` : '';
   const pane = boldRows > 0 ? '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>' : '';
   return (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${pane}<cols>${cols}</cols><sheetData>${body.join('')}</sheetData></worksheet>`
+    `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${pane}${cols}<sheetData>${body.join('')}</sheetData></worksheet>`
   );
 }
 
@@ -130,7 +131,10 @@ export function writeWorkbook(input: readonly XlsxSheet[]): Uint8Array {
   if (input.length === 0) throw new Error('Un libro de Excel necesita al menos una hoja.');
   const names = sheetNames(input);
   const sheets = input.map((s, i) => {
-    const cols = Math.max(0, ...s.rows.map((r) => r.length));
+    // Bucle y no `Math.max(...filas)`: la hoja Curvas tiene una fila por muestra y el spread desborda la pila con
+    // pozos de cientos de miles de muestras.
+    let cols = 0;
+    for (const r of s.rows) if (r.length > cols) cols = r.length;
     const widths = Array.from({ length: cols }, (_, c) => s.widths?.[c] ?? 12);
     return { name: names[i]!, xml: sheetXml(s.rows, widths, s.headerRows ?? 1) };
   });

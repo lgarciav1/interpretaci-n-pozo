@@ -122,7 +122,23 @@ export function readPicks(interpretation: Pick<Interpretation, 'moduleState'> | 
 /** Receta: deja elegidas exactamente `keys` (vacío = quita el estado del módulo). */
 export function picksRecipe(wellId: string, keys: readonly string[]): (p: Project) => Project {
   const unique = [...new Set(keys)];
-  return (p) => setModuleState(p, wellId, MODULE_ID, unique.length ? { picked: unique } : undefined);
+  return (p) => {
+    // Misma selección (p. ej. «Elegir primeros» dos veces): el proyecto no cambia y no se suma un paso de deshacer.
+    const entry = p.wells.find((e) => e.well.id === wellId);
+    const current = entry ? readPicks(entry.interpretation) : null;
+    if (current && current.length === unique.length && current.every((k, i) => k === unique[i])) {
+      const raw = entry!.interpretation.moduleState?.[MODULE_ID];
+      // Solo si lo guardado ya es exactamente { picked } (sin claves inválidas que limpiar).
+      if (unique.length === 0 ? raw === undefined : isPlainPicks(raw, unique.length)) return p;
+    }
+    return setModuleState(p, wellId, MODULE_ID, unique.length ? { picked: unique } : undefined);
+  };
+}
+
+function isPlainPicks(raw: JsonValue | undefined, n: number): boolean {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return false;
+  const o = raw as { readonly [k: string]: JsonValue };
+  return Object.keys(o).length === 1 && Array.isArray(o.picked) && o.picked.length === n;
 }
 
 /** Alterna un tramo en la selección. */

@@ -111,7 +111,10 @@ export const overlays: ViewerOverlay[] = [
         const half = Math.min(tri, Math.max(1.5, h / 2));
         ctx.fillStyle = ink;
         ctx.beginPath();
-        for (let k = 0; k < shots; k++) {
+        // Solo los disparos visibles: con mucho zoom un tramo largo mide decenas de miles de px.
+        const kFrom = Math.max(0, Math.floor((-tri - start) / pitch));
+        const kTo = Math.min(shots - 1, Math.ceil((vp.height + tri - start) / pitch));
+        for (let k = kFrom; k <= kTo; k++) {
           const yc = start + k * pitch;
           ctx.moveTo(xl + 1, yc - half);
           ctx.lineTo(xl + w, yc);

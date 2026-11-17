@@ -39,6 +39,16 @@ describe('writeWorkbook', () => {
     expect(listXlsxSheets(bytes)).toEqual(['A B', 'a b 2']);
     expect(() => writeWorkbook([])).toThrow(/al menos una hoja/);
   });
+
+  it('una hoja sin filas no lleva <cols> vacío (OOXML inválido)', () => {
+    const sheet = strFromU8(unzipSync(writeWorkbook([{ name: 'Vacía', rows: [] }]))['xl/worksheets/sheet1.xml']!);
+    expect(sheet).not.toContain('<cols>');
+  });
+
+  it('muchas filas (una por muestra) no desbordan la pila al calcular las columnas', () => {
+    const rows = Array.from({ length: 300_000 }, (_, i) => [i]);
+    expect(() => writeWorkbook([{ name: 'Curvas', rows }])).not.toThrow();
+  });
 });
 
 describe('modelo del panel de capas de pay', () => {
@@ -93,6 +103,10 @@ describe('selección guardada en interpretation.moduleState', () => {
     expect(cleared.moduleState).toBeUndefined();
     expect(readPicks(cleared)).toEqual([]);
     expect(setModuleState(base, 'w', 'pay-intervals', undefined)).toBe(base);
+    // Repetir la misma selección no cambia el proyecto (no suma un paso de deshacer).
+    expect(picksRecipe('w', ['k1', 'k2'])(p)).toBe(p);
+    expect(picksRecipe('w', [])(base)).toBe(base);
+    expect(picksRecipe('w', ['k2', 'k1'])(p)).not.toBe(p);
   });
 
   it('se conserva al guardar y abrir el proyecto (v7) y lo inválido de un archivo viejo se descarta', async () => {
