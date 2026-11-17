@@ -4,6 +4,7 @@ import { flowProgress, STEP_STATUS_LABEL } from '../flow/flow';
 import { openStep, useFlow } from '../flow/useFlow';
 import { useUi } from '../store/ui';
 import { FREE_MODULE_VIEW } from './freeModuleView';
+import { WalkthroughClock } from './WalkthroughClock';
 
 export function FlowBar() {
   const { states, active, suggested } = useFlow();
@@ -65,6 +66,7 @@ export function FlowBar() {
           </span>
         </div>
       </Tooltip>
+      <WalkthroughClock />
     </div>
   );
 }

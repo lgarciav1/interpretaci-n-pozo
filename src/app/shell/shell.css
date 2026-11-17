@@ -183,6 +183,37 @@
 .shell-progress__computed { background: var(--color-ok-border); }
 .shell-progress__reviewed { background: var(--color-ok); }
 
+/* Cronómetro del recorrido (F19): discreto, junto al progreso. El aro se llena hacia la meta de 5 minutos; neutro
+   mientras corre dentro de la meta, verde si frenó dentro, ámbar si la pasó. */
+.shell-clock {
+  --clock-arc: var(--color-text-muted);
+  --clock-text: var(--color-text);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  flex: none;
+  height: calc(24px * var(--ui-scale));
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--clock-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-standard), border-color var(--dur-fast) var(--ease-standard);
+}
+.shell-clock:hover, .shell-clock[aria-expanded='true'] { background: var(--color-surface-hover); border-color: var(--color-border); }
+.shell-clock:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+.shell-clock--done { --clock-arc: var(--color-ok); --clock-text: var(--color-ok-text); }
+.shell-clock--over { --clock-arc: var(--color-warn); --clock-text: var(--color-warn-text); }
+.shell-clock__dial { width: calc(16px * var(--ui-scale)); height: calc(16px * var(--ui-scale)); flex: none; fill: none; stroke-linecap: round; }
+.shell-clock__track { stroke: var(--color-surface-active); stroke-width: 1.75; }
+.shell-clock__arc { stroke: var(--clock-arc); stroke-width: 1.75; transition: stroke-dasharray var(--dur-slow) var(--ease-standard), stroke var(--dur-base) var(--ease-standard); }
+.shell-clock__hand { stroke: var(--clock-text); stroke-width: 1.5; }
+.shell-clock__time { min-width: 4ch; font-weight: 500; letter-spacing: 0.01em; }
+
 /* Tres zonas */
 .shell-main { display: flex; min-width: 0; min-height: 0; }
 .shell-side { position: relative; display: flex; flex-direction: column; flex: none; min-height: 0; background: var(--color-surface); }

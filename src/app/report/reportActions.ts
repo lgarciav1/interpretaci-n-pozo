@@ -15,6 +15,8 @@ import { figureEnv } from '../export/figureSources';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useResults } from '../store/results';
 import { useUi } from '../store/ui';
+import { walkthroughReport } from '../flow/stopwatch';
+import { stopwatchClock, useStopwatch } from '../flow/stopwatchStore';
 import { buildReportModel, reportHtml, type ReportFigure, type ReportModel, type ReportOptions } from './report';
 
 function dataUrl(bytes: Uint8Array): string {
@@ -89,8 +91,11 @@ export async function generateReport(options: ReportOptions): Promise<{ html: st
   const xy = listXYFigures();
   if (!entry) throw new Error('Cargá un pozo para generar el informe.');
   if (state.busy || state.error || !state.result || !sameContext(state.result.context,entryContext(entry))) throw new Error('Esperá a que termine el cálculo del pozo activo antes de generar el informe.');
-  const model = buildReportModel(entry.well, entry.interpretation, state.result, new Date(), undefined,
+  const built = buildReportModel(entry.well, entry.interpretation, state.result, new Date(), undefined,
     project.inputRevisions?.[entry.inputRevisionId ?? '']?.acquisition);
+  // Cronómetro del recorrido (F19): copia del tiempo al generar; si no arrancó para este pozo, no aparece.
+  const walkthrough = walkthroughReport(useStopwatch.getState().watch, stopwatchClock.now(), entry.well.id);
+  const model = walkthrough ? { ...built, walkthrough } : built;
   const env = figureEnv();
   const html = await renderReport(options, model, env);
   const latest = selectActiveEntry(useProject.getState());
