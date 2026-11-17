@@ -1,3 +1,4 @@
+import { validateDensityConfig, type DensityReconstructionConfig } from '../preparation/density';
 import { toEngineWell } from '../engine/engine';
 import { curveProvenance, identityKey } from '../engine/context';
 import { interpolationSourceProblem } from '../preparation/interpolation';
@@ -9,6 +10,7 @@ import type { Registry } from '../registry';
 import { enableProjectInputRevisions } from './inputRevisions';
 import { updateInterpretation, type Project, type WellEntry } from './project';
 function rejectMgtAuxiliary(entry: WellEntry, curveId: string) {
+  if (entry.interpretation.preparation?.nodes.some(n => n.kind === 'density-reconstruction' && n.enabled && n.density.predictors.some(p => p.curveId === curveId))) throw new Error('Retirá o desactivá la reconstrucción antes de preparar sus predictores.');
   if (entry.interpretation.preparation?.nodes.some(n => n.kind === 'mgt-borehole' && n.enabled && n.mgt.caliperCurveId === curveId)) throw new Error('Retirá o desactivá MGT antes de preparar su caliper; no se ignora una dependencia.');
 }
 
@@ -43,6 +45,7 @@ export function addMaskIntervals(project: Project, wellId: string, curveId: stri
     if (lo >= depth.length || depth[lo]! > interval.base) throw new Error('El intervalo no contiene muestras.');
   }
   const existing = entry.interpretation.preparation?.nodes.find(n => n.input.curveId === curveId);
+  if (existing?.kind === 'density-reconstruction') throw new Error('Retirá la reconstrucción antes de excluir densidad.');
   if (existing?.kind === 'mgt-borehole') throw new Error('Retirá MGT antes de excluir datos; la corrección no se descarta silenciosamente.');
   if (existing) {
     const binding = preparationBindings(entry.interpretation, wellId, next.inputRevisions, entry.inputRevisionId)[existing.id];
@@ -203,4 +206,31 @@ export function removeNormalization(project: Project, wellId: string, nodeId: st
   if (!node || !nodeNormalization(node)) return project;
   if (!node.intervals.length && !nodeGapFill(node) && !nodeFilter(node) && !nodeShift(node)) return restoreMaskInterval(project, wellId, nodeId);
   return updateInterpretation(project, wellId, i => ({ ...i, preparation: preparationState(i.preparation!.nodes.map(n => n.id === nodeId ? withNodeStages(n, nodeGapFill(n), nodeFilter(n), nodeShift(n), undefined) : n)) }));
+}
+
+/** F20: aceptar receta conserva la fuente activa; usarla requiere otra acción expresa. */
+export function setDensityReconstruction(project: Project, wellId: string, curveId: string, density: DensityReconstructionConfig, nodeId: string): Project {
+  validateDensityConfig(density);
+  const next = enableProjectInputRevisions(project), entry = next.wells.find(e => e.well.id === wellId), curve = entry?.well.curves.find(c => c.id === curveId);
+  if (!entry || !curve || curve.role !== 'RHOB' || curve.unit !== 'g/cm3') throw new Error('Elegí densidad original en g/cm3.');
+  rejectMgtAuxiliary(entry, curveId);
+  const existing = entry.interpretation.preparation?.nodes.find(n => n.input.curveId === curveId);
+  if (existing && existing.kind !== 'density-reconstruction') throw new Error('Retirá la preparación de densidad antes de reconstruirla.');
+  const node: PreparationNode = { id: existing?.id ?? nodeId, kind: 'density-reconstruction', methodVersion: 1, enabled: true, input: { kind: 'original', inputRevisionId: entry.inputRevisionId!, curveId }, intervals: [], density: structuredClone(density) };
+  const nodes = entry.interpretation.preparation?.nodes ?? [];
+  const preparation = preparationState(existing ? nodes.map(n => n.id === node.id ? node : n) : [...nodes, node]);
+  validatePreparation(preparation);
+  const result = updateInterpretation(next, wellId, i => ({ ...i, preparation }));
+  // Validar los predictores y tramos en la revisión fijada antes de aceptar.
+  const accepted = result.wells.find(e => e.well.id === wellId)!;
+  preparationBindings(accepted.interpretation, wellId, result.inputRevisions, accepted.inputRevisionId);
+  return result;
+}
+/** Debe ofrecerse solo tras un preview aceptado y vigente; no hay fallback automático si luego falla. */
+export function activateDensityReconstruction(project: Project, wellId: string, nodeId: string): Project {
+  return updateInterpretation(project, wellId, i => {
+    const node = i.preparation?.nodes.find(n => n.id === nodeId);
+    if (node?.kind !== 'density-reconstruction' || !node.enabled) throw new Error('No hay una reconstrucción activa.');
+    return { ...i, sources: { ...i.sources, RHOB: { kind: 'curve', curveId: preparedCurveId(nodeId, 'masked') } } };
+  });
 }

@@ -24,6 +24,18 @@ export default definePanelModule({
       'Etapas en orden fijo sobre cada curva original, sin borrar filas ni cambiar el índice de profundidad: exclusión → interpolación de faltantes originales → mediana móvil → corrimiento constante en MD → normalización. Cada muestra lleva banderas de calidad combinables (faltante original, excluida, sospechosa, interpolada, filtrada, corrida, corregida, fuera de dominio, normalizada). La normalización corrige posibles errores de calibración y escala: lleva percentiles de la curva en un intervalo de referencia a valores conocidos (de un pozo vecino o de arcilla y arena limpia) y se aplica a toda la curva. La corrección MGT de GR por diámetro de pozo es una receta aparte, no combinable con las otras etapas. La calibración de GR con DRX ajusta los extremos de arena limpia y arcilla del índice de rayos gamma contra el volumen de arcilla de laboratorio para el método de Vsh elegido.',
     equations: [
       {
+        latex: '\\widehat{\\rho}(x)=\\frac{1}{T}\\sum_{t=1}^{T} f_t(x)',
+        description: 'F20 density-rf-v1: regresión con bosque aleatorio entrenado sólo en densidad sana del mismo pozo. Árboles extremadamente aleatorizados con medias de hoja; no se convierten clases a densidad.',
+      },
+      {
+        latex: '\\mathrm{RMSE}=\\sqrt{\\frac{1}{n}\\sum_i(\\widehat{\\rho}_i-\\rho_i)^2},\\quad R^2=1-\\frac{\\sum_i(\\widehat{\\rho}_i-\\rho_i)^2}{\\sum_i(\\rho_i-\\overline{\\rho})^2}',
+        description: 'Métricas sobre bloques sanos ocultos, con separación en profundidad. Puerta fija: RMSE ≤ 0,08 g/cm³, R² ≥ 0,50, cobertura de validación ≥ 60 %. No miden el error real en derrumbes.',
+      },
+      {
+        latex: '[\\widehat{\\rho}(x)-q_{0.9},\\widehat{\\rho}(x)+q_{0.9}]',
+        description: 'Banda nominal 90 % con residuos absolutos de bloques independientes de calibración. Exige cobertura observada ≥ 85 % y semiancho ≤ 0,15 g/cm³. La extrapolación o falta de soporte impide estimar. La cobertura global de validación no garantiza cobertura en cada intervalo: un bloque sintético oculto de la revisión independiente cubrió sólo 65 %. En derrumbes la densidad verdadera es desconocida.',
+      },
+      {
         latex: "x'_i = \\begin{cases} \\mathrm{NaN} & z_t \\le z_i \\le z_b \\\\ x_i & \\text{en otro caso} \\end{cases}",
         description: 'Exclusión de un tramo cerrado [tope, base] en MD: la medición pasa a sin dato y se conserva el original.',
       },
@@ -97,6 +109,9 @@ export default definePanelModule({
       },
     ],
     references: [
+      'Geurts, P., Ernst, D. y Wehenkel, L. (2006). Extremely randomized trees. Machine Learning 63, 3–42.',
+      'Breiman, L. (2001). Random Forests. Machine Learning 45, 5–32 (regresión). F20: ADR 0077, dominio y criterios prefijados density-rf-v1.',
+      'Angelopoulos, A. N. y Bates, S. (2023). Conformal Prediction: A Gentle Introduction. Foundations and Trends in Machine Learning (calibración por residuos; dependencia espacial limita garantías).',
       'Asquith, G. y Krygowski, D. (2004). Basic Well Log Analysis, 2.ª ed. AAPG Methods in Exploration 16.',
       'Bateman, R. M. (2012). Openhole Log Analysis and Formation Evaluation, 2.ª ed. SPE (control de calidad, puesta en profundidad).',
       'Tukey, J. W. (1977). Exploratory Data Analysis. Addison-Wesley (medianas móviles).',

@@ -7,7 +7,8 @@ export function preparationViewCurves(curves: readonly Curve[], interpretation: 
   if (compare || !result?.preparation || !interpretation) return curves;
   const selected = new Set(Object.values(interpretation.sources).flatMap(s => s.kind === 'curve' ? [s.curveId] : []));
   const active = result.preparation.plan.artifacts.filter(a => selected.has(a.id));
-  const originals = new Set(active.map(a => a.sourceCurveId));
+  const densityOriginals = new Set(interpretation.preparation?.nodes.filter(n => n.kind === 'density-reconstruction').map(n => n.input.curveId));
+  const originals = new Set(active.map(a => a.sourceCurveId).filter(id => !densityOriginals.has(id)));
   const ports = new Set(Object.entries(interpretation.sources).filter(([,s]) => s.kind === 'curve' && active.some(a => a.id === s.curveId)).map(([port]) => port));
-  return curves.filter(c => c.origin.kind === 'prepared' ? selected.has(c.id) : !originals.has(c.id) && !(c.role && ports.has(c.role)));
+  return curves.filter(c => c.origin.kind === 'prepared' ? selected.has(c.id) : densityOriginals.has(c.id) || !originals.has(c.id) && !(c.role && ports.has(c.role)));
 }

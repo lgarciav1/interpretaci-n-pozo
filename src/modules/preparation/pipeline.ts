@@ -138,7 +138,9 @@ export function pipelineStages(input: PipelineInput): PipelineStage[] {
   const node = showPreview ? preview : applied;
   const view = showPreview ? input.previewView : input.appliedView;
   const counts = stageCounts(input.original, view);
-  const mgt = node?.kind === 'mgt-borehole';
+  const density = node?.kind === 'density-reconstruction';
+  const mgt = node?.kind === 'mgt-borehole' || density;
+  const blockedLabel = density ? 'No combinable con reconstrucción ML' : 'No combinable con MGT';
   const stateOf = (id: StageId, has: boolean): StageState => (mgt && id !== 'original' && id !== 'prepared' ? 'blocked' : changed.has(id) ? 'preview' : has ? 'done' : 'idle');
   const idle = 'Sin aplicar';
   const pending = view ? null : 'Calculando…';
@@ -158,7 +160,7 @@ export function pipelineStages(input: PipelineInput): PipelineStage[] {
     id: 'exclusion',
     label: STAGE_LABELS.exclusion,
     state: exState,
-    detail: exState === 'blocked' ? 'No combinable con MGT' : intervals ? (pending ?? `${n(counts.excluded)} excluidas`) : idle,
+    detail: exState === 'blocked' ? blockedLabel : intervals ? (pending ?? `${n(counts.excluded)} excluidas`) : idle,
     tool: 'exclude',
   });
 
@@ -168,7 +170,7 @@ export function pipelineStages(input: PipelineInput): PipelineStage[] {
     id: 'interpolation',
     label: STAGE_LABELS.interpolation,
     state: inState,
-    detail: inState === 'blocked' ? 'No combinable con MGT' : gap ? (pending ?? `${n(counts.interpolated)} estimadas`) : idle,
+    detail: inState === 'blocked' ? blockedLabel : gap ? (pending ?? `${n(counts.interpolated)} estimadas`) : idle,
     tool: 'interpolate',
   });
 
@@ -178,7 +180,7 @@ export function pipelineStages(input: PipelineInput): PipelineStage[] {
     id: 'median',
     label: STAGE_LABELS.median,
     state: fiState,
-    detail: fiState === 'blocked' ? 'No combinable con MGT' : filter ? (pending ?? `${n(counts.filtered)} filtradas`) : idle,
+    detail: fiState === 'blocked' ? blockedLabel : filter ? (pending ?? `${n(counts.filtered)} filtradas`) : idle,
     tool: 'filter',
   });
 
@@ -188,7 +190,7 @@ export function pipelineStages(input: PipelineInput): PipelineStage[] {
     id: 'alignment',
     label: STAGE_LABELS.alignment,
     state: shState,
-    detail: shState === 'blocked' ? 'No combinable con MGT' : shift ? formatOffset(shift.offsetM) : idle,
+    detail: shState === 'blocked' ? blockedLabel : shift ? formatOffset(shift.offsetM) : idle,
     tool: 'shift',
   });
 
@@ -198,7 +200,7 @@ export function pipelineStages(input: PipelineInput): PipelineStage[] {
     id: 'normalization',
     label: STAGE_LABELS.normalization,
     state: noState,
-    detail: noState === 'blocked' ? 'No combinable con MGT' : normalization ? (pending ?? `${n(counts.normalized)} normalizadas`) : idle,
+    detail: noState === 'blocked' ? blockedLabel : normalization ? (pending ?? `${n(counts.normalized)} normalizadas`) : idle,
     tool: 'normalize',
   });
 
@@ -208,7 +210,7 @@ export function pipelineStages(input: PipelineInput): PipelineStage[] {
     prepared.detail = 'Sin aplicar aún';
   } else if (applied) {
     prepared.state = 'done';
-    prepared.detail = mgt ? (input.inUse ? 'Corregida por MGT · en uso' : 'Corregida por MGT') : input.inUse && input.role ? `En uso como ${input.role}` : input.role ? 'Guardada · sin usar' : 'Guardada';
+    prepared.detail = density ? (input.inUse ? 'Estimada ML · en uso' : 'Estimada ML · guardada sin usar') : mgt ? (input.inUse ? 'Corregida por MGT · en uso' : 'Corregida por MGT') : input.inUse && input.role ? `En uso como ${input.role}` : input.role ? 'Guardada · sin usar' : 'Guardada';
   }
   stages.push(prepared);
   return stages;
@@ -219,7 +221,7 @@ export function pipelineSummary(stages: readonly PipelineStage[]): string {
   const work = stages.filter((s) => s.id !== 'original' && s.id !== 'prepared');
   const done = work.filter((s) => s.state === 'done').length;
   const preview = work.filter((s) => s.state === 'preview').length;
-  if (work.every((s) => s.state === 'blocked')) return 'Corrección MGT aplicada: retirala para usar las etapas de limpieza.';
+  if (work.every((s) => s.state === 'blocked')) return stages.at(-1)?.detail.includes('ML') ? 'Reconstrucción ML guardada: retirala en Densidad para usar las etapas de limpieza.' : 'Corrección MGT aplicada: retirala para usar las etapas de limpieza.';
   if (preview) return `${preview === 1 ? 'Una etapa' : `${preview} etapas`} en vista previa: revisá el gráfico y aplicá o descartá.`;
   if (!done) return 'Curva sin preparar. Todas las etapas son opcionales y se aplican en este orden.';
   const left = work.filter((s) => s.state === 'idle').map((s) => s.label.toLowerCase());

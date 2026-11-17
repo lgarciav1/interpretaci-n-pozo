@@ -83,7 +83,7 @@ export function serveEngine(endpoint: Endpoint, registry: Registry, options: Eng
           }
           return o;
         });
-        const wirePrepared = prepared?.map(p => { const data = p.data.slice(), quality = p.quality.slice(); transfer.push(data.buffer, quality.buffer); return { ...p, data, quality }; });
+        const wirePrepared = prepared?.map(p => { const data = p.data.slice(), quality = p.quality.slice(); transfer.push(data.buffer, quality.buffer); const density = p.density ? { ...p.density, lower: p.density.lower.slice(), upper: p.density.upper.slice(), status: p.density.status.slice() } : undefined; if (density) transfer.push(density.lower.buffer, density.upper.buffer, density.status.buffer); return { ...p, data, quality, ...(density ? { density } : {}) }; });
         reply({ type: 'result', seq: msg.seq, gen: msg.gen, context:{...msg.context}, result: { ...result, outputs }, ...(wirePrepared ? { prepared: wirePrepared } : {}) }, transfer);
         // Llegó: lo que no está en esta respuesta ya no lo tiene el cliente (reconstruye el conjunto completo).
         sent.clear();

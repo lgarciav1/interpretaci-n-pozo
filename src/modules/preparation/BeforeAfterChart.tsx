@@ -34,7 +34,7 @@ export function BeforeAfterChart(props: ChartProps) {
       size.current = s;
       drawBeforeAfter(ctx, s, t, scale, { ...input, brush, hoverDepth: hover });
     },
-    [input.depth, input.start, input.end, input.original, input.after, input.quality, input.color, input.log, input.zones, input.selection, input.viewerDepth, input.stale, brush, hover],
+    [input.depth, input.start, input.end, input.original, input.after, input.lower, input.upper, input.quality, input.color, input.log, input.zones, input.selection, input.viewerDepth, input.stale, brush, hover],
   );
 
   const scaleAt = () => {
@@ -70,7 +70,7 @@ export function BeforeAfterChart(props: ChartProps) {
       after: input.after ? input.after[i]! : null,
       flags: QUALITY_FLAGS.filter((fl) => q & fl.bit).map((fl) => fl.label),
     };
-  }, [hover, input.depth, input.start, input.end, input.original, input.after, input.quality]);
+  }, [hover, input.depth, input.start, input.end, input.original, input.after, input.lower, input.upper, input.quality]);
 
   const counts = useMemo(() => flagCounts(input.quality), [input.quality]);
   const v = (x: number) => (Number.isFinite(x) ? f(x, 3) : 'sin dato');
@@ -88,6 +88,7 @@ export function BeforeAfterChart(props: ChartProps) {
             {afterLabel}
           </span>
         )}
+        {input.lower && <span className="prep-key">Banda nominal 90 % · calibración global</span>}
         <span className="prep-key">
           <span className="prep-key__dot" style={{ background: theme.color.error }} />
           excluidas

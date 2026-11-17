@@ -7,7 +7,7 @@
  */
 import { Quality } from '../../core/preparation/quality';
 
-export type FlagKey = 'missing' | 'excluded' | 'suspect' | 'interpolated' | 'filtered' | 'shifted' | 'corrected' | 'outOfDomain' | 'normalized';
+export type FlagKey = 'missing' | 'excluded' | 'suspect' | 'interpolated' | 'filtered' | 'shifted' | 'corrected' | 'outOfDomain' | 'normalized' | 'estimated' | 'unsupported';
 
 export interface FlagDef {
   key: FlagKey;
@@ -28,13 +28,15 @@ export const QUALITY_FLAGS: readonly FlagDef[] = [
   { key: 'corrected', bit: Quality.Corrected, label: 'Corregida', description: 'Corrección ambiental aplicada (no garantiza exactitud).' },
   { key: 'outOfDomain', bit: Quality.OutOfDomain, label: 'Fuera de dominio', description: 'Sin soporte para estimar, fuera del rango del método o del rango físico de la curva.' },
   { key: 'normalized', bit: Quality.Normalized, label: 'Normalizada', description: 'Llevada a los valores de referencia por la normalización.' },
+  { key: 'estimated', bit: Quality.EstimatedML, label: 'Estimada ML', description: 'Densidad estimada por un modelo del mismo pozo; no es una medición.' },
+  { key: 'unsupported', bit: Quality.UnsupportedML, label: 'Sin soporte ML', description: 'Sin estimación por datos no fiables, extrapolación o validación insuficiente.' },
 ];
 
 export const FLAG_BY_KEY: Readonly<Record<FlagKey, FlagDef>> = Object.fromEntries(QUALITY_FLAGS.map((f) => [f.key, f])) as Record<FlagKey, FlagDef>;
 
 export type FlagCounts = Record<FlagKey, number>;
 
-const zeroCounts = (): FlagCounts => ({ missing: 0, excluded: 0, suspect: 0, interpolated: 0, filtered: 0, shifted: 0, corrected: 0, outOfDomain: 0, normalized: 0 });
+const zeroCounts = (): FlagCounts => ({ missing: 0, excluded: 0, suspect: 0, interpolated: 0, filtered: 0, shifted: 0, corrected: 0, outOfDomain: 0, normalized: 0, estimated: 0, unsupported: 0 });
 
 /** Calidad mínima de una curva sin preparar: solo «faltante original» donde no hay dato. */
 export function qualityOf(data: ArrayLike<number>): Uint16Array {
@@ -110,7 +112,7 @@ export function columnFlags(quality: ArrayLike<number>, start: number, end: numb
 }
 
 /** Prioridad para la barra de una sola fila (tarjetas): lo que más importa ver primero. */
-const PRIORITY: readonly FlagKey[] = ['excluded', 'outOfDomain', 'suspect', 'corrected', 'interpolated', 'filtered', 'shifted', 'normalized', 'missing'];
+const PRIORITY: readonly FlagKey[] = ['excluded', 'unsupported', 'estimated', 'outOfDomain', 'suspect', 'corrected', 'interpolated', 'filtered', 'shifted', 'normalized', 'missing'];
 
 /** Bandera dominante de un conjunto de bits (o null si no hay ninguna). */
 export function dominantFlag(bits: number): FlagKey | null {

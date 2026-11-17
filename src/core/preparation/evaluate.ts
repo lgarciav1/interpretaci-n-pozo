@@ -1,3 +1,6 @@
+import { reconstructDensity } from '../../ml/densityReconstruction';
+import { densityIntervalMask, densityPredictorUnit } from './density';
+import { convert } from '../units';
 import type { EngineWell } from '../engine/engine';
 import { needsScratch, type PreparationPlan, type PreparedPayload } from './plan';
 import { applyNormalization } from './normalization';
@@ -8,6 +11,7 @@ import { filterMedian } from './filter';
 import { fillLinearGaps } from './interpolation';
 import { mgtGamma } from '../../petro/mgt';
 
+export const preparedPayloadBytes = (p: PreparedPayload): number => p.data.byteLength + p.quality.byteLength + (p.density ? p.density.lower.byteLength + p.density.upper.byteLength + p.density.status.byteLength : 0);
 export class PreparationCancelled extends Error {}
 /** Caché LRU por bytes reales; no conserva arrays del proyecto como resultados editados. */
 export class MaskEvaluator {
@@ -16,22 +20,42 @@ export class MaskEvaluator {
   constructor(private readonly budget = PREPARATION_BUDGET) {}
   get retainedBytes(): number { return this.bytes; }
   async evaluate(well: EngineWell, plan: PreparationPlan, cancelled: () => boolean = () => false, yieldTask: () => Promise<void> = () => new Promise(resolve => setTimeout(resolve, 0))): Promise<PreparedPayload[]> {
-    if (well.depth.length * 10 * (plan.artifacts.length + (plan.artifacts.some(needsScratch) ? 1 : 0)) > this.budget) throw new Error('La preparación excede el presupuesto de memoria.');
+    if (well.depth.length * (plan.artifacts.reduce((sum, a) => sum + (a.density ? 27 : 10), 0) + (plan.artifacts.some(needsScratch) ? 10 : 0)) > this.budget) throw new Error('La preparación excede el presupuesto de memoria.');
+    const modelReserve = plan.artifacts.some(a => a.density) ? 32 * 1024 * 1024 : 0;
+    if (modelReserve + well.depth.length * plan.artifacts.reduce((sum, a) => sum + (a.density ? 27 : 10), 0) > this.budget) throw new Error('El modelo y sus artefactos exceden el presupuesto de preparación.');
     const pinned = new Set(plan.artifacts.map(a => a.provenance.contentVersion));
     const result: PreparedPayload[] = [];
     for (const a of plan.artifacts) {
       if (cancelled()) throw new PreparationCancelled();
       const version = a.provenance.contentVersion;
       const hit = this.cache.get(version);
-      if (hit) { this.cache.delete(version); this.cache.set(version, hit); result.push({ ...hit, id: a.id }); continue; }
-      const bytes = well.depth.length * 10, allocation = bytes * (needsScratch(a) ? 2 : 1);
+      if (hit) { if (a.densityActive && hit.density && !hit.density.report.accepted) throw new Error('Fuente de densidad bloqueada por validación ML: ' + hit.density.report.reasons.join(' · ')); this.cache.delete(version); this.cache.set(version, hit); result.push({ ...hit, id: a.id }); continue; }
+      const bytes = well.depth.length * (a.density ? 27 : 10), allocation = bytes * (needsScratch(a) ? 2 : 1) + (a.density ? modelReserve : 0);
       for (const [key, old] of this.cache) {
         if (this.bytes + allocation <= this.budget) break;
-        if (!pinned.has(key)) { this.cache.delete(key); this.bytes -= old.data.byteLength + old.quality.byteLength; }
+        if (!pinned.has(key)) { this.cache.delete(key); this.bytes -= preparedPayloadBytes(old); }
       }
       if (this.bytes + allocation > this.budget) throw new Error('No hay memoria disponible para la preparación.');
       const source = well.curves.find(c => c.id === a.sourceCurveId);
       if (!source) throw new Error('La curva original de la máscara no está disponible.');
+      if (a.density) {
+        await yieldTask();
+        if (cancelled()) throw new PreparationCancelled();
+        const config = a.density;
+        const output = reconstructDensity({ depth: well.depth, density: source.data, goodMask: densityIntervalMask(well.depth, config.goodIntervals), washoutMask: densityIntervalMask(well.depth, config.washoutIntervals), predictors: config.predictors.map(p => {
+          const c = well.curves.find(x => x.id === p.curveId);
+          if (!c) throw new Error('Falta predictor de densidad.');
+          const unit = densityPredictorUnit(c, p.role);
+          return { id: p.curveId, role: p.role, trusted: p.trusted, values: c.unit === unit ? c.data : Float64Array.from(c.data, x => convert(x, c.unit, unit)), reliableMask: densityIntervalMask(well.depth, p.reliableIntervals) };
+        }) });
+        if (cancelled()) throw new PreparationCancelled();
+        if (a.densityActive && !output.report.accepted) throw new Error('Fuente de densidad bloqueada por validación ML: ' + output.report.reasons.join(' · ') + '. Volvé explícitamente al original o revisá la receta.');
+        const quality = Uint16Array.from(output.status, (status, k) => (Number.isNaN(source.data[k]) ? Quality.OriginallyMissing : 0) | (status === 1 ? Quality.EstimatedML : status > 1 ? Quality.UnsupportedML : 0));
+        // Un intervalo fallido queda sin dato: nunca aparenta ser densidad reparada.
+        for (let k = 0; k < output.data.length; k++) if (output.status[k]! > 1) output.data[k] = NaN;
+        const payload: PreparedPayload = { id: a.id, version, data: output.data, quality, density: { lower: output.lower, upper: output.upper, status: output.status, report: output.report } };
+        this.cache.set(version, payload); this.bytes += bytes; result.push(payload); continue;
+      }
       const data = new Float64Array(well.depth.length), quality = new Uint16Array(well.depth.length);
       const caliper = a.mgt ? well.curves.find(c => c.id === a.mgt!.config.caliperCurveId) : undefined;
       if (a.mgt && !caliper) throw new Error('Falta caliper fijado para MGT.');

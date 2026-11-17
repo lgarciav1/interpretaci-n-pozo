@@ -1,3 +1,4 @@
+import { preparedPayloadBytes } from '../../core/preparation/evaluate';
 /**
  * Corridas aisladas del motor para comparar snapshots (docs/decisiones/0026). Sin React ni stores.
  *
@@ -178,5 +179,5 @@ export class IsolatedRunner {
 function entryBytes(entry: RunEntry): number {
   if (entry.status !== 'ready') return 0;
   return entry.result.outputs.reduce((sum, o) => sum + (o.value instanceof Float64Array ? o.value.byteLength : 0), 0)
-    + (entry.result.preparation?.artifacts.reduce((sum, a) => sum + a.data.byteLength + a.quality.byteLength, 0) ?? 0);
+    + (entry.result.preparation?.artifacts.reduce((sum, a) => sum + preparedPayloadBytes(a), 0) ?? 0);
 }
