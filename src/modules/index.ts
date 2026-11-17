@@ -43,6 +43,7 @@ import cutoffSensitivity from './cutoff-sensitivity';
 import zoneSummary from './zone-summary';
 import volumetrics from './volumetrics';
 import flowCapacity from './flow-capacity';
+import payIntervals from './pay-intervals';
 import uncertainty from './uncertainty';
 import indGasCrossover from './ind-gas-crossover';
 import indShale from './ind-shale';
@@ -91,6 +92,7 @@ export const MODULES = [
   zoneSummary,
   volumetrics,
   flowCapacity,
+  payIntervals,
   uncertainty,
   indGasCrossover,
   indShale,
