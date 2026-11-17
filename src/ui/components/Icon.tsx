@@ -253,6 +253,22 @@ const ICONS = {
     </>
   ),
   play: <path d="M7 5l12 7-12 7z" />,
+  /** Modo defensa (0075): pantalla con el recorrido en marcha. */
+  present: (
+    <>
+      <rect x="3" y="4" width="18" height="12.5" rx="1.5" />
+      <path d="M10.25 7.75v5l4.25-2.5z" />
+      <path d="M8.5 20.5h7M12 16.5v4" />
+    </>
+  ),
+  /** Vistas guardadas (0075): encuadres apilados. */
+  views: (
+    <>
+      <rect x="3.5" y="7.5" width="13" height="12" rx="1.5" />
+      <path d="M7.5 4.5h11.5a1.5 1.5 0 011.5 1.5v10" />
+      <path d="M6.5 16l3-3.5 2.5 2.5 1.5-1.5 2 2.5" />
+    </>
+  ),
   undo: (
     <>
       <path d="M9 14L4.5 9.5 9 5" />

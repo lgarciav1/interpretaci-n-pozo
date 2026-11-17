@@ -213,6 +213,12 @@ export interface UiStore {
   equations: null | { moduleId: string | null };
   /** Vista amplia temporal: no modifica ni persiste la disposición elegida por el usuario. */
   readingMode: boolean;
+  /**
+   * Modo defensa activo (docs/decisiones/0075): sin barras ni columnas, el visor a pantalla con las vistas guardadas.
+   * Lo maneja `src/app/views/actions.ts` (con la foto de la interfaz para salir); mientras dura, la disposición que cambia
+   * el modo no se escribe en localStorage.
+   */
+  presenting: boolean;
   layout: ShellLayout;
   set(patch: Partial<Omit<UiStore, 'set' | 'setLayout' | 'toggleReadingMode' | 'layout' | 'openPanel' | 'placePanels'>>): void;
   /** Muestra la pestaña `id` (despliega su contenedor y sale de la lectura amplia). */
@@ -241,6 +247,7 @@ export const useUi = create<UiStore>()((set) => ({
   qcReportOpen: false,
   equations: null,
   readingMode: false,
+  presenting: false,
   layout: loadLayout(),
   set: (patch) => set((s) => ({
     ...patch,
@@ -252,7 +259,7 @@ export const useUi = create<UiStore>()((set) => ({
   })),
   // Una acción explícita de panel/tamaño sale de lectura y aplica el cambio a la disposición original.
   setLayout: (patch) => set((s) => ({ readingMode: false, layout: { ...s.layout, ...patch } })),
-  toggleReadingMode: () => set((s) => s.trackBuilder || s.toolStringOpen ? s : { readingMode: !s.readingMode, panelExpanded: false }),
+  toggleReadingMode: () => set((s) => s.trackBuilder || s.toolStringOpen || s.presenting ? s : { readingMode: !s.readingMode, panelExpanded: false }),
   openPanel: (id) => set((s) => {
     const side = s.layout.panels === 'side';
     return { dockTab: id, readingMode: false, ...(side ? { sideView: 'panels' as const } : {}), layout: { ...s.layout, ...(side ? { rightCollapsed: false } : { dockCollapsed: false }) } };
@@ -278,10 +285,12 @@ useUi.subscribe((s, prev) => {
 });
 
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
+// Durante el modo defensa la disposición es prestada: no se guarda (al salir se restaura la foto y esa sí se guarda).
 useUi.subscribe((s, prev) => {
-  if (s.layout === prev.layout) return;
+  if (s.layout === prev.layout || s.presenting) return;
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
+    if (useUi.getState().presenting) return;
     try {
       localStorage.setItem(LAYOUT_KEY, JSON.stringify(useUi.getState().layout));
     } catch {

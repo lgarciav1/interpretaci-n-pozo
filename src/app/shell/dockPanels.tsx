@@ -18,6 +18,9 @@ import { DiagnosticsPanel, useUnseenDiagnosticsBadge } from '../diagnostics/Diag
 import { GLANCE_PANEL_ID } from '../store/ui';
 import { ProvenancePanel } from '../provenance/ProvenancePanel';
 import { PROVENANCE_PANEL_ID } from '../provenance/store';
+import { ViewsPanel } from '../views/ViewsPanel';
+import { VIEWS_PANEL_ID } from '../views/store';
+import { activeWellViews } from '../../core/state/views';
 
 export type { DockPanelDef } from '../../ui/dockPanel';
 
@@ -264,6 +267,8 @@ const APP_PANELS: readonly DockPanelDef[] = [
     component: TrendsPanel,
     useBadge: () => useProject((s) => selectActiveEntry(s)?.interpretation.trends.length || null),
   },
+  // Vistas guardadas y modo defensa (docs/decisiones/0075).
+  { id: VIEWS_PANEL_ID, title: 'Vistas', icon: 'views', component: ViewsPanel, useBadge: () => useProject((s) => activeWellViews(s.project).length || null) },
 ];
 const ENGINE_PANEL: DockPanelDef = { id: 'engine', title: 'Motor', icon: 'cpu', component: EnginePanel };
 

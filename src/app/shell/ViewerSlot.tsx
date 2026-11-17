@@ -14,6 +14,8 @@ import { effectiveWell } from '../preparation/data';
  * - Publica el cursor y el tramo visible en `useViewer` para otros paneles.
  * - Cortina antes/después (docs/decisiones/0026): con `useUi.curtain`, las mismas pistas resueltas con las curvas
  *   calculadas del snapshot (corrida aislada, en caché) van al visor como lado «antes».
+ * - Modo defensa (docs/decisiones/0075): las pistas de la vista (o las de fábrica) reemplazan a las del proyecto sin
+ *   `commit`, la barra del visor queda sin herramientas de edición y abajo al centro va el indicador del recorrido.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { setCurveDisplay, setRoleDisplay } from '../../core/state/project';
@@ -59,6 +61,8 @@ import { clearPlotSelection, getPlotLink, selectionTitle } from '../../plots/lin
 import { usePlotSelection } from '../../plots/useLink';
 import { formatNumber } from '../../ui';
 import { openProvenance } from '../provenance/store';
+import { useViewsUi } from '../views/store';
+import { DefenseHud } from '../views/DefenseHud';
 
 /**
  * Devuelve el foco después de mover con el teclado: el elemento enfocado puede volver a montarse en otra pista (una
@@ -122,9 +126,14 @@ export function ViewerSlot() {
   // Estilo del visor (docs/decisiones/0067): perfil clásico de fábrica o «Moderno»; elige también la plantilla de fábrica.
   const lookId = display.look ?? DEFAULT_LOOK;
   const look = lookOf(lookId);
+  // Modo defensa: las pistas de la vista reemplazan a las propias del espacio (null = las de fábrica), sin tocar el proyecto.
+  const defense = useViewsUi((s) => s.defense);
+  const presenting = defense !== null;
+  const defenseTracks = defense ? defense.tracks : undefined;
+  const layouts = useMemo(() => (defenseTracks === undefined ? display.layouts : defenseTracks ? { [workspace]: defenseTracks } : {}), [defenseTracks, display.layouts, workspace]);
   const layoutSpec = useMemo(
-    () => (well ? withOverlayTracks(layoutFor(workspace, display.layouts, lookId), OVERLAYS, workspace, { well, ...(display.overlays ? { settings: display.overlays } : {}) }) : []),
-    [well, workspace, display.layouts, display.overlays, lookId],
+    () => (well ? withOverlayTracks(layoutFor(workspace, layouts, lookId), OVERLAYS, workspace, { well, ...(display.overlays ? { settings: display.overlays } : {}) }) : []),
+    [well, workspace, layouts, display.overlays, lookId],
   );
   // TVDSS para la segunda columna de profundidad: solo si el pozo tiene elevación de referencia (en caché por pozo).
   const tvdss = useMemo(() => (well ? wellTvdss(well) : null), [well]);
@@ -479,7 +488,7 @@ export function ViewerSlot() {
   );
 
   return (
-    <div className={`shell-viewer${marking || trendTool ? ' is-marking' : ''}${building ? ' is-building' : ''}`} aria-label="Visor multipista">
+    <div className={`shell-viewer${marking || trendTool ? ' is-marking' : ''}${building ? ' is-building' : ''}${presenting ? ' is-presenting' : ''}`} aria-label="Visor multipista">
       <WellViewer
         wellKey={depthKey(well)}
         depth={well.depth.values}
@@ -489,7 +498,7 @@ export function ViewerSlot() {
         overlays={OVERLAYS}
         label={`Perfiles del pozo ${well.name}`}
         toolbarStart={toolbarStart}
-        toolbarEnd={toolbarEnd}
+        toolbarEnd={presenting ? undefined : toolbarEnd}
         compactHeads={compactHeads}
         onToggleCompactHeads={() => useUi.getState().setLayout({ compactHeads: !compactHeads })}
         header={showHeader ? <WellHeader well={well} zones={data.zones} computedCount={computed.filter((c) => c.active).length} onZone={showZone} /> : undefined}
@@ -572,6 +581,7 @@ export function ViewerSlot() {
       {editing && editingCurve && <CurveEditor key={`${editing.trackId}|${editing.key}`} wellId={well.id} curve={editingCurve} anchorRef={anchorRef} onClose={() => setEditing(null)} />}
       <SaveTemplateDialog workspace={workspace} overlays={OVERLAYS} />
       <RenameDialogs editor={editor} />
+      {presenting && <DefenseHud />}
       <div id="tb-live" className="ui-visually-hidden" aria-live="polite" />
     </div>
 

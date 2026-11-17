@@ -60,7 +60,7 @@ export function announce(message: string): void {
  * `commit` que no deja escapar el error de una receta (pista que ya no existe, nombre repetido…): avisa con un toast
  * y no cambia nada. true si se aplicó.
  */
-function safeCommit(label: string, recipe: (p: Project) => Project): boolean {
+export function safeCommit(label: string, recipe: (p: Project) => Project): boolean {
   try {
     useProject.getState().commit(label, recipe);
     return true;
