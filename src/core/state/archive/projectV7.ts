@@ -1,6 +1,6 @@
 /** Archivo de revisiones: una representación por Well, arrays compartidos por hash de bytes LE. */
 import { sanitizeDisplay, type DisplaySettings } from '../../display';
-import type { Interpretation } from '../../interpretation';
+import { sanitizeModuleState, type Interpretation } from '../../interpretation';
 import { validatePreparation } from '../../preparation/state';
 import { isNumericColumn, sanitizePointSetDecisions, type PointSet } from '../../pointSets';
 import { sanitizeToolString } from '../../toolString';
@@ -51,7 +51,7 @@ function jsonData(value: unknown): void {
   for (const v of Object.values(requireObject(value, 'Datos JSON'))) jsonData(v);
 }
 function interpretation(raw: unknown): Interpretation {
-  const i = requireShape(raw, 'Interpretación', ['zones','params','sources','compare','disabled','trends','pointSets'], ['toolString','preparation']);
+  const i = requireShape(raw, 'Interpretación', ['zones','params','sources','compare','disabled','trends','pointSets'], ['toolString','preparation','moduleState']);
   if (own(i, 'preparation')) validatePreparation(i.preparation);
   jsonData(i);
   requireArray(i.zones, 'Zonas');
@@ -88,6 +88,7 @@ function interpretation(raw: unknown): Interpretation {
   }
   sanitizePointSetDecisions(i.pointSets, 'v7', warn);
   if (own(i, 'toolString')) sanitizeToolString(i.toolString, 'v7', warn);
+  if (own(i, 'moduleState')) { requireObject(i.moduleState, 'Estado de módulos'); sanitizeModuleState(i.moduleState, 'v7', warn); }
   // Conservar los datos originales, también ids de módulos ausentes; el lector no recalibra ni sustituye fuentes.
   return raw as Interpretation;
 }

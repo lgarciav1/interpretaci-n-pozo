@@ -7,7 +7,7 @@
  * referencia.
  */
 import { DEFAULT_VIEWER_LOOK, emptyDisplay, isEmptyOverride, type CurveDisplayOverride, type DisplaySettings, type TrackSpec, type ViewerLookSetting } from '../display';
-import { emptyInterpretation, sourceRefEquals, type Interpretation, type SourceRef } from '../interpretation';
+import { emptyInterpretation, sourceRefEquals, type Interpretation, type JsonValue, type SourceRef } from '../interpretation';
 import type { ParamValue } from '../params';
 import type { RoleId } from '../roles';
 import type { TrendSpec } from '../trends';
@@ -133,6 +133,22 @@ export function updateInterpretation(
   return mapWell(project, wellId, (e) => {
     const interpretation = fn(e.interpretation);
     return interpretation === e.interpretation ? e : { ...e, interpretation };
+  });
+}
+
+/**
+ * Guarda (o quita, con `undefined`) el estado de un módulo en `interpretation.moduleState[moduleId]`. No cambia las
+ * entradas del motor: no pide un cálculo. Sin cambios (mismo valor por referencia) devuelve el mismo proyecto.
+ */
+export function setModuleState(project: Project, wellId: string, moduleId: string, value: JsonValue | undefined): Project {
+  return updateInterpretation(project, wellId, (i) => {
+    const prev = i.moduleState ?? {};
+    if (prev[moduleId] === value) return i;
+    const next: Record<string, JsonValue> = { ...prev };
+    if (value === undefined) delete next[moduleId];
+    else next[moduleId] = value;
+    const { moduleState: _old, ...rest } = i;
+    return Object.keys(next).length ? { ...rest, moduleState: next } : rest;
   });
 }
 

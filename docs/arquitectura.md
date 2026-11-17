@@ -198,6 +198,28 @@ o mal formados, roles desconocidos, rangos de parámetros inválidos (min ≥ ma
 min ≤ 0), enums sin el default entre las opciones, parámetros compartidos incompatibles, puertos con tipos
 distintos en módulos distintos, escalares requeridos que nadie produce, docs faltantes.
 
+### Estado de módulo guardado con la interpretación (`moduleState`, F04)
+
+Lo que un módulo necesita recordar y el motor NO lee (decisiones de la usuaria sobre los resultados, p. ej. los tramos
+elegidos como punzados en `pay-intervals`) va en `Interpretation.moduleState[moduleId]`, nunca en un campo nuevo de
+`Interpretation` ni en un store propio. Reglas:
+
+- **Formato**: JSON puro (`JsonValue`: objetos planos, listas, textos, números finitos, booleanos, `null`). El
+  contenido es del módulo: lo valida al leerlo y tolera lo inválido (lo ignora), porque un archivo viejo o editado
+  puede traer cualquier cosa. Ausente = nada guardado; los proyectos anteriores abren igual.
+- **Escritura**: solo con la receta `setModuleState(project, wellId, moduleId, value | undefined)`
+  (`src/core/state/project.ts`) vía `commit` (panel) o `ViewerData.commit` (superposición). Entra en deshacer, en los
+  snapshots (`structuredClone`) y en el archivo/autoguardado. `undefined` borra la clave; sin claves, el campo
+  desaparece. Si el valor no cambia, la receta debe devolver el mismo proyecto (no suma un paso de deshacer).
+- **No recalcula**: `engineDecisionKey` y `sameEngineInputs` no lo miran; cambiarlo redibuja la interfaz (las
+  superposiciones lo leen de `ViewerData.interpretation`) pero no pide un cálculo. Si algo debe cambiar resultados del
+  motor, es un parámetro, no `moduleState`.
+- **Al abrir**: v6 y anteriores lo sanean (`sanitizeModuleState`: lo que no es JSON puro se descarta con aviso, por
+  módulo); v7 lo valida estricto como el resto de la interpretación. Las claves de módulos que no existen se conservan.
+- **Referencias a resultados**: si el estado apunta a filas de una tabla (tramos, capas), usar claves estables
+  derivadas del contenido (p. ej. `zoneId|tope|base` al cm) y tratar las que ya no coinciden como «huérfanas»
+  (informarlas y ofrecer limpiarlas), nunca reasignarlas a otra fila.
+
 ## Cómo agregar un módulo
 
 Ejemplo: porosidad efectiva φe = φt·(1 − Vsh), que consume `PHIT` y `VSH` y produce `PHIE`.
@@ -314,7 +336,7 @@ agregó el progreso del flujo, v3 la configuración del visor, v4 las tendencias
 conjuntos de puntos del pozo y las decisiones sobre ellos, v6 la configuración del histograma y del crossplot en
 `display.plots`) y migraciones. La fase 7b agregó dos campos opcionales sin cambiar la versión: `display.trackTemplates`
 (plantillas de pistas propias) y `TrackSpec.hidden` (pistas de superposición quitadas); un proyecto anterior se abre
-sin ellos. La fase 11a sumó del mismo modo `interpretation.toolString` (sarta de perfilaje, 0032), validada al abrir. Al abrir, `display` (con `plots` y las plantillas), las tendencias, los
+sin ellos. La fase 11a sumó del mismo modo `interpretation.toolString` (sarta de perfilaje, 0032), validada al abrir. F04 sumó `interpretation.moduleState` (estado de módulos que el motor no lee; ver «Estado de módulo guardado con la interpretación»). Al abrir, `display` (con `plots` y las plantillas), las tendencias, los
 conjuntos de puntos y sus decisiones se validan: lo inválido se descarta con aviso. Los arrays van como Float64 little-endian comprimidos con `CompressionStream('deflate')` (con o sin
 "byte shuffle", lo que salga más chico) en base64: exactos bit a bit. Los perfiles del TP quedan en menos de la
 mitad del binario sin comprimir.

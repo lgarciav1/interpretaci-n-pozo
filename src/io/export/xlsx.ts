@@ -1,13 +1,26 @@
 /**
- * Escritor xlsx mínimo sobre `fflate` (zip) con cadenas en línea: sin dependencias nuevas. Hojas: Curvas (primera,
- * así `parseXlsx` la toma por defecto), Zonas, Sumario (si hay) y Encabezado.
+ * Escritor xlsx mínimo sobre `fflate` (zip) con cadenas en línea: sin dependencias nuevas. `writeXlsx` arma el libro del
+ * pozo: Curvas (primera, así `parseXlsx` la toma por defecto), Zonas, Sumario (si hay) y Encabezado. `writeWorkbook` es
+ * el escritor genérico (hojas de filas): lo usan también las tablas de los módulos (p. ej. capas de pay).
  */
 import { strToU8, zipSync } from 'fflate';
 import { prepareExport, unitText } from './prepare';
 import { summaryHeader } from './csv';
 import type { ExportInput, PreparedExport } from './types';
 
-type Cell = string | number | null;
+/** Celda: texto, número (los no finitos quedan vacíos) o vacía. */
+export type XlsxCell = string | number | null;
+type Cell = XlsxCell;
+
+/** Hoja de un libro: nombre (≤ 31 caracteres, sin `[]:*?/\\`), filas y anchos de columna (en caracteres). */
+export interface XlsxSheet {
+  name: string;
+  rows: readonly (readonly XlsxCell[])[];
+  /** Ancho de cada columna; las que falten usan 12. */
+  widths?: readonly number[];
+  /** Filas de encabezado (en negrita; la primera queda fija). Por defecto 1. */
+  headerRows?: number;
+}
 
 const esc = (s: string) =>
   // eslint-disable-next-line no-control-regex
@@ -38,11 +51,12 @@ function sheetXml(rows: readonly (readonly Cell[])[], widths: readonly number[],
     }
     body.push(`<row r="${r + 1}">${cells.join('')}</row>`);
   }
-  const cols = widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('');
+  // `<cols>` vacío no es válido en OOXML (Excel ofrece «reparar» el libro): sin columnas, sin el elemento.
+  const cols = widths.length ? `<cols>${widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>` : '';
   const pane = boldRows > 0 ? '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>' : '';
   return (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${pane}<cols>${cols}</cols><sheetData>${body.join('')}</sheetData></worksheet>`
+    `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${pane}${cols}<sheetData>${body.join('')}</sheetData></worksheet>`
   );
 }
 
@@ -70,19 +84,19 @@ function curvesRows(p: PreparedExport): Cell[][] {
 
 export function writeXlsx(input: ExportInput): Uint8Array {
   const p = prepareExport(input, 'DEPTH');
-  const sheets: { name: string; xml: string }[] = [];
+  const sheets: XlsxSheet[] = [];
   const curves = curvesRows(p);
-  sheets.push({ name: 'Curvas', xml: sheetXml(curves, [12, ...p.columns.map(() => 12)]) });
+  sheets.push({ name: 'Curvas', rows: curves, widths: [12, ...p.columns.map(() => 12)] });
 
   if (p.zones.length > 0) {
     const rows: Cell[][] = [['Zona', 'Tipo', `Tope (${p.depthUnit})`, `Base (${p.depthUnit})`], ...p.zones.map((z): Cell[] => [z.name, z.kind ?? null, z.top, z.base])];
-    sheets.push({ name: 'Zonas', xml: sheetXml(rows, [18, 14, 14, 14]) });
+    sheets.push({ name: 'Zonas', rows, widths: [18, 14, 14, 14] });
   }
   if (p.summary) {
     const s = p.summary;
     const rows: Cell[][] = [s.columns.map((c) => summaryHeader(c))];
     for (const r of s.rows) rows.push(s.columns.map((c) => (r[c.key] ?? null)));
-    sheets.push({ name: 'Sumario', xml: sheetXml(rows, s.columns.map((c) => (c.kind === 'text' ? 18 : 16))) });
+    sheets.push({ name: 'Sumario', rows, widths: s.columns.map((c) => (c.kind === 'text' ? 18 : 16)) });
   }
 
   const info: Cell[][] = [['Campo', 'Valor', 'Unidad', 'Descripción']];
@@ -95,8 +109,35 @@ export function writeXlsx(input: ExportInput): Uint8Array {
   info.push(['Valor para sin dato', p.nullValue, null, p.nullValue === null ? 'Celda vacía' : null]);
   info.push(['Generado', p.generatedAt.toISOString(), null, null], [], ['Columna', 'Origen', 'Unidad', 'Descripción']);
   for (const c of p.columns) info.push([c.name, c.origin === 'computed' ? 'calculada' : c.origin === 'prepared' ? 'preparada' : 'medida', c.unit || null, c.description || null]);
-  sheets.push({ name: 'Encabezado', xml: sheetXml(info, [24, 28, 12, 50]) });
+  sheets.push({ name: 'Encabezado', rows: info, widths: [24, 28, 12, 50] });
 
+  return writeWorkbook(sheets);
+}
+
+/** Nombre de hoja válido para Excel: sin `[]:*?/\\`, a lo sumo 31 caracteres, no vacío y sin repetir. */
+function sheetNames(sheets: readonly XlsxSheet[]): string[] {
+  const used = new Set<string>();
+  return sheets.map((s, i) => {
+    const base = s.name.replace(/[[\]:*?/\\]/g, ' ').trim().slice(0, 31) || `Hoja${i + 1}`;
+    let name = base;
+    for (let k = 2; used.has(name.toLowerCase()); k++) name = `${base.slice(0, 31 - String(k).length - 1)} ${k}`;
+    used.add(name.toLowerCase());
+    return name;
+  });
+}
+
+/** Libro .xlsx con las hojas dadas (en ese orden). Puro: devuelve los bytes del zip. */
+export function writeWorkbook(input: readonly XlsxSheet[]): Uint8Array {
+  if (input.length === 0) throw new Error('Un libro de Excel necesita al menos una hoja.');
+  const names = sheetNames(input);
+  const sheets = input.map((s, i) => {
+    // Bucle y no `Math.max(...filas)`: la hoja Curvas tiene una fila por muestra y el spread desborda la pila con
+    // pozos de cientos de miles de muestras.
+    let cols = 0;
+    for (const r of s.rows) if (r.length > cols) cols = r.length;
+    const widths = Array.from({ length: cols }, (_, c) => s.widths?.[c] ?? 12);
+    return { name: names[i]!, xml: sheetXml(s.rows, widths, s.headerRows ?? 1) };
+  });
   const files: Record<string, Uint8Array> = {
     '[Content_Types].xml': strToU8(
       '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
