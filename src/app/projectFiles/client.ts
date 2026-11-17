@@ -1,6 +1,6 @@
 /** Una sola tarea de persistencia a la vez; no se transfieren buffers del proyecto activo. */
 import { freezeRevisionMetadata } from '../../core/state/archive/projectV7';
-import { runProjectFileTask, type ProjectFileTask, type ProjectFileResult, type ProjectFileResponse } from './task';
+import { ProjectFileContentError, runProjectFileTask, type ProjectFileTask, type ProjectFileResult, type ProjectFileResponse } from './task';
 export interface FileWorker {
   onmessage: ((event: { data: ProjectFileResponse }) => void) | null;
   onerror: ((event: { message?: string; preventDefault?(): void }) => void) | null;
@@ -16,14 +16,21 @@ export class ProjectFileClient {
     let worker: FileWorker | null = null;
     try {
       try { worker = this.createWorker(); } catch { /* Worker no disponible: alternativa offline en proceso. */ }
-      if (!worker) return await runProjectFileTask(task);
+      if (!worker) {
+        try {
+          return await runProjectFileTask(task);
+        } catch (err) {
+          throw new ProjectFileContentError(err instanceof Error ? err.message : String(err));
+        }
+      }
       const port = worker;
       return await new Promise<ProjectFileResult>((resolve, reject) => {
         const timer = setTimeout(() => { reject(new Error('La operación de archivo tardó demasiado; el proyecto activo no se modificó.')); }, this.timeoutMs);
         port.onmessage = ({ data }) => {
           clearTimeout(timer);
           try {
-            if (data?.ok !== true || data.result?.kind !== task.kind) throw new Error(data?.ok === false ? data.error : 'Respuesta de archivo inválida.');
+            if (data?.ok === false) throw data.infra ? new Error(data.error) : new ProjectFileContentError(data.error);
+            if (data?.ok !== true || data.result?.kind !== task.kind) throw new Error('Respuesta de archivo inválida.');
             const result = data.result;
             if (result.kind === 'save' && typeof result.text !== 'string') throw new Error('Respuesta de guardado inválida.');
             if (result.kind === 'open') {

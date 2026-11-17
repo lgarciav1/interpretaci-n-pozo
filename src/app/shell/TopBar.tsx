@@ -56,25 +56,48 @@ function useNow(ms: number, active: boolean): number {
  * el estado del motor; en la barra compacta queda solo el punto (el texto sigue en el nombre accesible y el tooltip).
  */
 function AutosaveStatus() {
-  const { status, autoSavedAt, fileSafe, fileOrigin, autoSafe } = useAutosave();
+  // Selectores sueltos: la lista de sesiones y el resto del estado cambian sin que la barra tenga que repintarse.
+  const status = useAutosave((s) => s.status);
+  const autoSavedAt = useAutosave((s) => s.autoSavedAt);
+  const fileSafe = useAutosave((s) => s.fileSafe);
+  const fileOrigin = useAutosave((s) => s.fileOrigin);
+  const autoSafe = useAutosave((s) => s.autoSafe);
+  const error = useAutosave((s) => s.error);
   const now = useNow(5000, status === 'saved' && autoSavedAt !== null);
   if (status === 'empty') return null;
   const savedLabel = autoSafe && autoSavedAt !== null ? `Guardado ${formatAgo(autoSavedAt, now)}` : fileOrigin === 'saved' ? 'Guardado en archivo' : 'Sin cambios';
-  const label = status === 'saving' ? 'Guardando…' : status === 'dirty' ? 'Cambios sin guardar' : status === 'unavailable' ? 'Sin autoguardado' : savedLabel;
+  const LABELS: Partial<Record<typeof status, string>> = {
+    saving: 'Guardando…',
+    dirty: 'Cambios sin guardar',
+    error: 'Autoguardado falló',
+    unavailable: 'Sin autoguardado',
+    demo: 'Demostración',
+  };
+  const label = LABELS[status] ?? savedLabel;
   const inFile = fileSafe && fileOrigin !== 'boot';
-  const file = inFile ? `Archivo .pozo.json: al día${fileOrigin === 'opened' ? ' (es el que se abrió)' : ''}.` : 'Archivo .pozo.json: no guardado (Proyecto › Guardar proyecto).';
+  const file =
+    status === 'demo'
+      ? ''
+      : inFile
+        ? `Archivo .pozo.json: al día${fileOrigin === 'opened' ? ' (es el que se abrió)' : ''}.`
+        : 'Archivo .pozo.json: no guardado (Proyecto › Guardar proyecto).';
   const browser =
-    status === 'unavailable'
-      ? 'Este navegador no permite guardar en IndexedDB: al cerrar la pestaña se pide confirmación.'
-      : status === 'saving'
-        ? 'Guardando en este navegador…'
-        : autoSafe && autoSavedAt !== null
-          ? `Autoguardado en este navegador a las ${formatClock(autoSavedAt)}.`
-          : 'Se guarda en este navegador 3 s después del último cambio.';
-  const tone = status === 'dirty' || (status === 'unavailable' && !inFile) ? 'warn' : status === 'unavailable' ? 'neutral' : 'ok';
+    status === 'demo'
+      ? 'La demostración no se autoguarda: se vuelve a cargar en un clic (Inicio › Ver demostración).'
+      : status === 'unavailable'
+        ? 'Este navegador no permite guardar en IndexedDB: al cerrar la pestaña se pide confirmación.'
+        : status === 'error'
+          ? `No se pudo autoguardar: ${error ?? 'error desconocido.'} Se reintenta a los 3 s, 15 s y 60 s, y después con el próximo cambio.`
+          : status === 'saving'
+            ? 'Guardando en este navegador…'
+            : autoSafe && autoSavedAt !== null
+              ? `Autoguardado en este navegador a las ${formatClock(autoSavedAt)}.`
+              : 'Se guarda en este navegador 3 s después del último cambio.';
+  const tone = status === 'error' ? 'error' : status === 'dirty' || (status === 'unavailable' && !inFile) ? 'warn' : status === 'unavailable' || status === 'demo' ? 'neutral' : 'ok';
+  const detail = file ? `${browser} ${file}` : browser;
   return (
-    <Tooltip content={`${browser} ${file}`} placement="bottom">
-      <span className="shell-autosave" role="img" tabIndex={0} aria-label={`${label}. ${browser} ${file}`} data-testid="autosave-status" data-status={status}>
+    <Tooltip content={detail} placement="bottom">
+      <span className="shell-autosave" role="img" tabIndex={0} aria-label={`${label}. ${detail}`} data-testid="autosave-status" data-status={status}>
         {status === 'saving' ? (
           <Spinner size={12} />
         ) : (

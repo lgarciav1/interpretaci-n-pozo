@@ -12,17 +12,23 @@ import { deserializeProject, serializeProject } from '../src/core/state/serializ
 import { createWell } from '../src/core/well';
 import { syntheticWell } from '../src/app/demo/syntheticWell';
 import { ProjectFileClient, type FileWorker } from '../src/app/projectFiles/client';
-import { runProjectFileTask, type ProjectFileResult, type ProjectFileTask } from '../src/app/projectFiles/task';
-import { AUTOSAVE_DELAY_MS, AutosaveSession, MAX_SESSIONS, validateMeta, type AutosaveNotice } from '../src/app/autosave/session';
+import { isContentError, ProjectFileContentError, runProjectFileTask, type ProjectFileResult, type ProjectFileTask } from '../src/app/projectFiles/task';
+import { AUTOSAVE_DELAY_MS, AutosaveSession, fileVersionOf, MAX_SESSIONS, RETRY_DELAYS_MS, validateMeta, type AutosaveNotice } from '../src/app/autosave/session';
 import { MemoryStorage, SESSION_SCHEMA, type SessionMeta } from '../src/app/autosave/storage';
-import { formatAgo } from '../src/app/autosave/store';
+import { DEFAULT_PROJECT_NAME, formatAgo, sessionTitle } from '../src/app/autosave/store';
 import { zone } from './helpers';
 
 const bits = (a: Float64Array) => Array.from(new Uint8Array(a.buffer, a.byteOffset, a.byteLength));
 
+/** Pozo sintético con otro id: el de demostración no se autoguarda (docs/decisiones/0071, punto 4). */
+function realWell(n = 400) {
+  const demo = syntheticWell(n);
+  return { well: { ...demo.well, id: 'pozo-1', name: 'Pozo 1' }, zones: demo.zones };
+}
+
 /** Proyecto con pozo, zonas, parámetros cambiados, un conjunto de puntos (presiones) y un snapshot. */
 function richProject(): Project {
-  const demo = syntheticWell(400);
+  const demo = realWell(400);
   let p = addWell(createProject('TP autoguardado'), demo.well, demo.zones);
   const id = demo.well.id;
   p = setZones(p, id, [...demo.zones.slice(0, 2), zone('extra', demo.zones[2]!.top, demo.zones[2]!.base)]);
@@ -51,17 +57,22 @@ function richProject(): Project {
  * pruebas de la espera usan uno falso (el formato es el mismo y se lee igual).
  */
 const files = (task: ProjectFileTask): Promise<ProjectFileResult> =>
-  task.kind === 'save' ? serializeProject(task.project, { codec: 'f64le-b64' }).then((text) => ({ kind: 'save', text })) : runProjectFileTask(task);
+  task.kind === 'save'
+    ? serializeProject(task.project, { codec: 'f64le-b64' }).then((text) => ({ kind: 'save', text }))
+    : runProjectFileTask(task).catch((err: Error) => {
+        // Como el cliente real: lo que tira la tarea es un error del contenido.
+        throw new ProjectFileContentError(err.message);
+      });
 
 /** Store mínimo del proyecto: la sesión escucha cambios por referencia, como `useProject.subscribe`. */
-function harness(opts: { storage?: MemoryStorage | null; initial?: Project; dragging?: () => boolean } = {}) {
+function harness(opts: { storage?: MemoryStorage | null; initial?: Project; dragging?: () => boolean; files?: (task: ProjectFileTask) => Promise<ProjectFileResult> } = {}) {
   let project = opts.initial ?? createProject();
   const storage = opts.storage === undefined ? new MemoryStorage() : opts.storage;
   const notices: AutosaveNotice[] = [];
   let ids = 0;
   const session = new AutosaveSession({
     storage,
-    files: { run: files },
+    files: { run: opts.files ?? files },
     getProject: () => project,
     isDragging: opts.dragging,
     applyRestored: (p) => set(p),
@@ -219,7 +230,7 @@ describe('autoguardado: datos rotos no tiran abajo la app', () => {
   });
 
   it.each([1, 2, 3, 4, 5])('un autoguardado de formato v%i se migra como un archivo viejo', async (version) => {
-    const demo = syntheticWell(200);
+    const demo = realWell(200);
     const p = addWell(createProject('Viejo'), demo.well, demo.zones);
     const file = JSON.parse(await serializeProject(p, { codec: 'f64le-b64' }));
     file.version = version;
@@ -414,5 +425,245 @@ describe('worker de archivos: tarea recover', () => {
     const bad = client.run({ kind: 'recover', text: v7fixture });
     port.reply({ ok: true, result: { kind: 'recover', project: null, issues: [{ where: 1 }] } });
     await expect(bad).rejects.toThrow(/recuperación inválida/);
+  });
+});
+
+/** Promesa que se resuelve a mano. */
+function deferred<T = void>() {
+  let resolve!: (v: T) => void;
+  const promise = new Promise<T>((r) => (resolve = r));
+  return { promise, resolve };
+}
+
+/** Como `ProjectFileClient`: una tarea a la vez; la segunda tira un error de infraestructura. */
+function exclusive(run: (task: ProjectFileTask) => Promise<ProjectFileResult>) {
+  let busy = false;
+  const tasks: ProjectFileTask['kind'][] = [];
+  const fn = async (task: ProjectFileTask) => {
+    tasks.push(task.kind);
+    if (busy) throw new Error('Ya se está guardando o abriendo un proyecto. Esperá a que termine.');
+    busy = true;
+    try {
+      return await run(task);
+    } finally {
+      busy = false;
+    }
+  };
+  return Object.assign(fn, { tasks });
+}
+
+async function savedSession(id: string, project: Project, storage = new MemoryStorage()) {
+  const text = await serializeProject(project, { codec: 'f64le-b64' });
+  await storage.write(meta(id, '2026-11-17T10:00:00.000Z', { fileVersion: fileVersionOf(text) }), text);
+  storage.writes = 0;
+  return storage;
+}
+
+describe('autoguardado: revisión (escrituras lentas, fallos, infraestructura, demostración)', () => {
+  it('con la serialización lenta, un cambio llegado mientras se escribe se guarda después: queda el último', async () => {
+    const gates: { promise: Promise<void>; resolve: () => void }[] = [];
+    const slow = async (task: ProjectFileTask) => {
+      if (task.kind === 'save') {
+        const gate = deferred();
+        gates.push(gate);
+        await gate.promise;
+      }
+      return files(task);
+    };
+    const a = harness({ files: slow });
+    const p1 = richProject();
+    const id = p1.wells[0]!.well.id;
+    a.set(p1);
+    await advance(AUTOSAVE_DELAY_MS);
+    expect(gates).toHaveLength(1);
+    expect(a.session.snapshot().status).toBe('saving');
+    const p2 = setParam(p1, id, 'grClean', 41);
+    a.set(p2);
+    gates[0]!.resolve();
+    await advance(0);
+    expect(a.storage!.writes).toBe(1);
+    expect(a.session.isProjectSafe()).toBe(false);
+    await advance(AUTOSAVE_DELAY_MS);
+    expect(gates).toHaveLength(2);
+    gates[1]!.resolve();
+    await advance(0);
+    expect(a.storage!.writes).toBe(2);
+    expect(a.session.isProjectSafe()).toBe(true);
+    const saved = await deserializeProject(a.storage!.texts.get('sesion-1') as string);
+    expect(saved.wells[0]!.interpretation.params).toMatchObject({ global: { grClean: 41 } });
+  });
+
+  it('si la escritura falla: estado de error, un solo aviso, reintentos a 3, 15 y 60 s y pausa hasta el próximo cambio', async () => {
+    const s = new MemoryStorage();
+    const realWrite = s.write.bind(s);
+    let attempts = 0;
+    let failing = true;
+    s.write = async (m, t) => {
+      attempts++;
+      if (failing) throw Object.assign(new Error('cupo'), { name: 'QuotaExceededError' });
+      return realWrite(m, t);
+    };
+    const a = harness({ storage: s });
+    const p = richProject();
+    a.set(p);
+    await advance(AUTOSAVE_DELAY_MS);
+    expect(attempts).toBe(1);
+    expect(a.session.snapshot()).toMatchObject({ status: 'error', error: 'El navegador no tiene más espacio para el autoguardado.' });
+    expect(a.notices).toEqual([expect.objectContaining({ tone: 'error', title: 'No se pudo autoguardar' })]);
+    await advance(RETRY_DELAYS_MS[0]);
+    expect(attempts).toBe(2);
+    await advance(RETRY_DELAYS_MS[1] - 1);
+    expect(attempts).toBe(2);
+    await advance(1);
+    expect(attempts).toBe(3);
+    await advance(RETRY_DELAYS_MS[2]);
+    expect(attempts).toBe(4);
+    await advance(10 * 60_000);
+    expect(attempts).toBe(4);
+    expect(a.notices).toHaveLength(1);
+    expect(a.session.isProjectSafe()).toBe(false);
+    // El próximo cambio vuelve a intentar; si sale bien, termina la racha.
+    failing = false;
+    a.set(setParam(p, p.wells[0]!.well.id, 'grClean', 33));
+    await advance(AUTOSAVE_DELAY_MS);
+    expect(attempts).toBe(5);
+    expect(a.session.snapshot()).toMatchObject({ status: 'saved', error: null });
+  });
+
+  it('recuperar con una escritura en curso espera a que termine: no descarta la sesión y la recupera', async () => {
+    const storage = await savedSession('vieja', richProject());
+    const gate = deferred();
+    const run = exclusive(async (task) => {
+      if (task.kind === 'save') await gate.promise;
+      return files(task);
+    });
+    const a = harness({ storage, files: run });
+    await a.session.refresh();
+    const other = addWell(createProject('Otra'), { ...syntheticWell(100).well, id: 'pozo-2', name: 'Pozo 2' });
+    a.set(other);
+    await advance(AUTOSAVE_DELAY_MS);
+    expect(run.tasks).toEqual(['save']);
+    const restoring = a.session.restore('vieja');
+    await advance(0);
+    gate.resolve();
+    await expect(restoring).resolves.toBe(true);
+    expect(run.tasks).toEqual(['save', 'open']);
+    expect(a.notices.filter((n) => n.tone === 'error')).toEqual([]);
+    expect(storage.metas.has('vieja')).toBe(true);
+    expect(a.get().wells[0]!.well.id).toBe('pozo-1');
+    expect(a.session.snapshot().sessionId).toBe('vieja');
+  });
+
+  it.each([
+    ['el worker tarda demasiado', new Error('La operación de archivo tardó demasiado; el proyecto activo no se modificó.')],
+    ['el worker no responde bien', new Error('Respuesta de archivo inválida.')],
+  ])('un error de infraestructura al abrir (%s) avisa y conserva la sesión', async (_, error) => {
+    const storage = await savedSession('s', richProject());
+    const a = harness({ storage, files: async (t) => (t.kind === 'open' ? Promise.reject(error) : files(t)) });
+    await a.session.refresh();
+    expect(await a.session.restore('s')).toBe(false);
+    expect(a.notices).toEqual([expect.objectContaining({ tone: 'error', title: 'No se pudo recuperar la sesión' })]);
+    expect(a.notices[0]!.description).toMatch(/se conserva/);
+    expect(storage.metas.has('s')).toBe(true);
+  });
+
+  it('un fallo al leer la base avisa y conserva la sesión', async () => {
+    const storage = await savedSession('s', richProject());
+    storage.read = () => Promise.reject(new Error('base cerrada'));
+    const a = harness({ storage });
+    await a.session.refresh();
+    expect(await a.session.restore('s')).toBe(false);
+    expect(storage.metas.has('s')).toBe(true);
+  });
+
+  it('una versión más nueva se detecta antes de abrir (metadatos o cabecera) y no llama al worker', async () => {
+    const s = new MemoryStorage();
+    const text = JSON.stringify({ format: 'pozo-proyecto', version: 99, savedAt: '2026-11-17T10:00:00.000Z', project: { name: 'Futuro' } });
+    s.metas.set('meta', meta('meta', '2026-11-17T10:00:00.000Z', { fileVersion: 99 }));
+    s.texts.set('meta', text);
+    s.metas.set('cabecera', meta('cabecera', '2026-11-17T09:00:00.000Z', { fileVersion: null }));
+    s.texts.set('cabecera', text);
+    const run = exclusive(files);
+    const a = harness({ storage: s, files: run });
+    await a.session.refresh();
+    expect(await a.session.restore('meta')).toBe(false);
+    expect(await a.session.restore('cabecera')).toBe(false);
+    expect(run.tasks).toEqual([]);
+    expect(a.notices.map((n) => n.tone)).toEqual(['warn', 'warn']);
+    expect([...s.metas.keys()].sort()).toEqual(['cabecera', 'meta']);
+  });
+
+  it('un proyecto solo con el pozo de demostración no se guarda ni pide confirmación; con otro pozo, sí', async () => {
+    const demo = syntheticWell(200);
+    const a = harness();
+    const p = addWell(createProject(), demo.well, demo.zones);
+    a.set(p);
+    const changed = setParam(p, demo.well.id, 'grClean', 12);
+    a.set(changed);
+    await advance(AUTOSAVE_DELAY_MS * 2);
+    expect(a.storage!.writes).toBe(0);
+    expect(a.session.isProjectSafe()).toBe(true);
+    expect(a.session.snapshot().status).toBe('demo');
+    const real = realWell(100);
+    a.set(addWell(changed, real.well, real.zones));
+    expect(a.session.isProjectSafe()).toBe(false);
+    await advance(AUTOSAVE_DELAY_MS);
+    expect(a.storage!.writes).toBe(1);
+  });
+});
+
+describe('fileVersionOf', () => {
+  it('lee la cabecera, el JSON con otro orden de claves y devuelve null si no es un proyecto', () => {
+    expect(fileVersionOf('{"format":"pozo-proyecto","version":7,"savedAt":"x"}')).toBe(7);
+    expect(fileVersionOf('{\n  "format": "pozo-proyecto",\n  "version": 6,\n  "x": 1}')).toBe(6);
+    const late = JSON.stringify({ savedAt: 'x'.repeat(1000), project: {}, format: 'pozo-proyecto', version: 12 });
+    expect(fileVersionOf(late)).toBe(12);
+    expect(fileVersionOf('no es JSON')).toBeNull();
+    expect(fileVersionOf('{"format":"otro","version":3}')).toBeNull();
+  });
+});
+
+describe('worker de archivos: errores de contenido e infraestructura', () => {
+  it('lo que tira la tarea es de contenido; worker ocupado, tiempo agotado o respuesta rara, de infraestructura', async () => {
+    vi.useRealTimers();
+    const inProcess = new ProjectFileClient(() => null);
+    const content = await inProcess.run({ kind: 'open', text: 'no es JSON' }).catch((e) => e);
+    expect(isContentError(content)).toBe(true);
+    const port: FileWorker & { reply(d: unknown): void } = {
+      onmessage: null,
+      onerror: null,
+      postMessage() {},
+      terminate() {},
+      reply(d) { this.onmessage?.({ data: d as never }); },
+    };
+    const client = new ProjectFileClient(() => port, 50);
+    const first = client.run({ kind: 'open', text: '{}' });
+    const busy = await client.run({ kind: 'open', text: '{}' }).catch((e) => e);
+    expect(isContentError(busy)).toBe(false);
+    port.reply({ ok: false, error: 'El archivo no es un proyecto de esta app.' });
+    expect(isContentError(await first.catch((e) => e))).toBe(true);
+    const workerBusy = client.run({ kind: 'open', text: '{}' });
+    port.reply({ ok: false, error: 'Ya se está procesando un archivo.', infra: true });
+    expect(isContentError(await workerBusy.catch((e) => e))).toBe(false);
+    const odd = client.run({ kind: 'open', text: '{}' });
+    port.reply({ ok: true, result: { kind: 'save', text: '' } });
+    expect(isContentError(await odd.catch((e) => e))).toBe(false);
+    const slow = await client.run({ kind: 'open', text: '{}' }).catch((e) => e);
+    expect(isContentError(slow)).toBe(false);
+  });
+});
+
+describe('sessionTitle', () => {
+  it('con el nombre por defecto, el título son los pozos y el detalle no los repite', () => {
+    expect(DEFAULT_PROJECT_NAME).toBe(createProject().name);
+    expect(sessionTitle({ projectName: 'Proyecto sin nombre', wells: ['Pozo TP'] })).toEqual({ title: 'Pozo TP', wells: null });
+    expect(sessionTitle({ projectName: 'Proyecto sin nombre', wells: ['Pozo TP', 'Demo'] })).toEqual({ title: 'Pozo TP y 1 más', wells: null });
+    expect(sessionTitle({ projectName: '  ', wells: ['A', 'B', 'C'] })).toEqual({ title: 'A y 2 más', wells: null });
+    expect(sessionTitle({ projectName: 'Proyecto sin nombre', wells: [] })).toEqual({ title: 'Proyecto sin nombre', wells: null });
+  });
+  it('con nombre propio, queda el nombre y los pozos van al detalle', () => {
+    expect(sessionTitle({ projectName: 'TP final', wells: ['Pozo TP'] })).toEqual({ title: 'TP final', wells: 'Pozo TP' });
+    expect(sessionTitle({ projectName: 'TP final', wells: ['A', 'B'] })).toEqual({ title: 'TP final', wells: 'A y 1 más' });
+    expect(sessionTitle({ projectName: 'TP final', wells: [] })).toEqual({ title: 'TP final', wells: 'sin pozos' });
   });
 });

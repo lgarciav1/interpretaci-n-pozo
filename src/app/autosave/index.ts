@@ -67,4 +67,4 @@ export function notifyOpenedFromFile(project: Project): void {
   session?.openedFromFile(project);
 }
 
-export { useAutosave, formatAgo, formatClock } from './store';
+export { useAutosave, formatAgo, formatClock, sessionTitle } from './store';

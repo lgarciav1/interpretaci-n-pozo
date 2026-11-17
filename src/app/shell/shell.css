@@ -110,6 +110,7 @@
 .shell-autosave__badge { position: absolute; right: -3px; bottom: -2px; width: calc(7px * var(--ui-scale)); height: calc(7px * var(--ui-scale)); box-shadow: 0 0 0 2px var(--color-surface); }
 .shell-autosave:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; border-radius: var(--radius-full); }
 .shell-autosave[data-status='dirty'] { color: var(--color-text-muted); }
+.shell-autosave[data-status='error'] { color: var(--color-error-text); }
 .shell-autosave .ui-spinner { border-color: color-mix(in srgb, var(--brand-thermal1) 28%, transparent); border-top-color: var(--brand-thermal2); border-right-color: var(--brand-thermal3); }
 .shell-history { display: flex; align-items: center; gap: var(--space-0-5); }
 .shell-count {

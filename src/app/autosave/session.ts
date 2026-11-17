@@ -10,7 +10,9 @@
  */
 import type { Project } from '../../core/state/project';
 import type { ArchiveIssue } from '../../core/state/archive/projectV7';
-import type { ProjectFileResult, ProjectFileTask } from '../projectFiles/task';
+import { PROJECT_VERSION, REVISION_PROJECT_VERSION } from '../../core/state/serialize';
+import { isContentError, type ProjectFileResult, type ProjectFileTask } from '../projectFiles/task';
+import { DEMO_WELL_ID } from '../demo/ids';
 import { SESSION_SCHEMA, type AutosaveStorage, type RawSessionEntry, type SessionMeta } from './storage';
 
 /** Espera desde el último cambio (punto 4). */
@@ -19,8 +21,19 @@ export const AUTOSAVE_DELAY_MS = 3000;
 export const DRAG_RETRY_MS = 400;
 /** Sesiones de trabajo que se conservan (punto 5). */
 export const MAX_SESSIONS = 3;
+/**
+ * Reintentos tras un guardado fallido (cupo lleno, base cerrada…): 3 s, 15 s y 60 s; después se espera al próximo
+ * cambio del proyecto. Sin esto, un error persistente reintentaría cada 3 s para siempre.
+ */
+export const RETRY_DELAYS_MS = [3000, 15000, 60000] as const;
+/** Versión de formato más nueva que esta app sabe abrir. */
+export const NEWEST_FILE_VERSION = Math.max(PROJECT_VERSION, REVISION_PROJECT_VERSION);
 
-export type AutosaveStatus = 'empty' | 'saved' | 'saving' | 'dirty' | 'unavailable';
+/**
+ * `empty`: nada que salvar (sin pozos); `demo`: solo el pozo de demostración, que no se autoguarda; `error`: el último
+ * autoguardado falló (con reintentos espaciados).
+ */
+export type AutosaveStatus = 'empty' | 'demo' | 'saved' | 'saving' | 'dirty' | 'error' | 'unavailable';
 
 export interface AutosaveSnapshot {
   status: AutosaveStatus;
@@ -39,6 +52,8 @@ export interface AutosaveSnapshot {
   sessionId: string | null;
   /** Hay una recuperación en curso. */
   restoring: boolean;
+  /** Motivo del último autoguardado fallido (null si el último salió bien). */
+  error: string | null;
 }
 
 export interface AutosaveNotice {
@@ -65,6 +80,10 @@ export interface AutosaveDeps {
 }
 
 const hasWells = (p: Project) => p.wells.length > 0;
+/** Proyecto cuyos pozos son todos el de demostración: se rehace en un clic y no ocupa una de las 3 sesiones. */
+export const isDemoOnly = (p: Project) => hasWells(p) && p.wells.every((w) => w.well.id === DEMO_WELL_ID);
+/** Hay algo que el autoguardado tenga que salvar. */
+const worthSaving = (p: Project) => hasWells(p) && !isDemoOnly(p);
 
 function defaultId(): string {
   const c = (globalThis as { crypto?: Crypto }).crypto;
@@ -72,10 +91,19 @@ function defaultId(): string {
   return `s-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-/** Versión del formato leída de la cabecera del texto, sin parsear los MB del proyecto. */
+/**
+ * Versión del formato. Primero la cabecera (`{"format":"pozo-proyecto","version":N`, como la escribe
+ * `serializeProject`), sin parsear los MB del proyecto; si no está así, el texto completo. null si no es un proyecto.
+ */
 export function fileVersionOf(text: string): number | null {
-  const m = /"version"\s*:\s*(\d+)/.exec(text.slice(0, 400));
-  return m ? Number(m[1]) : null;
+  const m = /^\s*\{\s*"format"\s*:\s*"pozo-proyecto"\s*,\s*"version"\s*:\s*(\d+)\s*[,}]/.exec(text.slice(0, 200));
+  if (m) return Number(m[1]);
+  try {
+    const raw = JSON.parse(text) as { format?: unknown; version?: unknown } | null;
+    return raw && typeof raw === 'object' && raw.format === 'pozo-proyecto' && Number.isInteger(raw.version) ? (raw.version as number) : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Metadato válido del esquema actual, o null (se ignora y se borra). */
@@ -90,6 +118,13 @@ export function validateMeta(entry: RawSessionEntry): SessionMeta | null {
   if (typeof v.size !== 'number' || !Number.isFinite(v.size) || v.size < 0) return null;
   const fileVersion = typeof v.fileVersion === 'number' && Number.isInteger(v.fileVersion) ? v.fileVersion : null;
   return { schema: SESSION_SCHEMA, id: v.id, projectName: v.projectName, wells: [...v.wells], savedAt: v.savedAt, size: v.size, fileVersion };
+}
+
+/** Motivo legible de un error de guardado (el cupo lleno de IndexedDB tiene nombre propio). */
+function describeError(err: unknown): string {
+  if (err && typeof err === 'object' && (err as { name?: unknown }).name === 'QuotaExceededError') return 'El navegador no tiene más espacio para el autoguardado.';
+  const message = err instanceof Error ? err.message : String(err);
+  return /[.!?]$/.test(message) ? message : `${message}.`;
 }
 
 const byRecent = (a: SessionMeta, b: SessionMeta) => Date.parse(b.savedAt) - Date.parse(a.savedAt);
@@ -113,6 +148,9 @@ export class AutosaveSession {
   private restoring = false;
   private sessions: SessionMeta[] = [];
   private disposed = false;
+  /** Guardados fallidos seguidos (racha); 0 tras uno bueno. */
+  private failures = 0;
+  private lastError: string | null = null;
   /** Ya se sabe si hay base (mientras se abre, no se dice «Sin autoguardado»). */
   private storageKnown: boolean;
 
@@ -152,10 +190,13 @@ export class AutosaveSession {
 
   // ── Estado ────────────────────────────────────────────────────────────────────────────────────────────────────
 
-  /** El proyecto actual no se pierde al cerrar: no tiene pozos, o es el del archivo o el del autoguardado. */
+  /**
+   * El proyecto actual no se pierde al cerrar: no tiene pozos, es solo la demostración, o es el del archivo o el del
+   * autoguardado.
+   */
   isProjectSafe(): boolean {
     const p = this.deps.getProject();
-    if (!hasWells(p)) return true;
+    if (!worthSaving(p)) return true;
     return p === this.fileRef || p === this.autoRef;
   }
 
@@ -166,10 +207,23 @@ export class AutosaveSession {
     let status: AutosaveStatus;
     const missing = !this.storage && this.storageKnown;
     if (!hasWells(p)) status = missing ? 'unavailable' : 'empty';
+    else if (isDemoOnly(p)) status = 'demo';
     else if (missing) status = 'unavailable';
     else if (this.writing && !autoSafe) status = 'saving';
-    else status = fileSafe || autoSafe ? 'saved' : 'dirty';
-    return { status, available: !!this.storage, autoSavedAt: this.autoSavedAt, fileSafe, fileOrigin: this.fileOrigin, autoSafe, sessions: this.sessions, sessionId: this.sessionId, restoring: this.restoring };
+    else if (fileSafe || autoSafe) status = 'saved';
+    else status = this.failures > 0 ? 'error' : 'dirty';
+    return {
+      status,
+      available: !!this.storage,
+      autoSavedAt: this.autoSavedAt,
+      fileSafe,
+      fileOrigin: this.fileOrigin,
+      autoSafe,
+      sessions: this.sessions,
+      sessionId: this.sessionId,
+      restoring: this.restoring,
+      error: this.failures > 0 ? this.lastError : null,
+    };
   }
 
   private publish(): void {
@@ -182,7 +236,8 @@ export class AutosaveSession {
   projectChanged(project: Project): void {
     if (this.disposed) return;
     if (this.sessionId === null && project !== this.fileRef) this.sessionId = this.newId();
-    if (project !== this.autoRef && hasWells(project) && this.storage) this.schedule(AUTOSAVE_DELAY_MS);
+    // Cada cambio reinicia la espera, también tras una racha de fallos (la pausa termina con el próximo cambio).
+    if (project !== this.autoRef && worthSaving(project) && this.storage) this.schedule(AUTOSAVE_DELAY_MS);
     this.publish();
   }
 
@@ -225,8 +280,13 @@ export class AutosaveSession {
   async flush(): Promise<void> {
     if (this.disposed || !this.storage) return;
     if (this.writing) {
-      // Otro guardado en curso: al terminar, `write` reprograma si el proyecto siguió cambiando.
+      // Otro guardado en curso: al terminar, se reprograma si el proyecto siguió cambiando.
       await this.writing;
+      return;
+    }
+    if (this.restoring) {
+      // Recuperar usa el mismo worker: se guarda después (si el proyecto no fue reemplazado).
+      this.schedule(AUTOSAVE_DELAY_MS);
       return;
     }
     if (this.deps.isDragging?.()) {
@@ -234,22 +294,34 @@ export class AutosaveSession {
       return;
     }
     const project = this.deps.getProject();
-    if (!hasWells(project) || project === this.autoRef) return;
+    if (!worthSaving(project) || project === this.autoRef) return;
     if (this.sessionId === null) this.sessionId = this.newId();
-    this.writing = this.write(project, this.sessionId);
+    const writing = this.write(project, this.sessionId);
+    this.writing = writing.then(() => undefined);
     this.publish();
+    let ok = false;
     try {
-      await this.writing;
+      ok = await writing;
     } finally {
       this.writing = null;
       this.publish();
-      // Cambió mientras se serializaba: otra vuelta (con la espera completa, como cualquier cambio).
-      const current = this.deps.getProject();
-      if (!this.disposed && current !== this.autoRef && hasWells(current) && this.timer === null) this.schedule(AUTOSAVE_DELAY_MS);
     }
+    if (this.disposed) return;
+    const current = this.deps.getProject();
+    if (current === this.autoRef || !worthSaving(current)) return;
+    if (ok) {
+      // Cambió mientras se serializaba: otra vuelta (con la espera completa, como cualquier cambio).
+      if (this.timer === null) this.schedule(AUTOSAVE_DELAY_MS);
+      return;
+    }
+    // Falló: reintentos espaciados y, agotados, pausa hasta el próximo cambio (que reprograma en `projectChanged`).
+    // Un cambio llegado durante la escritura ya dejó su propio temporizador: no se pisa.
+    const delay = RETRY_DELAYS_MS[this.failures - 1];
+    if (delay !== undefined && this.timer === null) this.schedule(delay);
   }
 
-  private async write(project: Project, sessionId: string): Promise<void> {
+  /** Serializa y escribe; devuelve si salió bien. Nunca tira. */
+  private async write(project: Project, sessionId: string): Promise<boolean> {
     const storage = this.storage!;
     try {
       const result = await this.deps.files.run({ kind: 'save', project });
@@ -270,10 +342,20 @@ export class AutosaveSession {
         this.autoRef = project;
         this.autoSavedAt = savedAt;
       }
+      this.failures = 0;
+      this.lastError = null;
       await this.prune();
+      return true;
     } catch (err) {
-      // Un autoguardado fallido no interrumpe el trabajo: la barra sigue en «Cambios sin guardar».
+      // Un autoguardado fallido no interrumpe el trabajo: la barra pasa a «Autoguardado falló» y se avisa una vez
+      // por racha (los reintentos siguientes no repiten el toast).
       console.warn('Autoguardado: no se pudo guardar', err);
+      this.failures++;
+      this.lastError = describeError(err);
+      if (this.failures === 1) {
+        this.deps.notify?.({ title: 'No se pudo autoguardar', description: `${this.lastError} Se reintenta en unos segundos; mientras tanto, guardá el proyecto en un archivo.`, tone: 'error' });
+      }
+      return false;
     }
   }
 
@@ -318,29 +400,47 @@ export class AutosaveSession {
   }
 
   /**
-   * Recupera una sesión (punto 6): abre el texto con el worker; si no abre y es v7, intenta la recuperación con aviso;
-   * si nada sirve, avisa y la borra. Una sesión de una versión más nueva de la app se avisa y se conserva (punto 7).
-   * Devuelve si se recuperó.
+   * Recupera una sesión (punto 6). Antes de abrir mira la versión: una de una app más nueva se avisa y se conserva sin
+   * tocar el worker. Abre el texto con el worker; si no abre y es v7, intenta la recuperación con aviso. Solo un error
+   * del contenido (no es JSON, no es un proyecto, v7 dañado sin nada recuperable, datos ausentes) borra la sesión; un
+   * error de infraestructura (worker ocupado o caído, tiempo agotado, base que no responde) avisa y la conserva
+   * (punto 7). Devuelve si se recuperó.
    */
   async restore(id: string): Promise<boolean> {
     if (!this.storage || this.restoring) return false;
     const notify = (n: AutosaveNotice) => this.deps.notify?.(n);
     const meta = this.sessions.find((s) => s.id === id);
     const name = meta?.projectName || 'la sesión';
+    const keep = (detail: string) => {
+      notify({ title: 'No se pudo recuperar la sesión', description: `${name}: ${detail} La sesión se conserva: probá de nuevo en un momento.`, tone: 'error' });
+      return false;
+    };
+    const drop = async (detail: string) => {
+      notify({ title: 'No se pudo recuperar la sesión', description: `${name}: ${detail} Se descarta.`, tone: 'error' });
+      await this.discard(id);
+      return false;
+    };
+    const newer = (version: number) => {
+      notify({ title: 'La sesión es de una versión más nueva de la app', description: `${name} (formato v${version}): actualizá la app para seguir. La sesión se conserva (podés descartarla).`, tone: 'warn' });
+      return false;
+    };
     this.restoring = true;
+    // El worker del autoguardado hace una tarea a la vez: se espera la escritura en curso y no se empieza otra.
+    this.cancelTimer();
     this.publish();
     try {
-      let text: string | null = null;
+      if (this.writing) await this.writing;
+      if (meta?.fileVersion != null && meta.fileVersion > NEWEST_FILE_VERSION) return newer(meta.fileVersion);
+      let text: string | null;
       try {
         text = await this.storage.read(id);
       } catch (err) {
         console.warn('Autoguardado: no se pudo leer la sesión', err);
+        return keep('el navegador no devolvió los datos guardados.');
       }
-      if (text === null) {
-        notify({ title: 'No se pudo recuperar la sesión', description: `No quedaron datos guardados de ${name}; se descarta.`, tone: 'error' });
-        await this.discard(id);
-        return false;
-      }
+      if (text === null) return await drop('no quedaron datos guardados.');
+      const version = fileVersionOf(text);
+      if (version !== null && version > NEWEST_FILE_VERSION) return newer(version);
       let project: Project | null = null;
       let warnings: string[] = [];
       let recovered = false;
@@ -351,11 +451,11 @@ export class AutosaveSession {
         warnings = r.warnings;
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        if (/versión más nueva/i.test(message)) {
-          notify({ title: 'La sesión es de una versión más nueva de la app', description: `${name}: actualizá la app para seguir. La sesión se conserva (podés descartarla).`, tone: 'warn' });
-          return false;
-        }
-        if (fileVersionOf(text) === 7) {
+        console.warn('Autoguardado: la sesión no abre', err);
+        if (!isContentError(err)) return keep(message);
+        // Respaldo: la versión no estaba en la cabecera ni en los metadatos, pero el lector la rechazó por nueva.
+        if (/versión más nueva/i.test(message)) return newer(version ?? NaN);
+        if (version === REVISION_PROJECT_VERSION) {
           try {
             const r = await this.deps.files.run({ kind: 'recover', text });
             if (r.kind !== 'recover') throw new Error('Respuesta de recuperación inválida.');
@@ -366,20 +466,18 @@ export class AutosaveSession {
             }
           } catch (e) {
             console.warn('Autoguardado: la recuperación falló', e);
+            if (!isContentError(e)) return keep(e instanceof Error ? e.message : String(e));
           }
         }
-        if (!project) {
-          console.warn('Autoguardado: la sesión no abre', err);
-          notify({ title: 'No se pudo recuperar la sesión', description: `${name}: ${message} Se descarta.`, tone: 'error' });
-          await this.discard(id);
-          return false;
-        }
+        if (!project) return await drop(message);
       }
       // Continúa la misma sesión de trabajo. Lo recuperado parcialmente no es lo que está guardado: se reescribe.
       this.cancelTimer();
       this.sessionId = id;
       this.autoRef = recovered ? null : project;
       this.autoSavedAt = recovered ? null : meta ? Date.parse(meta.savedAt) : this.now();
+      this.failures = 0;
+      this.lastError = null;
       this.deps.applyRestored?.(project);
       if (recovered) notify({ title: 'Sesión recuperada en parte', description: `${warnings.length === 1 ? warnings[0] : `${warnings.length} partes no se pudieron leer`} (detalle en la consola).`, tone: 'warn' });
       else if (warnings.length) notify({ title: 'Avisos al recuperar la sesión', description: warnings.length === 1 ? warnings[0]! : `${warnings[0]} (y ${warnings.length - 1} más; detalle en la consola)`, tone: 'warn' });
@@ -388,6 +486,9 @@ export class AutosaveSession {
     } finally {
       this.restoring = false;
       this.publish();
+      // Si el proyecto no se reemplazó y quedó algo sin guardar (el temporizador se canceló al empezar), se programa.
+      const current = this.deps.getProject();
+      if (!this.disposed && this.storage && this.timer === null && current !== this.autoRef && worthSaving(current)) this.schedule(AUTOSAVE_DELAY_MS);
     }
   }
 

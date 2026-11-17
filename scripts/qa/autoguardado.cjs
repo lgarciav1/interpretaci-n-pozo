@@ -135,21 +135,48 @@ async function enterWell(page) {
     check('la barra entra a 1366 px (Compacto)', bar2[0] <= bar2[1], bar2.join(' / '));
     await shot(page, 'barra-compacto');
 
-    // Otra sesión de trabajo: la demostración no pisa la del TP (punto 5).
+    // La demostración no se autoguarda (punto 4): no ocupa una de las 3 sesiones ni pide confirmación al recargar.
     await page.reload();
     await page.waitForSelector('[data-testid=home-resume]');
     await page.getByTestId('home-demo').click();
     await page.waitForSelector('[data-testid=home-enter]');
     const d0 = dialogs;
-    const t1 = Date.now();
-    while (Date.now() - t1 < 20000 && (await page.evaluate(() => window.sessionCount())) !== 2) await page.waitForTimeout(250);
-    console.log('      demostración guardada en', Date.now() - t1, 'ms');
+    await page.waitForTimeout(4500);
+    check('la demostración no se autoguarda', (await page.evaluate(() => window.sessionCount())) === 1);
     await page.reload();
-    check('sin aviso al recargar tras autoguardar la demostración', dialogs === d0);
+    check('sin aviso al recargar con la demostración', dialogs === d0);
     await page.waitForSelector('[data-testid=home-resume]');
-    const resume2 = await page.locator('.home__resume').innerText();
-    const others = await page.locator('.home__session').count();
-    check('la demostración es otra sesión: se ofrece primero y el TP queda debajo', /Demostraci|demo/i.test(resume2) && others === 1, `${resume2.replace(/\s+/g, ' ')} · ${others} más`);
+
+    // Otra sesión, sembrada en la base (copia de la del TP con nombre propio y fecha anterior) para ver la lista.
+    await page.evaluate(
+      () =>
+        new Promise((resolve, reject) => {
+          const q = indexedDB.open('fiubalog-autoguardado');
+          q.onsuccess = () => {
+            const db = q.result;
+            const r = db.transaction(['sesiones', 'datos']).objectStore('sesiones').getAll();
+            r.onsuccess = () => {
+              const m = r.result[0];
+              const d = db.transaction('datos').objectStore('datos').get(m.id);
+              d.onsuccess = () => {
+                const tx = db.transaction(['sesiones', 'datos'], 'readwrite');
+                const copy = { ...m, id: 'copia-qa', projectName: 'TP · caso base', savedAt: new Date(Date.parse(m.savedAt) - 3600e3).toISOString() };
+                tx.objectStore('sesiones').put(copy, copy.id);
+                tx.objectStore('datos').put(d.result, copy.id);
+                tx.oncomplete = () => { db.close(); resolve(); };
+                tx.onerror = () => reject(tx.error);
+              };
+            };
+          };
+          q.onerror = () => reject(q.error);
+        }),
+    );
+    await page.reload();
+    await page.waitForSelector('[data-testid=home-resume]');
+    const resume2 = (await page.locator('.home__resume').innerText()).replace(/\s+/g, ' ');
+    const otherText = (await page.locator('.home__session').allInnerTexts()).join(' | ').replace(/\s+/g, ' ');
+    check('sin nombre de proyecto, el título es el pozo (sin repetirlo en el detalle)', /^pozo_tp_perfiles guardado/.test(resume2.trim()) && resume2.split('pozo_tp_perfiles').length === 2, resume2);
+    check('con nombre propio, el título es el nombre y el pozo va al detalle', /TP · caso base pozo_tp_perfiles · hace 1 h/.test(otherText), otherText);
     await shot(page, 'inicio-dos-sesiones');
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.waitForTimeout(400);

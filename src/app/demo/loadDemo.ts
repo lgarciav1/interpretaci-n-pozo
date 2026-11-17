@@ -4,7 +4,9 @@ import { useProject } from '../store/project';
 import { useUi } from '../store/ui';
 import { syntheticWell } from './syntheticWell';
 
-export const DEMO_WELL_ID = 'demo-sintetico';
+import { DEMO_WELL_ID } from './ids';
+
+export { DEMO_WELL_ID };
 
 export function loadDemoWell(): void {
   const { project } = useProject.getState();
