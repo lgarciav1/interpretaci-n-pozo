@@ -28,4 +28,5 @@ No dibujar solamente una capa DOM: las figuras exportadas deben contener el mism
 ## Validación y límites
 
 Ver [evidencia F05](../validacion/2026-11-17-notas.md). La apertura `file://` está bloqueada por la política del
-Chromium disponible; no se presenta como verificada. La revisión independiente y esa prueba siguen pendientes.
+Chromium disponible; no se presenta como verificada. La revisión independiente de arquitectura quedó aprobada tras corregir tres hallazgos de dibujo/interacción.
+Esa prueba de apertura sigue pendiente.

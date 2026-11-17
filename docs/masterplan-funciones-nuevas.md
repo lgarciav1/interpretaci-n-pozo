@@ -49,7 +49,7 @@ Tamaño: **C** chico (una sesión corta), **M** mediano (una sesión), **G** gra
 | F03 | «¿De dónde sale este número?» | 2 | M | arquitecto | — | hecha ([0074](decisiones/0074-de-donde-sale.md)) |
 | F04 | Capas de pay y punzados sugeridos | 2 | M | analista-numerico | — | hecha |
 | F07 | Vistas guardadas y modo defensa | 2 | M | arquitecto | — | hecha ([0075](decisiones/0075-vistas-guardadas.md)) |
-| F05 | Notas ancladas a profundidad | 2 | M | desarrollador-ui | — | en revisión ([0076](decisiones/0076-notas-profundidad.md)); pendiente file:// y revisión independiente |
+| F05 | Notas ancladas a profundidad | 2 | M | desarrollador-ui | — | en revisión ([0076](decisiones/0076-notas-profundidad.md)); revisión independiente aprobada; pendiente file:// |
 | F20 | Reparar la densidad en los derrumbes | 3 | G | analista-numerico | — | pendiente |
 | F22 | Torneo de modelos contra la corona | 3 | G | analista-numerico | — | pendiente |
 | F21 | Saturación por altura (MDT + SCAL + perfil) | 3 | M | analista-numerico | — | pendiente |
