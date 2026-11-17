@@ -7,7 +7,7 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import { useTrendsUi } from '../../app/trends/store';
 import type { TableValue } from '../../core/module';
-import { Badge, Button, EmptyState, SegmentedControl, ensureContrast, fillColor, toast, useThemeTokens, withAlpha, type FillId } from '../../ui';
+import { Badge, Button, EmptyState, SegmentedControl, copyText, ensureContrast, fillColor, toast, useThemeTokens, withAlpha, type FillId } from '../../ui';
 import type { ModulePanel, ModulePanelProps } from '../../ui/modulePanel';
 import {
   ALL_ZONES,
@@ -32,29 +32,6 @@ const goTo = (top: number, base: number) => {
   const r = viewRangeFor(top, base);
   useTrendsUi.getState().requestRange(r.top, r.base);
 };
-
-async function copyText(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    // Sin permiso de portapapeles (file://, iframes): copia con una selección temporal.
-    try {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.setAttribute('readonly', '');
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      const ok = document.execCommand('copy');
-      ta.remove();
-      return ok;
-    } catch {
-      return false;
-    }
-  }
-}
 
 function WellReadingPanel({ module, result }: ModulePanelProps) {
   const theme = useThemeTokens();
