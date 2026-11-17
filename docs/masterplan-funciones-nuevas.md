@@ -341,7 +341,7 @@ decidir antes y cuándo está terminada.
 
 ## 7. Riesgos del plan
 
-- **Tiempo.** Son 24 funciones y la entrega es en diciembre. La línea de corte de la sección 4 es la protección.
+- **Tiempo.** Son 26 funciones (24 firmes y 2 condicionales) y la entrega es en diciembre. La línea de corte de la sección 4 es la protección.
 - **F06 y F15 tocan el motor.** Van después de todo lo que no lo toca, cada una con su ADR y revisión de arquitectura.
 - **F01 depende del navegador.** Si IndexedDB no anda por `file://` en alguno, queda el aviso al cerrar como mínimo.
 - **F20 y F22 pueden dar una falsa seguridad.** Las dos tienen que mostrar su error y sus límites en pantalla, no solo
