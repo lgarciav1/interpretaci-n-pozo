@@ -282,6 +282,12 @@ export interface ParamSegment<P extends ParamsSpec> {
   params: ParamValues<P>;
 }
 
+/** A qué se refiere un aviso de módulo (0072). */
+export interface WarningWhere {
+  zoneId?: string;
+  depth?: number;
+}
+
 export interface ComputeContext<I extends InputsSpec, P extends ParamsSpec> {
   /** Cantidad de muestras. */
   n: number;
@@ -309,8 +315,11 @@ export interface ComputeContext<I extends InputsSpec, P extends ParamsSpec> {
   /**
    * Informa una advertencia para el usuario (en español, sin ecuaciones), p. ej. parámetros incoherentes en una
    * zona. Queda asociada al resultado: se vuelve a mostrar mientras el resultado siga en caché.
+   * `where` (opcional, 0072) dice a qué se refiere: `zoneId` (id de una zona de `zones`) o `depth` (m, profundidad
+   * medida de un aviso puntual). El panel Avisos lo usa para navegar; el texto no cambia. Dos avisos con el mismo
+   * texto y distinta zona son distintos.
    */
-  warn(message: string): void;
+  warn(message: string, where?: WarningWhere): void;
 }
 
 // ---------------------------------------------------------------------------------------------------------------

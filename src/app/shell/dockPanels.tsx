@@ -8,12 +8,13 @@ import type { OutputRecord } from '../../core/engine/engine';
 import type { TableValue, ZoneScalarValue } from '../../core/module';
 import { convert, unitLabel, type UnitId } from '../../core/units';
 import { registry } from '../../modules';
-import { Badge, DataTable, EmptyState, Section, StatusDot, formatNumber, useFlash, type Tone } from '../../ui';
+import { Badge, DataTable, EmptyState, Section, formatNumber, useFlash } from '../../ui';
 import type { DockPanelDef } from '../../ui/dockPanel';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useResults } from '../store/results';
 import { TrendsPanel } from '../trends/TrendsPanel';
 import { GlancePanel } from '../glance/GlancePanel';
+import { DiagnosticsPanel, useUnseenDiagnosticsBadge } from '../diagnostics/DiagnosticsPanel';
 import { GLANCE_PANEL_ID } from '../store/ui';
 
 export type { DockPanelDef } from '../../ui/dockPanel';
@@ -177,31 +178,6 @@ function ResultsPanel() {
   );
 }
 
-const LEVEL_TONE: Record<string, Tone> = { error: 'error', warning: 'warn', info: 'info' };
-
-function DiagnosticsPanel() {
-  const result = useResults((s) => s.result);
-  const error = useResults((s) => s.error);
-  const diags = result?.diagnostics ?? [];
-  if (diags.length === 0 && !error) return <EmptyState size="sm" icon="check-circle" title="Sin avisos" description="Los módulos no reportaron problemas en el último cálculo." />;
-  return (
-    <ul className="diag-list">
-      {error && (
-        <li className="diag-item">
-          <StatusDot tone="error" label="Error" />
-          {error}
-        </li>
-      )}
-      {diags.map((d, i) => (
-        <li key={i} className="diag-item">
-          <StatusDot tone={LEVEL_TONE[d.level] ?? 'neutral'} label={d.level} />
-          <span>{d.message}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 function EnginePanel() {
   const { result, busy, error, mode } = useResults();
   return (
@@ -274,7 +250,8 @@ const APP_PANELS: readonly DockPanelDef[] = [
     title: 'Avisos',
     icon: 'warning',
     component: DiagnosticsPanel,
-    useBadge: () => useResults((s) => s.result?.diagnostics.length || null),
+    // Solo los no vistos (docs/decisiones/0072).
+    useBadge: useUnseenDiagnosticsBadge,
   },
   {
     id: 'trends',

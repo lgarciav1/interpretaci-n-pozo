@@ -167,7 +167,7 @@ export default defineModule({
       const p = paramsFor(iv.id);
       const coef = coefficientsOf(p.level, p.manualA, p.manualB);
       if (!coef) {
-        warn(`${whereOf(iv.name)} los coeficientes manuales no son válidos (A debe ser positivo y B finito): no hay Swi.`);
+        warn(`${whereOf(iv.name)} los coeficientes manuales no son válidos (A debe ser positivo y B finito): no hay Swi.`, { zoneId: iv.id ?? undefined });
         rows.push({ zoneId: iv.id ?? '', zone: iv.name, level: 'Manual (inválido)', a: null, b: null, nSwi: 0, swiMean: null, swMean: null, nBoth: 0, pctBelow: null, pctOutRange: null });
         continue;
       }
@@ -192,7 +192,7 @@ export default defineModule({
         }
       }
       if (nClipped > 0) {
-        warn(`${whereOf(iv.name)} ${nClipped} muestras de roca muy cerrada dan Swi mayor que 1 y se recortan a 1.`);
+        warn(`${whereOf(iv.name)} ${nClipped} muestras de roca muy cerrada dan Swi mayor que 1 y se recortan a 1.`, { zoneId: iv.id ?? undefined });
       }
       rows.push({
         zoneId: iv.id ?? '',

@@ -25,6 +25,12 @@ export interface WellEntry {
    * calculados) no se guarda. Vive fuera de `interpretation`: no entra en snapshots ni dispara cálculos.
    */
   progress: FlowProgress;
+  /**
+   * Huellas de los avisos que la usuaria marcó como vistos (docs/decisiones/0072; ver `diagnosticFingerprint` en
+   * `src/app/diagnostics/grouping.ts`). Igual que `progress`, fuera de `interpretation`: marcar no recalcula ni
+   * entra en snapshots. Ausente = ninguno visto.
+   */
+  seenDiagnostics?: string[];
 }
 
 export type StepMark = 'done' | 'skipped';
@@ -266,6 +272,42 @@ export function setStepMark(project: Project, wellId: string, stepId: string, ma
     if (mark) marks[stepId] = mark;
     else delete marks[stepId];
     return { ...e, progress: { ...e.progress, marks } };
+  });
+}
+
+/**
+ * Lee `seenDiagnostics` de un archivo: lista de textos sin repetir. Cualquier otra cosa (o lista vacía) = ausente.
+ * Es una preferencia de la usuaria, no un dato: lo inválido se descarta sin rechazar el archivo.
+ */
+export function readSeenDiagnostics(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out = [...new Set(raw.filter((f): f is string => typeof f === 'string' && f.length > 0))];
+  return out.length > 0 ? out : undefined;
+}
+
+/**
+ * Marca (seen = true) o desmarca un aviso como visto. `existing` son las huellas de los avisos que hay ahora: las
+ * marcas de avisos que ya no existen se podan (el aviso cambió o desapareció). Sin marcas queda el campo ausente.
+ * Devuelve el mismo proyecto si no cambia nada.
+ */
+export function setDiagnosticSeen(
+  project: Project,
+  wellId: string,
+  fingerprint: string,
+  seen: boolean,
+  existing: Iterable<string>,
+): Project {
+  return mapWell(project, wellId, (e) => {
+    const alive = new Set(existing);
+    const prev = e.seenDiagnostics ?? [];
+    const next = prev.filter((f) => alive.has(f) && f !== fingerprint);
+    if (seen) next.push(fingerprint);
+    if (next.length === prev.length && next.every((f, i) => f === prev[i])) return e;
+    if (next.length === 0) {
+      const { seenDiagnostics: _drop, ...rest } = e;
+      return rest;
+    }
+    return { ...e, seenDiagnostics: next };
   });
 }
 

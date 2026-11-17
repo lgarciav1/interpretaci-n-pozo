@@ -90,7 +90,7 @@ export default defineModule({
       }
       const missing = METHOD_NEEDS[method].filter((r) => !have[r]);
       if (missing.length > 0) {
-        warn(`En ${where} el método ${METHOD_LABEL[method]} necesita ${missing.join(' y ')}, que no está disponible: ese tramo queda sin dato.`);
+        warn(`En ${where} el método ${METHOD_LABEL[method]} necesita ${missing.join(' y ')}, que no está disponible: ese tramo queda sin dato.`, { zoneId: s.zoneId ?? undefined });
         out.fill(NaN, s.start, s.end);
         continue;
       }

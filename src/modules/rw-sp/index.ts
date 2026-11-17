@@ -84,14 +84,14 @@ export default defineModule({
       const tF = celsiusToFahrenheit(T);
       const rwT = waterResistivityFromSp(ssp, rmfe, tF);
 
-      if (ssp >= 0) warn(`${where}, la arena limpia no se desvía a la izquierda de la línea base de arcillas: no hay deflexión de SP para calcular Rw.`);
+      if (ssp >= 0) warn(`${where}, la arena limpia no se desvía a la izquierda de la línea base de arcillas: no hay deflexión de SP para calcular Rw.`, { zoneId: s.zoneId ?? undefined });
       if (rmf75 <= RMFE_THRESHOLD_75F) {
-        warn(`${where}, el filtrado es muy salado (Rmf a 75 °F ≤ 0,1 Ω·m): se tomó Rmfe igual a Rmf, sin la carta de corrección; Rw es aproximada.`);
+        warn(`${where}, el filtrado es muy salado (Rmf a 75 °F ≤ 0,1 Ω·m): se tomó Rmfe igual a Rmf, sin la carta de corrección; Rw es aproximada.`, { zoneId: s.zoneId ?? undefined });
       }
       let spCount = 0;
       for (let i = s.start; i < s.end; i++) if (!Number.isNaN(inputs.sp[i]!)) spCount++;
-      if (s.end > s.start && spCount === 0) warn(`${where}, el SP no tiene datos: revisá las lecturas elegidas para la línea base y la arena limpia.`);
-      if (s.end > s.start && Number.isNaN(T)) warn(`${where}, la temperatura no tiene datos: Rw queda sin dato.`);
+      if (s.end > s.start && spCount === 0) warn(`${where}, el SP no tiene datos: revisá las lecturas elegidas para la línea base y la arena limpia.`, { zoneId: s.zoneId ?? undefined });
+      if (s.end > s.start && Number.isNaN(T)) warn(`${where}, la temperatura no tiene datos: Rw queda sin dato.`, { zoneId: s.zoneId ?? undefined });
 
       for (let i = s.start; i < s.end; i++) rw[i] = arpsResistivityC(rwT, T, inputs.temp[i]!);
 

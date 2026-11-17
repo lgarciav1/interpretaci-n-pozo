@@ -260,7 +260,7 @@ export default defineModule({
     for (const s of result.skipped) {
       if (s.reason === 'no-data') {
         const z = zones.find((x) => x.id === s.id)!;
-        warn(`En la zona ${z.name} no hay h·φ·Sh (sin muestras clasificadas o sin Sw en el reservorio): la incertidumbre del volumen queda sin dato.`);
+        warn(`En la zona ${z.name} no hay h·φ·Sh (sin muestras clasificadas o sin Sw en el reservorio): la incertidumbre del volumen queda sin dato.`, { zoneId: z.id });
       }
     }
     if (result.targets.length === 0) warn('Ninguna zona tiene volumen para simular: revisá el fluido y los datos de cada zona.');

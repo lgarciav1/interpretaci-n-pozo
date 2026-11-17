@@ -135,7 +135,7 @@ defineModule({
              method: param.enum({ ... }), useX: param.boolean({ ... }) },
   outputs: { igr: output.curve('IGR'), total: output.scalar('X_TOTAL', {...}), byZone: output.table('X', {...}),
              perZone: output.zoneScalar('X_BY_ZONE', { label, unit }) },
-  compute(ctx) { ... },            // pura; ctx: n, depth, thickness, inputs, params, segments, zones, paramsFor, warn
+  compute(ctx) { ... },            // pura; ctx: n, depth, thickness, inputs, params, segments, zones, paramsFor, warn(msg, where?)
   docs: { summary, equations: [{ latex }], references: [...] },
 });
 ```
@@ -167,8 +167,11 @@ con mínimo 2, `lithology-facies`, `electrofacies` y `electrofacies-scan`. Un m�
 - `ctx.paramsFor(zoneId)`: parámetros efectivos de una zona (para tablas y sumarios por zona), incluso de zonas
   sin muestras; `paramsFor(null)` = globales.
 - `ctx.zones`: zonas en orden de tope, con `id`, `name`, `kind`, `top`, `base`, `start`, `end`.
-- `ctx.warn(mensaje)`: aviso para el usuario (p. ej. parámetros incoherentes en una zona). Se vuelve a mostrar
-  mientras el resultado siga en caché.
+- `ctx.warn(mensaje, where?)`: aviso para el usuario (p. ej. parámetros incoherentes en una zona). Se vuelve a mostrar
+  mientras el resultado siga en caché. `where` es opcional (0072): `{ zoneId }` si el aviso es de una zona (el id de
+  `ctx.zones`; el módulo que dice «en la zona X» lo pasa) o `{ depth }` (m) si es puntual. Llega como
+  `Diagnostic.zoneId` / `Diagnostic.depth` (`code: 'module-warning'`) y el panel Avisos lo usa para navegar; el texto
+  no cambia. Mismo texto en otra zona = otro aviso (la deduplicación compara texto, zona y profundidad).
 
 **Fuentes explícitas con otro rol.** Elegir para un puerto una curva medida que tiene otro rol (p. ej. AT60, rol
 `RM`, como `RT`) es intencional y está permitido: el motor la convierte a la unidad del puerto y emite un
@@ -401,6 +404,11 @@ Decisión y catálogo completo: [`docs/decisiones/0007-modulos-fase-6a.md`](deci
   categorías **o** los que producen sus puertos (Rw: categoría `water` o cualquier productor de `RW`/`RWA`/`TEMP`),
   así que agregar un módulo lo suma al paso sin tocar nada más. Lo derivado (pozo, zonas, puertos calculados) no se
   guarda; las marcas del usuario (completo/saltado) van en `WellEntry.progress` (formato de proyecto v2).
+- **Panel Avisos** (0072, `src/app/diagnostics/`): agrupa los diagnósticos por paso del flujo y por módulo
+  (`grouping.ts`, puro), con filtro por gravedad, salto al módulo y a la zona. Las marcas «visto» van en
+  `WellEntry.seenDiagnostics?: string[]` (huellas `moduleId|code|zoneId|message`), fuera de `interpretation` como
+  `progress`: no recalculan ni entran en snapshots; se guardan en el archivo como campo opcional (sin cambiar la
+  versión) y se podan al marcar las de avisos que ya no existen. La insignia cuenta los no vistos.
 - **Parámetros compartidos** llevan insignia con los módulos que los usan; "comparar" está en el encabezado del
   módulo; las salidas en comparación (`active: false`) se marcan como "alternativa" en resultados.
 - **Tema y canvas**: el visor lee colores con `curveStyle()` y `getThemeTokens().viewer`, y redibuja con

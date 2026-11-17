@@ -1,0 +1,85 @@
+/* Panel Avisos (docs/decisiones/0072). Prefijo propio: diag-. */
+.diag-panel { display: flex; flex-direction: column; min-height: 100%; container-type: inline-size; }
+
+/* Barra de filtros: queda fija arriba al desplazar la lista. */
+.diag-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-surface);
+}
+.diag-toolbar__levels { display: flex; flex-wrap: wrap; gap: var(--space-1-5); }
+.diag-toolbar__seen { margin-left: auto; font-size: var(--text-sm); color: var(--color-text-muted); }
+.diag-filter .ui-chip:not(.is-selected) { color: var(--color-text-subtle); }
+.diag-filter .ui-chip:not(.is-selected) .ui-dot { opacity: 0.45; }
+.diag-filter.is-empty .ui-chip { opacity: 0.6; }
+.diag-filter__count { min-width: 1.4em; padding: 0 var(--space-1); border-radius: var(--radius-full); background: var(--color-surface-active); font-size: var(--text-xs); font-weight: var(--weight-semibold); text-align: center; color: var(--color-text-muted); }
+.diag-filter .ui-chip.is-selected .diag-filter__count { background: var(--color-surface); color: var(--color-accent-text); }
+
+.diag-error { margin: var(--space-3) var(--space-4) 0; }
+
+/* Panel angosto (al costado): las fichas quedan en punto + cuenta; el nombre sigue siendo el nombre accesible. */
+@container (max-width: 32em) {
+  .diag-filter__label { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .diag-filter .ui-chip__main { gap: var(--space-1); }
+  .diag-toolbar { gap: var(--space-2) var(--space-3); }
+}
+
+/* Grupo por paso: encabezado de la sección + contador + puntos de gravedad (de lo no visto). */
+.diag-group.ui-section { padding-top: var(--space-2-5); padding-bottom: var(--space-2-5); }
+.diag-group__meta { display: inline-flex; align-items: center; gap: var(--space-2); }
+.diag-dots { display: inline-flex; align-items: center; gap: var(--space-1-5); }
+
+/* Subgrupo por módulo. */
+.diag-module + .diag-module { margin-top: var(--space-2-5); }
+.diag-module__head { display: flex; align-items: center; gap: var(--space-2); min-width: 0; margin-bottom: var(--space-0-5); }
+.diag-module__name {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: none;
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+button.diag-module__name { cursor: pointer; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; transition: color var(--dur-fast) var(--ease-standard), text-decoration-color var(--dur-fast) var(--ease-standard); }
+button.diag-module__name:hover { color: var(--color-accent-text); text-decoration-color: currentColor; }
+button.diag-module__name:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.diag-module__count { font-size: var(--text-xs); color: var(--color-text-subtle); }
+
+/* Aviso: punto · texto (+ zona) · visto. */
+.diag-list { margin: 0; padding: 0; list-style: none; }
+.diag-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-2-5);
+  padding: var(--space-1) 0 var(--space-1) var(--space-0-5);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.diag-item:last-child { border-bottom: 0; }
+.diag-item > .ui-dot { margin-top: calc(0.5lh - 4px * var(--ui-scale)); }
+.diag-item__body { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); min-width: 0; padding: var(--space-0-5) 0; }
+.diag-item__text { min-width: 0; color: var(--color-text); line-height: var(--leading-normal); }
+.diag-item__where { display: inline-flex; }
+.diag-item__where .ui-chip { height: calc(20px * var(--ui-scale)); font-size: var(--text-xs); }
+.diag-item__where .ui-chip__main { padding: 0 var(--space-2); }
+.diag-item__seen { opacity: 0.55; transition: opacity var(--dur-fast) var(--ease-standard); }
+.diag-item:hover .diag-item__seen, .diag-item__seen:focus-within, .diag-item.is-seen .diag-item__seen { opacity: 1; }
+
+/* Vistos: atenuados (siguen legibles) y al final de su módulo. */
+.diag-item.is-seen .diag-item__text { color: var(--color-text-subtle); }
+.diag-item.is-seen > .ui-dot { opacity: 0.4; }
+.diag-item.is-seen .diag-item__where { opacity: 0.7; }

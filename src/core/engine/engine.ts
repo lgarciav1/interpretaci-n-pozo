@@ -89,8 +89,26 @@ interface NodeCache {
   version: number;
   ok: boolean;
   outputs: Map<string, OutputValue>;
-  /** Advertencias emitidas por compute (se re-emiten mientras el resultado siga en caché). */
-  warnings: string[];
+  /** Advertencias emitidas por compute, con su zona o profundidad (se re-emiten mientras el resultado siga en caché). */
+  warnings: CachedWarning[];
+}
+
+interface CachedWarning {
+  message: string;
+  zoneId?: string;
+  depth?: number;
+}
+
+/** Diagnóstico `module-warning` de un aviso emitido por `ctx.warn` (copia la zona y la profundidad, 0072). */
+function warningDiagnostic(moduleId: string, moduleName: string, w: CachedWarning): Diagnostic {
+  return {
+    level: 'warning',
+    code: 'module-warning',
+    moduleId,
+    message: `${moduleName}: ${w.message}`,
+    ...(w.zoneId !== undefined ? { zoneId: w.zoneId } : {}),
+    ...(w.depth !== undefined ? { depth: w.depth } : {}),
+  };
 }
 
 interface ConvertedCurve {
@@ -315,7 +333,7 @@ export class Engine {
 
       const cached = this.cache.get(id);
       if (cached && cached.ok && cached.stamp === stamp) {
-        for (const w of cached.warnings) diagnostics.push({ level: 'warning', code: 'module-warning', moduleId: id, message: `${m.name}: ${w}` });
+        for (const w of cached.warnings) diagnostics.push(warningDiagnostic(id, m.name, w));
         okNodes.add(id);
         reused.push(id);
         continue;
@@ -327,7 +345,7 @@ export class Engine {
         zoneId: s.zoneId,
         params: (s.zoneId ? params.byZone.get(s.zoneId) : params.global) as ParamValues<ParamsSpec>,
       }));
-      const warnings: string[] = [];
+      const warnings: CachedWarning[] = [];
       const ctx: ComputeContext<InputsSpec, ParamsSpec> = {
         n,
         depth: well.depth,
@@ -342,8 +360,12 @@ export class Engine {
           if (!values) throw new Error(`paramsFor: la zona '${zoneId}' no existe (o es inválida y se ignoró).`);
           return values as ParamValues<ParamsSpec>;
         },
-        warn: (message) => {
-          if (!warnings.includes(message)) warnings.push(message);
+        warn: (message, where) => {
+          const zoneId = where?.zoneId;
+          const depth = where?.depth !== undefined && Number.isFinite(where.depth) ? where.depth : undefined;
+          // Mismo texto en otra zona (o en otra profundidad) es otro aviso (0072).
+          if (warnings.some((w) => w.message === message && w.zoneId === zoneId && w.depth === depth)) return;
+          warnings.push({ message, ...(zoneId !== undefined ? { zoneId } : {}), ...(depth !== undefined ? { depth } : {}) });
         },
       };
 
@@ -373,7 +395,7 @@ export class Engine {
         continue;
       }
       this.cache.set(id, { stamp, version: this.nextVersion++, ok: true, outputs, warnings });
-      for (const w of warnings) diagnostics.push({ level: 'warning', code: 'module-warning', moduleId: id, message: `${m.name}: ${w}` });
+      for (const w of warnings) diagnostics.push(warningDiagnostic(id, m.name, w));
       okNodes.add(id);
       recomputed.push(id);
     }

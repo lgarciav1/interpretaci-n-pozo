@@ -46,10 +46,10 @@ export default defineModule({
     const baselineRows:Record<string,TableCell>[]=[];
     for (const s of segments) {
       const p=s.params, zoneName=zones.find(z=>z.id===s.zoneId)?.name ?? 'Fuera de zonas';
-      if (p.lom < 7 || p.lom > 12) warn(`Madurez LOM fuera de 7–12 en ${zoneName}: el modelo de Passey requiere revisar su aplicabilidad antes de interpretar TOC.`);
+      if (p.lom < 7 || p.lom > 12) warn(`Madurez LOM fuera de 7–12 en ${zoneName}: el modelo de Passey requiere revisar su aplicabilidad antes de interpretar TOC.`, { zoneId: s.zoneId ?? undefined });
       if (p.baselineMode === 'interval' && !baseline) continue;
       const resistanceBase=baseline?.resistance ?? p.resistanceBase, sonicBase=baseline?.sonic ?? p.sonicBase;
-      if (![resistanceBase,sonicBase].every(v=>Number.isFinite(v)&&v>0)) warn(`Línea base manual inválida en ${zoneName}: resistividad y sónico deben ser positivos.`);
+      if (![resistanceBase,sonicBase].every(v=>Number.isFinite(v)&&v>0)) warn(`Línea base manual inválida en ${zoneName}: resistividad y sónico deben ser positivos.`, { zoneId: s.zoneId ?? undefined });
       baselineRows.push({zoneId:s.zoneId,zone:zoneName,resistance:cell(resistanceBase),sonic:cell(sonicBase),samples:baseline?.samples ?? 0});
       for (let i=s.start;i<s.end;i++) {
         const r=passeySample({resistance:inputs.resistance[i],sonic:inputs.sonic[i],gr:inputs.gr?.[i]}, {...p,resistanceBase,sonicBase});

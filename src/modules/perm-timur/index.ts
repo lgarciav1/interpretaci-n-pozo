@@ -51,7 +51,7 @@ export default defineModule({
           continue;
         }
         const where = s.zoneId ? `en la zona ${zones.find((z) => z.id === s.zoneId)?.name ?? s.zoneId}` : 'fuera de las zonas';
-        warn(`${where} se pidió usar la Sw calculada pero no hay curva de Sw: se usa la saturación irreducible fija.`);
+        warn(`${where} se pidió usar la Sw calculada pero no hay curva de Sw: se usa la saturación irreducible fija.`, { zoneId: s.zoneId ?? undefined });
       }
       timurPermeabilityInto(inputs.phi, out, s.params.swirr, s.start, s.end);
     }

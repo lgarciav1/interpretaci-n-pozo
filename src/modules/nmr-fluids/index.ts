@@ -60,14 +60,14 @@ export default defineModule({
       if (inputs.phitNmr) {
         clayBoundWaterInto(inputs.phitNmr, inputs.phieNmr, cbw, s.start, s.end);
       } else {
-        warn(`${where} no hay porosidad total de RMN: el agua ligada a la arcilla queda sin dato.`);
+        warn(`${where} no hay porosidad total de RMN: el agua ligada a la arcilla queda sin dato.`, { zoneId: s.zoneId ?? undefined });
         cbw.fill(NaN, s.start, s.end);
       }
       if (inputs.phie) {
         nmrPorosityDifferenceInto(inputs.phieNmr, inputs.phie, dphi, s.start, s.end);
         nmrDeficitFlagInto(dphi, deficit, s.params.tolerance, s.start, s.end);
       } else {
-        warn(`${where} no hay porosidad efectiva de perfiles: la diferencia con la RMN y el indicador de déficit quedan sin dato.`);
+        warn(`${where} no hay porosidad efectiva de perfiles: la diferencia con la RMN y el indicador de déficit quedan sin dato.`, { zoneId: s.zoneId ?? undefined });
         dphi.fill(NaN, s.start, s.end);
         deficit.fill(NaN, s.start, s.end);
       }

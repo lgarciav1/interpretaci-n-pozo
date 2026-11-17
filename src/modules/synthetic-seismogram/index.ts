@@ -40,7 +40,7 @@ export default defineModule({
   },
   compute({ depth, inputs, params, warn }) {
     const result = buildSynthetic(depth, inputs.dt, inputs.rho, params);
-    result.warnings.forEach(warn);
+    result.warnings.forEach((w) => warn(w));
     return {
       velocity: result.velocity, impedance: result.impedance, reflectivity: result.reflectivity, trace: result.syntheticDepth, twt: result.twt,
       depthTime: { rows: Array.from(depth, (value, index) => ({ depth: cell(value), twt: cell(result.twt[index]) })) },

@@ -43,13 +43,22 @@ export interface SectionProps {
   children?: ReactNode;
   collapsible?: boolean;
   defaultOpen?: boolean;
+  /** Abierto/plegado controlado desde afuera (con `onOpenChange`); sin él, la sección lleva su propio estado. */
+  open?: boolean;
+  onOpenChange?(open: boolean): void;
   className?: string;
   id?: string;
+  'data-testid'?: string;
 }
 
 /** Bloque dentro de una columna o panel: encabezado en versalitas + contenido. */
-export function Section({ title, meta, actions, children, collapsible = false, defaultOpen = true, className, id }: SectionProps) {
-  const [open, setOpen] = useState(defaultOpen);
+export function Section({ title, meta, actions, children, collapsible = false, defaultOpen = true, open: openProp, onOpenChange, className, id, 'data-testid': testId }: SectionProps) {
+  const [openState, setOpenState] = useState(defaultOpen);
+  const open = openProp ?? openState;
+  const toggle = () => {
+    if (openProp === undefined) setOpenState(!open);
+    onOpenChange?.(!open);
+  };
   const bodyId = useId();
   const titleNode = (
     <>
@@ -59,10 +68,10 @@ export function Section({ title, meta, actions, children, collapsible = false, d
     </>
   );
   return (
-    <section className={['ui-section', collapsible && 'is-collapsible', open && 'is-open', className].filter(Boolean).join(' ')} id={id}>
+    <section className={['ui-section', collapsible && 'is-collapsible', open && 'is-open', className].filter(Boolean).join(' ')} id={id} data-testid={testId}>
       <header className="ui-section__head">
         {collapsible ? (
-          <button type="button" className="ui-section__toggle" aria-expanded={open} aria-controls={bodyId} onClick={() => setOpen((o) => !o)}>
+          <button type="button" className="ui-section__toggle" aria-expanded={open} aria-controls={bodyId} onClick={toggle}>
             {titleNode}
           </button>
         ) : (

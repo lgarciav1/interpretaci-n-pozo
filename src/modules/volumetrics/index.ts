@@ -75,7 +75,7 @@ export default defineModule({
       const h = inputs.hphiSh[z.id]!;
       const seal = z.kind === 'seal';
       if (!seal && p.fluid !== 'none' && Number.isNaN(h)) {
-        warn(`En la zona ${z.name} no hay h·φ·Sh (sin muestras clasificadas o sin Sw en el reservorio): el volumen queda sin dato.`);
+        warn(`En la zona ${z.name} no hay h·φ·Sh (sin muestras clasificadas o sin Sw en el reservorio): el volumen queda sin dato.`, { zoneId: z.id });
       }
       const v = seal ? { ooip: 0, ogip: 0 } : zoneInPlace(p.fluid, p.area * 1e6, h, p.bo, p.bg);
       ooip[z.id] = v.ooip;

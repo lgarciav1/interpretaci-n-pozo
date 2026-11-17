@@ -139,30 +139,32 @@ export default defineModule({
         if (over(c.highMisfit, fits)) {
           warn(
             `${where}, ${pct(c.highMisfit, fits)} de los ajustes tiene un desajuste alto: alguna curva puede tener picos o lecturas incoherentes con un perfil escalonado, y Rxo, di y Rt de esas muestras no son confiables.`,
+            { zoneId: key || undefined },
           );
         }
         if (key !== noZone && valid >= MIN_SAMPLES_FOR_WARNING && c.noInvasion / valid > 0.9) {
-          warn(`${where}, ${pct(c.noInvasion, valid)} de las muestras no muestra invasión (las curvas difieren menos que la separación mínima): ahí Rxo y el diámetro quedan sin dato.`);
+          warn(`${where}, ${pct(c.noInvasion, valid)} de las muestras no muestra invasión (las curvas difieren menos que la separación mínima): ahí Rxo y el diámetro quedan sin dato.`, { zoneId: key || undefined });
         }
         if (over(c.poorlyResolved, fits)) {
           warn(
             `${where}, ${pct(c.poorlyResolved, fits)} de los ajustes no determina el diámetro de invasión (el intervalo compatible con las lecturas es más ancho que un factor 2): ahí Rxo y el diámetro quedan sin dato y se conserva Rt.`,
+            { zoneId: key || undefined },
           );
         }
         if (over(c.unresolvedDeep, fits)) {
-          warn(`${where}, ${pct(c.unresolvedDeep, fits)} de los ajustes pide una invasión más profunda que el máximo buscado (${MAX_INVASION_DIAMETER_IN} in): Rxo y el diámetro quedan sin dato y Rt es la lectura más profunda, que no es confiable.`);
+          warn(`${where}, ${pct(c.unresolvedDeep, fits)} de los ajustes pide una invasión más profunda que el máximo buscado (${MAX_INVASION_DIAMETER_IN} in): Rxo y el diámetro quedan sin dato y Rt es la lectura más profunda, que no es confiable.`, { zoneId: key || undefined });
         }
         if (over(c.unresolvedShallow, fits)) {
-          warn(`${where}, ${pct(c.unresolvedShallow, fits)} de los ajustes pide una invasión tan somera como el pozo (diámetro igual al trépano): Rxo y el diámetro quedan sin dato y Rt es la lectura más profunda.`);
+          warn(`${where}, ${pct(c.unresolvedShallow, fits)} de los ajustes pide una invasión tan somera como el pozo (diámetro igual al trépano): Rxo y el diámetro quedan sin dato y Rt es la lectura más profunda.`, { zoneId: key || undefined });
         }
         if (over(c.unresolvedSigma, fits)) {
-          warn(`${where}, ${pct(c.unresolvedSigma, fits)} de los ajustes pide una Rt en el límite del rango físico: quedan sin resolver (Rt es la lectura más profunda).`);
+          warn(`${where}, ${pct(c.unresolvedSigma, fits)} de los ajustes pide una Rt en el límite del rango físico: quedan sin resolver (Rt es la lectura más profunda).`, { zoneId: key || undefined });
         }
         if (over(c.rxoAtBound, fits)) {
-          warn(`${where}, ${pct(c.rxoAtBound, fits)} de los ajustes pide una zona lavada de resistividad extrema (en el límite del rango físico): las lecturas no determinan Rxo y queda sin dato.`);
+          warn(`${where}, ${pct(c.rxoAtBound, fits)} de los ajustes pide una zona lavada de resistividad extrema (en el límite del rango físico): las lecturas no determinan Rxo y queda sin dato.`, { zoneId: key || undefined });
         }
         if (c.insufficient > 0) {
-          warn(`${where}, ${c.insufficient} muestras tienen menos de 3 curvas válidas (sin dato o ≤ 0): quedan sin resultado.`);
+          warn(`${where}, ${c.insufficient} muestras tienen menos de 3 curvas válidas (sin dato o ≤ 0): quedan sin resultado.`, { zoneId: key || undefined });
         }
       }
     }
