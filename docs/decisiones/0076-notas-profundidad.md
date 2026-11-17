@@ -1,6 +1,6 @@
 # 0076 — Notas ancladas a profundidad (F05)
 
-Estado: implementada en rama de revisión; pendiente de integración.
+Estado: aceptada. Implementación y revisión independiente completas; integración solicitada por el usuario con la limitación de apertura `file://` documentada.
 
 ## Contrato
 
