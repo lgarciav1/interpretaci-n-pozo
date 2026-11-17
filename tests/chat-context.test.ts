@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import csvText from '../datos/pozo_tp_perfiles.csv?raw';
-import { chatContextText, groupWarnings, isGenericWarning, CHAT_CONTEXT_MAX_CHARS } from '../src/app/chatContext/chatContext';
+import { chatContextText, groupWarnings, isGenericWarning, prioritizeWarnings, warningSource, CHAT_CONTEXT_MAX_CHARS } from '../src/app/chatContext/chatContext';
 import { buildReportModel, type ReportModel } from '../src/app/report/report';
 import type { ClientResult } from '../src/core/engine/client';
 import { Engine, toEngineWell } from '../src/core/engine/engine';
@@ -34,7 +34,7 @@ describe('contexto para un chat', () => {
     expect(out.text).toContain(model.parameters[0]!.module);
     expect(out.text).toContain(model.methods[0]!.port);
     expect(out.text).toContain(well.name);
-    expect(out.text).not.toMatch(/[<>]/);
+    expect(out.text).not.toMatch(/<\/?[a-z][^>]*>/i); // sin etiquetas HTML (un «>» de un aviso de calidad es texto)
     expect(out.text).not.toContain('undefined');
     expect(out.text).not.toContain('NaN');
   });
@@ -128,5 +128,50 @@ describe('contexto para un chat', () => {
     expect(out.text).toContain('Error · X: falla grave');
     expect(out.text).toContain('parámetros');
     expect(out.length).toBeLessThanOrEqual(10500);
+  });
+  it('sin resultado vigente no se marca como recortado ni dice que omitió parámetros', () => {
+    const { well, interpretation } = tp();
+    const out = chatContextText(buildReportModel(well, interpretation, null));
+    expect(out.truncated).toBe(false);
+    expect(out.text).not.toContain('[Recortado');
+  });
+
+  it('con un tope menor que el texto mínimo nunca lo pasa ni vuelve a meter líneas', () => {
+    const { well, interpretation, result } = tp();
+    const model = buildReportModel(well, interpretation, result);
+    for (const max of [700, 300, 120, 40]) {
+      const out = chatContextText(model, { maxChars: max });
+      expect(out.length).toBeLessThanOrEqual(max);
+      expect(out.truncated).toBe(true);
+    }
+    const out = chatContextText(model, { maxChars: 700 });
+    expect(out.text).toMatch(/\[Recortado: .*los \d+ avisos.*líneas finales/);
+  });
+
+  it('agrupa por zona con nombres con caracteres de regex y no confunde palabras que terminan en «la»', () => {
+    const names = ['B (sup)', 'C.1', 'A', 'A+'];
+    const out = groupWarnings([
+      'Advertencia · M: en la zona B (sup), falta el SP.',
+      'Advertencia · M: en la zona C.1, falta el SP.',
+      'Advertencia · M: en la zona A+, falta el SP.',
+      'Información · N: escala zona A, nada.',
+      'Información · N: escala zona C.1, nada.',
+    ], names);
+    expect(out).toEqual([
+      'Advertencia · M: falta el SP — zonas B (sup), C.1, A+',
+      'Información · N: escala zona A, nada.',
+      'Información · N: escala zona C.1, nada.',
+    ]);
+    expect(groupWarnings(['X: en la zona A, uno.', 'X: en la zona B, uno.'], ['', 'A'])).toEqual(['X: en la zona A, uno.', 'X: en la zona B, uno.']);
+  });
+  it('prioriza la calidad de registros y alterna entre módulos para que uno solo no ocupe el cupo', () => {
+    const inv = (z: string) => `Advertencia · Invasión: en la zona ${z}, ${z.length * 7} % sin diámetro.`;
+    const order = prioritizeWarnings([inv('A'), inv('BB'), inv('CCC'), 'Información · Lectura: nota.', 'Calidad · ZDEN: fuera de rango.', 'Advertencia · Swi: recorte.', 'Control de calidad de registros: hay advertencias.']);
+    expect(order.slice(0, 4)).toEqual([inv('A'), 'Calidad · ZDEN: fuera de rango.', 'Advertencia · Swi: recorte.', 'Control de calidad de registros: hay advertencias.']);
+    expect(order.at(-1)).toBe('Información · Lectura: nota.');
+    expect(warningSource(inv('A'))).toBe('Invasión');
+    const { well, interpretation, result } = tp();
+    const text = chatContextText(buildReportModel(well, interpretation, result)).text;
+    expect(text).toContain('Control de calidad de registros');
   });
 });

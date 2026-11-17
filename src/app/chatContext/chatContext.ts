@@ -76,7 +76,27 @@ function shorten(s: string, max: number): string {
 /** Quita el prefijo repetido «Advertencia · Módulo: Módulo: …» que dejan los módulos en sus mensajes. */
 const dedupePrefix = (s: string) => s.replace(/^(.*? · )?(.{3,}?): \2: /, '$1$2: ');
 /** Gravedad para ordenar y recortar: 0 error, 1 advertencia, 2 sin etiqueta (calidad, preparación), 3 información. */
-const severity = (w: string) => (w.startsWith('Error') ? 0 : w.startsWith('Advertencia') ? 1 : w.startsWith('Información') ? 3 : 2);
+/** Los avisos de calidad de registros y del estado del pozo pesan como advertencias: un chat los necesita. */
+const QUALITY_PREFIXES = ['Control de calidad de registros', 'Calidad · ', 'Estado del pozo', 'Sin caliper'];
+const severity = (w: string) => (w.startsWith('Error') ? 0 : w.startsWith('Advertencia') || QUALITY_PREFIXES.some((p) => w.startsWith(p)) ? 1 : w.startsWith('Información') ? 3 : 2);
+/** Origen de un aviso (módulo o tipo), para alternar entre módulos y que uno solo no ocupe todo el cupo. */
+export const warningSource = (w: string): string => {
+  const m = /^(?:Error|Advertencia|Información) · ([^:]+):/.exec(w) ?? /^([^:·]+)/.exec(w);
+  return (m?.[1] ?? '').trim();
+};
+/** Ordena por gravedad y, dentro de cada gravedad, alterna entre orígenes (1.º de cada uno, luego 2.º…). */
+export function prioritizeWarnings(warnings: readonly string[]): string[] {
+  const seen = new Map<string, number>();
+  return warnings
+    .map((w, i) => {
+      const key = `${severity(w)}|${warningSource(w)}`;
+      const rank = seen.get(key) ?? 0;
+      seen.set(key, rank + 1);
+      return { w, i, s: severity(w), rank };
+    })
+    .sort((a, b) => a.s - b.s || a.rank - b.rank || a.i - b.i)
+    .map((x) => x.w);
+}
 
 /**
  * Agrupa avisos idénticos salvo la zona nombrada («en la zona A, …», «En la zona C …»): se reemplaza la mención de zona
@@ -84,8 +104,9 @@ const severity = (w: string) => (w.startsWith('Error') ? 0 : w.startsWith('Adver
  * nombres de zona del modelo. Si no hay mención o el texto difiere (p. ej. otros números), el aviso queda individual.
  */
 export function groupWarnings(warnings: readonly string[], zoneNames: readonly string[], maxChars = Infinity): string[] {
-  const names = [...zoneNames].sort((a, b) => b.length - a.length).map(escapeRe);
-  const mention = names.length ? new RegExp(`(?:[Ee]n )?la zona (${names.join('|')})(?=[\\s,.:;)]|$),?\\s*`) : null;
+  // Sin nombres vacíos (vaciarían la alternancia) y con «la» como palabra entera (no «escala zona A»).
+  const names = [...new Set(zoneNames)].filter((n) => n.trim() !== '').sort((a, b) => b.length - a.length).map(escapeRe);
+  const mention = names.length ? new RegExp(`(?:\\b[Ee]n )?(?<![\\p{L}\\p{N}_])la zona (${names.join('|')})(?=[\\s,.:;)]|$),?\\s*`, 'u') : null;
   const groups = new Map<string, { first: string; text: string; zones: string[] }>();
   const out: string[] = [];
   const order: (string | { key: string })[] = [];
@@ -158,10 +179,8 @@ export function chatContextText(model: ReportModel, opts: ChatContextOptions = {
   const max = opts.maxChars ?? CHAT_CONTEXT_MAX_CHARS;
   const hasResult = !!model.summary || model.parameters.length > 0;
   const zoneNames = new Set(model.zones.map((z) => z.name));
-  const warnings = groupWarnings(model.warnings.filter((w) => !isGenericWarning(w)), model.zones.map((z) => z.name), WARNING_MAX_CHARS)
-    .map((w, i) => ({ w, i }))
-    .sort((a, b) => severity(a.w) - severity(b.w) || a.i - b.i)
-    .map((x) => x.w);
+  // Sin resultado, la sección «Estado» ya lo dice: no se repite como aviso.
+  const warnings = prioritizeWarnings(groupWarnings(model.warnings.filter((w) => !isGenericWarning(w) && !(!hasResult && w.startsWith('No hay resultados vigentes'))), model.zones.map((z) => z.name), WARNING_MAX_CHARS));
 
   const head: string[] = [
     `Contexto de interpretación petrofísica exportado de ${PRODUCT_NAME} (${model.date}). Es un resumen en texto plano de un pozo ya interpretado: no incluye ecuaciones ni datos muestra por muestra. Notas generales: profundidades en metros de profundidad medida (MD); «—» significa sin dato (no es cero); los volúmenes son estimaciones in situ (no reservas) que dependen del área, el fluido, el factor de volumen y los cutoffs; los totales suman solo las zonas con dato; el sumario excluye las muestras fuera de las zonas definidas; y la interpretación depende de la calidad de los registros y de los modelos elegidos.`,
@@ -192,9 +211,10 @@ export function chatContextText(model: ReportModel, opts: ChatContextOptions = {
     if (mode === 'global') notes.push('el detalle de parámetros por zona');
     if (mode === 'brief') notes.push('el detalle de parámetros por zona y parte de los parámetros de cada método');
     if (mode === 'primary') notes.push('el detalle de parámetros por zona, parte de los parámetros y los de módulos auxiliares');
-    if (mode === 'none') notes.push('los parámetros');
-    if (nWarn < warnings.length) notes.push(`${warnings.length - nWarn} avisos (los menos graves)`);
-    const body = cutLines > 0 ? lines.slice(0, lines.length - cutLines) : lines;
+    // Sin resultado no hay parámetros que omitir: decirlo sería falso (y marcaría el texto como recortado).
+    if (mode === 'none' && hasResult) notes.push('los parámetros');
+    if (nWarn < warnings.length) notes.push(nWarn === 0 ? `los ${warnings.length} avisos` : `${warnings.length - nWarn} avisos (los menos graves)`);
+    const body = lines.slice(0, Math.max(0, lines.length - cutLines));
     if (cutLines > 0) notes.push(`${cutLines} líneas finales`);
     const note = notes.length ? `[Recortado: se omitieron ${notes.join(', ')} para que entre en un mensaje.]` : '';
     return { text: [...body, ...(note ? ['', note] : [])].join('\n'), note };
@@ -219,9 +239,13 @@ export function chatContextText(model: ReportModel, opts: ChatContextOptions = {
       result = build(mode, lo);
     } else {
       // Ni sin avisos entra: se omiten los parámetros y, si hace falta, líneas enteras del final.
+      // `cut` se acota al total de líneas: un valor mayor haría que `slice` volviera a incluir líneas.
+      const total = build('none', 0).text.split('\n').length;
       let cut = 0;
-      while (cut < 10000 && !fits(build('none', 0, cut))) cut++;
+      while (cut < total && !fits(build('none', 0, cut))) cut++;
       result = build('none', 0, cut);
+      // Tope absurdo (menor que la propia nota): se devuelve solo lo que entra de la nota, cortada en una palabra.
+      if (!fits(result)) result = { text: shorten(result.note, max), note: result.note };
     }
   }
   return { text: result.text, truncated: result.note !== '', length: result.text.length };

@@ -44,7 +44,7 @@ Tamaño: **C** chico (una sesión corta), **M** mediano (una sesión), **G** gra
 | F02 | Avisos agrupados y navegables | 1 | C | desarrollador-ui | — | hecha ([0072](decisiones/0072-avisos-agrupados.md)) |
 | F08 | Estado «revisado» por paso | 1 | C | desarrollador-ui | — | hecha ([0073](decisiones/0073-estado-revisado.md)) |
 | F16 | Resistividad mojada (R0) en la pista | 1 | C | analista-numerico | — | hecha |
-| F25 | Copiar contexto para un chat | 1 | C | investigador | — | pendiente |
+| F25 | Copiar contexto para un chat | 1 | C | investigador | — | hecha |
 | F19 | Cronómetro del recorrido | 1 | C | desarrollador-ui | — | pendiente |
 | F03 | «¿De dónde sale este número?» | 2 | M | arquitecto | — | pendiente |
 | F04 | Capas de pay y punzados sugeridos | 2 | M | analista-numerico | — | pendiente |

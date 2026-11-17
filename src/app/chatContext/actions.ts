@@ -13,6 +13,8 @@ export function buildActiveChatContext(): ChatContextResult {
   const entry = selectActiveEntry(useProject.getState());
   const state = useResults.getState();
   if (!entry) throw new Error('Cargá un pozo para copiar su contexto.');
+  // Mismo criterio que `generateReport`: solo el resultado vigente del pozo activo (nada obsoleto ni de otro pozo).
+  if (state.error && !state.busy) throw new Error('El cálculo del pozo activo falló: revisá los avisos y volvé a intentar.');
   if (state.busy || state.error || !state.result || !sameContext(state.result.context, entryContext(entry))) throw new Error('Esperá a que termine el cálculo del pozo activo y volvé a intentar.');
   const model = buildReportModel(entry.well, entry.interpretation, state.result, new Date(), undefined,
     project.inputRevisions?.[entry.inputRevisionId ?? '']?.acquisition);
