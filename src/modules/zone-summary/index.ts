@@ -140,6 +140,7 @@ export default defineModule({
           Number.isNaN(s.netPay)
             ? `${where}, ningún tramo de reservorio tiene Sw: el pay y el h·φ·Sh quedan sin dato.`
             : `${where}, al ${pct} % del reservorio neto (${s.noDataPay.toFixed(1)} m) le falta Sw: el pay se calcula solo con el resto.`,
+            { zoneId: iv.id || undefined },
         );
       }
       if (zones.length > 0) {

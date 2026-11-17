@@ -48,7 +48,7 @@ export default defineModule({
       const { dtMa, dtFl, cp } = s.params;
       if (dtFl <= dtMa) {
         const where = s.zoneId ? `en la zona ${zones.find((z) => z.id === s.zoneId)?.name ?? s.zoneId}` : 'fuera de las zonas';
-        warn(`${where}, el Δt del fluido no supera al de la matriz: la porosidad sónica queda sin dato.`);
+        warn(`${where}, el Δt del fluido no supera al de la matriz: la porosidad sónica queda sin dato.`, { zoneId: s.zoneId ?? undefined });
       }
       for (let i = s.start; i < s.end; i++) out[i] = sonicPorosityWyllie(inputs.dt[i]!, dtMa, dtFl, cp);
     }

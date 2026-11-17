@@ -30,6 +30,10 @@ export interface Diagnostic {
   message: string;
   moduleId?: string;
   port?: string;
+  /** Zona a la que se refiere el aviso (id de `interpretation.zones`), si el módulo la informó (0072). */
+  zoneId?: string;
+  /** Profundidad medida (m) de un aviso puntual (una muestra, un punto MDT), si el módulo la informó (0072). */
+  depth?: number;
 }
 
 /** Lo mínimo que el planificador necesita saber de las curvas del pozo. */

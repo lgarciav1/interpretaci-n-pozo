@@ -55,10 +55,10 @@ export default defineModule({
       let phi = chosen;
       if (!phi) {
         if (other) {
-          warn(`${where} no hay porosidad ${names.want}: se usa la porosidad ${names.alt}.`);
+          warn(`${where} no hay porosidad ${names.want}: se usa la porosidad ${names.alt}.`, { zoneId: s.zoneId ?? undefined });
           phi = other;
         } else {
-          warn(`${where} no hay porosidad RMN ni efectiva: la permeabilidad queda sin dato.`);
+          warn(`${where} no hay porosidad RMN ni efectiva: la permeabilidad queda sin dato.`, { zoneId: s.zoneId ?? undefined });
           out.fill(NaN, s.start, s.end);
           continue;
         }

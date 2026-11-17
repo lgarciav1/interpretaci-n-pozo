@@ -75,7 +75,7 @@ export default defineModule({
       let { kMin, kMax } = s.params;
       if (!(kMin < kMax)) {
         const where = s.zoneId ? `En la zona ${zones.find((z) => z.id === s.zoneId)?.name ?? s.zoneId}` : 'Fuera de las zonas';
-        warn(`${where} la permeabilidad mínima no es menor que la máxima: se usan sin recorte superior.`);
+        warn(`${where} la permeabilidad mínima no es menor que la máxima: se usan sin recorte superior.`, { zoneId: s.zoneId ?? undefined });
         kMax = Infinity;
         kMin = Math.min(kMin, s.params.kMax);
       }

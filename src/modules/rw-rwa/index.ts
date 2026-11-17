@@ -112,7 +112,7 @@ export default defineModule({
       if (params.mode === 'zone') {
         ref = percentile(rwaRef, params.percentile, s.start, s.end);
         if (Number.isNaN(ref)) {
-          warn(`${name ? `En la zona ${name}` : 'Fuera de las zonas'}, ninguna muestra cumple el filtro de Vsh y tiene Rwa válida: Rw queda sin dato.`);
+          warn(`${name ? `En la zona ${name}` : 'Fuera de las zonas'}, ninguna muestra cumple el filtro de Vsh y tiene Rwa válida: Rw queda sin dato.`, { zoneId: s.zoneId ?? undefined });
         }
       } else {
         used = wellUsed;

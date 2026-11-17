@@ -37,6 +37,7 @@ export default defineModule({
           : "fuera de las zonas";
         warn(
           `${where}, el GR de arcilla no supera al de arena limpia: el índice queda sin dato.`,
+          { zoneId: s.zoneId ?? undefined },
         );
       }
       gammaRayIndexInto(

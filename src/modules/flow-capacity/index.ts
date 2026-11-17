@@ -137,7 +137,7 @@ export default defineModule({
       if (filter === 'netRes') include = inputs.netRes;
       else if (filter === 'netPay') include = inputs.netPay;
       if (filter !== 'all' && include === undefined) {
-        warn(`En ${zones.length > 0 ? `la zona ${iv.name}` : 'el pozo'} falta la curva ${filter === 'netRes' ? 'NET_RES' : 'NET_PAY'} (activá los cutoffs): se usa todo el tramo.`);
+        warn(`En ${zones.length > 0 ? `la zona ${iv.name}` : 'el pozo'} falta la curva ${filter === 'netRes' ? 'NET_RES' : 'NET_PAY'} (activá los cutoffs): se usa todo el tramo.`, { zoneId: iv.id || undefined });
         filter = 'all';
       }
       const samples: FlowSamples = { depth, thickness, phi: inputs.phi, k: inputs.k, include };
@@ -167,9 +167,9 @@ export default defineModule({
       lorenzOf(iv.id, iv.name, c);
       summaryRows.push(summaryRow(iv.id, iv.name, FILTER_LABEL[filter], c));
       if (c.units.length === 0) {
-        warn(`En ${zones.length > 0 ? `la zona ${iv.name}` : 'el pozo'} no hay muestras con φ y k para el filtro elegido.`);
+        warn(`En ${zones.length > 0 ? `la zona ${iv.name}` : 'el pozo'} no hay muestras con φ y k para el filtro elegido.`, { zoneId: iv.id || undefined });
       } else if (!Number.isFinite(c.lc)) {
-        warn(`En ${zones.length > 0 ? `la zona ${iv.name}` : 'el pozo'} la capacidad de almacenaje o de flujo es cero: no se puede armar la curva de Lorenz.`);
+        warn(`En ${zones.length > 0 ? `la zona ${iv.name}` : 'el pozo'} la capacidad de almacenaje o de flujo es cero: no se puede armar la curva de Lorenz.`, { zoneId: iv.id || undefined });
       }
     }
 

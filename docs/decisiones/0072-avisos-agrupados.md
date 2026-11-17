@@ -29,14 +29,18 @@ así que no había forma de saltar al visor sin leer el texto, y no se podía de
 3. **Filtro por gravedad.** Tres fichas (error, advertencia, información) con su cuenta; se puede ocultar cada gravedad.
    El filtro y el plegado son estado de interfaz, no del proyecto.
 4. **Un clic navega.** Clic en el nombre del módulo: abre su paso en el flujo (mismo efecto que elegirlo en el
-   Inspector: `activeModuleId` y `activeStepId`). Clic en un aviso con zona: además lleva el visor a esa zona
-   (`useTrendsUi.requestRange(top, base)`, el mismo pedido que el comando «Ir a la zona X en el visor»).
+   Inspector: `activeModuleId` y `activeStepId`; cambia el espacio de trabajo si hace falta). Clic en el chip de zona de
+   un aviso: lleva el visor a esa zona (`useTrendsUi.requestRange(top, base)`, el mismo pedido que el comando «Ir a la
+   zona X en el visor») y **no** abre el paso: a 1366 px abrir el paso reemplaza la lista de avisos por la vista del
+   paso justo después del clic. Para abrir el paso queda el nombre del módulo.
 5. **«Visto» se guarda por pozo, fuera de `interpretation`.** `WellEntry.seenDiagnostics?: string[]` guarda huellas
    de los avisos marcados. La huella es `moduleId|code|zoneId|message` (texto completo): si el aviso cambia (otro
    porcentaje, otra cantidad de muestras) la huella cambia y el aviso vuelve a aparecer sin marcar. Igual que
    `progress`, vive fuera de `interpretation`: marcar no recalcula, no entra en snapshots ni en el historial de
    deshacer de la interpretación. Se serializa con el proyecto (campo opcional, sin cambiar la versión del formato:
-   un archivo sin el campo abre igual). Las huellas de avisos que ya no existen se podan al marcar.
+   un archivo sin el campo abre igual; en v7 el validador lo acepta como opcional). Las huellas de avisos que ya no
+   existen se podan al marcar. Marcar pasa por `commit` como `progress`, así que entra en deshacer («Marcar aviso como
+   visto»): el historial guarda el proyecto entero y un cambio fuera de él se perdería al deshacer otra cosa.
    - Los vistos no se ocultan: se atenúan y bajan al final de su grupo. Un interruptor «Ocultar vistos» los saca.
    - La insignia del panel cuenta solo los no vistos.
 

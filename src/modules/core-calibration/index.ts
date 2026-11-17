@@ -103,7 +103,7 @@ export default defineModule({
       apparentMatrixDensityInto(rhob, phit, rhomaa, s.params.rhoFl, s.start, s.end);
       for (let i = s.start; i < s.end; i++) clean[i] = !vsh || vsh[i]! <= s.params.vshMax ? 1 : 0;
       if (phid && sameAsDensity(phit, phid, s.start, s.end)) {
-        warn(`${where} la porosidad total sale solo de la densidad: ρmaa repite la densidad de matriz elegida. Usá densidad–neutrón en la porosidad total para que ρmaa informe la matriz.`);
+        warn(`${where} la porosidad total sale solo de la densidad: ρmaa repite la densidad de matriz elegida. Usá densidad–neutrón en la porosidad total para que ρmaa informe la matriz.`, { zoneId: s.zoneId ?? undefined });
       }
     }
     if (!vsh) warn('No hay volumen de arcilla: el valor por zona de ρmaa usa todas las muestras, también las arcillosas.');

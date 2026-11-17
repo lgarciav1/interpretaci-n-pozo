@@ -284,10 +284,6 @@
 .stat__value { display: flex; align-items: baseline; gap: var(--space-1); margin-top: 2px; font-size: var(--text-2xl); font-weight: var(--weight-semibold); letter-spacing: var(--tracking-tight); }
 .stat__unit { font-size: var(--text-sm); font-weight: var(--weight-regular); color: var(--color-text-muted); }
 .stat__source { display: flex; align-items: center; gap: var(--space-1-5); margin-top: 2px; font-size: var(--text-xs); color: var(--color-text-subtle); }
-.diag-list { margin: 0; padding: var(--space-2) var(--space-4); list-style: none; }
-.diag-item { display: flex; align-items: baseline; gap: var(--space-2-5); padding: var(--space-1-5) 0; border-bottom: 1px solid var(--color-border-subtle); }
-.diag-item:last-child { border-bottom: 0; }
-.diag-item .ui-dot { transform: translateY(-1px); }
 
 /* Inspector (columna derecha) */
 .inspector-head { display: flex; flex-direction: column; gap: var(--space-1-5); padding: var(--space-3) var(--space-4) var(--space-3); border-bottom: 1px solid var(--color-border-subtle); }

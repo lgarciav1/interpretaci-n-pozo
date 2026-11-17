@@ -45,7 +45,7 @@ export default defineModule({
     for (const s of segments) {
       if (s.params.rhoMa <= s.params.rhoFl) {
         const where = s.zoneId ? `en la zona ${zones.find((z) => z.id === s.zoneId)?.name ?? s.zoneId}` : 'fuera de las zonas';
-        warn(`${where}, la densidad de la matriz no supera a la del fluido: la porosidad por densidad no es válida.`);
+        warn(`${where}, la densidad de la matriz no supera a la del fluido: la porosidad por densidad no es válida.`, { zoneId: s.zoneId ?? undefined });
       }
       densityPorosityInto(inputs.rhob, out, s.params.rhoMa, s.params.rhoFl, s.start, s.end);
     }
