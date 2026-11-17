@@ -12,7 +12,7 @@
  * `onEditCurve` (el visor solo dice qué curva y dónde anclarlo).
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ContextMenu, CurveLegend, formatNumber, getResolvedTheme, getUiScaleFactor, Icon, IconButton, Menu, Popover, prefersReducedMotion, toast, useResolvedTheme, useUiScaleFactor, type MenuEntry } from '../ui';
+import { ContextMenu, CurveLegend, copyText, formatNumber, getResolvedTheme, getUiScaleFactor, Icon, IconButton, Menu, Popover, prefersReducedMotion, toast, useResolvedTheme, useUiScaleFactor, type MenuEntry } from '../ui';
 import { pxPerMeterForScale } from '../io/export/figures/sizing';
 import { nearestCurveAt, readingsText } from './contextMenu';
 import { VIEWER_LOOKS, type ViewerLook } from './look';
@@ -1002,23 +1002,6 @@ export function WellViewer(props: WellViewerProps) {
     const localX = box.x + box.width / 2;
     const scrollLeft = scrollRef.current?.scrollLeft ?? 0;
     setCtxMenu({ x: rect.left + localX - scrollLeft, y: rect.top + Math.min(vp.height - 4, Math.max(4, yOf(vp, depth))), depth, track: ti, localX });
-  };
-  const copyText = async (text: string): Promise<boolean> => {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch {
-      // Sin permiso de portapapeles (archivo local en algunos navegadores): copia con un campo temporal.
-      const area = document.createElement('textarea');
-      area.value = text;
-      area.style.position = 'fixed';
-      area.style.opacity = '0';
-      document.body.appendChild(area);
-      area.select();
-      const ok = document.execCommand?.('copy') ?? false;
-      area.remove();
-      return ok;
-    }
   };
   const contextItems = (): { header: ReactNode; items: MenuEntry[] } => {
     const m = ctxMenu!;
