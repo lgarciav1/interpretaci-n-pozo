@@ -92,6 +92,26 @@
 .shell-engine .ui-spinner { border-color: color-mix(in srgb, var(--brand-thermal1) 28%, transparent); border-top-color: var(--brand-thermal2); border-right-color: var(--brand-thermal3); }
 .shell-engine:hover { background: var(--color-surface-hover); border-color: var(--color-border); color: var(--color-text); }
 .shell-actions { display: flex; align-items: center; gap: var(--space-2); }
+/* Autoguardado (docs/decisiones/0071): misma familia que el estado del motor, sin acción (no es botón). */
+.shell-autosave {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  gap: var(--space-2);
+  height: calc(28px * var(--ui-scale));
+  padding: 0 var(--space-1) 0 var(--space-2-5);
+  color: var(--color-text-subtle);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  cursor: default;
+}
+.shell-autosave__icon { position: relative; display: inline-flex; flex: none; }
+/* El estado, como insignia sobre el disquete: se distingue del punto del motor aun sin texto (barra compacta). */
+.shell-autosave__badge { position: absolute; right: -3px; bottom: -2px; width: calc(7px * var(--ui-scale)); height: calc(7px * var(--ui-scale)); box-shadow: 0 0 0 2px var(--color-surface); }
+.shell-autosave:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; border-radius: var(--radius-full); }
+.shell-autosave[data-status='dirty'] { color: var(--color-text-muted); }
+.shell-autosave[data-status='error'] { color: var(--color-error-text); }
+.shell-autosave .ui-spinner { border-color: color-mix(in srgb, var(--brand-thermal1) 28%, transparent); border-top-color: var(--brand-thermal2); border-right-color: var(--brand-thermal3); }
 .shell-history { display: flex; align-items: center; gap: var(--space-0-5); }
 .shell-count {
   min-width: calc(18px * var(--ui-scale));
@@ -123,8 +143,10 @@
 @container topbar (max-width: 104em) {
   .shell-actions .ui-btn:not(.ui-btn--primary) { position: relative; --btn-px: var(--space-2); }
   .shell-actions .ui-btn:not(.ui-btn--primary) .ui-btn__label,
-  .shell-engine__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .shell-engine__label,
+  .shell-autosave__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .shell-engine { position: relative; padding-inline: var(--space-2); }
+  .shell-autosave { position: relative; padding-inline: var(--space-2) 0; }
 }
 @container topbar (max-width: 86em) {
   .shell-workspace .ui-seg__item > span,

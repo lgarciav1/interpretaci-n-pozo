@@ -10,7 +10,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { registry } from '../../modules';
-import { BrandMark, BrandName, Button, PRODUCT_NAME, curveStyle, formatNumber, Icon, IconButton, prefersReducedMotion, ThemeToggle, useResolvedTheme, useThemeTokens } from '../../ui';
+import { BrandMark, BrandName, Button, PRODUCT_NAME, curveStyle, formatNumber, Icon, IconButton, prefersReducedMotion, ThemeToggle, toast, useResolvedTheme, useThemeTokens } from '../../ui';
 import { effectiveWell } from '../preparation/data';
 import { loadDemoWell } from '../demo/loadDemo';
 import { pickProjectFile } from '../shell/projectActions';
@@ -23,6 +23,8 @@ import { AXIAL_COMPRESSION, boreholeDiameter, buildToolStringScene, familyColor,
 import { useToolStringView } from '../toolString/select';
 import { useToolStringUi } from '../toolString/store';
 import { wellColumn } from '../toolString/wellColumn';
+import { autosave, formatAgo, sessionTitle, useAutosave } from '../autosave';
+import type { SessionMeta } from '../autosave/storage';
 import { closeHome, exploreToolString } from './actions';
 import { demoToolString } from './demoString';
 import { ShowcaseRenderer } from './showcase3d';
@@ -46,6 +48,50 @@ function sceneQuality(): 'high' | 'low' {
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
+
+/** Descartar a mano; `discard` no tira, pero un rechazo no debe quedar sin atrapar. */
+async function discardSession(id: string): Promise<void> {
+  try {
+    await autosave()?.discard(id);
+  } catch (err) {
+    toast({ title: 'No se pudo descartar la sesión', description: err instanceof Error ? err.message : String(err), tone: 'error' });
+  }
+}
+
+/** Proyecto, pozos y hace cuánto se guardó la sesión que ofrece «Seguir donde quedaste», con la acción de descartarla. */
+function ResumeDetail({ session, disabled }: { session: SessionMeta; disabled: boolean }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 15000);
+    return () => window.clearInterval(id);
+  }, []);
+  const at = Date.parse(session.savedAt);
+  const { title, wells } = sessionTitle(session);
+  return (
+    <div className="home__resume" aria-label="Sesión guardada en este navegador">
+      <span className="home__resume-name">
+        <Icon name={wells === null ? 'well' : 'folder'} size={14} />
+        <span className="home__resume-text">{title}</span>
+      </span>
+      <span className="home__resume-detail">
+        {wells !== null && (
+          <>
+            <Icon name="well" size={12} />
+            <span className="home__resume-text">{wells}</span>
+            <span aria-hidden="true">·</span>
+          </>
+        )}
+        <span className="num home__resume-ago" title={new Date(at).toLocaleString('es-AR')}>
+          guardado {formatAgo(at, now)}
+        </span>
+      </span>
+      <button type="button" className="home__resume-discard" onClick={() => void discardSession(session.id)} disabled={disabled} data-testid="home-resume-discard">
+        Descartar
+      </button>
+    </div>
+  );
+}
+
 /** Inicio montado solo cuando está a la vista. */
 export function HomeRoot() {
   const phase = useHome((s) => s.phase);
@@ -57,6 +103,8 @@ function HomeScreen() {
   const via = useHome((s) => s.via);
   const entry = useProject(selectActiveEntry);
   const projectName = useProject((s) => s.project.name);
+  const sessions = useAutosave((s) => s.sessions);
+  const restoring = useAutosave((s) => s.restoring);
   const view = useToolStringView();
   const theme = useResolvedTheme();
   const tokens = useThemeTokens();
@@ -310,6 +358,22 @@ function HomeScreen() {
     }
   };
 
+  // ── Seguir donde quedaste (docs/decisiones/0071) ──────────────────────────────────────────────────────────────
+  // Solo sin pozo (al arrancar): con un pozo cargado, recuperar pisaría el trabajo actual.
+  const resume: SessionMeta | undefined = entry ? undefined : sessions[0];
+  const others = entry ? [] : sessions.slice(1, 3);
+  // Recuperar deja Inicio a la vista con el pozo ya cargado: «Entrar al pozo» toma el foco y la entrada es la de siempre.
+  const restore = useCallback(async (id: string) => {
+    try {
+      const ok = await autosave()?.restore(id);
+      if (ok) requestAnimationFrame(() => primaryRef.current?.focus({ preventScroll: true }));
+    } catch (err) {
+      // `restore` avisa sus propios errores; esto es la red de seguridad (nada queda como rechazo sin atrapar).
+      console.warn('Inicio: no se pudo recuperar la sesión', err);
+      toast({ title: 'No se pudo recuperar la sesión', description: err instanceof Error ? err.message : String(err), tone: 'error' });
+    }
+  }, []);
+
   // ── Textos ─────────────────────────────────────────────────────────────────────────────────────────────────────
   const selected = selectedId ? entries.find((e) => e.tool.id === selectedId) : undefined;
   const toolCount = entries.length;
@@ -408,7 +472,11 @@ function HomeScreen() {
               </div>
             </dl>
           ) : (
-            <p className="home__empty">Todavía no hay un pozo cargado. Podés traer un Excel, LAS o CSV, abrir un proyecto guardado o probar con el pozo de demostración.</p>
+            <p className="home__empty">
+              {sessions.length
+                ? 'Tu trabajo quedó guardado en este navegador. Seguí donde quedaste, o empezá con otro pozo, un proyecto guardado o la demostración.'
+                : 'Todavía no hay un pozo cargado. Podés traer un Excel, LAS o CSV, abrir un proyecto guardado o probar con el pozo de demostración.'}
+            </p>
           )}
 
           <div className="home__actions">
@@ -416,6 +484,13 @@ function HomeScreen() {
               <Button ref={primaryRef} variant="primary" size="lg" icon="arrow-right" onClick={() => void enter()} disabled={busy} data-testid="home-enter">
                 Entrar al pozo
               </Button>
+            ) : resume ? (
+              <>
+                <Button ref={primaryRef} variant="primary" size="lg" icon="history" onClick={() => void restore(resume.id)} loading={restoring} disabled={busy} data-testid="home-resume">
+                  Seguir donde quedaste
+                </Button>
+                <ResumeDetail session={resume} disabled={busy || restoring} />
+              </>
             ) : (
               <Button ref={primaryRef} variant="primary" size="lg" icon="upload" onClick={() => useUi.getState().set({ loadDialog: {} })} disabled={busy} data-testid="home-load">
                 Cargar pozo
@@ -425,6 +500,11 @@ function HomeScreen() {
               {entry && (
                 <Button variant="ghost" icon="upload" onClick={() => useUi.getState().set({ loadDialog: {} })} disabled={busy}>
                   Cargar otro pozo
+                </Button>
+              )}
+              {!entry && resume && (
+                <Button variant="ghost" icon="upload" onClick={() => useUi.getState().set({ loadDialog: {} })} disabled={busy}>
+                  Cargar pozo
                 </Button>
               )}
               <Button variant="ghost" icon="folder" onClick={pickProjectFile} disabled={busy}>
@@ -440,6 +520,28 @@ function HomeScreen() {
                 </Button>
               )}
             </div>
+            {!entry && others.length > 0 && (
+              <div className="home__sessions" data-testid="home-sessions">
+                <p className="home__sessions-title">Otras sesiones en este navegador</p>
+                <ul>
+                  {others.map((m) => {
+                    const { title, wells } = sessionTitle(m);
+                    return (
+                      <li key={m.id} className="home__session">
+                        <button type="button" className="home__session-open" onClick={() => void restore(m.id)} disabled={busy || restoring} data-testid="home-session-open">
+                          <span className="home__session-name">{title}</span>
+                          <span className="home__session-detail">
+                            {wells !== null && `${wells} · `}
+                            <span className="num">{formatAgo(Date.parse(m.savedAt), Date.now())}</span>
+                          </span>
+                        </button>
+                        <IconButton icon="trash" size="sm" label={`Descartar la sesión «${title}»`} onClick={() => void discardSession(m.id)} disabled={busy || restoring} data-testid="home-session-discard" />
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
           </div>
         </section>
 
