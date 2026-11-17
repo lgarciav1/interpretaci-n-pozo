@@ -1,3 +1,4 @@
+import { createNotesOverlay } from '../../viewer/overlays/notes';
 /**
  * Superposiciones del visor de la app: las incorporadas (zonas con edición, calidad, tendencias) y las de los módulos.
  * Lista única, compartida por el visor (`ViewerSlot`) y las acciones de «Armar pistas» (las pistas propias de las
@@ -16,6 +17,7 @@ import { TREND_OVERLAYS } from '../trends/actions';
 const activeWell = () => activeWellEntry(useProject.getState().project);
 
 const BUILTIN_OVERLAYS = [
+  createNotesOverlay(),
   ...createZonesOverlay({
     onSelect: (id) => useUi.getState().set({ editingZoneId: id }),
     edit: {

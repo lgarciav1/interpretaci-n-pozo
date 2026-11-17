@@ -1,3 +1,4 @@
+import { createNotesOverlay } from '../../viewer/overlays/notes';
 import { preparationViewCurves } from '../preparation/view';
 import { usePreparationUi } from '../preparation/store';
 import { effectiveWell } from '../preparation/data';
@@ -38,7 +39,7 @@ import type { FigureEnv, RasterBackend } from './figureRender';
  * Superposiciones de la figura: zonas (sin edición), calidad, tendencias SIN manijas y las de los módulos (presiones
  * MDT, corona). Instancias propias: no comparten estado de arrastre ni selección con las del visor en pantalla.
  */
-const FIGURE_BUILTIN: ViewerOverlay[] = [...createZonesOverlay({}), createQcOverlay(), ...createTrendsOverlays({ resolve: resolveSeries, presentation: true })];
+const FIGURE_BUILTIN: ViewerOverlay[] = [createNotesOverlay(), ...createZonesOverlay({}), createQcOverlay(), ...createTrendsOverlays({ resolve: resolveSeries, presentation: true })];
 const FIGURE_OVERLAYS: ViewerOverlay[] = [...FIGURE_BUILTIN, ...moduleOverlays(FIGURE_BUILTIN.map((o) => o.id))];
 
 /** Pistas del espacio de trabajo activo, resueltas como en pantalla (con los overrides del usuario). */

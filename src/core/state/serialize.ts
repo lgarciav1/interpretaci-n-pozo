@@ -1,3 +1,4 @@
+import { sanitizeNotes } from '../notes';
 /**
  * Guardar / abrir proyecto.
  *
@@ -239,12 +240,13 @@ export async function deserializeProject(text: string, opts: DeserializeOptions 
   /** Tendencias y decisiones sobre puntos validadas al abrir: lo inválido se descarta con aviso (como `display`). */
   const cleanInterp = (i: Interpretation, where: string): Interpretation => {
     if (i.preparation !== undefined) throw new Error('Una receta de preparación requiere un archivo con revisiones de entradas.');
-    const { toolString: rawToolString, moduleState: rawModuleState, ...rest } = i;
+    const { toolString: rawToolString, moduleState: rawModuleState, notes: rawNotes, ...rest } = i;
     const toolString = sanitizeToolString(rawToolString, where, warn);
     const moduleState = sanitizeModuleState(rawModuleState, where, warn);
     return {
       ...rest,
       trends: sanitizeTrends(i.trends, where, warn),
+      ...(rawNotes !== undefined ? { notes: sanitizeNotes(rawNotes, where, warn) } : {}),
       pointSets: sanitizePointSetDecisions(i.pointSets, where, warn),
       ...(toolString ? { toolString } : {}),
       ...(moduleState ? { moduleState } : {}),

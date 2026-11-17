@@ -1,3 +1,4 @@
+import { sanitizeNotes } from '../../notes';
 /** Archivo de revisiones: una representación por Well, arrays compartidos por hash de bytes LE. */
 import { sanitizeDisplay, type DisplaySettings } from '../../display';
 import { sanitizeModuleState, type Interpretation } from '../../interpretation';
@@ -51,7 +52,7 @@ function jsonData(value: unknown): void {
   for (const v of Object.values(requireObject(value, 'Datos JSON'))) jsonData(v);
 }
 function interpretation(raw: unknown): Interpretation {
-  const i = requireShape(raw, 'Interpretación', ['zones','params','sources','compare','disabled','trends','pointSets'], ['toolString','preparation','moduleState']);
+  const i = requireShape(raw, 'Interpretación', ['zones','params','sources','compare','disabled','trends','pointSets'], ['toolString','preparation','moduleState','notes']);
   if (own(i, 'preparation')) validatePreparation(i.preparation);
   jsonData(i);
   requireArray(i.zones, 'Zonas');
@@ -73,6 +74,7 @@ function interpretation(raw: unknown): Interpretation {
   }
   for (const key of ['compare','disabled']) { requireArray(i[key], key); for (const id of i[key]) requireText(id, key); }
   const warn = (m: string) => fail(m);
+  if (own(i, 'notes')) sanitizeNotes(i.notes, 'v7', warn);
   requireArray(i.trends, 'Tendencias'); sanitizeTrends(i.trends, 'v7', warn);
   for (const [id,raw] of Object.entries(requireObject(i.pointSets, 'Decisiones de laboratorio'))) {
     requireText(id, 'Id de conjunto');

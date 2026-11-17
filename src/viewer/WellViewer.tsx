@@ -1,3 +1,4 @@
+import { NotesDialog } from './NotesDialog';
 /**
  * Visor multipista (docs/decisiones/0005-visor-multipista.md). Encabezados HTML (CurveLegend + lectura del cursor)
  * sobre dos canvas apilados: base (pistas, grilla, rellenos, curvas, superposiciones) y cursor; a la derecha, el
@@ -1008,6 +1009,7 @@ export function WellViewer(props: WellViewerProps) {
     const scrollLeft = scrollRef.current?.scrollLeft ?? 0;
     setCtxMenu({ x: rect.left + localX - scrollLeft, y: rect.top + Math.min(vp.height - 4, Math.max(4, yOf(vp, depth))), depth, track: ti, localX });
   };
+  const [notesDepth, setNotesDepth] = useState<number | null>(null);
   const contextItems = (): { header: ReactNode; items: MenuEntry[] } => {
     const m = ctxMenu!;
     const p = propsRef.current;
@@ -1028,6 +1030,7 @@ export function WellViewer(props: WellViewerProps) {
       </>
     );
     const items: MenuEntry[] = [
+      { id: 'notes', label: 'Notas de profundidad…', disabled: !p.data.commit, onSelect: () => setNotesDepth(d) },
       {
         id: 'copy',
         label: 'Copiar profundidad y lecturas',
@@ -1624,6 +1627,7 @@ export function WellViewer(props: WellViewerProps) {
           </div>
         </Popover>
       )}
+      {notesDepth !== null && <NotesDialog key={props.data.wellId} data={props.data} depth={notesDepth} onClose={() => setNotesDepth(null)} />}
       {ctxMenu && (() => {
         const { header, items } = contextItems();
         return <ContextMenu at={{ x: ctxMenu.x, y: ctxMenu.y }} items={items} header={header} onClose={() => setCtxMenu(null)} returnFocus={bodyRef} aria-label={`Perfil a ${formatDepth(ctxMenu.depth)} m`} minWidth={260} />;

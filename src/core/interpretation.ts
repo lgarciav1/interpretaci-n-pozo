@@ -13,6 +13,8 @@ import type { PreparationState } from './preparation/state';
 export type SourceRef = { kind: 'curve'; curveId: string } | { kind: 'module'; moduleId: string };
 
 export interface Interpretation {
+  /** Notas de lectura en MD; opcionales en proyectos anteriores, fuera del motor. */
+  notes?: import('./notes').DepthNote[];
   preparation?: PreparationState;
   zones: Zone[];
   params: ParamState;
