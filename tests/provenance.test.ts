@@ -406,3 +406,90 @@ describe('con el pozo del TP y el registro real', () => {
     expect(t.target.value).toBe(sw[idx]);
   });
 });
+
+// Revisión independiente (F03): el chequeo «reemplazar a mano da el resultado publicado» en TODAS las zonas, con los tres
+// modelos de Sw (Archie, Simandoux, Indonesia: estos dos suman Vsh y Rsh), un parámetro por zona y un recorrido genérico.
+describe('con el pozo del TP: todas las zonas, modelos de Sw con Vsh y recorrido genérico', () => {
+  const { well: tp, zones } = readWellFile(csvText, 'pozo_tp_perfiles.csv');
+  const depth = tp.depth.values;
+  const e = new Engine(realRegistry);
+  e.setWell(toEngineWell(tp));
+
+  // Ecuaciones escritas aparte del motor (Asquith y Krygowski, 2004; Poupon y Leveaux, 1971), con el Simandoux del módulo
+  // (forma con a y m): Sw = a·Rw/(2φ^m)·[√((Vsh/Rsh)² + 4φ^m/(a·Rw·Rt)) − Vsh/Rsh].
+  const byHand: Record<string, (v: (k: string) => number, p: (k: string) => number) => number> = {
+    'sw-archie': (v, p) => ((p('a') * v('rw')) / (v('phi') ** p('m') * v('rt'))) ** (1 / p('n')),
+    'sw-simandoux': (v, p) => {
+      const w = v('vsh') / p('rsh');
+      const pm = v('phi') ** p('m');
+      return ((p('a') * v('rw')) / (2 * pm)) * (Math.sqrt(w * w + (4 * pm) / (p('a') * v('rw') * v('rt'))) - w);
+    },
+    'sw-indonesia': (v, p) => ((1 / Math.sqrt(v('rt'))) / (v('vsh') ** (1 - v('vsh') / 2) / Math.sqrt(p('rsh')) + v('phi') ** (p('m') / 2) / Math.sqrt(p('a') * v('rw')))) ** (2 / p('n')),
+  };
+
+  for (const model of Object.keys(byHand)) {
+    it(`${model}: una muestra por zona (Sw entre 0 y 1) coincide con la cuenta a mano y con φe = φt·(1 − Vsh)`, () => {
+      const base = emptyInterpretation(zones);
+      const r = e.run(model === 'sw-archie' ? base : { ...base, sources: { ...base.sources, SW: { kind: 'module', moduleId: model } } });
+      const swOut = r.outputs.find((o) => o.port === 'SW' && o.active)!;
+      expect(swOut.moduleId).toBe(model);
+      const sw = swOut.value as Float64Array;
+      for (const z of zones) {
+        const inZone = [...depth.keys()].filter((i) => depth[i]! >= z.top && depth[i]! <= z.base && sw[i]! > 0 && sw[i]! < 1);
+        const idx = inZone[Math.floor(inZone.length / 2)]!;
+        const t = ok(traceSample(r, realRegistry, tp.curves, idx, swOut.key));
+        expect(t.zoneId).toBe(z.id);
+        const l = link(t, model);
+        const v = (k: string) => l.inputs.find((x) => x.key === k)!.value!;
+        const p = (k: string) => l.params.find((x) => x.key === k)!.value as number;
+        expect(Math.abs(byHand[model]!(v, p) - sw[idx]!) / sw[idx]!, `${z.name} ${depth[idx]}`).toBeLessThan(1e-9);
+        const phie = link(t, 'phie-vsh');
+        const phit = phie.inputs.find((x) => x.key === 'phit')!.value!;
+        const vsh = phie.inputs.find((x) => x.key === 'vsh')!.value!;
+        expect(phie.outputs[0]!.value).toBeCloseTo(phit * (1 - vsh), 12);
+        expect(t.target.value).toBe(sw[idx]);
+      }
+    });
+  }
+
+  it('un parámetro de una zona se ve en esa zona y no en las otras, con la cuenta a mano', () => {
+    const zb = zones.find((z) => z.name === 'B')!;
+    const base = emptyInterpretation(zones);
+    const r = e.run({ ...base, params: { ...base.params, zones: { [zb.id]: { n: 2.5 } } } });
+    const swOut = r.outputs.find((o) => o.port === 'SW' && o.active)!;
+    const sw = swOut.value as Float64Array;
+    for (const [name, want] of [['A', 2], ['B', 2.5], ['D', 2]] as const) {
+      const z = zones.find((x) => x.name === name)!;
+      const inZone = [...depth.keys()].filter((i) => depth[i]! >= z.top && depth[i]! <= z.base && sw[i]! > 0 && sw[i]! < 1);
+      const idx = inZone[Math.floor(inZone.length / 2)]!;
+      const l = link(ok(traceSample(r, realRegistry, tp.curves, idx, swOut.key)), 'sw-archie');
+      const n = l.params.find((x) => x.key === 'n')!;
+      expect(n.value, name).toBe(want);
+      expect(n.fromZone, name).toBe(name === 'B');
+      const v = (k: string) => l.inputs.find((x) => x.key === k)!.value!;
+      const p = (k: string) => l.params.find((x) => x.key === k)!.value as number;
+      expect(Math.abs(byHand['sw-archie']!(v, p) - sw[idx]!) / sw[idx]!).toBeLessThan(1e-9);
+    }
+  });
+
+  it('recorrido genérico: toda salida del registro real se traza y vale lo publicado (incluye escalares por zona y tablas)', () => {
+    const r = e.run(emptyInterpretation(zones));
+    let tables = 0;
+    let zoneScalars = 0;
+    for (const o of r.outputs) {
+      for (const i of [0, 700, 2573, 5809]) {
+        const t = ok(traceSample(r, realRegistry, tp.curves, i, o.key));
+        if (o.value instanceof Float64Array) expect(Object.is(t.target.value, o.value[i]), `${o.key}@${i}`).toBe(true);
+        for (const l of t.links) {
+          for (const inp of l.inputs) {
+            if (inp.kind === 'table') tables += inp.rows !== undefined ? 1 : 0;
+            if (inp.kind === 'zoneScalar') zoneScalars++;
+            if (inp.source.kind === 'module') expect(inp.source.link, `${o.key}: ${l.moduleId}.${inp.key}`).toBeGreaterThanOrEqual(0);
+          }
+        }
+      }
+    }
+    expect(tables).toBeGreaterThan(0);
+    expect(zoneScalars).toBeGreaterThan(0);
+  });
+});
