@@ -3,7 +3,7 @@
  * (tamaño de interfaz y tema, en un menú). Si no entra (ventana angosta o tamaño Grande), se compacta por etapas con consultas de
  * contenedor en `em` (shell.css): el umbral sigue al tamaño del texto.
  */
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { WORKSPACES, type WorkspaceId } from '../../core/workspaces';
 import { BrandMark, BrandName, Button, Icon, IconButton, IS_MAC_PLATFORM, Menu, openCommandPalette, Popover, SegmentedControl, Spinner, StatusDot, ThemeToggle, Tooltip, UiScaleToggle, formatNumber } from '../../ui';
 import { selectActiveEntry, useProject } from '../store/project';
@@ -14,6 +14,7 @@ import { IS_MAC, REDO_SHORTCUT, UNDO_SHORTCUT, redoChange, undoChange } from './
 import { openProjectFile, saveProject } from './projectActions';
 import { openEquations } from '../ecuaciones/open';
 import { openHome } from '../home/actions';
+import { formatAgo, formatClock, useAutosave } from '../autosave';
 
 const WORKSPACE_ICON: Record<WorkspaceId, 'sliders' | 'mountain'> = { petrophysics: 'sliders', geology: 'mountain' };
 
@@ -34,6 +35,58 @@ function EngineStatus() {
         {busy ? <Spinner size={12} /> : <StatusDot tone={error ? 'error' : 'ok'} label={error ? 'Con error' : 'Listo'} />}
         <span className="num shell-engine__label">{label}</span>
       </button>
+    </Tooltip>
+  );
+}
+
+/** Reloj que avanza cada `ms` (para «Guardado hace N s»). */
+function useNow(ms: number, active: boolean): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!active) return;
+    setNow(Date.now());
+    const id = window.setInterval(() => setNow(Date.now()), ms);
+    return () => window.clearInterval(id);
+  }, [ms, active]);
+  return now;
+}
+
+/**
+ * Estado del autoguardado (docs/decisiones/0071, punto 8): cuenta el navegador y el archivo. Misma familia visual que
+ * el estado del motor; en la barra compacta queda solo el punto (el texto sigue en el nombre accesible y el tooltip).
+ */
+function AutosaveStatus() {
+  const { status, autoSavedAt, fileSafe, fileOrigin, autoSafe } = useAutosave();
+  const now = useNow(5000, status === 'saved' && autoSavedAt !== null);
+  if (status === 'empty') return null;
+  const savedLabel = autoSafe && autoSavedAt !== null ? `Guardado ${formatAgo(autoSavedAt, now)}` : fileOrigin === 'saved' ? 'Guardado en archivo' : 'Sin cambios';
+  const label = status === 'saving' ? 'Guardando…' : status === 'dirty' ? 'Cambios sin guardar' : status === 'unavailable' ? 'Sin autoguardado' : savedLabel;
+  const inFile = fileSafe && fileOrigin !== 'boot';
+  const file = inFile ? `Archivo .pozo.json: al día${fileOrigin === 'opened' ? ' (es el que se abrió)' : ''}.` : 'Archivo .pozo.json: no guardado (Proyecto › Guardar proyecto).';
+  const browser =
+    status === 'unavailable'
+      ? 'Este navegador no permite guardar en IndexedDB: al cerrar la pestaña se pide confirmación.'
+      : status === 'saving'
+        ? 'Guardando en este navegador…'
+        : autoSafe && autoSavedAt !== null
+          ? `Autoguardado en este navegador a las ${formatClock(autoSavedAt)}.`
+          : 'Se guarda en este navegador 3 s después del último cambio.';
+  const tone = status === 'dirty' || (status === 'unavailable' && !inFile) ? 'warn' : status === 'unavailable' ? 'neutral' : 'ok';
+  return (
+    <Tooltip content={`${browser} ${file}`} placement="bottom">
+      <span className="shell-autosave" role="img" tabIndex={0} aria-label={`${label}. ${browser} ${file}`} data-testid="autosave-status" data-status={status}>
+        {status === 'saving' ? (
+          <Spinner size={12} />
+        ) : (
+          <span className="shell-autosave__icon" aria-hidden="true">
+            <Icon name="save" size={14} />
+            <span className={`ui-dot ui-dot--${tone} shell-autosave__badge`} />
+          </span>
+        )}
+        <span className="num shell-autosave__label" aria-hidden="true">
+          {label}
+        </span>
+      </span>
     </Tooltip>
   );
 }
@@ -128,6 +181,7 @@ export function TopBar() {
         />
       </div>
       <span className="shell-spacer" />
+      <AutosaveStatus />
       <EngineStatus />
       <HistoryButtons />
       <span className="shell-topbar__divider" aria-hidden="true" />

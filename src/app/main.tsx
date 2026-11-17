@@ -32,7 +32,7 @@ async function bootShowcase() {
 
 async function boot() {
   try {
-    const [{ registry }, { App }, { startEngineBridge }, { useProject }, { syntheticWell }, { addWell, createProject }, { installUiSync }, { installHistoryShortcuts }, { useHome }] = await Promise.all([
+    const [{ registry }, { App }, { startEngineBridge }, { useProject }, { syntheticWell }, { addWell, createProject }, { installUiSync }, { installHistoryShortcuts }, { useHome }, { installAutosave }] = await Promise.all([
       import('../modules'),
       import('./App'),
       import('./engineBridge'),
@@ -42,6 +42,7 @@ async function boot() {
       import('./store/uiSync'),
       import('./shell/historyActions'),
       import('./home/store'),
+      import('./autosave'),
     ]);
     const params = new URLSearchParams(location.search);
     if (params.get('inicio') === 'no' || params.has('muestras')) {
@@ -54,6 +55,8 @@ async function boot() {
     }
     installUiSync((id) => registry.get(id) !== undefined);
     installHistoryShortcuts();
+    // Autoguardado (docs/decisiones/0071): no demora el arranque ni lo rompe si IndexedDB falla.
+    void installAutosave().catch((err) => console.warn('Autoguardado no disponible', err));
     for (const w of registry.warnings) console.warn(`Registro de módulos: ${w}`);
     startEngineBridge(registry);
     root.render(

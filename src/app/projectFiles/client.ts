@@ -30,6 +30,11 @@ export class ProjectFileClient {
               if (!result.project || !Array.isArray(result.warnings) || result.warnings.some((m) => typeof m !== 'string')) throw new Error('Respuesta de apertura inválida.');
               freezeRevisionMetadata(result.project.inputRevisions);
             }
+            if (result.kind === 'recover') {
+              const issuesOk = Array.isArray(result.issues) && result.issues.every((i) => i && typeof i.where === 'string' && typeof i.message === 'string');
+              if (!issuesOk || (result.project !== null && (typeof result.project !== 'object' || !Array.isArray(result.project.wells)))) throw new Error('Respuesta de recuperación inválida.');
+              if (result.project) freezeRevisionMetadata(result.project.inputRevisions);
+            }
             resolve(result);
           } catch (err) { reject(err); }
         };
