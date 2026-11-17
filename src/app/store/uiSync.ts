@@ -47,7 +47,8 @@ export function installUiSync(moduleExists?: (id: string) => boolean): void {
   useProject.subscribe((s, prev) => {
     if (s.project === prev.project) return;
     // Primero se sale del modo defensa (restaura la foto); después se corrige lo que haya quedado colgado.
-    if (useUi.getState().presenting && defenseExitNeeded(prev, s)) exitDefense();
+    // Sin restaurar el tramo: es de otro pozo, o de un proyecto que ya no está (aunque el pozo tenga el mismo id).
+    if (useUi.getState().presenting && defenseExitNeeded(prev, s)) exitDefense({ restoreRange: false });
     const patch = staleUiPatch(useUi.getState(), s.project, moduleExists);
     if (Object.keys(patch).length > 0) useUi.getState().set(patch);
     // La selección de los gráficos (0021) es de un pozo: otro pozo activo (u otra importación) la limpia.

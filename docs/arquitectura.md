@@ -525,7 +525,7 @@ Decisión: [`docs/decisiones/0075-vistas-guardadas.md`](decisiones/0075-vistas-g
   sin herramientas de edición; abajo al centro, el indicador (`DefenseHud`).
 - **Armazón y teclado.** Sin barra superior, flujo, columna del pozo ni rieles; el panel de la vista va donde estén los
   paneles. → ← pasan de vista sin vuelta circular y Esc sale (escucha en captura sobre la ventana, antes que el visor);
-  Ctrl+Z y Ctrl+Y no hacen nada; ↑ ↓, Re Pág, Av Pág, + − y 0 siguen siendo del visor (con el foco suelto al entrar, la
+  Ctrl+Z y Ctrl+Y no hacen nada y la paleta solo ofrece el grupo «Vistas» (`whilePresenting`, `src/app/commands/index.ts`); ↑ ↓, Re Pág, Av Pág, + − y 0 siguen siendo del visor (con el foco suelto al entrar, la
   primera de esas teclas enfoca el visor y se le reenvía). El tramo se pide después de que el armazón se acomoda (dos
   cuadros) y se comprueba contra el visible; si no coincide, se vuelve a pedir.
 - **Pruebas.** `tests/views.test.ts` (recetas, saneamiento, resolución, ciclo de cinco vistas por archivo, foto,

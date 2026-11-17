@@ -31,7 +31,10 @@ const clearToasts = async (page) => {
 const shot = async (page, name) => {
   if (!OUT) return;
   await clearToasts(page);
-  await page.mouse.move(683, 300);
+  // En el modo defensa el visor ocupa la pantalla: el mouse va a la barra del visor (fuera del perfil), para que la
+  // captura no muestre la línea del cursor del puntero.
+  const presenting = (await page.locator('[data-testid=defense-hud]').count()) > 0;
+  await page.mouse.move(683, presenting ? 2 : 300);
   await page.waitForTimeout(200);
   await page.screenshot({ path: path.join(OUT, name + '.png') });
 };
@@ -183,8 +186,9 @@ async function enterWell(page) {
 
     // Autoguardado → recargar → seguir donde quedaste.
     await page.waitForFunction(() => document.querySelector('[data-testid=autosave-status]')?.getAttribute('data-status') === 'saved', null, { timeout: 15000 });
-    await page.reload();
-    await page.waitForSelector('[data-testid=home-resume]', { timeout: 15000 });
+    await page.reload({ waitUntil: 'load' });
+    // La lista de sesiones se lee de IndexedDB después de montar Inicio: esperar el botón con el localizador (reintenta).
+    await page.getByTestId('home-resume').waitFor({ state: 'visible', timeout: 30000 });
     await page.getByTestId('home-resume').click();
     await page.waitForSelector('[data-testid=home-enter]', { timeout: 15000 });
     await enterWell(page);
@@ -237,6 +241,19 @@ async function enterWell(page) {
     await page.keyboard.press('Control+y');
     await page.waitForTimeout(300);
     check('Ctrl+Z / Ctrl+Y no hacen nada en el modo', (await idx()) === '2 / 5' && (await page.locator('.ui-toast', { hasText: /Se deshizo|Se rehízo/ }).count()) === 0);
+    // La paleta, durante el modo, solo ofrece las acciones de «Vistas» (no se edita mientras se presenta).
+    await page.keyboard.press('Control+k');
+    await page.waitForSelector('.ui-cmd input[role=combobox]');
+    await page.keyboard.type('Deshacer', { delay: 5 });
+    await page.waitForTimeout(300);
+    const undoOffered = await page.locator('[data-testid="cmd-edit:undo"]').count();
+    await page.keyboard.press('Control+a');
+    await page.keyboard.type('Salir del modo defensa', { delay: 5 });
+    const exitOffered = await page.locator('[data-testid="cmd-views:exit"]').count();
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.ui-cmd', { state: 'detached' }).catch(() => {});
+    await page.waitForTimeout(250);
+    check('la paleta en el modo no ofrece Deshacer y sí Salir', undoOffered === 0 && exitOffered === 1 && (await idx()) === '2 / 5', `deshacer ${undoOffered}, salir ${exitOffered}`);
     await page.keyboard.press('ArrowRight');
     await checkView(3);
     await shot(page, 'defensa-claro');

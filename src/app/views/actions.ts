@@ -223,7 +223,9 @@ export function onDefenseKey(e: KeyboardEvent): void {
     return;
   }
   if (e.ctrlKey || e.metaKey || e.altKey) return;
-  if (doc?.querySelector('[role="dialog"], [role="menu"], [role="listbox"]')) return;
+  // Un diálogo o menú abiertos se quedan con sus teclas; una lista solo si tiene el foco (un panel puede tener una lista
+  // fija, como las curvas del digitalizador, y no por eso dejar de pasar de vista).
+  if (doc?.querySelector('[role="dialog"], [role="menu"]') || asElement(e.target)?.closest('[role="listbox"]')) return;
   if (e.key === 'Escape') {
     if (useViewer.getState().dragging || inText(e.target)) return;
     e.preventDefault();

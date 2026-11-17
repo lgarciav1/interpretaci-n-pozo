@@ -50,7 +50,8 @@ laterales, pero deja la barra superior y no recuerda nada.
    El saneamiento al abrir un archivo descarta solo lo que no tiene forma de vista (sin nombre, tramo inválido), con
    aviso, como las plantillas.
 5. **Ir a una vista (fuera del modo defensa)** aplica a la interfaz el espacio, la zona activa, el panel y el tramo, y
-   las pistas con un `commit` «Abrir vista «X»» solo si difieren de las actuales (se deshace con Ctrl+Z).
+   las pistas con un `commit` «Abrir vista «X»» solo si difieren de las actuales (se deshace con Ctrl+Z). Una vista
+   sin panel no pliega los paneles abiertos (si no, el propio panel «Vistas» se cerraría al usarlo).
 6. **El modo defensa es estado de interfaz** (`src/app/views/store.ts`), no del proyecto: no entra en el historial ni
    en el archivo.
    - Al entrar se toma una foto de la interfaz (espacio, zona en edición, paso y módulo activos, pestaña y vista del
@@ -63,6 +64,8 @@ laterales, pero deja la barra superior y no recuerda nada.
    - La disposición que cambia el modo no se escribe en `localStorage`.
    - Teclado: → y ← pasan de vista (sin vuelta circular: en la última, → no hace nada), Esc sale. ↑ ↓, Re Pág, Av Pág,
      + − y 0 siguen siendo del visor. Ctrl+Z y Ctrl+Y no hacen nada durante el modo (no se edita mientras se presenta).
+     Por lo mismo, la paleta y los atajos de las acciones de la app se reducen al grupo «Vistas» mientras dura el modo
+     (`whilePresenting` en `src/app/commands/index.ts`).
    - Indicador discreto abajo al centro: «3 / 5 · Nombre de la vista», con botones ‹ › y «Salir»; se atenúa a los
      pocos segundos sin movimiento y vuelve con el mouse o una tecla.
    - El recorrido toma las vistas del pozo activo en el orden de la lista. Sin vistas, no entra: avisa y abre el panel

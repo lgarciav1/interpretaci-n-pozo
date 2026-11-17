@@ -1,6 +1,6 @@
 # Masterplan: funciones nuevas (calidad de vida, validación y lucimiento)
 
-- Estado: **en ejecución.** Hechas: F01, F02, F08, F16, F25, F19, F03, F04. Cada función se marca en la tabla de la sección 3 a medida que se entrega.
+- Estado: **en ejecución.** Hechas: F01, F02, F08, F16, F25, F19, F03, F04, F07. Cada función se marca en la tabla de la sección 3 a medida que se entrega.
 - Fecha: 2026-11-17. Base inspeccionada: `main`, commit `c74ba09`.
 - Origen: auditoría de la app corriendo con los datos del TP (recorrido con Playwright a 1600 × 900) y del código.
 - Entrega del TP: diciembre de 2026. **No entra todo.** La sección 4 fija el orden y la línea de corte.
@@ -48,7 +48,7 @@ Tamaño: **C** chico (una sesión corta), **M** mediano (una sesión), **G** gra
 | F19 | Cronómetro del recorrido | 1 | C | desarrollador-ui | — | hecha |
 | F03 | «¿De dónde sale este número?» | 2 | M | arquitecto | — | hecha ([0074](decisiones/0074-de-donde-sale.md)) |
 | F04 | Capas de pay y punzados sugeridos | 2 | M | analista-numerico | — | hecha |
-| F07 | Vistas guardadas y modo defensa | 2 | M | arquitecto | — | pendiente |
+| F07 | Vistas guardadas y modo defensa | 2 | M | arquitecto | — | hecha ([0075](decisiones/0075-vistas-guardadas.md)) |
 | F05 | Notas ancladas a profundidad | 2 | M | desarrollador-ui | — | pendiente |
 | F20 | Reparar la densidad en los derrumbes | 3 | G | analista-numerico | — | pendiente |
 | F22 | Torneo de modelos contra la corona | 3 | G | analista-numerico | — | pendiente |

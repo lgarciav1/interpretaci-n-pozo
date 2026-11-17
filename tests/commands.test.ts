@@ -353,3 +353,16 @@ describe('las acciones reales de la app', () => {
     expect(commandKeys(undo, false)).toBe('Ctrl+Z');
   });
 });
+
+describe('la paleta durante el modo defensa (0075)', () => {
+  it('solo deja las acciones del grupo «Vistas» y no toca nada fuera del modo', async () => {
+    const { whilePresenting } = await import('../src/app/commands');
+    const list = [
+      { id: 'edit:undo', title: 'Deshacer', group: 'Edición' },
+      { id: 'views:exit', title: 'Salir del modo defensa', group: 'Vistas' },
+      { id: 'tracks:builder', title: 'Armar pistas', group: 'Pistas' },
+    ];
+    expect(whilePresenting(list, false)).toBe(list);
+    expect(whilePresenting(list, true).map((c) => c.id)).toEqual(['views:exit']);
+  });
+});

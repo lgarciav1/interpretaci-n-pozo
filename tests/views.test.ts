@@ -351,6 +351,19 @@ describe('modo defensa: recorrido con los stores', () => {
     expect(JSON.parse(write.mock.calls[0]![1])).toEqual(layout);
   });
 
+  it('una lista fija en el panel de la vista (sin foco) no se come → ←; un diálogo abierto sí', () => {
+    let dialogOpen = false;
+    // Un panel con role="listbox" siempre montado (las curvas del digitalizador) y, a veces, un diálogo.
+    vi.stubGlobal('HTMLElement', class {});
+    vi.stubGlobal('document', { activeElement: null, body: {}, getElementById: () => null, querySelector: (sel: string) => (sel.includes('listbox') || (dialogOpen && sel.includes('dialog')) ? {} : null) });
+    enterDefense(0);
+    key('ArrowRight');
+    expect(useViewsUi.getState().defense!.index).toBe(1);
+    dialogOpen = true;
+    key('ArrowRight');
+    expect(useViewsUi.getState().defense!.index).toBe(1);
+  });
+
   it('sin vistas no entra: abre el panel «Vistas»', () => {
     useProject.getState().replace(base());
     enterDefense(0);
