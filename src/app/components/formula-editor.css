@@ -6,3 +6,32 @@
 .formula-editor > button {
   justify-self: end;
 }
+
+.formula-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.formula-list__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-width: 0;
+  padding: var(--space-0-5) var(--space-1);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-subtle);
+}
+
+.formula-list__expr {
+  flex: 1;
+  min-width: 0;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+

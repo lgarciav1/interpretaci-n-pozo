@@ -53,6 +53,39 @@ export function splitRail<T extends { id: string }>(panels: readonly T[], curren
   return { pinned, extra: more.find((p) => p.id === current) ?? null, more };
 }
 
+const MORE_GROUP_INTERP = new Set([
+  'formation-water', 'rock-typing', 'scal', 'swi-pc', 'saturation-height', 'invasion-radial', 'invasion-step',
+  'clay-typing', 'mineral-inversion', 'passey-toc', 'electrofacies', 'electrosequences',
+  'sed-column', 'synthetic-seismogram',
+]);
+const MORE_GROUP_DATA = new Set([
+  'preparation', 'core-calibration', 'model-tournament', 'digitizer', 'zone-distribution', 'zone-distributions', 'zone-cards', 'zones',
+]);
+
+function buildMoreMenu(more: readonly RailItem[], onSelect: (id: string) => void): MenuEntry[] {
+  const toEntry = (t: RailItem): MenuEntry => ({
+    id: t.id,
+    label: t.title,
+    icon: t.icon,
+    ...(hasBadge(t.badge) ? { hint: t.badge } : {}),
+    onSelect: () => onSelect(t.id),
+  });
+  if (more.length <= 4) {
+    return [{ type: 'label', id: 'l', label: 'Más paneles' }, ...more.map(toEntry)];
+  }
+  const groups: { id: string; label: string; items: RailItem[] }[] = [
+    { id: 'interp', label: 'Interpretación y laboratorio', items: more.filter((t) => MORE_GROUP_INTERP.has(t.id)) },
+    { id: 'data', label: 'Datos y validación', items: more.filter((t) => MORE_GROUP_DATA.has(t.id)) },
+    { id: 'sys', label: 'Consulta y sistema', items: more.filter((t) => !MORE_GROUP_INTERP.has(t.id) && !MORE_GROUP_DATA.has(t.id)) },
+  ].filter((g) => g.items.length > 0);
+  const entries: MenuEntry[] = [];
+  groups.forEach((g, idx) => {
+    if (idx > 0) entries.push({ type: 'separator', id: `sep-${g.id}` });
+    entries.push({ type: 'label', id: `lbl-${g.id}`, label: g.label }, ...g.items.map(toEntry));
+  });
+  return entries;
+}
+
 /**
  * Barra vertical de pestañas (role="tablist", flechas arriba/abajo, Inicio/Fin) con ícono y rótulo; «Más» abre el
  * resto de los paneles y, al pie, disposición y plegado.
@@ -60,10 +93,7 @@ export function splitRail<T extends { id: string }>(panels: readonly T[], curren
 function Rail({ items, more, value, collapsed, onSelect }: { items: readonly (RailItem & { sep?: boolean })[]; more: readonly RailItem[]; value: string; collapsed: boolean; onSelect(id: string): void }) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const setLayout = useUi((s) => s.setLayout);
-  const moreItems: MenuEntry[] = [
-    { type: 'label', id: 'l', label: 'Más paneles' },
-    ...more.map((t) => ({ id: t.id, label: t.title, icon: t.icon, ...(hasBadge(t.badge) ? { hint: t.badge } : {}), onSelect: () => onSelect(t.id) })),
-  ];
+  const moreItems = buildMoreMenu(more, onSelect);
   return (
     <nav className="side-rail" aria-label="Vistas del panel lateral">
       <div role="tablist" aria-orientation="vertical" aria-label="Paso y paneles" className="side-rail__tabs">

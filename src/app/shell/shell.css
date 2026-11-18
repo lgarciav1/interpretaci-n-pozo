@@ -159,7 +159,7 @@
 .shell-flowbar {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-2-5);
   min-width: 0;
   padding: 0 var(--space-4) 0 var(--space-3);
   background: var(--color-surface);
@@ -179,6 +179,9 @@
 /* Dos capas: lo calculado en tono suave debajo y lo revisado lleno encima (revisado ≤ total, no siempre ≤ calculado:
    un paso saltado a mano está revisado sin estar calculado). */
 .shell-progress { position: relative; width: calc(72px * var(--ui-scale)); height: calc(4px * var(--ui-scale)); border-radius: var(--radius-full); background: var(--color-surface-active); overflow: hidden; }
+@container flowbar (max-width: 110em) {
+  .shell-progress { width: calc(56px * var(--ui-scale)); }
+}
 .shell-progress > span { position: absolute; inset: 0 auto 0 0; border-radius: inherit; transition: width var(--dur-slow) var(--ease-standard); }
 .shell-progress__computed { background: var(--color-ok-border); }
 .shell-progress__reviewed { background: var(--color-ok); }

@@ -13,7 +13,7 @@ import { addPointSet } from '../../core/state/pointSets';
 import { activeWellEntry, makeId, type WellEntry } from '../../core/state/project';
 import { niceRange } from '../../plots/xy/axes';
 import { XYPlot } from '../../plots/xy/XYPlot';
-import { Badge, Button, Callout, EmptyState, Field, Select, formatNumber, toast, useThemeTokens } from '../../ui';
+import { Badge, Button, Callout, DataTable, EmptyState, Field, Select, TextArea, formatNumber, toast, useThemeTokens } from '../../ui';
 import { ensureContrast } from '../../ui/color';
 import type { DockPanelDef } from '../../ui/dockPanel';
 import { classColor } from '../rock-typing/draw';
@@ -152,8 +152,21 @@ function HeightPanel({ entry }: { entry: WellEntry }) {
         </details>}
         <p data-testid="height-count">{points.length} {points.length === 1 ? 'punto visible' : 'puntos visibles'} · {lines.length} {lines.length === 1 ? 'curva capilar' : 'curvas capilares'}</p>
         <details><summary>Soporte por zona y clase ({support.length})</summary>
-          <table><thead><tr>{['Zona', 'Tipo', 'Puntos', 'Sin Sw', 'Sin geometría', 'Fuera de intervalo', 'Pares exploratorios', 'MAE exploratorio'].map(h => <th key={h}>{h}</th>)}</tr></thead>
-          <tbody>{support.map(s => <tr key={JSON.stringify([s.zoneId, s.rockType])}><td>{zoneName(s.zoneId)}</td><td>{className(s.rockType)}</td><td>{s.points}</td><td>{s.missingSw}</td><td>{s.missingGeometry}</td><td>{s.outside}</td><td>{s.compared}</td><td>{s.compared ? format(s.absoluteError / s.compared, 3) : '—'}</td></tr>)}</tbody></table>
+          <DataTable
+            dense
+            rowKey={s => JSON.stringify([s.zoneId, s.rockType])}
+            rows={support}
+            columns={[
+              { key: 'zone', header: 'Zona', render: s => zoneName(s.zoneId) },
+              { key: 'rock', header: 'Tipo', render: s => className(s.rockType) },
+              { key: 'points', header: 'Puntos', align: 'num', render: s => s.points },
+              { key: 'missingSw', header: 'Sin Sw', align: 'num', render: s => s.missingSw },
+              { key: 'missingGeometry', header: 'Sin geometría', align: 'num', render: s => s.missingGeometry },
+              { key: 'outside', header: 'Fuera de intervalo', align: 'num', render: s => s.outside },
+              { key: 'compared', header: 'Pares exploratorios', align: 'num', render: s => s.compared },
+              { key: 'mae', header: 'MAE exploratorio', align: 'num', render: s => s.compared ? format(s.absoluteError / s.compared, 3) : '—' },
+            ]}
+          />
         </details>
       </> : <EmptyState size="sm" title="Falta un nivel de agua libre admisible" description="Revisá la geometría, el datum y el FWL antes de graficar la altura." />}
       {preview?.issues.map((issue, index) => <Callout key={index} tone="warn">{issue}</Callout>)}
@@ -197,7 +210,7 @@ function HeightPanel({ entry }: { entry: WellEntry }) {
         {text && <Button size="sm" onClick={() => { setDraft(null); setDemo(false); }}>{saved ? 'Restaurar escenario guardado' : 'Descartar borrador'}</Button>}
       </div>
       {(text || currentDraft) && !demo && <Field label="Escenario revisado (JSON)" htmlFor="height-scenario">
-        <textarea id="height-scenario" spellCheck={false} value={text} onChange={e => setDraft({ text: e.target.value, receipt })} />
+        <TextArea id="height-scenario" mono block rows={8} spellCheck={false} value={text} onChange={val => setDraft({ text: val, receipt })} />
       </Field>}
       {error && <Callout tone="error">{error}</Callout>}
       {stale && <Callout tone="warn">La evidencia guardada corresponde a otras entradas o decisiones. Restaurá su snapshot o volvé a revisar las entradas actuales.</Callout>}

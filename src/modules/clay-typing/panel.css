@@ -5,4 +5,5 @@
 .mineral-panel th { color: var(--color-text-muted); font-weight: 600; }
 .mineral-panel td small { display: block; color: var(--color-text-muted); margin-top: 4px; font-size: .9em; }
 .mineral-panel__note { margin: 0; font-size: var(--text-xs, 12px); color: var(--color-text-muted); line-height: 1.5; }
-.mineral-panel__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.mineral-panel__actions { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+

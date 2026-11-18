@@ -29,7 +29,7 @@ export { BrandMark, BrandName, BrandWordmark, PRODUCT_NAME, type BrandMarkProps 
 export { brandMarkSvg } from './brandSvg';
 export { Button, IconButton, type ButtonProps, type ButtonVariant } from './components/Button';
 export { Checkbox, SegmentedControl, Switch, TabPanel, Tabs, type SegmentOption, type TabItem } from './components/Choice';
-export { Field, NumberField, Select, Slider, SliderField, TextField, type SelectOption } from './components/Fields';
+export { Field, NumberField, Select, Slider, SliderField, TextArea, TextField, type SelectOption, type TextAreaProps } from './components/Fields';
 export { Badge, Callout, Chip, EmptyState, StatusDot, type Tone } from './components/Feedback';
 export { Dialog } from './components/Dialog';
 export { ContextMenu, Menu, type ContextMenuProps, type MenuEntry } from './components/Menu';
