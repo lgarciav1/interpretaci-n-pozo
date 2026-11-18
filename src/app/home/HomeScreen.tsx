@@ -391,9 +391,9 @@ function HomeScreen() {
         : gl === 'error'
           ? 'No se pudo iniciar la vista 3D: se muestra un esquema.'
           : '';
-  const caption = demo ? 'Composición de demostración' : `Sarta de ${entry.well.name}`;
+  const caption = demo ? 'Sarta triple combo' : `Sarta de ${entry.well.name}`;
   const captionDetail = demo
-    ? 'Triple combo típica armada con el catálogo · no corresponde a ningún pozo cargado'
+    ? 'Armada con el catálogo · no corresponde a ningún pozo cargado'
     : `${toolCount} ${toolCount === 1 ? 'herramienta' : 'herramientas'} · ${mode === 'planning' ? 'sarta planificada' : 'derivada de las curvas del pozo, como en el configurador'}`;
   const scaleNote =
     gl === 'ok'
