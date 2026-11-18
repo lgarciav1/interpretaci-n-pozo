@@ -197,3 +197,10 @@
 .ts-sheet__sources a { color: var(--color-accent-text); font-size: var(--text-sm); text-decoration: none; }
 .ts-sheet__sources a:hover { text-decoration: underline; }
 .ts-sheet__foot { display: flex; justify-content: flex-end; padding: var(--space-2) var(--space-3); border-top: 1px solid var(--color-border-subtle); }
+
+.ts-view__formation { display: grid; max-width: min(480px, 63%); }
+.ts-view__formation-swatch { display: inline-block; margin-right: var(--space-1); }
+.ts-view__radial { pointer-events: auto; color: var(--color-text); }
+.ts-view__radial summary { cursor: pointer; }
+.ts-view__radial p { margin-block: var(--space-1); }
+.ts-view__radial ul { max-height: 15vh; overflow: auto; padding-left: var(--space-4); margin-block: var(--space-1); }

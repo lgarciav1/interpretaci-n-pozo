@@ -412,6 +412,7 @@ Decisión: [`docs/decisiones/0032-sarta-de-perfilaje.md`](decisiones/0032-sarta-
   visual (0033 D9): acero con ambiente procedural (`RoomEnvironment` + PMREM), sombras a demanda, ACES; formación de
   contexto con las capas del pozo (litología sugerida o GR) en el tramo que mostraba el visor; cáscaras de vidrio con
   jerarquía por selección; la DOI con su referencia por ficha (`ToolSheet.investigationFrom`).
+- **Geometría radial de la sarta (F24).** El perfil de pared e invasión usa la profundidad medida de la grilla efectiva en metros. Cada muestra válida de calibre define una sección circular. El límite lavado proviene del diámetro exterior calculado por `invasion-step:DI`. Ambos diámetros en pulgadas dan radios desde el eje en centímetros al multiplicar por 1,27. `invasion-step:RXO` describe el fluido y la roca de la zona lavada mediante su resistividad en Ω·m. La pared nominal y la invasión ilustrativa por litología cubren independientemente los intervalos sin datos válidos. [Decisión geométrica](decisiones/f24-geometria.md).
 - **Inicio** ([`0065`](decisiones/0065-pantalla-de-inicio.md)): la app arranca sin pozo en una capa sobre el armazón
   (que sigue montado e inerte) con la sarta 3D exhibida —la del pozo activo con la misma derivación que el
   configurador, o una composición de demostración rotulada— y la entrada al pozo hacia el visor. `ShowcaseRenderer`
