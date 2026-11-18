@@ -1,3 +1,5 @@
+import { readTrainerRecipe } from './trainerRecipe';
+import type { TrainerRecipe } from '../../petro/trainer';
 import { sanitizeNotes } from '../notes';
 /**
  * Guardar / abrir proyecto.
@@ -68,7 +70,7 @@ export interface ProjectFile {
   project: {
     name: string;
     activeWellId: string | null;
-    wells: { well: SavedWell; interpretation: Interpretation; progress: FlowProgress; seenDiagnostics?: string[] }[];
+    wells: { well: SavedWell; interpretation: Interpretation; progress: FlowProgress; seenDiagnostics?: string[]; trainerRecipe?: TrainerRecipe }[];
     snapshots: Snapshot[];
     display: DisplaySettings;
   };
@@ -86,7 +88,7 @@ export async function serializeProject(project: Project, opts: { codec?: CodecCh
   if (containsInputRevisions(project)) throw new Error('El formato v6 no puede conservar revisiones de entradas; no se guardó una copia incompleta.');
   const codec = opts.codec ?? defaultCodec();
   const wells = await Promise.all(
-    project.wells.map(async ({ well, interpretation, progress, seenDiagnostics }) => {
+    project.wells.map(async ({ well, interpretation, progress, seenDiagnostics, trainerRecipe }) => {
       const saved: SavedWell = {
         id: well.id,
         name: well.name,
@@ -99,7 +101,7 @@ export async function serializeProject(project: Project, opts: { codec?: CodecCh
         curves: await Promise.all(well.curves.map(async (c) => ({ ...c, data: await encodeArray(c.data, codec) }))),
         pointSets: await Promise.all(well.pointSets.map((ps) => encodePointSet(ps, codec))),
       };
-      return { well: saved, interpretation, progress, ...(seenDiagnostics?.length ? { seenDiagnostics } : {}) };
+      return { well: saved, interpretation, progress, ...(seenDiagnostics?.length ? { seenDiagnostics } : {}), ...(trainerRecipe ? { trainerRecipe } : {}) };
     }),
   );
   const file: ProjectFile = {
@@ -253,7 +255,7 @@ export async function deserializeProject(text: string, opts: DeserializeOptions 
     };
   };
   const wells = await Promise.all(
-    project.wells.map(async ({ well, interpretation, progress, seenDiagnostics }) => {
+    project.wells.map(async ({ well, interpretation, progress, seenDiagnostics, trainerRecipe: rawRecipe }) => {
       if (well.curves.some(c => c.origin?.kind === 'prepared' || c.provenance)) throw new Error('El archivo contiene una proyección preparada como datos originales.');
       const depth = await decodeArray(well.depth.values, budget);
       const curves: Curve[] = await Promise.all(well.curves.map(async (c) => ({ ...c, data: await decodeArray(c.data, budget) })));
@@ -279,7 +281,8 @@ export async function deserializeProject(text: string, opts: DeserializeOptions 
         pointSets,
       });
       const seen = readSeenDiagnostics(seenDiagnostics);
-      return { well: restored, interpretation: cleanInterp(interpretation, where), progress: progress ?? emptyProgress(), ...(seen ? { seenDiagnostics: seen } : {}) };
+      const trainerRecipe = readTrainerRecipe(rawRecipe);
+      return { well: restored, interpretation: cleanInterp(interpretation, where), progress: progress ?? emptyProgress(), ...(seen ? { seenDiagnostics: seen } : {}), ...(trainerRecipe ? { trainerRecipe } : {}) };
     }),
   );
   const restored: Project = {

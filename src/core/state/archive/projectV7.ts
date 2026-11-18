@@ -1,3 +1,5 @@
+import { readTrainerRecipe } from '../trainerRecipe';
+import type { TrainerRecipe } from '../../../petro/trainer';
 import { sanitizeNotes } from '../../notes';
 /** Archivo de revisiones: una representación por Well, arrays compartidos por hash de bytes LE. */
 import { sanitizeDisplay, type DisplaySettings } from '../../display';
@@ -29,7 +31,7 @@ export interface RevisionProjectFile {
   format: 'pozo-proyecto'; version: 7; savedAt: string;
   project: {
     name: string; activeWellId: string | null; display: DisplaySettings;
-    wells: { wellId: string; inputRevisionId: string; interpretation: Interpretation; progress: FlowProgress; seenDiagnostics?: string[] }[];
+    wells: { wellId: string; inputRevisionId: string; interpretation: Interpretation; progress: FlowProgress; seenDiagnostics?: string[]; trainerRecipe?: TrainerRecipe }[];
     snapshots: Snapshot[];
     inputRevisions: Record<string, Omit<InputRevision, 'well'> & { well: SavedWell }>;
     blobs: Record<string, SavedBlob>;
@@ -160,7 +162,7 @@ export async function serializeProjectV7(project: Project, codec: CodecChoice, s
   for (const [id,r] of Object.entries(state.revisions).sort(([a],[b]) => a.localeCompare(b))) revisions.push([id, { ...r, well: await well(r.well) }]);
   const file: RevisionProjectFile = { format: 'pozo-proyecto', version: 7, savedAt, project: {
     name: project.name, activeWellId: project.activeWellId, display: project.display,
-    wells: project.wells.map((e) => ({ wellId: e.well.id, inputRevisionId: e.inputRevisionId!, interpretation: e.interpretation, progress: e.progress, ...(e.seenDiagnostics?.length ? { seenDiagnostics: e.seenDiagnostics } : {}) })),
+    wells: project.wells.map((e) => ({ wellId: e.well.id, inputRevisionId: e.inputRevisionId!, interpretation: e.interpretation, progress: e.progress, ...(e.seenDiagnostics?.length ? { seenDiagnostics: e.seenDiagnostics } : {}), ...(e.trainerRecipe ? { trainerRecipe: e.trainerRecipe } : {}) })),
     snapshots: project.snapshots, inputRevisions: dict(revisions), blobs: dict([...blobs].sort(([a],[b]) => a.localeCompare(b))),
   } };
   const text = JSON.stringify(file); checkFileSize(text, archiveLimits().fileBytes); return text;
@@ -242,13 +244,14 @@ export async function readProjectV7(raw: unknown, opts: { limits?: Partial<Archi
   const duplicateWells = new Set<string>(); const seenWells = new Set<string>();
   for (const raw of p.wells) {
     try {
-      const e = requireShape(raw, 'Entrada de pozo', ['wellId','inputRevisionId','interpretation','progress'], ['seenDiagnostics']);
+      const e = requireShape(raw, 'Entrada de pozo', ['wellId','inputRevisionId','interpretation','progress'], ['seenDiagnostics', 'trainerRecipe']);
       requireText(e.wellId, 'Pozo'); requireText(e.inputRevisionId, 'Revisión activa');
       if (seenWells.has(e.wellId)) { duplicateWells.add(e.wellId); fail('Entrada de pozo repetida.'); } seenWells.add(e.wellId);
       const revision = revisions.get(e.inputRevisionId);
       if (!revision || revision.wellId !== e.wellId) fail('La revisión activa no existe, está dañada o pertenece a otro pozo.');
       const seen = readSeenDiagnostics(e.seenDiagnostics);
-      wells.push({ well: revision.well, inputRevisionId: revision.id, interpretation: interpretation(e.interpretation), progress: progress(e.progress), ...(seen ? { seenDiagnostics: seen } : {}) });
+      const trainerRecipe = readTrainerRecipe(e.trainerRecipe);
+      wells.push({ well: revision.well, inputRevisionId: revision.id, interpretation: interpretation(e.interpretation), progress: progress(e.progress), ...(seen ? { seenDiagnostics: seen } : {}), ...(trainerRecipe ? { trainerRecipe } : {}) });
     } catch (err) { issue('Entrada de pozo', err); }
   }
   const keptWells = wells.filter((e) => !duplicateWells.has(e.well.id));

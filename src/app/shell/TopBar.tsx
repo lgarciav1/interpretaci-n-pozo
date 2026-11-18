@@ -1,3 +1,4 @@
+import { TrainerCorrection } from '../trainer/TrainerCorrection';
 /**
  * Barra superior: marca, proyecto y pozo, espacio de trabajo, estado del motor, acciones agrupadas y preferencias
  * (tamaño de interfaz y tema, en un menú). Si no entra (ventana angosta o tamaño Grande), se compacta por etapas con consultas de
@@ -210,6 +211,7 @@ export function TopBar() {
       <HistoryButtons />
       <span className="shell-topbar__divider" aria-hidden="true" />
       <div className="shell-actions">
+        <TrainerCorrection />
         <Button variant="primary" icon="upload" title="Cargar pozo" onClick={() => setUi({ loadDialog: {} })}>
           Cargar pozo
         </Button>

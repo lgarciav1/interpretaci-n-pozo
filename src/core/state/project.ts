@@ -11,6 +11,7 @@ import { emptyInterpretation, sourceRefEquals, type Interpretation, type JsonVal
 import type { ParamValue } from '../params';
 import type { RoleId } from '../roles';
 import type { TrendSpec } from '../trends';
+import type { TrainerRecipe } from '../../petro/trainer';
 import type { UnitId } from '../units';
 import type { Curve, Well, Zone } from '../well';
 import { copyInputWellForEdit, type InputRevision, type InputRevisionId } from '../inputs/revisions';
@@ -19,6 +20,8 @@ import { attachAddedWellRevision, projectInputState, reviseProjectInputs, type R
 export interface WellEntry {
   well: Well;
   inputRevisionId?: InputRevisionId;
+  /** Receta del ejercicio, fuera del motor y de los snapshots. */
+  trainerRecipe?: TrainerRecipe;
   interpretation: Interpretation;
   /**
    * Marcas del usuario en el flujo guiado (paso → completo/saltado). Lo derivado del estado (pozo cargado, puertos

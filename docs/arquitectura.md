@@ -949,3 +949,22 @@ porosidad usa las vistas originales y la cortina de snapshots existente.
 `src/petro/saturationHeight.ts` ajusta y comprueba gradientes verticales de dos fases, contrasta referencias FWL externas y evalúa tablas Pc–Sw o Brooks–Corey dentro del soporte declarado. El adaptador en `src/app/saturationHeight/model.ts` usa las pruebas de tendencias MDT seleccionadas, vuelve a ajustar en TVD cuando hay geometría y resuelve Sw y clase desde el mismo contexto efectivo del motor y de preparación. Una fuente explícita sin soporte bloquea su uso. El panel distingue puntos interpretados, predicción y demostración, conserva la navegación por MD y deja las ecuaciones en Ecuaciones.
 
 Los ensayos cargados por F21 son conjuntos de puntos en revisiones de entrada, con columnas originales y unidades. Su asignación, condiciones y transferencia forman parte del escenario explícito. La aplicación conserva fuentes, parámetros y recetas vigentes, guarda evidencia JSON y filtros con un snapshot fijado en una operación deshacible. Una revisión o decisión posterior hace visible la obsolescencia del escenario guardado. Restaurar su snapshot permite reproducirlo. [ADR 0079](decisiones/0079-saturacion-por-altura.md)
+
+## Entrenador (F14, ADR 0080)
+
+Inicio crea un pozo con cuatro perfiles sintéticos observados y zonas iniciales.
+El motor recibe el pozo y la interpretación por los mismos caminos que para un pozo importado.
+`WellEntry.trainerRecipe` es opcional y JSON puro. Los archivos v6/v7 y el autoguardado
+conservan su versión, semilla y modo de ruido. La receta está asociada al id del pozo
+y vive fuera de las revisiones de entradas y los snapshots. La ausencia del campo
+permite abrir proyectos anteriores. Un lector v7 anterior que exija un esquema estricto
+puede rechazar archivos con este campo. Los demás pozos se guardan con el esquema previo.
+
+Al pedir la corrección, `src/app/trainer/correction.ts` verifica el contexto de la
+corrida y el eje MD, regenera los valores sembrados y toma las fuentes resueltas
+por el motor, incluyendo las preparadas cuando correspondan. Las tres series
+sembradas viven en el diálogo y quedan fuera del motor, de las curvas originales y
+preparadas, de los gráficos generales, del registro de figuras y de las exportaciones.
+La corrección cierra si cambia el proyecto o la corrida. Cerrar o reabrir un archivo
+requiere volver a pedirla. La repetición crea otro pozo con los mismos perfiles para
+que cada intento tenga su propia interpretación y snapshots.

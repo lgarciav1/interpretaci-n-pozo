@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent a
 import { registry } from '../../modules';
 import { BrandMark, BrandName, Button, PRODUCT_NAME, curveStyle, formatNumber, Icon, IconButton, prefersReducedMotion, ThemeToggle, toast, useResolvedTheme, useThemeTokens } from '../../ui';
 import { effectiveWell } from '../preparation/data';
+import { TrainerStart } from '../trainer/TrainerStart';
 import { loadDemoWell } from '../demo/loadDemo';
 import { pickProjectFile } from '../shell/projectActions';
 import { selectActiveEntry, useProject } from '../store/project';
@@ -497,6 +498,7 @@ function HomeScreen() {
               </Button>
             )}
             <div className="home__secondary">
+              <TrainerStart disabled={busy} />
               {entry && (
                 <Button variant="ghost" icon="upload" onClick={() => useUi.getState().set({ loadDialog: {} })} disabled={busy}>
                   Cargar otro pozo
