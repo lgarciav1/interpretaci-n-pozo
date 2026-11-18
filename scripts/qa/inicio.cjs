@@ -98,7 +98,7 @@ async function rafRate(page, ms = 1500) {
   for (const theme of ['light', 'dark']) {
     const { ctx, page } = await open(browser, { theme });
     const t = await page.getByTestId('home').innerText();
-    check(`sin pozo (${theme}): acciones y composición rotulada`, (await page.getByTestId('home-load').isVisible()) && t.includes('Abrir proyecto') && t.includes('Ver demostración') && t.includes('Composición de demostración') && !t.includes('Entrar al pozo'));
+    check(`sin pozo (${theme}): acciones y composición rotulada`, (await page.getByTestId('home-load').isVisible()) && t.includes('Abrir proyecto') && t.includes('Ver demostración') && t.includes('Sarta triple combo') && !t.includes('Entrar al pozo'));
     check(`sin pozo (${theme}): escena 3D montada`, (await canvases(page)) === 1);
     await shot(page, `inicio-sin-pozo-${theme === 'light' ? 'claro' : 'oscuro'}`);
     await ctx.close();
@@ -110,7 +110,7 @@ async function rafRate(page, ms = 1500) {
     await loadDemo(page);
     const t = await page.getByTestId('home').innerText();
     check('con pozo: «Entrar al pozo» y secundarias', t.includes('Entrar al pozo') && t.includes('Cargar otro pozo') && t.includes('Abrir proyecto') && t.includes('Explorar sarta'));
-    check('con pozo: la sarta es la del pozo (no la de demostración)', t.includes('Sarta de Pozo sintético') && !t.includes('Composición de demostración'));
+    check('con pozo: la sarta es la del pozo (no la de demostración)', t.includes('Sarta de Pozo sintético') && !t.includes('Sarta triple combo'));
     check('con pozo: el espacio de trabajo está inerte debajo', await page.evaluate(() => document.querySelector('.shell')?.hasAttribute('inert')));
     const idle = await rafRate(page);
     check('reposo: hay giro automático (bucle activo)', idle > 2, `${idle.toFixed(1)} cuadros/s con SwiftShader`);
