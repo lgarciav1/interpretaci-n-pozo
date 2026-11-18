@@ -1016,3 +1016,19 @@ Los resultados conservan sus unidades en **Armar pistas**, Crossplot e Histogram
 como descripción de la curva en LAS. El panel Origen usa el registro de la corrida vigente para recorrer
 sus entradas. La gramática, la resolución de referencias y la política de nulos se detallan en el
 [ADR 0081](decisiones/0081-curvas-por-formula.md).
+
+## Bandas de incertidumbre de curvas (F15)
+
+La [decisión 0082](decisiones/0082-bandas-de-incertidumbre.md) define los cuantiles de excedencia de SW y PHIE
+de la fuente activa. La propagación usa los multiplicadores y la distribución del módulo de incertidumbre del
+volumen. Su interruptor de Monte Carlo es independiente de las bandas. El modelo representa error sistemático
+relativo, con un multiplicador común a todas las profundidades por magnitud.
+
+- `src/petro/curveBands.ts` produce dos arrays de bordes por magnitud y conserva los huecos en las muestras sin
+  datos. El worker inline de `src/app/curveBands/` recibe las series por copia y devuelve los bordes transferibles.
+- `ViewerSlot` usa las fuentes elegidas por el resultado del motor. El cálculo de bandas espera 220 ms sin cambios
+  de entrada, cancela pedidos anteriores y es independiente del worker del motor. Un aviso pasivo indica que
+  el relleno quedó desactualizado hasta recibir los bordes vigentes.
+- Los toggles se guardan en estado de UI por espacio, pista y magnitud, inicialmente apagados. El visor dibuja los
+  rellenos P10–P90 en el eje de cada curva base, antes de trazar la línea. Los bordes son exclusivos del visor en vivo
+  y se dibujan en el lado actual de la cortina.

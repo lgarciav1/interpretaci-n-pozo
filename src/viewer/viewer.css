@@ -592,3 +592,27 @@
 .wv-ghost button:focus-visible {
   outline: 2px solid var(--color-focus);
 }
+
+.wv-head__band {
+  flex: none;
+  padding: 1px 4px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.wv-head__band[aria-pressed='true'] {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent-soft);
+  color: var(--color-accent-text);
+}
+
+.wv-band-status {
+  color: var(--color-accent-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
