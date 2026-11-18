@@ -5,6 +5,7 @@ import { effectiveWell } from './preparation/data';
  */
 import { contextMatchesWell } from '../core/engine/context';
 import type { ClientResult } from '../core/engine/client';
+import { RoleCatalog } from '../core/roles';
 import type { Well } from '../core/well';
 import { registry } from '../modules';
 import type { ComputedCurve } from '../viewer/resolve';
@@ -37,10 +38,19 @@ export function computedCurves(result: ClientResult | null, well: Well | null): 
     for (const o of result.outputs) {
       if (o.kind !== 'curve' || !(o.value instanceof Float64Array)) continue;
       const mod = registry.get(o.moduleId);
-      out.push({ port: o.port, moduleId: o.moduleId, label: mod?.name ?? o.label, data: o.value, active: o.active, ...(mod ? { workspaces: moduleWorkspaces(mod) } : {}) });
+      out.push({ port: o.port, moduleId: o.moduleId, label: mod?.name ?? o.label, ...(o.formula !== undefined ? { formula: o.formula } : {}), ...(o.unit !== undefined ? { unit: o.unit } : {}), data: o.value, active: o.active, ...(mod ? { workspaces: moduleWorkspaces(mod) } : {}) });
     }
     cache.set(result, out);
   }
   return out;
 }
 
+
+/** Los roles de fórmula se publican con el resultado, sin mutar el catálogo global. */
+export function computedRoleCatalog(curves: readonly ComputedCurve[]): RoleCatalog {
+  const formulas = curves.filter(c => c.formula !== undefined);
+  if (!formulas.length) return registry.roles;
+  return new RoleCatalog([...registry.roles.all(), ...formulas.map(c => ({
+    id: c.port, label: c.label, unit: c.unit ?? 'unitless', family: 'other' as const, origin: 'computed' as const,
+  }))]);
+}

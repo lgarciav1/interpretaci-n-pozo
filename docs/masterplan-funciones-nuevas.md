@@ -56,7 +56,7 @@ Tamaño: **C** chico (una sesión corta), **M** mediano (una sesión), **G** gra
 | F14 | Entrenador: pozo con respuesta conocida | 3 | M | analista-numerico | [0080](decisiones/0080-entrenador.md) | pendiente de apertura local ([evidencia](validacion/2026-11-18-f14.md)); integración autorizada ([PR #93](https://github.com/lgarciav1/interpretaci-n-pozo/pull/93)) |
 | F17 | Lupa sobre el perfil | 4 | M | arquitecto | — | pendiente |
 | F18 | Curva fantasma | 4 | M | arquitecto | — | hecha ([PR #94](https://github.com/lgarciav1/interpretaci-n-pozo/pull/94)); apertura local sin verificar ([evidencia](capturas/f18/README.md)) |
-| F06 | Curva calculada por fórmula | 4 | G | arquitecto | — | pendiente |
+| F06 | Curva calculada por fórmula | 4 | G | arquitecto | [0081](decisiones/0081-curvas-por-formula.md) | implementada en PR borrador. Pendiente abrir el HTML por doble clic sin internet: Chromium administrado bloquea `file://`. |
 | F15 | Bandas de incertidumbre sobre las curvas | 4 | G | analista-numerico | — | pendiente |
 | F09 | Pegar topes desde una planilla | 4 | C | investigador | — | pendiente |
 | F10 | Contacto MDT como tope de zona | 4 | C | desarrollador-ui | — | hecha ([PR #95](https://github.com/lgarciav1/interpretaci-n-pozo/pull/95)); apertura local sin verificar ([evidencia](capturas/f10/README.md)) |
@@ -266,6 +266,7 @@ decidir antes y cuándo está terminada.
 - **Terminado cuando:** tests del analizador con errores de sintaxis claros; una fórmula con un ciclo se rechaza; la
   curva se exporta a LAS con su fórmula en el comentario.
 - **Riesgo:** toca el contrato del motor. Es la función con más superficie del plan.
+- **Evidencia F06:** [ADR 0081](decisiones/0081-curvas-por-formula.md) y [recorrido del TP](capturas/f06/README.md). La apertura por doble clic sin internet queda pendiente por `net::ERR_BLOCKED_BY_ADMINISTRATOR`. F17 y F09 siguen postergadas.
 
 #### F15 — Bandas de incertidumbre sobre las curvas
 - **Qué hace:** franja P10–P90 alrededor de Sw y φ en el visor, que se ensancha donde el dato es peor.

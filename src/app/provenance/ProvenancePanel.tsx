@@ -1,3 +1,6 @@
+import { formulaRegistry } from '../../core/engine/formulas';
+import { sameContext } from '../../core/engine/context';
+import { entryContext } from '../preparation/data';
 /**
  * PANEL ORIGEN — «¿De dónde sale este número?» (docs/decisiones/0074). Muestra la cadena completa de una salida en una
  * muestra: cada eslabón con el valor de sus salidas, sus entradas (fuente y valor) y los parámetros de la zona, con el
@@ -7,7 +10,7 @@
  */
 import { useMemo } from 'react';
 import { toEngineWell } from '../../core/engine/engine';
-import { traceSample, type TraceCurve, type TraceInput, type TraceLink, type TraceOutcome, type TraceOutput, type TraceParam } from '../../core/engine/provenance';
+import { traceSample, type TraceInput, type TraceLink, type TraceOutcome, type TraceOutput, type TraceParam } from '../../core/engine/provenance';
 import { projectedEngineCurves } from '../../core/preparation/plan';
 import { unitLabel, type UnitId } from '../../core/units';
 import type { Zone } from '../../core/well';
@@ -219,7 +222,7 @@ export function ProvenancePanel() {
   const fresh = !!result && !!well && result.wellId === well.id && result.stats.samples === well.depth.values.length;
 
   // Curvas tal como las vio el motor en esa corrida: las del pozo y las preparadas.
-  const curves = useMemo<readonly TraceCurve[]>(() => {
+  const curves = useMemo(() => {
     if (!fresh || !well) return [];
     const prep = result!.preparation;
     return prep ? projectedEngineCurves(toEngineWell(well), prep.plan, prep.artifacts) : well.curves;
@@ -231,8 +234,12 @@ export function ProvenancePanel() {
 
   const outcome = useMemo<TraceOutcome | null>(() => {
     if (!fresh || !selection || measured || selection.outputKey.startsWith('m:')) return null;
-    return traceSample(result!, registry, curves, index, selection.outputKey);
-  }, [fresh, result, curves, index, selection, measured]);
+    const formulas = entry?.interpretation.formulas;
+    const activeRegistry = formulas?.length && sameContext(result!.context, entryContext(entry))
+      ? formulaRegistry(registry, curves, entry.interpretation, []).registry
+      : registry;
+    return traceSample(result!, activeRegistry, curves, index, selection.outputKey);
+  }, [fresh, result, curves, index, selection, measured, entry]);
 
   const options = useMemo(() => {
     const curvesOut = fresh ? result!.outputs.filter((o) => o.kind === 'curve') : [];

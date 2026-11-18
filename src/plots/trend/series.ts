@@ -261,7 +261,7 @@ export const curveSeriesProvider: TrendSeriesProvider = {
       if (!c.active || seen.has(c.port) || isFlag(ctx.catalog, c.port)) continue;
       seen.add(c.port);
       const role = ctx.catalog.get(c.port);
-      out.push({ key: `r:${c.port}`, label: role ? `${c.port} · ${role.label}` : c.port, group: 'Calculadas', ...(role ? { unit: unitLabel(role.unit) } : {}) });
+      out.push({ key: `r:${c.port}`, label: role ? `${c.port} · ${role.label}` : c.port, group: 'Calculadas', ...(c.unit ?? role?.unit ? { unit: unitLabel((c.unit ?? role?.unit)!) } : {}) });
     }
     return out;
   },
@@ -287,7 +287,7 @@ export const curveSeriesProvider: TrendSeriesProvider = {
         return depthSeries(ref, c.mnemonic, depth, data, unit, scale, role);
       }
       const comp = ctx.computed.find((c) => c.active && c.port === role);
-      if (comp && comp.data.length === depth.length) return depthSeries(ref, role, depth, comp.data, def?.unit ?? 'unitless', scale, role);
+      if (comp && comp.data.length === depth.length) return depthSeries(ref, role, depth, comp.data, comp.unit ?? def?.unit ?? 'unitless', scale, role);
       const m = ctx.well.curves.find((c) => c.role === role);
       if (!m) return null;
       const { data, unit } = canonicalCurveData(m, ctx.catalog);

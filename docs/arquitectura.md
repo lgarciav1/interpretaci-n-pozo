@@ -999,3 +999,20 @@ y sus copias quedan fuera del proyecto, de los cálculos, del historial y de las
 
 El visor incluye sus superposiciones propias en el recorrido de foco de `targets`, además de las provistas por
 la app. `pointercancel` cancela el arrastre en vez de confirmar su último punto.
+
+## Curvas calculadas por fórmula (F06)
+
+**Curvas calculadas** en la columna del pozo permite crear y editar una fórmula. Cada definición guarda el
+mnemónico, la expresión y la unidad en `Interpretation.formulas`, un campo opcional de los proyectos v6 y v7
+y sus snapshots. El motor incluye las definiciones en su identidad de contexto y en `sameEngineInputs`.
+
+`planGraph` incorpora módulos de fórmula al registro de la corrida. El analizador puro de `src/petro/formula.ts`
+convierte referencias a entradas requeridas. Un mnemónico medido fija el id de curva y conserva su unidad
+almacenada. Los roles siguen la fuente activa del grafo y su unidad canónica. La validación previa al commit
+usa ese mismo grafo para rechazar referencias ausentes y ciclos. La caché considera la expresión, la unidad y
+las versiones de entrada. Las fórmulas retiradas liberan su lugar en la caché.
+
+Los resultados conservan sus unidades en **Armar pistas**, Crossplot e Histograma y publican la expresión
+como descripción de la curva en LAS. El panel Origen usa el registro de la corrida vigente para recorrer
+sus entradas. La gramática, la resolución de referencias y la política de nulos se detallan en el
+[ADR 0081](decisiones/0081-curvas-por-formula.md).

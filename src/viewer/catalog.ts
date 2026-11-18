@@ -260,7 +260,7 @@ export function buildTrackCatalog(input: CatalogInput): CatalogGroup[] {
   for (const def of defs) {
     const present = byRole.get(def.id) ?? [];
     const isComputed = def.origin === 'computed';
-    const canCompute = producible.has(def.id);
+    const canCompute = producible.has(def.id) || computed.has(def.id);
     if (!present.length && !grouped.has(def.id) && !(isComputed && canCompute) && !(def.origin === 'any' && canCompute)) continue;
     const status: CatalogCurve['status'] = present.length ? 'present' : computed.has(def.id) ? 'computed' : canCompute ? 'computable' : 'missing';
     const style = OWN_STYLE[def.id];

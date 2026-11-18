@@ -22,6 +22,8 @@ import type { ZoneSpan } from './well';
 // Entradas
 
 export interface CurveInputSpec {
+  /** Fija una curva por id y conserva su unidad de origen (F06). */
+  curveId?: string;
   kind: 'curve';
   role: RoleId;
   optional?: boolean;

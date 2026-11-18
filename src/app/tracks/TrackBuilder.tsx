@@ -14,7 +14,7 @@ import { buildTrackCatalog, filterCatalog, type CatalogCurve, type CatalogGroup,
 import { guard, type ViewerOverlay } from '../../viewer/overlay';
 import type { ComputedCurve } from '../../viewer/resolve';
 import { contributedTrack } from '../../viewer/templates';
-import { computedCurves } from '../computed';
+import { computedCurves, computedRoleCatalog } from '../computed';
 import { UNDO_SHORTCUT } from '../shell/historyActions';
 import { OVERLAYS } from '../shell/viewerOverlayList';
 import { selectActiveEntry, useProject } from '../store/project';
@@ -150,14 +150,14 @@ export function TrackBuilder({ workspace, well, computed, overlays, editor }: Tr
   const groups = useMemo(
     () =>
       buildTrackCatalog({
-        roles: registry.roles,
+        roles: computedRoleCatalog(computed),
         curves: visibleCurves(well, { toolString }),
         tools: registry.tools,
         producible: PRODUCIBLE,
         computed: computedPorts,
         overlayTracks: overlayCatalog(overlays, workspace, well, display.overlays),
       }),
-    [well, toolString, computedPorts, overlays, workspace, display.overlays],
+    [well, toolString, computed, computedPorts, overlays, workspace, display.overlays],
   );
   const shown = useMemo(() => filterCatalog(groups, query), [groups, query]);
 

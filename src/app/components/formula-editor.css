@@ -1,0 +1,8 @@
+.formula-editor {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.formula-editor > button {
+  justify-self: end;
+}
