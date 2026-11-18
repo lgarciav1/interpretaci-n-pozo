@@ -50,7 +50,7 @@
 }
 .wv-toolbar__zoom { display: flex; align-items: center; gap: 1px; padding-left: var(--space-1); border-left: 1px solid var(--color-border-subtle); }
 
-.wv-main { display: flex; flex: 1; min-height: 0; min-width: 0; }
+.wv-main { position: relative; display: flex; flex: 1; min-height: 0; min-width: 0; }
 .wv-scroll { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; overflow-x: auto; overflow-y: hidden; }
 .wv-inner { position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 100%; }
 
@@ -570,3 +570,25 @@
 .wv[data-look='classic'] .wv-stack-item__value { font-weight: var(--weight-medium); }
 .wv[data-look='classic'] .wv-stack-item { height: auto; min-height: calc(16px * var(--ui-scale)); }
 .wv[data-look='classic'] .wv-stack-item__label { white-space: normal; overflow-wrap: normal; text-overflow: clip; line-height: 1.15; }
+
+.wv-ghost {
+  white-space: normal;
+}
+.wv-ghost--ready {
+  top: auto;
+  bottom: var(--space-2);
+}
+.wv-ghost button {
+  pointer-events: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-subtle);
+  color: inherit;
+  font: inherit;
+  white-space: nowrap;
+  padding: var(--space-1) var(--space-2);
+  cursor: pointer;
+}
+.wv-ghost button:focus-visible {
+  outline: 2px solid var(--color-focus);
+}

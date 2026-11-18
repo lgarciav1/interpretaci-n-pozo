@@ -968,3 +968,24 @@ preparadas, de los gráficos generales, del registro de figuras y de las exporta
 La corrección cierra si cambia el proyecto o la corrida. Cerrar o reabrir un archivo
 requiere volver a pedirla. La repetición crea otro pozo con los mismos perfiles para
 que cada intento tenga su propia interpretación y snapshots.
+
+## Curva fantasma (F18)
+
+El menú contextual ofrece «Calcar un tramo de <curva>» para la línea visible más cercana en la pista. El
+siguiente arrastre iniciado en esa pista delimita el tramo (extremos a la muestra MD más próxima, en cualquier
+orden). Esc o Cancelar desarman la selección. Si faltan dos muestras válidas consecutivas, se avisa y se puede
+volver a intentar. Iniciar otra selección reemplaza el calco anterior.
+
+`WellViewer` mantiene un calco por instancia con `viewer/overlays/ghost.ts`. Copia MD y valores resueltos, y proyecta
+con la escala de la serie, incluida la escala logarítmica, la inversión y el retorno de escala. Los valores
+inválidos interrumpen el trazo. La manija arrastra únicamente en MD y el objetivo de teclado usa el paso del
+visor (Mayús multiplica por diez). El desplazamiento positivo baja el tramo. Su centro queda acotado al pozo;
+Esc durante el arrastre restaura el desplazamiento anterior, y «Quitar calco» borra la comparación.
+
+El calco acompaña el zoom, paneo, tamaño y orden de la pista. Se descarta al cambiar de pozo o grilla, al perder
+la serie de la pista o al cambiar sus datos, fuente del rol, escala o retorno. La cortina descarta el calco y
+deshabilita la selección. En edición de pistas se cancela la selección pendiente. El calco vive en la interfaz
+y sus copias quedan fuera del proyecto, de los cálculos, del historial y de las figuras exportadas.
+
+El visor incluye sus superposiciones propias en el recorrido de foco de `targets`, además de las provistas por
+la app. `pointercancel` cancela el arrastre en vez de confirmar su último punto.

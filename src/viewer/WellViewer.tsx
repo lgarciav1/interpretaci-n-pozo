@@ -17,6 +17,7 @@ import { ContextMenu, CurveLegend, copyText, formatNumber, getResolvedTheme, get
 import { pxPerMeterForScale } from '../io/export/figures/sizing';
 import { nearestCurveAt, outputKeyOfViewerCurve, readingsText } from './contextMenu';
 import { VIEWER_LOOKS, type ViewerLook } from './look';
+import { createGhostTool, ghostOffset, GHOST_OVERLAY_ID, type GhostStatus } from './overlays/ghost';
 import { createMeasureTool } from './overlays/measure';
 import { matchingPrintScale, printScaleOptions, scaleButtonLabel } from './printScale';
 import { THEMES } from '../ui/tokens';
@@ -234,7 +235,12 @@ export function WellViewer(props: WellViewerProps) {
     measured: (text) => announceRef.current(text),
     changed: (armed) => setMeasuring(armed),
   });
-  const overlays = useMemo(() => [...props.overlays, measure.current.overlay], [props.overlays]);
+  const [ghostStatus, setGhostStatus] = useState<GhostStatus | null>(null);
+  const ghost = useRef<ReturnType<typeof createGhostTool> | null>(null);
+  ghost.current ??= createGhostTool(setGhostStatus, () => toast({
+    tone: 'warn', title: 'El tramo no tiene una línea continua', description: 'Arrastrá sobre un tramo con al menos dos muestras válidas consecutivas.',
+  }));
+  const overlays = useMemo(() => [...props.overlays, measure.current.overlay, ghost.current!.overlay], [props.overlays]);
   const overlaysRef = useRef(overlays);
   overlaysRef.current = overlays;
   /** Menú contextual abierto: punto de la ventana, profundidad y pista donde se abrió. */
@@ -697,6 +703,14 @@ export function WellViewer(props: WellViewerProps) {
   const setCursorRef = useRef(setCursor);
   setCursorRef.current = setCursor;
 
+  const ghostUnavailable = !!(props.curtain || layoutEdit || notice);
+  useLayoutEffect(() => {
+    const h = hitFrame();
+    const cleared = props.curtain ? ghost.current!.clear()
+      : (h && ghost.current!.reconcile(h.frame)) || (ghostUnavailable && ghost.current!.cancelSelection());
+    if (cleared) gestures.current.cancel(GHOST_OVERLAY_ID);
+  }, [props.curtain, ghostUnavailable, hitFrame, props.data, tracks]);
+
   // Elementos navegables con el teclado (topes de zona, plugs…): se recalculan cuando cambian los datos.
   useEffect(() => {
     const h = hitFrame();
@@ -705,7 +719,7 @@ export function WellViewer(props: WellViewerProps) {
       return;
     }
     const list: Target[] = [];
-    for (const o of props.overlays) {
+    for (const o of overlays) {
       if (!o.targets) continue;
       const got = guard(o.id, 'targets', () => o.targets!(h.frame)) ?? [];
       for (const t of got) if (t.hit.key && Number.isFinite(t.depth)) list.push({ overlayId: o.id, key: t.hit.key, depth: t.depth, hit: t.hit });
@@ -720,13 +734,13 @@ export function WellViewer(props: WellViewerProps) {
     else {
       // El activo (último clic o arrastre) también se actualiza; si ya no existe (deshacer quitó la zona), se suelta.
       const a = gestures.current.active;
-      const own = a?.hit.key ? props.overlays.find((o) => o.id === a.overlayId) : undefined;
+      const own = a?.hit.key ? overlays.find((o) => o.id === a.overlayId) : undefined;
       if (a && own?.targets) {
         const fresh = list.find((t) => t.overlayId === a.overlayId && t.key === a.hit.key);
         gestures.current.focus(fresh ? { overlayId: fresh.overlayId, hit: fresh.hit } : null);
       }
     }
-  }, [props.data, props.overlays, tracks, size.height, hitFrame]);
+  }, [props.data, overlays, tracks, size.height, hitFrame, ghostStatus]);
 
   useLayoutEffect(() => {
     if (vpRef.current) placeTargets(vpRef.current);
@@ -794,6 +808,7 @@ export function WellViewer(props: WellViewerProps) {
       }
     }
     if (e.button !== 0 || pinch.current) return;
+    if (ghostStatus) e.currentTarget.focus({ preventScroll: true });
     e.currentTarget.setPointerCapture(e.pointerId);
     pressed.current = e.pointerId;
     gestures.current.down(e.pointerId, p);
@@ -830,6 +845,7 @@ export function WellViewer(props: WellViewerProps) {
     if (touches.current.size < 2) pinch.current = null;
     if (pressed.current === e.pointerId) {
       pressed.current = null;
+      if (e.type === 'pointercancel') gestures.current.cancel();
       gestures.current.up(e.pointerId, localPoint(e));
     }
   };
@@ -948,9 +964,11 @@ export function WellViewer(props: WellViewerProps) {
       case '0':
         fit();
         break;
-      case 'Escape':
-        if (!gestures.current.cancel() && !measure.current.clear() && !propsRef.current.onEscape?.()) setCursor(null, null);
+      case 'Escape': {
+        const handledGesture = gestures.current.cancel();
+        if (!ghost.current!.cancelSelection() && !handledGesture && !measure.current.clear() && !propsRef.current.onEscape?.()) setCursor(null, null);
         break;
+      }
       case 'ContextMenu':
         openContextMenuAt(current);
         break;
@@ -1064,7 +1082,25 @@ export function WellViewer(props: WellViewerProps) {
           p.onEditCurve({ track, curve }, anchor);
         },
       },
-      { id: 'measure', label: 'Medir un intervalo', icon: 'ruler', hint: 'arrastrá', onSelect: () => measure.current.arm() },
+      { id: 'measure', label: 'Medir un intervalo', icon: 'ruler', hint: 'arrastrá', onSelect: () => {
+        ghost.current!.cancelSelection();
+        measure.current.arm();
+      } },
+      {
+        id: 'ghost',
+        label: curve?.kind === 'line' ? `Calcar un tramo de ${curve.name}` : 'Calcar un tramo',
+        disabled: ghostUnavailable || curve?.kind !== 'line',
+        description: ghostUnavailable ? 'Cerrá la herramienta activa del perfil para elegir un tramo' : 'Arrastrá en la pista para elegir las dos profundidades',
+        onSelect: () => {
+          if (!track || curve?.kind !== 'line' || ghostUnavailable) return;
+          measure.current.clear();
+          gestures.current.focus(null);
+          ghost.current!.arm({
+            trackId: track.id, curve, depth: p.data.depth, wellId: p.data.wellId,
+            roleSource: curve.role ? p.data.interpretation.sources[curve.role] : undefined,
+          });
+        },
+      },
       {
         id: 'origin',
         label: '¿De dónde sale este número?',
@@ -1333,6 +1369,12 @@ export function WellViewer(props: WellViewerProps) {
   };
 
   const minimapCurve = useMemo(() => pickMinimapCurve(tracks), [tracks]);
+
+  const removeGhost = () => {
+    ghost.current!.clear();
+    gestures.current.cancel(GHOST_OVERLAY_ID);
+    bodyRef.current?.focus();
+  };
 
   // ── render ──────────────────────────────────────────────────────────────────────────────────────────────────
   const columns = layout.boxes.map((b) => `${b.width}px`).join(' ');
@@ -1606,6 +1648,22 @@ export function WellViewer(props: WellViewerProps) {
             )}
           </div>
         </div>
+        {ghostStatus && !props.curtain && (
+          <div className={`wv-notice wv-ghost${ghostStatus.offset !== null ? ' wv-ghost--ready' : ''}`}
+            style={ghostStatus.offset === null ? { top: `calc(${size.heads}px + var(--space-2))` } : undefined}>
+            <span role="status" data-testid="viewer-ghost-status">
+              {ghostStatus.offset === null
+                ? `Arrastrá en la pista de ${ghostStatus.name} para calcar un tramo · Esc para cancelar`
+                : `Calco de ${ghostStatus.name} · ${ghostOffset(ghostStatus.offset)}`}
+            </span>
+            <button type="button" onClick={removeGhost} onKeyDown={(e) => {
+              if (e.key !== 'Escape') return;
+              e.preventDefault();
+              if (ghostStatus.offset === null) removeGhost();
+              else bodyRef.current?.focus();
+            }}>{ghostStatus.offset === null ? 'Cancelar' : 'Quitar calco'}</button>
+          </div>
+        )}
         {props.minimap !== false && (
           <Minimap
             ref={miniRef}

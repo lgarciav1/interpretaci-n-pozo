@@ -138,8 +138,9 @@ export class PointerGestures {
   }
 
   /** Escape: cancela el arrastre en curso o suelta el elemento activo. true si hizo algo. */
-  cancel(): boolean {
+  cancel(overlayId?: string): boolean {
     const o = this.overlay;
+    if (overlayId && (o?.overlayId ?? this.activeHit?.overlayId) !== overlayId) return false;
     if (o) {
       this.overlay = null;
       this.suppressClick = true;
