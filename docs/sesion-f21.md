@@ -2,6 +2,8 @@
 
 Sesión documental del 18 de noviembre de 2026. Rama `docs/f21-saturacion-altura` y base `main` `2df71b7c520b1f27ea6fdfe480b0fb77dcec555e`, squash de F22 en [PR #91](https://github.com/lgarciav1/interpretaci-n-pozo/pull/91). La rama salió de `origin/main` y el masterplan registra F21 como pendiente. Autor Lucas <lgarciav@fi.uba.ar>. La numeración en la sección 2 está desactualizada. El directorio llega a 0078 y se usó 0079. Esta sesión se limitó a inspección, propuesta y revisión. No se ejecutaron suite, benchmarks, build ni navegador. [ADR 0079](decisiones/0079-saturacion-por-altura.md)
 
+La implementación y sus verificaciones posteriores se registran en [la entrega de F21](validacion/2026-11-18-f21.md). Este documento conserva la preparación y el prompt originales.
+
 ## Contratos confirmados en la base
 
 | Área | Archivos y APIs confirmados |

@@ -46,7 +46,7 @@ Verificar independientemente con aritmética escalar y fixtures sin importar el 
 
 ### Ejemplo ilustrativo existente
 
-Para la clase A de `EXAMPLE_PC_CLASSES` usar 1000 mD, φ 0,25, λ 3, Swirr 0,08, J de entrada 0,2 y Hg–aire de ejemplo (480 dyn/cm, 140°). La presión de entrada es ≈5,36830 psi con el coeficiente de unidades redondeado del repositorio (0,2166). A múltiplos 1, 2 y 4 de esa presión, Sw vale 1, 0,195 y 0,094375. Con 30 mN/m, 0°, mapeo de saturación admitido en el escenario sintético y la misma geometría, Pd de destino es ≈3,01983 kPa y la altura de entrada ≈1,50991 m para una diferencia de gradientes de 2 kPa/m. Para comparar presión con SI puro admitir tolerancia relativa de 10⁻⁵ por el redondeo de la constante de campo. Comprobar esta curva separada de los datos TP.
+Para la clase A de `EXAMPLE_PC_CLASSES` usar 1000 mD, φ 0,25, λ 3, Swirr 0,08, J de entrada 0,2 y Hg–aire de ejemplo (480 dyn/cm, 140°). La presión de entrada es ≈5,36830 psi si se redondea a 0,2166 el coeficiente de unidades. A múltiplos 1, 2 y 4 de esa presión, Sw vale 1, 0,195 y 0,094375. Con 30 mN/m, 0°, mapeo de saturación admitido en el escenario sintético y la misma geometría, Pd de destino es ≈3,01983 kPa y la altura de entrada ≈1,50991 m para una diferencia de gradientes de 2 kPa/m. El cálculo SI que usa el repositorio da Pd de laboratorio de 5,368272091 psi, Pd de destino de 3,019809546 kPa y altura de entrada de 1,509904773 m. Al comparar con el cálculo a mano redondeado, admitir tolerancia relativa de 10⁻⁵. Comprobar esta curva separada de los datos TP.
 
 ## Persistencia y alternativas
 
