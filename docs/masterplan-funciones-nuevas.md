@@ -55,7 +55,7 @@ Tamaño: **C** chico (una sesión corta), **M** mediano (una sesión), **G** gra
 | F21 | Saturación por altura (MDT + SCAL + perfil) | 3 | M | analista-numerico | [0079](decisiones/0079-saturacion-por-altura.md) | hecha ([#92](https://github.com/lgarciav1/interpretaci-n-pozo/pull/92), apertura local pendiente) |
 | F14 | Entrenador: pozo con respuesta conocida | 3 | M | analista-numerico | [0080](decisiones/0080-entrenador.md) | pendiente de apertura local ([evidencia](validacion/2026-11-18-f14.md)); integración autorizada ([PR #93](https://github.com/lgarciav1/interpretaci-n-pozo/pull/93)) |
 | F17 | Lupa sobre el perfil | 4 | M | arquitecto | — | pendiente |
-| F18 | Curva fantasma | 4 | M | arquitecto | — | pendiente |
+| F18 | Curva fantasma | 4 | M | arquitecto | — | hecha ([PR #94](https://github.com/lgarciav1/interpretaci-n-pozo/pull/94)); apertura local sin verificar ([evidencia](capturas/f18/README.md)) |
 | F06 | Curva calculada por fórmula | 4 | G | arquitecto | — | pendiente |
 | F15 | Bandas de incertidumbre sobre las curvas | 4 | G | analista-numerico | — | pendiente |
 | F09 | Pegar topes desde una planilla | 4 | C | investigador | — | pendiente |
