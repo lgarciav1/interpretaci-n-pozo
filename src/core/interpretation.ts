@@ -13,6 +13,7 @@ import type { PreparationState } from './preparation/state';
 export type SourceRef = { kind: 'curve'; curveId: string } | { kind: 'module'; moduleId: string };
 
 export interface Interpretation {
+  formulas?: readonly import('./formulas').CurveFormula[];
   /** Notas de lectura en MD; opcionales en proyectos anteriores, fuera del motor. */
   notes?: import('./notes').DepthNote[];
   preparation?: PreparationState;
@@ -88,7 +89,7 @@ export function emptyInterpretation(zones: Zone[] = []): Interpretation {
 
 /**
  * true si dos interpretaciones tienen las mismas entradas del motor (zonas, parámetros, fuentes, comparar,
- * desactivados, sarta) por referencia: las recetas comparten estructura, así que un cambio que solo toca `trends` (u otro
+ * desactivados, sarta, preparación y fórmulas) por referencia: las recetas comparten estructura, así que un cambio que solo toca `trends` (u otro
  * campo que el motor no lee) da true y el puente no pide un cálculo.
  */
 export function sameEngineInputs(a: Interpretation, b: Interpretation): boolean {
@@ -98,7 +99,7 @@ export function sameEngineInputs(a: Interpretation, b: Interpretation): boolean 
     a.sources === b.sources &&
     a.compare === b.compare &&
     a.disabled === b.disabled &&
-    a.toolString === b.toolString && a.preparation === b.preparation
+    a.toolString === b.toolString && a.preparation === b.preparation && a.formulas === b.formulas
   );
 }
 

@@ -11,6 +11,7 @@ export interface ExportOutput {
   active: boolean;
   label: string;
   unit?: string;
+  formula?: string;
   value: unknown;
 }
 
@@ -44,7 +45,7 @@ export function buildExportColumns(well: Well, outputs: readonly ExportOutput[] 
       id: `c:${o.moduleId}:${o.port}`,
       mnemonic: o.active ? o.port : `${o.port}_${o.moduleId}`,
       unit: o.unit ?? '',
-      description: `${o.label} · ${name(o.moduleId)}${o.active ? '' : ' (alternativa)'}`,
+      description: o.formula !== undefined ? `Fórmula: ${o.formula}` : `${o.label} · ${name(o.moduleId)}${o.active ? '' : ' (alternativa)'}`,
       data: o.value,
       origin: 'computed',
     });

@@ -27,6 +27,8 @@ import { computeStack, type StackResult } from './stack';
 
 /** Curva calculada por el motor (salida de un módulo). */
 export interface ComputedCurve {
+  formula?: string;
+  unit?: UnitId;
   port: RoleId;
   moduleId: string;
   label: string;
@@ -341,7 +343,7 @@ export function resolveTracks(fullLayout: readonly TrackSpec[], src: ViewerSourc
     // Con módulo nombrado, el encabezado dice qué modelo es («Archie», no tres veces «SW»): lo que sigue a «Sw — ».
     const name = explicitModule ? (c.label.replace(/^.*?\s[—–-]\s+/, '') || c.port) : c.port;
     return makeCurve(
-      { key, name, role: c.port, unit: def?.unit ?? 'unitless', origin: 'computed', alternative, data: c.data, moduleId: c.moduleId, title },
+      { key, name, role: c.port, unit: c.unit ?? def?.unit ?? 'unitless', origin: 'computed', alternative, data: c.data, moduleId: c.moduleId, title },
       catalog,
       track,
       layers,

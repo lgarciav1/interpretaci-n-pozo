@@ -57,6 +57,7 @@ export interface OutputRecord {
   version: number;
   label: string;
   unit?: UnitId;
+  formula?: string;
   /** Tabla marcada `hidden` en su declaración: no se lista en el panel genérico de Resultados. */
   hidden?: true;
   value: OutputValue;
@@ -255,8 +256,9 @@ export class Engine {
     const t0 = now();
     const well = this.well;
     if (!well) throw new Error('No hay pozo cargado en el motor.');
-    const registry = this.registry;
-    const plan: Plan = planGraph(registry, well.curves, interp);
+    const plan: Plan = planGraph(this.registry, well.curves, interp);
+    const { registry, expressions } = plan;
+    for (const id of this.cache.keys()) if (!registry.get(id)) this.cache.delete(id);
     let executionOrder = plan.order;
     if (this.options.targetModuleIds) {
       const included = new Set<string>();
@@ -331,7 +333,7 @@ export class Engine {
         }
         if (src.kind === 'curve') {
           const curve = curvesById.get(src.curveId)!;
-          const target = spec.kind === 'curve' ? registry.roles.unitOf(spec.role) : curve.unit;
+          const target = spec.kind === 'curve' && spec.curveId === undefined ? registry.roles.unitOf(spec.role) : curve.unit;
           const unitProblem = checkUnits(curve, target);
           if (unitProblem?.fatal) {
             inputError = unitProblem.message;
@@ -340,7 +342,7 @@ export class Engine {
           }
           if (unitProblem) diagnostics.push({ level: 'warning', code: 'unknown-unit', moduleId: id, port: portOf(spec), message: unitProblem.message });
           inputs[key] = unitProblem ? curve.data : this.curveIn(curve, target);
-          inputStamps.push(`c:${curve.id}#${this.revOf(curve.data)}:${curve.unit}`);
+          inputStamps.push(`c:${curve.id}#${this.revOf(curve.data)}:${curve.unit}:${target}`);
         } else {
           const dep = this.cache.get(src.moduleId)!;
           const port = portOf(spec);
@@ -373,7 +375,8 @@ export class Engine {
 
       const params = resolveModuleParams(id, m.params, interp.params, zoneIds);
       for (const p of params.problems) diagnostics.push({ level: 'warning', code: 'params', moduleId: id, message: `'${m.name}': ${p}` });
-      const stamp = JSON.stringify([params.key, layout.spans.map((s) => [s.id, s.name, s.kind, s.start, s.end]), inputStamps]);
+      const formulaStamp = expressions.has(id) ? [expressions.get(id), registry.roles.get(m.name)?.unit] : null;
+      const stamp = JSON.stringify([formulaStamp, params.key, layout.spans.map((s) => [s.id, s.name, s.kind, s.start, s.end]), inputStamps]);
       const publish = () => {
         report.inputs = used;
         report.params = { global: params.global, byZone: Object.fromEntries(params.byZone) };
@@ -469,6 +472,7 @@ export class Engine {
           version: cached.version,
           label: spec.label ?? (spec.kind === 'curve' ? registry.roles.get(spec.role)?.label ?? port : port),
           ...(unit !== undefined ? { unit } : {}),
+          ...(expressions.has(id) ? { formula: expressions.get(id)! } : {}),
           ...(spec.kind === 'table' && spec.hidden ? { hidden: true as const } : {}),
           value: cached.outputs.get(port)!,
         });

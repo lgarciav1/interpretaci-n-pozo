@@ -1,3 +1,4 @@
+import { sanitizeFormulas } from '../formulas';
 import { readTrainerRecipe } from './trainerRecipe';
 import type { TrainerRecipe } from '../../petro/trainer';
 import { sanitizeNotes } from '../notes';
@@ -242,9 +243,10 @@ export async function deserializeProject(text: string, opts: DeserializeOptions 
   /** Tendencias y decisiones sobre puntos validadas al abrir: lo inválido se descarta con aviso (como `display`). */
   const cleanInterp = (i: Interpretation, where: string): Interpretation => {
     if (i.preparation !== undefined) throw new Error('Una receta de preparación requiere un archivo con revisiones de entradas.');
-    const { toolString: rawToolString, moduleState: rawModuleState, notes: rawNotes, ...rest } = i;
+    const { toolString: rawToolString, moduleState: rawModuleState, notes: rawNotes, formulas: rawFormulas, ...rest } = i;
     const toolString = sanitizeToolString(rawToolString, where, warn);
     const moduleState = sanitizeModuleState(rawModuleState, where, warn);
+    const formulas = sanitizeFormulas(rawFormulas, message => warn(`${where}: ${message}`));
     return {
       ...rest,
       trends: sanitizeTrends(i.trends, where, warn),
@@ -252,6 +254,7 @@ export async function deserializeProject(text: string, opts: DeserializeOptions 
       pointSets: sanitizePointSetDecisions(i.pointSets, where, warn),
       ...(toolString ? { toolString } : {}),
       ...(moduleState ? { moduleState } : {}),
+      ...(formulas ? { formulas } : {}),
     };
   };
   const wells = await Promise.all(

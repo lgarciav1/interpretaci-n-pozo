@@ -1,3 +1,4 @@
+import { formulaRegistry } from './formulas';
 /**
  * Planificación del grafo de cálculo: qué fuente alimenta cada puerto, qué módulos corren, en qué orden,
  * y qué falta. No calcula nada: es puro y barato (se rehace en cada corrida).
@@ -26,7 +27,8 @@ export interface Diagnostic {
     | 'unit-mismatch'
     | 'unknown-unit'
     | 'zones'
-    | 'params';
+    | 'params'
+    | 'formula';
   message: string;
   moduleId?: string;
   port?: string;
@@ -62,6 +64,8 @@ export interface PlanNode {
 }
 
 export interface Plan {
+  registry: Registry;
+  expressions: ReadonlyMap<string, string>;
   /** Fuente elegida por puerto (la que alimenta la cadena). */
   sources: Map<string, SourceRef>;
   /** Todas las fuentes disponibles por puerto (para el selector de método). */
@@ -76,8 +80,9 @@ function moduleLabel(m: AnyModule | undefined, id: string): string {
   return m ? `'${m.name}'` : `'${id}'`;
 }
 
-export function planGraph(registry: Registry, allCurves: readonly CurveMeta[], interp: Interpretation): Plan {
+export function planGraph(base: Registry, allCurves: readonly CurveMeta[], interp: Interpretation): Plan {
   const diagnostics: Diagnostic[] = [];
+  const { registry, expressions } = formulaRegistry(base, allCurves, interp, diagnostics);
   const disabled = new Set(interp.disabled);
 
   // 0. Sarta (docs/decisiones/0032): las curvas de una herramienta apagada o fuera de la sarta planificada no existen
@@ -164,7 +169,9 @@ export function planGraph(registry: Registry, allCurves: readonly CurveMeta[], i
     changed = false;
     for (const m of registry.modules) {
       if (disabled.has(m.id) || viable.has(m.id)) continue;
-      const canFeed = (spec: AnyModule['inputs'][string]) => (candidates.get(portOf(spec)) ?? []).some((c) => notSelf(c, m.id) && isViable(c));
+      const canFeed = (spec: AnyModule['inputs'][string]) => spec.kind === 'curve' && spec.curveId !== undefined
+        ? curvesById.has(spec.curveId)
+        : (candidates.get(portOf(spec)) ?? []).some((c) => notSelf(c, m.id) && isViable(c));
       const ok =
         Object.values(m.inputs).every((spec) => spec.optional || canFeed(spec)) &&
         !unmetInputGroup(m, (key) => !!m.inputs[key] && canFeed(m.inputs[key]!));
@@ -225,7 +232,14 @@ export function planGraph(registry: Registry, allCurves: readonly CurveMeta[], i
     const dropped: Diagnostic[] = [];
     for (const [key, spec] of Object.entries(m.inputs)) {
       const port = portOf(spec);
-      let src = sourceFor(port, id);
+      let src: SourceRef | null;
+      if (spec.kind === 'curve' && spec.curveId !== undefined) {
+        src = curvesById.has(spec.curveId) ? { kind: 'curve', curveId: spec.curveId } : null;
+      } else if (expressions.has(id)) {
+        src = sources.get(port) ?? null;
+      } else {
+        src = sourceFor(port, id);
+      }
       if (blockedPorts.has(port) && spec.optional) {
         status = 'blocked';
         diagnostics.push({ level: 'warning', code: 'blocked', moduleId: id, port, message: `${moduleLabel(m, id)} está bloqueado por la fuente preparada de ${port}, aunque su entrada sea opcional.` });
@@ -258,7 +272,9 @@ export function planGraph(registry: Registry, allCurves: readonly CurveMeta[], i
           moduleId: id,
           port,
           message:
-            spec.kind === 'curve'
+            spec.kind === 'curve' && spec.curveId !== undefined
+              ? `${moduleLabel(m, id)} necesita la curva ${spec.label ?? spec.curveId}, que no está disponible.`
+              : spec.kind === 'curve'
               ? `${moduleLabel(m, id)} necesita una curva con rol ${port} (${what}). Asigná ese rol a una curva del pozo o activá un módulo que la calcule.`
               : `${moduleLabel(m, id)} necesita ${spec.kind === 'scalar' ? 'el valor' : `el dato (${PORT_KIND_LABEL[spec.kind]})`} ${port} (${what}) y ningún módulo activo lo calcula.`,
         });
@@ -289,7 +305,7 @@ export function planGraph(registry: Registry, allCurves: readonly CurveMeta[], i
   for (const d of diagnostics) {
     if (d.code !== 'missing-input' || d.level !== 'error' || !d.moduleId) continue;
     const id = d.moduleId;
-    if (reasons.get(id) === 'chain' && !consumed.has(id) && !explicitModules.has(id) && !compared.has(id)) d.level = 'info';
+    if (!expressions.has(id) && reasons.get(id) === 'chain' && !consumed.has(id) && !explicitModules.has(id) && !compared.has(id)) d.level = 'info';
   }
 
   // 4. Orden topológico (Kahn) con desempate por orden de registro → determinístico.
@@ -385,7 +401,7 @@ export function planGraph(registry: Registry, allCurves: readonly CurveMeta[], i
     }
   }
 
-  return { sources, candidates, order, nodes, diagnostics };
+  return { registry, expressions, sources, candidates, order, nodes, diagnostics };
 }
 
 /** true si el módulo `dep` alimenta a `node` solo a través de entradas opcionales. */

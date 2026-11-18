@@ -213,11 +213,12 @@ export function traceSample(result: TraceRunResult, registry: Registry, curves: 
   const nameOf = (id: string) => registry.get(id)?.name ?? id;
 
   const traceInput = (id: string, key: string, spec: InputSpec, src: SourceRef | null): TraceInput => {
-    const port = portOf(spec);
+    const pinned = spec.kind === 'curve' && spec.curveId !== undefined;
+    const port = pinned ? spec.label ?? portOf(spec) : portOf(spec);
     const label = spec.label ?? (spec.kind === 'curve' ? registry.roles.get(spec.role)?.label ?? port : port);
-    const chosen = result.sources[port];
+    const chosen = pinned ? undefined : result.sources[port];
     const chosenIsSelf = chosen?.kind === 'module' && chosen.moduleId === id;
-    const others: TraceCandidate[] = (result.candidates[port] ?? [])
+    const others: TraceCandidate[] = (pinned ? [] : result.candidates[port] ?? [])
       .filter((c) => !sourceRefEquals(c, src ?? undefined) && !(c.kind === 'module' && c.moduleId === id))
       .map((c) =>
         c.kind === 'curve'
@@ -257,7 +258,7 @@ export function traceSample(result: TraceRunResult, registry: Registry, curves: 
     }
     // Igual que `Engine.curveIn`: la curva llega en la unidad canónica del rol del puerto.
     const raw = index < curve.data.length ? curve.data[index]! : NaN;
-    const to = spec.kind === 'curve' ? registry.roles.unitOf(spec.role) : curve.unit;
+    const to = spec.kind === 'curve' && !pinned ? registry.roles.unitOf(spec.role) : curve.unit;
     let value = raw;
     let unknownUnit = false;
     if (curve.unit !== to) {
@@ -279,7 +280,7 @@ export function traceSample(result: TraceRunResult, registry: Registry, curves: 
         role: curve.role,
         unit: curve.unit,
         prepared: curve.provenance?.origin === 'prepared',
-        crossRole: spec.kind === 'curve' && curve.role !== spec.role,
+        crossRole: spec.kind === 'curve' && !pinned && curve.role !== spec.role,
         unknownUnit,
       },
       value,

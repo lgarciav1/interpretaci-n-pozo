@@ -1,3 +1,4 @@
+import { FormulaEditor } from './FormulaEditor';
 import { openPreparation } from '../preparation/open';
 /**
  * Columna izquierda: pozo, curvas medidas (con su semáforo de calidad), resumen del control de calidad,
@@ -245,6 +246,7 @@ export function WellPanel() {
       </Section>
 
       <Section title="Curvas calculadas" meta={computed.length || undefined}>
+        <FormulaEditor key={well.id} entry={entry} />
         {computed.length === 0 ? (
           <EmptyState
             size="sm"

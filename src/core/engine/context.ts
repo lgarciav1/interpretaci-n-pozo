@@ -44,7 +44,7 @@ export function wellInputKey(well: EngineWell): string {
   inputKeys.set(well.curves, { id: well.id, depth: well.depth, key });
   return key;
 }
-export const engineDecisionKey = (interpretation: Interpretation): string => canonical([interpretation.zones, interpretation.params, interpretation.sources, interpretation.compare, interpretation.disabled, interpretation.toolString ?? null]);
+export const engineDecisionKey = (interpretation: Interpretation): string => canonical([interpretation.zones, interpretation.params, interpretation.sources, interpretation.compare, interpretation.disabled, interpretation.toolString ?? null, ...(interpretation.formulas?.length ? [interpretation.formulas] : [])]);
 export function engineContext(well: EngineWell, interpretation: Interpretation, inputRevisionId: string | null = null): EngineContext {
   if (well.curves.some(c => c.provenance?.origin === 'prepared'))
     throw new Error('La proyección preparada requiere un plan validado; no se puede usar como identidad.');
