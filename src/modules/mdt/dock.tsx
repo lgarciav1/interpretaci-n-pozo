@@ -11,11 +11,12 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { pointNumbers, pointTexts, shiftedDepth, type PointSet } from '../../core/pointSets';
 import { addPointSet, removePointSet, setPointDecision, setPointSetSetting } from '../../core/state/pointSets';
-import { activeWellEntry, makeId, setOverlaySetting } from '../../core/state/project';
+import { activeWellEntry, applyZoneEdit, makeId, setOverlaySetting } from '../../core/state/project';
 import { removeTrend } from '../../core/state/trends';
+import { defaultZoneName, splitZoneAt } from '../../core/state/zones';
 import { conversionCoefficients, unitLabel } from '../../core/units';
 import { formatGradientValue, formatR2 } from '../../plots/trend/format';
-import { Badge, Button, Callout, Checkbox, DataTable, EmptyState, IconButton, NumberField, SegmentedControl, Select, formatNumber, toast, useFlash, useThemeTokens, type Column } from '../../ui';
+import { Badge, Button, Callout, Checkbox, DataTable, EmptyState, IconButton, NumberField, SegmentedControl, Select, formatNumber, toast, useFlash, useThemeTokens, zoneColor, type Column } from '../../ui';
 import type { DockPanelDef } from '../../ui/dockPanel';
 import { ensureContrast } from '../../ui/color';
 import { selectActiveEntry, useProject } from '../../app/store/project';
@@ -181,7 +182,7 @@ export function MdtPanel() {
         <PointsTable set={set} analysis={analysis} unit={unit} selected={selectedPoint} onSelect={setSelectedPoint} />
         <aside className="mdt-side">
           <Gradients set={set} analysis={analysis} />
-          <Contacts contacts={analysis.contacts.filter((c) => analysis.gradients.some((g) => g.setId === set.id && g.spec.id === c.upper.id))} unit={unit} />
+          <Contacts contacts={analysis.contacts.filter((c) => analysis.gradients.some((g) => g.setId === set.id && g.spec.id === c.upper.id))} unit={unit} wellId={well.id} />
         </aside>
       </div>
       {dialog}
@@ -585,7 +586,30 @@ function GradientCard({ g, color, selected, pickingRange, setId }: { g: MdtGradi
 
 // ── contactos ───────────────────────────────────────────────────────────────────────────────────────────────
 
-function Contacts({ contacts, unit }: { contacts: FluidContact[]; unit: DisplayUnit }) {
+function createTopFromContact(wellId: string, depth: number) {
+  const { project, commit } = useProject.getState();
+  const entry = activeWellEntry(project);
+  if (!entry || entry.well.id !== wellId) return;
+  const { zones } = entry.interpretation;
+  const result = splitZoneAt(zones, depth, {
+    id: makeId('zona'),
+    name: defaultZoneName(zones),
+    color: zoneColor(zones.length),
+  }, { depth: entry.well.depth.values });
+  if ('error' in result) {
+    toast({ tone: 'warn', title: 'No se creó el tope', description: result.error });
+    return;
+  }
+  commit('Usar contacto MDT como tope', (p) => applyZoneEdit(p, wellId, result.zones, result.clone), { group: result.created.id });
+  useUi.getState().set({ editingZoneId: result.created.id });
+  toast({
+    tone: 'ok',
+    title: `Tope de «${result.created.name}» a ${formatNumber(result.created.top, { digits: 2, grouping: false })} m`,
+    description: 'El tope se ajustó a la muestra más cercana.',
+  });
+}
+
+function Contacts({ contacts, unit, wellId }: { contacts: FluidContact[]; unit: DisplayUnit; wellId: string }) {
   const theme = useThemeTokens();
   const [a, b] = conversionCoefficients('psi', unit);
   return (
@@ -598,16 +622,17 @@ function Contacts({ contacts, unit }: { contacts: FluidContact[]; unit: DisplayU
       ) : (
         <ul className="mdt-contacts">
           {contacts.map((c) => {
+            const depth = c.depth;
             const color = c.lower.fluid ? ensureContrast(FLUID_COLOR[theme.name][c.lower.fluid], theme.color.surface, 3) : theme.color.textMuted;
             return (
               <li key={`${c.upper.id}|${c.lower.id}`} className={`mdt-contact${c.depth === null ? ' is-missing' : ''}`} style={{ ['--fluid' as string]: color }}>
                 <span className="mdt-contact__tag">{CONTACT_LABEL[c.kind].short}</span>
                 <div className="mdt-contact__text">
                   <span className="mdt-contact__name">{CONTACT_LABEL[c.kind].long}</span>
-                  {c.depth !== null ? (
+                  {depth !== null ? (
                     <span className="mdt-contact__value num">
-                      <button type="button" className="mdt-contact__go" title="Ver en el visor" onClick={() => useTrendsUi.getState().requestRange(c.depth! - 40, c.depth! + 40)}>
-                        <Flash value={c.depth}>{m1(c.depth)} m</Flash>
+                      <button type="button" className="mdt-contact__go" title="Ver en el visor" onClick={() => useTrendsUi.getState().requestRange(depth - 40, depth + 40)}>
+                        <Flash value={depth}>{m1(depth)} m</Flash>
                       </button>
                       <span className="ui-text-muted">
                         {' · '}
@@ -617,6 +642,11 @@ function Contacts({ contacts, unit }: { contacts: FluidContact[]; unit: DisplayU
                   ) : null}
                   {c.problem && <span className="mdt-contact__note mdt-contact__note--error">{c.problem}</span>}
                   {c.warning && <span className="mdt-contact__note">{c.warning}</span>}
+                  {depth !== null && (
+                    <Button className="mdt-contact__top" size="sm" icon="zone-add" onClick={() => createTopFromContact(wellId, depth)}>
+                      Usar como tope de zona
+                    </Button>
+                  )}
                 </div>
               </li>
             );
