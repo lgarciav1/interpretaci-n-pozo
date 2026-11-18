@@ -52,7 +52,7 @@ Tamaño: **C** chico (una sesión corta), **M** mediano (una sesión), **G** gra
 | F05 | Notas ancladas a profundidad | 2 | M | desarrollador-ui | — | hecha ([0076](decisiones/0076-notas-profundidad.md), [PR #89](https://github.com/lgarciav1/interpretaci-n-pozo/pull/89)); apertura file:// pendiente, integración autorizada con esa limitación |
 | F20 | Reparar la densidad en los derrumbes | 3 | G | analista-numerico | — | hecha ([0077](decisiones/0077-reconstruccion-densidad.md), [PR #90](https://github.com/lgarciav1/interpretaci-n-pozo/pull/90)); integración autorizada expresamente con apertura file:// pendiente |
 | F22 | Torneo de modelos contra la corona | 3 | G | analista-numerico | [0078](decisiones/0078-torneo-modelos-corona.md) | [hecha, PR #91](https://github.com/lgarciav1/interpretaci-n-pozo/pull/91); integración autorizada con file:// pendiente |
-| F21 | Saturación por altura (MDT + SCAL + perfil) | 3 | M | analista-numerico | — | pendiente |
+| F21 | Saturación por altura (MDT + SCAL + perfil) | 3 | M | analista-numerico | [0079](decisiones/0079-saturacion-por-altura.md) | hecha ([#92](https://github.com/lgarciav1/interpretaci-n-pozo/pull/92), apertura local pendiente) |
 | F14 | Entrenador: pozo con respuesta conocida | 3 | M | analista-numerico | — | pendiente |
 | F17 | Lupa sobre el perfil | 4 | M | arquitecto | — | pendiente |
 | F18 | Curva fantasma | 4 | M | arquitecto | — | pendiente |
