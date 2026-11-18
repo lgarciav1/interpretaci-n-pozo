@@ -54,7 +54,8 @@ Resultados del 18 de noviembre de 2026:
 - Typecheck y suite completa aprobados (241 archivos, 3.804 pruebas). La selección focalizada de zonas
   y MDT pasó 44 pruebas. El build produjo únicamente `dist/index.html`.
 - Chromium administrado bloqueó `file://` con
-  `net::ERR_BLOCKED_BY_ADMINISTRATOR at file:///workspace/tp/dist/index.html`.
+  `net::ERR_BLOCKED_BY_ADMINISTRATOR at file:///workspace/tp/dist/index.html`. Se autorizó la integración
+  con la apertura por doble clic sin verificar.
 - Por HTTP local con la red deshabilitada tras la carga, el contacto gas–petróleo (8.011,9 m en el
   panel) produjo un tope a 8.011,9728 m. Pasaron el intento repetido, Deshacer y Rehacer, las
   comparaciones de proyectos y las capturas. El navegador registró cero errores de página y cero
