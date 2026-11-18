@@ -83,9 +83,9 @@
   .wv[data-reading] .ui-curve-legend--inline .ui-curve-legend__mid { grid-column: 1 / -1; grid-row: 1; }
 }
 .wv-head--depth { align-items: center; justify-content: space-between; padding-inline: var(--space-1); background: var(--viewer-track-bg-alt); }
-.wv-head__top { display: flex; align-items: center; gap: var(--space-1); min-width: 0; margin-bottom: var(--space-1); }
+.wv-head__top { display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--space-1); min-width: 0; margin-bottom: var(--space-1); }
 .wv-head__title {
-  flex: 1;
+  flex: 1 1 4.5em;
   min-width: 0;
   overflow: hidden;
   color: var(--color-text-subtle);
@@ -535,6 +535,7 @@
  * columnas (MD y TVDSS) y selector de escala de impresión.
  */
 .wv[data-look='classic'] .wv-head__title {
+  min-width: 4.5em;
   overflow: visible;
   white-space: normal;
   overflow-wrap: normal;
@@ -547,7 +548,7 @@
   letter-spacing: 0;
 }
 .wv[data-look='classic'] .wv-head__overflow-names { display: none; }
-.wv[data-look='classic'] .wv-head--depth .wv-head__title { white-space: nowrap; }
+.wv[data-look='classic'] .wv-head--depth .wv-head__title { min-width: 0; white-space: nowrap; }
 .wv[data-look='classic'] .wv-head--depth { background: var(--viewer-track-bg); }
 .wv[data-look='classic'] .wv-head__depth { font-family: var(--font-mono); font-size: calc(10px * var(--ui-scale)); }
 .wv-head__depth--two { display: grid; grid-template-columns: 1fr 1fr; column-gap: var(--space-1); width: 100%; text-align: center; }
@@ -594,20 +595,35 @@
 }
 
 .wv-head__band {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
   flex: none;
-  padding: 1px 4px;
-  border: 1px solid currentColor;
-  border-radius: 4px;
-  background: transparent;
-  color: inherit;
+  height: calc(16px * var(--ui-scale));
+  padding: 0 calc(4px * var(--ui-scale));
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface-subtle);
+  color: var(--color-text-muted);
   font: inherit;
+  font-size: calc(10px * var(--ui-scale));
+  line-height: 1;
   cursor: pointer;
+  white-space: nowrap;
 }
-
+.wv-head__band:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+.wv-head__band:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
 .wv-head__band[aria-pressed='true'] {
   background: var(--color-accent-soft);
-  border-color: var(--color-accent-soft);
+  border-color: var(--color-accent-border);
   color: var(--color-accent-text);
+  font-weight: var(--weight-semibold);
 }
 
 .wv-band-status {

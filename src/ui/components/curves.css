@@ -48,9 +48,29 @@
 .ui-curve-legend--classic .ui-curve-legend__unit { font-family: var(--font-mono); font-size: calc(10px * var(--ui-scale)); line-height: calc(13px * var(--ui-scale)); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .ui-curve-legend--classic .ui-curve-legend__lo,
 .ui-curve-legend--classic .ui-curve-legend__hi { color: var(--color-text-muted); }
-.ui-curve-legend--classic .ui-curve-legend__label { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; column-gap: calc(4px * var(--ui-scale)); min-width: 0; max-width: none; line-height: calc(13px * var(--ui-scale)); text-align: center; }
-.ui-curve-legend--classic .ui-curve-legend__name { flex: none; overflow: visible; font-weight: var(--weight-semibold); white-space: nowrap; }
+.ui-curve-legend--classic .ui-curve-legend__label { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; column-gap: calc(4px * var(--ui-scale)); min-width: 0; max-width: 100%; line-height: calc(13px * var(--ui-scale)); text-align: center; }
+.ui-curve-legend--classic .ui-curve-legend__name { flex: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-weight: var(--weight-semibold); white-space: nowrap; }
 .ui-curve-legend--classic .ui-curve-legend__unit { flex: none; margin-left: 0; color: var(--color-text-muted); }
+/* Pistas angostas: mnemónico + unidad arriba a todo el ancho y extremos lo/hi debajo, sin superposición posible. */
+@container (max-width: 11.5em) {
+  .ui-curve-legend--classic:not(.ui-curve-legend--noscale) .ui-curve-legend__row {
+    row-gap: 1px;
+  }
+  .ui-curve-legend--classic:not(.ui-curve-legend--noscale) .ui-curve-legend__label {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    justify-content: center;
+  }
+  .ui-curve-legend--classic:not(.ui-curve-legend--noscale) .ui-curve-legend__lo {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .ui-curve-legend--classic:not(.ui-curve-legend--noscale) .ui-curve-legend__hi {
+    grid-column: 3;
+    grid-row: 2;
+    justify-self: end;
+  }
+}
 .ui-curve-legend__sample .ui-curve-legend__tag--alt { position: relative; padding: 0 calc(3px * var(--ui-scale)); background: var(--color-surface); font-size: calc(9px * var(--ui-scale)); line-height: calc(10px * var(--ui-scale)); }
 .ui-curve-legend__sample { gap: calc(3px * var(--ui-scale)); }
 .ui-curve-legend__sample { position: relative; display: flex; align-items: center; justify-content: center; height: calc(9px * var(--ui-scale)); }

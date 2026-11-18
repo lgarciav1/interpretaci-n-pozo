@@ -1,10 +1,11 @@
-import { useState } from 'react';
-import { Button, Dialog } from '../../ui';
+import { useId, useState } from 'react';
+import { Button, Checkbox, Dialog, Field, TextField } from '../../ui';
 import { closeHome } from '../home/actions';
 import { startTrainer } from './actions';
 import './trainer.css';
 
 export function TrainerStart({ disabled }: { disabled: boolean }) {
+  const seedId = useId();
   const [open, setOpen] = useState(false);
   const [seedText, setSeedText] = useState('');
   const [noise, setNoise] = useState(true);
@@ -20,14 +21,13 @@ export function TrainerStart({ disabled }: { disabled: boolean }) {
         startTrainer({ version: 1, seed: seed ?? crypto.getRandomValues(new Uint32Array(1))[0]!, noise });
         closeHome();
       }}>
-        <label>
-          Semilla (opcional)
-          <input data-autofocus inputMode="numeric" value={seedText} onChange={event => setSeedText(event.target.value)} placeholder="Aleatoria" aria-invalid={!valid} />
-        </label>
-        <small>Usá un entero entre 0 y 4.294.967.295 para repetir un ejercicio.</small>
-        <label className="trainer-start__noise"><input type="checkbox" checked={noise} onChange={event => setNoise(event.target.checked)} /> Con ruido de medición</label>
+        <Field label="Semilla (opcional)" htmlFor={seedId} hint="Usá un entero entre 0 y 4.294.967.295 para repetir un ejercicio." error={!valid ? 'Ingresá un entero válido.' : undefined}>
+          <TextField id={seedId} data-autofocus inputMode="numeric" value={seedText} onChange={setSeedText} placeholder="Aleatoria" invalid={!valid} block />
+        </Field>
+        <Checkbox checked={noise} onChange={setNoise} label="Con ruido de medición" />
         <Button type="submit" variant="primary" disabled={!valid}>Iniciar ejercicio</Button>
       </form>
     </Dialog>
   </>;
 }
+

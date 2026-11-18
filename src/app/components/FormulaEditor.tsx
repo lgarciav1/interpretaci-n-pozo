@@ -1,11 +1,11 @@
 import { useId, useState } from 'react';
 import { withCurveFormula } from '../../core/engine/validateFormula';
-import type { CurveFormula } from '../../core/formulas';
-import { FORMULA_LENGTH } from '../../petro/formula';
+import { formulaModuleId, type CurveFormula } from '../../core/formulas';
+import { FORMULA_LENGTH, parseFormula } from '../../petro/formula';
 import { updateInterpretation, type WellEntry } from '../../core/state/project';
 import { listUnits } from '../../core/units';
 import { registry } from '../../modules';
-import { Button, Dialog, Field, Select, TextField } from '../../ui';
+import { Button, Callout, Dialog, Field, IconButton, Select, TextField, toast } from '../../ui';
 import { effectiveWell } from '../preparation/data';
 import { useProject } from '../store/project';
 import { useResults } from '../store/results';
@@ -23,13 +23,47 @@ export function FormulaEditor({ entry }: { entry: WellEntry }) {
     setError('');
     setDraft(formula ?? { mnemonic: '', expression: '', unit: 'unitless' });
   };
+  const remove = (mnemonic: string) => {
+    const remaining = (entry.interpretation.formulas ?? []).filter(f => f.mnemonic !== mnemonic);
+    const dependent = remaining.find(f => {
+      try {
+        return parseFormula(f.expression).references.some(r => r === mnemonic);
+      } catch {
+        return false;
+      }
+    });
+    if (dependent) {
+      toast({ tone: 'error', title: `No se puede borrar ${mnemonic}`, description: `La fórmula ${dependent.mnemonic} depende de ${mnemonic}.` });
+      return;
+    }
+    const modId = formulaModuleId(mnemonic);
+    const nextSources = Object.fromEntries(
+      Object.entries(entry.interpretation.sources).filter(([, s]) => !((s.kind === 'curve' && s.curveId === mnemonic) || (s.kind === 'module' && s.moduleId === modId))),
+    );
+    const nextCompare = entry.interpretation.compare.filter(c => c !== modId);
+    const nextDisabled = entry.interpretation.disabled.filter(d => d !== modId);
+    useProject.getState().commit(`Borrar fórmula ${mnemonic}`, p => updateInterpretation(p, entry.well.id, prev => ({
+      ...prev,
+      formulas: remaining,
+      sources: nextSources,
+      compare: nextCompare,
+      disabled: nextDisabled,
+    })));
+    if (draft?.mnemonic === mnemonic) setDraft(null);
+  };
   return <>
     <Button size="sm" icon="plus" onClick={() => open()}>Nueva curva por fórmula</Button>
-    {entry.interpretation.formulas?.map(formula => (
-      <div key={formula.mnemonic}>
-        <Button size="sm" variant="ghost" onClick={() => open(formula)}>Editar {formula.mnemonic}</Button>
+    {entry.interpretation.formulas && entry.interpretation.formulas.length > 0 && (
+      <div className="formula-list">
+        {entry.interpretation.formulas.map(formula => (
+          <div key={formula.mnemonic} className="formula-list__row">
+            <Button size="sm" variant="ghost" onClick={() => open(formula)}>Editar {formula.mnemonic}</Button>
+            <code className="formula-list__expr">= {formula.expression}</code>
+            <IconButton size="sm" icon="trash" label={`Borrar fórmula ${formula.mnemonic}`} onClick={() => remove(formula.mnemonic)} />
+          </div>
+        ))}
       </div>
-    ))}
+    )}
     {draft && <Dialog open onClose={() => setDraft(null)} title={editing ? 'Editar curva por fórmula' : 'Nueva curva por fórmula'} size="sm">
       <form className="formula-editor" onSubmit={event => {
         event.preventDefault();
@@ -56,9 +90,10 @@ export function FormulaEditor({ entry }: { entry: WellEntry }) {
         <Field label="Unidad del resultado" htmlFor={`${id}-unit`}>
           <Select id={`${id}-unit`} value={draft.unit} onChange={unit => setDraft({ ...draft, unit })} options={units} block />
         </Field>
-        {error && <p role="alert" className="ui-field__error">{error}</p>}
+        {error && <Callout tone="error">{error}</Callout>}
         <Button type="submit" variant="primary">Guardar fórmula</Button>
       </form>
     </Dialog>}
   </>;
 }
+

@@ -106,6 +106,7 @@ Escala por `devicePixelRatio`, redibuja al cambiar el tamaño (ResizeObserver), 
 | `Tabs` + `TabPanel` | Pestañas con paneles (tablist, flechas, insignia por pestaña). El rótulo va en `.ui-tabs__label` (y en el `title`): una pantalla puede ocultarlo visualmente en las no elegidas cuando no entran (el dock lo hace por debajo de 74 em). |
 | `Select` | Selector nativo estilizado; `options` o `groups` (optgroup). |
 | `TextField` | Texto de una línea con ícono y sufijo. |
+| `TextArea` | Texto multilínea (`rows`, `mono`, `invalid`, `block`). |
 | `NumberField` | Número con coma o punto, unidad, Enter/Escape, ↑/↓ por paso (Mayús ×10; log proporcional); destella al cambiar desde afuera. |
 | `Slider` | Lineal o log (`scale`), teclado propio, `aria-valuetext` con el valor real, marca opcional (`mark`, p. ej. el default). |
 | `SliderField` | Slider + NumberField + unidad: el control estándar de un parámetro. |
@@ -127,7 +128,7 @@ Escala por `devicePixelRatio`, redibuja al cambiar el tamaño (ResizeObserver), 
 | `Section` | Bloque con encabezado en versalitas, `meta`, acciones; `collapsible`. |
 | `DataTable` | Tabla con cabecera fija (`maxHeight`), columnas `align: 'num'` (derecha + tabulares), filas seleccionables. |
 | `ResizeHandle` | Separador redimensionable accesible (arrastre, flechas, Enter para colapsar). |
-| `Stepper` | Barra de pasos navegable (flujo guiado): estados done / partial / todo / skipped / empty / locked, paso activo y sugerido. Si no entra, se compacta sola (conectores cortos → `shortLabel` → resueltos sin rótulo → solo marcas). |
+| `Stepper` | Barra de pasos navegable (flujo guiado): estados done / partial / todo / skipped / empty / locked, paso activo y sugerido. Si no entra, se compacta sola (conectores cortos → `shortLabel` → `compact` → resueltos sin rótulo → solo marcas). |
 | `WizardSteps` | Pasos de un asistente dentro de un diálogo (solo informa, no navega): número, check en los completos, actual resaltado. |
 | `FileDrop` | Zona para soltar o elegir un archivo (arrastre, clic, Enter/Espacio); `accept`, `disabled`, `inputTestId`. |
 | `ThemeToggle` | Sistema / claro / oscuro. |

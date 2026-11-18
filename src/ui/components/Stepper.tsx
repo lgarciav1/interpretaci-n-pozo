@@ -3,9 +3,10 @@
  * src/app/flow/flow.ts). Cada paso es un botón; flechas ←/→ recorren los pasos, Enter elige.
  *
  * Si no entra en el ancho (ventana angosta, tamaño de interfaz grande), se compacta por etapas en vez de cortar el
- * último paso: `full` → `tight` (conectores cortos) → `short` (abreviaturas, si el paso tiene) → `done` (los pasos
- * resueltos quedan solo con su marca) → `markers` (solo los círculos). El paso activo conserva siempre su rótulo, y el
- * nombre de cada paso sigue en su `aria-label` y en el tooltip.
+ * último paso: `full` → `tight` (conectores cortos) → `short` (abreviaturas, si el paso tiene) → `compact`
+ * (abreviaturas con marcadores, conectores y relleno más chicos) → `done` (los pasos resueltos quedan solo con su
+ * marca) → `markers` (solo los círculos). El paso activo conserva siempre su rótulo, y el nombre de cada paso sigue en
+ * su `aria-label` y en el tooltip.
  */
 import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import { subscribeUiScale } from '../uiScale';
@@ -63,7 +64,7 @@ function Marker({ status, index }: { status: StepperStatus; index: number }) {
 }
 
 /** Etapas de compactación, de la más holgada a la más apretada. */
-export const STEPPER_FITS = ['full', 'tight', 'short', 'done', 'markers'] as const;
+export const STEPPER_FITS = ['full', 'tight', 'short', 'compact', 'done', 'markers'] as const;
 
 /**
  * Elige la primera etapa en la que la lista entra en el ancho de la barra. Mide con el DOM (un reflujo por etapa, solo

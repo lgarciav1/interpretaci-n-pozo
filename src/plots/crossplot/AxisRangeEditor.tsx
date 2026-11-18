@@ -29,8 +29,8 @@ export function AxisRangeEditor({ axis, name, stored, depth, onChange }: AxisRan
   };
 
   return (
-    <div>
-      <div className="plot-row">
+    <div className="plot-axis-editor">
+      <div className="plot-row plot-axis-editor__head">
         <span className="plot-row__label">Rango {name} · {fixed ? 'Fijo' : 'Automático'}</span>
         <Button
           size="sm"
@@ -75,3 +75,4 @@ export function AxisRangeEditor({ axis, name, stored, depth, onChange }: AxisRan
     </div>
   );
 }
+

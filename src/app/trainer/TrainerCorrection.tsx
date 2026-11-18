@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, Dialog, formatNumber, toast, useResolvedTheme } from '../../ui';
+import { Button, DataTable, Dialog, formatNumber, toast, useResolvedTheme } from '../../ui';
 import { XYPlot } from '../../plots/xy/XYPlot';
 import { TRAINER_PARAMETERS } from '../../petro/trainer';
 import { TRAINER_ID } from '../../modules/trainer';
@@ -63,7 +63,7 @@ export function TrainerCorrection() {
               <p>{calculated?.name ?? 'Sin fuente activa disponible'}</p>
               <XYPlot
                 ariaLabel={`${variable} contra profundidad medida`}
-                height={160}
+                height={148}
                 x={{ kind: 'linear', min: 0, max, label: variable, unit: 'v/v' }}
                 y={{ kind: 'linear', min: data.depth[0]!, max: data.depth[data.depth.length - 1]!, reversed: true, label: 'MD', unit: 'm' }}
                 lines={[
@@ -75,19 +75,32 @@ export function TrainerCorrection() {
           })}
         </div>
         <div className="trainer-table">
-          <table>
-            <caption>Errores por zona · MAE y RMSE en puntos porcentuales (p.p.)</caption>
-            <thead><tr><th scope="col">Zona</th><th scope="col">Variable</th><th scope="col">MAE</th><th scope="col">RMSE</th><th scope="col">Pares válidos / muestras</th><th scope="col">Cobertura</th></tr></thead>
-            <tbody>{data.metrics.flatMap(row => (['phi', 'sw'] as const).map(key => {
+          <DataTable
+            dense
+            caption="Errores por zona · MAE y RMSE en puntos porcentuales (p.p.)"
+            rowKey={row => row.id}
+            rows={data.metrics.flatMap(row => (['phi', 'sw'] as const).map(key => {
               const metric = row[key];
               const zone = row.zoneId === null ? 'Fuera de zona' : entry.interpretation.zones.find(z => z.id === row.zoneId)?.name ?? row.zoneId;
-              return <tr key={JSON.stringify([row.zoneId, key])}>
-                <td>{zone}</td><td>{key === 'phi' ? 'φ efectiva' : 'Sw'}</td>
-                <td className="num">{fmt(metric.mae)}</td><td className="num">{fmt(metric.rmse)}</td>
-                <td className="num">{metric.valid} / {metric.total}</td><td className="num">{formatNumber(metric.coverage, { digits: 1 })} %</td>
-              </tr>;
-            }))}</tbody>
-          </table>
+              return {
+                id: JSON.stringify([row.zoneId, key]),
+                zone,
+                variable: key === 'phi' ? 'φ efectiva' : 'Sw',
+                mae: fmt(metric.mae),
+                rmse: fmt(metric.rmse),
+                pairs: `${metric.valid} / ${metric.total}`,
+                coverage: `${formatNumber(metric.coverage, { digits: 1 })} %`,
+              };
+            }))}
+            columns={[
+              { key: 'zone', header: 'Zona' },
+              { key: 'variable', header: 'Variable' },
+              { key: 'mae', header: 'MAE', align: 'num' },
+              { key: 'rmse', header: 'RMSE', align: 'num' },
+              { key: 'pairs', header: 'Pares válidos / muestras', align: 'num' },
+              { key: 'coverage', header: 'Cobertura', align: 'num' },
+            ]}
+          />
         </div>
         <details className="trainer-conditions">
           <summary>Condiciones de generación</summary>
@@ -98,3 +111,4 @@ export function TrainerCorrection() {
     </Dialog>
   </>;
 }
+

@@ -1,5 +1,5 @@
-/** Campos: Field (etiqueta + ayuda), Select, TextField, NumberField y Slider (lineal y log). */
-import { useEffect, useId, useRef, useState, type CSSProperties, type InputHTMLAttributes, type ReactNode, type Ref, type SelectHTMLAttributes } from 'react';
+/** Campos: Field (etiqueta + ayuda), Select, TextField, TextArea, NumberField y Slider (lineal y log). */
+import { forwardRef, useEffect, useId, useRef, useState, type CSSProperties, type ChangeEvent, type InputHTMLAttributes, type ReactNode, type Ref, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 import { formatParamValue, parseDecimal } from '../format';
 import { clamp, positionToValue, stepValue, valueToPosition, type NumericScale } from '../scale';
 import './fields.css';
@@ -119,6 +119,41 @@ export function TextField({ value, onChange, icon, suffix, size = 'md', invalid,
     </span>
   );
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+
+export type TextAreaProps = Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'onChange'> & {
+  value: string;
+  onChange(value: string, e: ChangeEvent<HTMLTextAreaElement>): void;
+  invalid?: boolean;
+  block?: boolean;
+  mono?: boolean;
+};
+
+/** Área de texto multilínea estilizada con los tokens del sistema de diseño. */
+export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(function TextArea(
+  { value, onChange, invalid, block = true, mono, className, ...rest },
+  ref,
+) {
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      aria-invalid={invalid || undefined}
+      onChange={(e) => onChange(e.currentTarget.value, e)}
+      className={[
+        'ui-textarea',
+        block && 'ui-textarea--block',
+        mono && 'ui-textarea--mono',
+        invalid && 'is-invalid',
+        className,
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      {...rest}
+    />
+  );
+});
 
 // ---------------------------------------------------------------------------------------------------------------
 

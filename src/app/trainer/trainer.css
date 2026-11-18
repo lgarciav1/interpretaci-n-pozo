@@ -1,23 +1,15 @@
-.trainer-start, .trainer-start label:not(.trainer-start__noise) {
+.trainer-start {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
-.trainer-start input[inputmode] {
-  padding: var(--space-2);
-  background: var(--color-surface);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-}
-.trainer-start__noise, .trainer-key {
+.trainer-key {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-4);
 }
-.trainer-start small, .trainer-plots p {
+.trainer-plots p {
   color: var(--color-text-muted);
 }
-.trainer-key { gap: var(--space-4); }
 .trainer-plots {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -31,13 +23,11 @@
 }
 .trainer-plots h3, .trainer-plots p { margin: 0 0 var(--space-1); }
 .trainer-plots p { font-size: var(--text-sm); }
-.trainer-table { overflow-x: auto; }
-.trainer-table table { width: 100%; border-collapse: collapse; }
-.trainer-table caption { text-align: left; font-weight: 600; padding-bottom: var(--space-1); }
-.trainer-table th, .trainer-table td { text-align: left; padding: var(--space-0-5) var(--space-2); border-bottom: 1px solid var(--color-border); }
+.trainer-table .ui-table th, .trainer-table .ui-table td { padding: var(--space-0-5) var(--space-2); }
 .trainer-conditions summary { cursor: pointer; }
 @media (max-width: 780px) {
   .trainer-plots { grid-template-columns: 1fr; }
 }
-.trainer-correction .ui-dialog__body { gap: var(--space-1); padding-block: var(--space-3); }
+.trainer-correction .ui-dialog__body { gap: var(--space-1); padding-block: var(--space-2-5); }
 .trainer-correction .ui-dialog__body > * { flex-shrink: 0; }
+
