@@ -379,7 +379,6 @@ se abre un archivo (`notifySavedToFile`, `notifyOpenedFromFile`). El formato del
 | Pickett sin zona acuífera | cuando se pida | «Ajustar a la envolvente» (percentil bajo de los residuos de ln Rt) como alternativa explícita al ajuste por mediana (0021, D9). |
 | Matriz del densidad–neutrón con las cartas CP-1 (curvas) en vez de rectas de mezcla | cuando se pida | Tabular la carta por litología; imán hacia la curva más cercana (`snapMatrixToLithology`, 0015). |
 | Líneas de litología curvas en densidad–neutrón (hoy rectas de mezcla matriz–agua) | cuando se pida | Tabular la carta CP-1 del fabricante por litología y dibujarla como `XYLineLayer`. |
-| Rangos de ejes del crossplot editables a mano (hoy automáticos o de la plantilla) | cuando se pida | `xRange`/`yRange` ya se guardan; falta el editor (como el de escalas del visor). |
 | Corrección de φ perfil → corona aplicada a la cadena (hoy la calibración es diagnóstica; 0023) | cuando se pida | Módulo alternativo de `PHIE` con la recta RMA por zona que escribe el panel «Calibración». |
 | Puesta en profundidad de la corona en pozos desviados (hoy en MD) | cuando haya un pozo desviado | Igual que los gradientes MDT: variable independiente TVD con la pista ubicada por MD. |
 
@@ -625,6 +624,14 @@ obligatorios del profesor como pestañas del dock (aportadas por `src/modules/hi
 - **Crossplot**: dos clics, escala log por rol, color por tercera curva (viridis) o por zona, filtro por zonas,
   tendencias sobre la nube (proveedor `crossplot`), plantillas densidad–neutrón, Pickett (a, m, n y Rw del proyecto),
   φ–Sw, GR–Rt y RMN vs. densidad–neutrón (0019).
+- **Rangos del crossplot (F11)**: en «Ejes», cada par de campos muestra los límites vigentes. Enter o salir del
+  campo confirma un límite, con coma o punto decimal. Si el par no es finito, estrictamente creciente o positivo
+  en log, se indica el error y se conservan los límites aplicados. Cada edición válida escribe solo `xRange` o
+  `yRange`. «Restablecer» quita el rango fijo de ese eje, incluso cuando venía de una plantilla.
+  Cambiar la curva o la opción de escala vuelve a rango automático solo en ese eje. Al intercambiar X e Y, los
+  rangos acompañan a las curvas. Los rangos fijos se conservan al filtrar y al volver a un pozo ya configurado.
+  Se usa el formato de proyecto existente: si falta el rango, se calcula automáticamente; un rango anterior con
+  mínimo no positivo en log se conserva en el archivo y se usa el automático al dibujar.
 - **Visor**: punto o clase bajo el puntero y selección por rectángulo se marcan en el visor (superposición `plot-link`,
   estado en `src/plots/link.ts`); el cursor del visor resalta el punto de esa profundidad (`useViewer.cursorDepth`).
 - **Rendimiento**: nube en lotes por color, grilla de búsqueda, capa de interacción aparte; 50 000 muestras siguen

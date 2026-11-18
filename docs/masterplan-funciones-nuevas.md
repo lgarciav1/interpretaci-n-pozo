@@ -60,7 +60,7 @@ Tamaño: **C** chico (una sesión corta), **M** mediano (una sesión), **G** gra
 | F15 | Bandas de incertidumbre sobre las curvas | 4 | G | analista-numerico | — | pendiente |
 | F09 | Pegar topes desde una planilla | 4 | C | investigador | — | pendiente |
 | F10 | Contacto MDT como tope de zona | 4 | C | desarrollador-ui | — | hecha ([PR #95](https://github.com/lgarciav1/interpretaci-n-pozo/pull/95)); apertura local sin verificar ([evidencia](capturas/f10/README.md)) |
-| F11 | Rangos de ejes del crossplot a mano | 4 | C | desarrollador-ui | — | pendiente |
+| F11 | Rangos de ejes del crossplot a mano | 4 | C | desarrollador-ui | — | implementada en PR borrador; pendiente verificar apertura por doble clic sin internet (Chromium administrado bloquea `file://`) |
 | F26 | Asistente sin modelo | 5 | M | desarrollador-ui | F25; mejor con F03 y F04 | pendiente |
 | F23 | Perfilaje en vivo | 5 | G | arquitecto | — | pendiente |
 | F24 | Pozo 3D con calibre e invasión calculados | 5 | M | arquitecto | — | pendiente |

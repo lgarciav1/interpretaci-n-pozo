@@ -150,9 +150,15 @@ function keyboardOrder(layers: readonly XYPointLayer[]): Hover[] {
 /** Redondeo «humano» de un valor arrastrado sobre un eje: paso 1-2-5 de 1/400 del rango (lineal) o 3 cifras (log). */
 export function snapGuideValue(a: XYAxis, v: number, fine = 400): number {
   if (!Number.isFinite(v)) return v;
-  if (a.kind === 'log') return +v.toPrecision(3);
-  const step = niceStep((a.max - a.min) / fine);
-  return +(Math.round(v / step) * step).toPrecision(12);
+  if (a.kind === 'log') {
+    const rounded = +v.toPrecision(3);
+    return Number.isFinite(rounded) && rounded > 0 ? rounded : v;
+  }
+  const span = a.max - a.min;
+  if (!Number.isFinite(span)) return v;
+  const step = niceStep(span / fine);
+  const rounded = +(Math.round(v / step) * step).toPrecision(12);
+  return Number.isFinite(rounded) ? rounded : v;
 }
 
 /**

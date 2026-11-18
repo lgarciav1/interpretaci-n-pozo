@@ -88,6 +88,7 @@ describe('guías arrastrables', () => {
   it('redondeo humano al soltar', () => {
     expect(snapGuideValue({ ...X, max: 0.4 }, 0.08137)).toBeCloseTo(0.081, 12); // paso 0,001
     expect(snapGuideValue({ kind: 'log', min: 0.1, max: 1000, label: 'R' }, 12.3456)).toBe(12.3);
+    expect(snapGuideValue({ ...X, kind: 'log', min: 1, max: Number.MAX_VALUE }, Number.MAX_VALUE)).toBe(Number.MAX_VALUE);
   });
   it('teclado: 1 % del eje en la dirección en pantalla (también invertido)', () => {
     expect(nudgeGuideValue(X, 50, 1)).toBe(51);

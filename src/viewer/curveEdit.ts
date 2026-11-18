@@ -34,6 +34,12 @@ export function validateScale(d: ScaleDraft): ScaleErrors | null {
   return e.min || e.max ? e : null;
 }
 
+/** Paso "lindo" para las flechas de los campos: una décima de la década del rango. */
+export function scaleEditStep(min: number, max: number): number {
+  const span = Math.abs(max - min);
+  return span > 0 && Number.isFinite(span) ? 10 ** (Math.floor(Math.log10(span)) - 1) : 0.1;
+}
+
 export const WIDTH_RANGE = { min: 0.5, max: 6, step: 0.25 } as const;
 
 /** Valida el grosor del trazo. */
