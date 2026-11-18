@@ -14,6 +14,7 @@ import { selectActiveEntry, useProject } from '../store/project';
 import { useResults } from '../store/results';
 import { TrendsPanel } from '../trends/TrendsPanel';
 import { GlancePanel } from '../glance/GlancePanel';
+import { ASSISTANT_PANEL } from '../assistant/dock';
 import { DiagnosticsPanel, useUnseenDiagnosticsBadge } from '../diagnostics/DiagnosticsPanel';
 import { GLANCE_PANEL_ID } from '../store/ui';
 import { ProvenancePanel } from '../provenance/ProvenancePanel';
@@ -272,5 +273,5 @@ const APP_PANELS: readonly DockPanelDef[] = [
 ];
 const ENGINE_PANEL: DockPanelDef = { id: 'engine', title: 'Motor', icon: 'cpu', component: EnginePanel };
 
-export const DOCK_PANELS: readonly DockPanelDef[] = [...APP_PANELS, ...collectDockPanels(found, [...APP_PANELS, ENGINE_PANEL].map((p) => p.id)), ENGINE_PANEL];
+export const DOCK_PANELS: readonly DockPanelDef[] = [...APP_PANELS, ...collectDockPanels(found, [...APP_PANELS, ASSISTANT_PANEL, ENGINE_PANEL].map((p) => p.id)), ASSISTANT_PANEL, ENGINE_PANEL];
 
