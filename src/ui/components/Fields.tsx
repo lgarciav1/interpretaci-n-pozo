@@ -122,9 +122,8 @@ export function TextField({ value, onChange, icon, suffix, size = 'md', invalid,
 
 // ---------------------------------------------------------------------------------------------------------------
 
-export interface NumberFieldProps extends NumericScale {
+interface NumberFieldOptions extends NumericScale {
   value: number;
-  onChange(value: number): void;
   /** Unidad que se muestra al final del campo. */
   unit?: ReactNode;
   disabled?: boolean;
@@ -133,6 +132,8 @@ export interface NumberFieldProps extends NumericScale {
   name?: string;
   'aria-label'?: string;
   'aria-labelledby'?: string;
+  'aria-describedby'?: string;
+  'aria-invalid'?: boolean;
   /** Ancho del campo (px en Compacto, escala con el tamaño de interfaz; o CSS). */
   width?: CSSProperties['width'];
   /** Formato del valor (por defecto según el paso, con coma decimal). */
@@ -141,11 +142,17 @@ export interface NumberFieldProps extends NumericScale {
   clampToRange?: boolean;
 }
 
+export type NumberFieldProps = NumberFieldOptions & (
+  | { onChange(value: number): void; onCommit?: never }
+  /** Recibe cada confirmación explícita, con null si el texto no es un número finito. */
+  | { onCommit(value: number | null): void; onChange?: never }
+);
+
 /**
  * Campo numérico con coma o punto decimal. Confirma con Enter o al salir; Escape descarta; flechas ↑/↓ cambian
  * por un paso (Mayús: ×10; en escala log, proporcional). Al cambiar desde afuera (slider) el valor destella.
  */
-export function NumberField({ value, onChange, unit, disabled, size = 'md', width, format, clampToRange = true, min, max, step, scale, ...rest }: NumberFieldProps) {
+export function NumberField({ value, onChange, onCommit, 'aria-invalid': invalidValue, unit, disabled, size = 'md', width, format, clampToRange = true, min, max, step, scale, ...rest }: NumberFieldProps) {
   const s: NumericScale = { min, max, ...(step !== undefined ? { step } : {}), ...(scale ? { scale } : {}) };
   const fmt = format ?? ((v: number) => formatParamValue(v, s));
   const [draft, setDraft] = useState<string | null>(null);
@@ -157,14 +164,14 @@ export function NumberField({ value, onChange, unit, disabled, size = 'md', widt
 
   const commit = (v: number | null) => {
     setDraft(null);
-    if (v === null || !Number.isFinite(v)) return;
-    const next = clampToRange ? clamp(v, min, max) : v;
-    if (next !== value) onChange(next);
+    const next = v === null || !Number.isFinite(v) ? null : clampToRange ? clamp(v, min, max) : v;
+    if (onCommit) onCommit(next);
+    else if (next !== null && next !== value) onChange(next);
   };
 
   return (
     <span
-      className={['ui-input', 'ui-input--number', `ui-input--${size}`, invalid && 'is-invalid', disabled && 'is-disabled'].filter(Boolean).join(' ')}
+      className={['ui-input', 'ui-input--number', `ui-input--${size}`, (invalid || invalidValue) && 'is-invalid', disabled && 'is-disabled'].filter(Boolean).join(' ')}
       style={width !== undefined ? { width: scaledCss(width) } : undefined}
     >
       <input
@@ -176,7 +183,7 @@ export function NumberField({ value, onChange, unit, disabled, size = 'md', widt
         data-flash={focused ? undefined : flash}
         value={draft ?? fmt(value)}
         disabled={disabled}
-        aria-invalid={invalid || undefined}
+        aria-invalid={invalid || invalidValue || undefined}
         onFocus={(e) => {
           setFocused(true);
           e.currentTarget.select();
@@ -184,7 +191,7 @@ export function NumberField({ value, onChange, unit, disabled, size = 'md', widt
         onChange={(e) => setDraft(e.currentTarget.value)}
         onBlur={() => {
           setFocused(false);
-          commit(parsed);
+          if (!onCommit || draft !== null) commit(parsed);
         }}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {

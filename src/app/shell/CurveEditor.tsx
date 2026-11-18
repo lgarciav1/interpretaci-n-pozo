@@ -10,7 +10,7 @@ import type { CurveDisplayOverride, LineStyleId, ScaleKind } from '../../core/di
 import { setCurveDisplay, setRoleDisplay } from '../../core/state/project';
 import { registry } from '../../modules';
 import { Button, Callout, ColorPicker, Field, IconButton, NumberField, Popover, SegmentedControl, Select, Switch, useResolvedTheme } from '../../ui';
-import { defaultScope, patchOverride, scopeOptions, shadowedFields, validateScale, validateWidth, WIDTH_RANGE, type EditScope, type ScaleDraft } from '../../viewer/curveEdit';
+import { defaultScope, patchOverride, scopeOptions, scaleEditStep, shadowedFields, validateScale, validateWidth, WIDTH_RANGE, type EditScope, type ScaleDraft } from '../../viewer/curveEdit';
 import { logFloor, type ResolvedCurve } from '../../viewer/resolve';
 import { useProject } from '../store/project';
 import './curve-editor.css';
@@ -32,12 +32,6 @@ const FIELD_NAMES: Partial<Record<keyof CurveDisplayOverride, string>> = {
   width: 'grosor',
   wrap: 'respaldo',
 };
-
-/** Paso "lindo" para las flechas de los campos: una décima de la década del rango. */
-function niceStep(min: number, max: number): number {
-  const span = Math.abs(max - min) || 1;
-  return 10 ** (Math.floor(Math.log10(span)) - 1);
-}
 
 export interface CurveEditorProps {
   wellId: string;
@@ -96,7 +90,7 @@ export function CurveEditor({ wellId, curve, anchorRef, onClose }: CurveEditorPr
   };
 
   const shadowed = scope === 'role' ? shadowedFields(curveOv) : [];
-  const step = niceStep(effective.min, effective.max);
+  const step = scaleEditStep(effective.min, effective.max);
   const unit = curve.unitLabel !== '—' ? curve.unitLabel : undefined;
   const widthValue = widthDraft ?? style.width;
   const widthError = widthDraft !== null ? validateWidth(widthDraft) : null;

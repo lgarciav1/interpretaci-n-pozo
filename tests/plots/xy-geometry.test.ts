@@ -67,6 +67,19 @@ describe('axisFraction / fractionValue', () => {
     }
   });
 
+  it('mapea y rotula rangos manuales con extremos finitos', () => {
+    const wide = { ...X, min: -Number.MAX_VALUE, max: Number.MAX_VALUE };
+    expect(axisFraction(wide, 0)).toBe(0.5);
+    expect(fractionValue(wide, 0.5)).toBe(0);
+    expect(axisTicks(wide, 400).map((tick) => tick.value)).toEqual([wide.min, wide.max]);
+    expect(fractionValue({ ...X, min: -1e20, max: -1 }, 1)).toBe(-1);
+    const tight = { ...X, min: 1e16, max: 1e16 + 2 };
+    expect(axisTicks(tight, 400).map((tick) => tick.value)).toEqual([tight.min, tight.max]);
+    const log = { ...Y, max: Number.MAX_VALUE };
+    expect(fractionValue(log, 1)).toBe(log.max);
+    expect(fractionValue(log, 1 - Number.EPSILON)).toBeLessThanOrEqual(log.max);
+  });
+
   it('validAxis: max > min, finitos y, en log, min > 0', () => {
     expect(validAxis(X)).toBe(true);
     expect(validAxis(Y)).toBe(true);

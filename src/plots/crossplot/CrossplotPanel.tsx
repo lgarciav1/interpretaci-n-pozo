@@ -45,6 +45,7 @@ import { COLOR_LEVELS, colorLevel, gather, medianAt, plottableIndices, robustRan
 import { CROSSPLOT_PROVIDER_ID, crossplotSeries, crossplotSeriesKey, parseCrossplotSeriesKey } from './series';
 import { fitWaterLine, WATER_FIT_DEFAULTS, ownPickettParams, parseWaterHandle, waterLineDragWrites, waterLineNudgeWrites, ownValuesNotice, pickettByZone, zonesWithOwnPickett, type WaterFit } from './pickett';
 import { matrixParamsOf, matrixPointOf, projectMatrixLine, representativeTemperature, rwAtFormation, snapMatrixToLithology, waterLineHandles, waterLineRt } from './drag';
+import { AxisRangeEditor } from './AxisRangeEditor';
 import { crossplotTemplatePatch } from './applyTemplate';
 import { thomasStieberLayers } from './templates';
 import { BVW_LINES, CROSSPLOT_TEMPLATE_DEFS, DN_LITHOLOGIES, PICKETT_SW, TEMPLATE_GROUPS, bvwLine, densityNeutronLine, isLithologyTemplate, lithologyTemplateLayers, nmrDnLines, pickettLine, mineralogyTemplateLayers, mineralogyFullRange, templateDef, type ArchieParams, type MatrixColors } from './templates';
@@ -1059,18 +1060,38 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
               </div>
               <div className="plot-row">
                 <span className="plot-row__axis" />
-                <ScaleControl label="Escala del eje X" value={config.xScale} onChange={(v) => onChange({ xScale: v, xRange: undefined }, 'Cambiar la escala del eje X')} />
+                <ScaleControl label="Escala del eje X" value={config.xScale} onChange={(v) => { if (v !== config.xScale) onChange({ xScale: v, xRange: undefined }, 'Cambiar la escala del eje X'); }} />
                 <IconButton size="sm" icon="reverse" pressed={config.xReversed} label={config.xReversed ? 'Eje X normal' : 'Invertir el eje X'} onClick={() => onChange({ xReversed: !config.xReversed }, 'Invertir el eje X')} />
               </div>
+              {xAxis && (
+                <AxisRangeEditor
+                  key={JSON.stringify(['x', ctx.well.id, xKey, config.xScale, xAxis.kind])}
+                  axis={xAxis}
+                  name="X"
+                  stored={config.xRange}
+                  depth={depth}
+                  onChange={(xRange) => onChange({ xRange }, xRange ? 'Cambiar el rango del eje X' : 'Restablecer el rango del eje X')}
+                />
+              )}
               <div className="plot-row">
                 <span className="plot-row__axis">Y</span>
                 <CurveSelect label="Curva del eje Y" value={yKey} options={options} hidden={hiddenY} onChange={(v) => setAxisCurve('y', v)} />
               </div>
               <div className="plot-row">
                 <span className="plot-row__axis" />
-                <ScaleControl label="Escala del eje Y" value={config.yScale} onChange={(v) => onChange({ yScale: v, yRange: undefined }, 'Cambiar la escala del eje Y')} />
+                <ScaleControl label="Escala del eje Y" value={config.yScale} onChange={(v) => { if (v !== config.yScale) onChange({ yScale: v, yRange: undefined }, 'Cambiar la escala del eje Y'); }} />
                 <IconButton size="sm" icon="reverse" pressed={config.yReversed} label={config.yReversed ? 'Eje Y normal' : 'Invertir el eje Y'} onClick={() => onChange({ yReversed: !config.yReversed }, 'Invertir el eje Y')} />
               </div>
+              {yAxis && (
+                <AxisRangeEditor
+                  key={JSON.stringify(['y', ctx.well.id, yKey, config.yScale, yAxis.kind])}
+                  axis={yAxis}
+                  name="Y"
+                  stored={config.yRange}
+                  depth={depth}
+                  onChange={(yRange) => onChange({ yRange }, yRange ? 'Cambiar el rango del eje Y' : 'Restablecer el rango del eje Y')}
+                />
+              )}
             </ControlGroup>
             <ControlGroup title="Color">
               <CurveSelect

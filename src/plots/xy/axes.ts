@@ -36,19 +36,33 @@ export const validAxis = (a: XYAxis): boolean => Number.isFinite(a.min) && Numbe
 /** Valor → fracción del eje (0 = min, 1 = max; invertido si `reversed`). Sin acotar. NaN si no se puede ubicar. */
 export function axisFraction(a: XYAxis, v: number): number {
   if (!Number.isFinite(v)) return NaN;
+  const span = a.max - a.min;
   let f: number;
   if (a.kind === 'log') {
     if (!(v > 0)) return NaN;
-    f = (Math.log10(v) - Math.log10(a.min)) / (Math.log10(a.max) - Math.log10(a.min));
-  } else f = (v - a.min) / (a.max - a.min);
+    const decades = Math.log10(a.max) - Math.log10(a.min);
+    f = decades > 0 ? (Math.log10(v) - Math.log10(a.min)) / decades : (v - a.min) / span;
+  } else {
+    f = Number.isFinite(span) ? (v - a.min) / span : (v / 2 - a.min / 2) / (a.max / 2 - a.min / 2);
+  }
   return a.reversed ? 1 - f : f;
 }
 
 /** Fracción → valor (inversa de `axisFraction`). */
 export function fractionValue(a: XYAxis, f: number): number {
   const u = a.reversed ? 1 - f : f;
-  if (a.kind === 'log') return 10 ** (Math.log10(a.min) + u * (Math.log10(a.max) - Math.log10(a.min)));
-  return a.min + u * (a.max - a.min);
+  if (u === 0) return a.min;
+  if (u === 1) return a.max;
+  const span = a.max - a.min;
+  if (a.kind === 'log') {
+    const lo = Math.log10(a.min);
+    const hi = Math.log10(a.max);
+    if (hi > lo) {
+      const value = 10 ** (lo + u * (hi - lo));
+      return u > 0 && u < 1 ? Math.min(a.max, Math.max(a.min, value)) : value;
+    }
+  }
+  return Number.isFinite(span) ? a.min + u * span : (1 - u) * a.min + u * a.max;
 }
 
 export interface XYMapping {
@@ -125,9 +139,14 @@ export function axisTicks(a: XYAxis, lengthPx: number, minLabelPx = 56): AxisTic
   };
   if (a.kind === 'linear') {
     const span = a.max - a.min;
-    const step = niceStep((span * minLabelPx) / lengthPx);
+    const step = niceStep(span * (minLabelPx / lengthPx));
     const k0 = Math.ceil(a.min / step - 1e-9);
     const k1 = Math.floor(a.max / step + 1e-9);
+    // Con límites extremos el paso puede desbordar o el índice no admitir incrementos unitarios.
+    if (!Number.isFinite(span) || step === 0 || !Number.isSafeInteger(k0) || !Number.isSafeInteger(k1)) {
+      for (const v of [a.min, a.max]) push(v, true, v.toExponential(3).replace('.', ','));
+      return out.sort((p, q) => p.f - q.f);
+    }
     for (let k = k0; k <= k1; k++) {
       const v = clean(k * step);
       push(v, true, formatTick(v, a, step));
@@ -137,7 +156,7 @@ export function axisTicks(a: XYAxis, lengthPx: number, minLabelPx = 56): AxisTic
     if ((minor / span) * lengthPx >= 6) {
       const j0 = Math.ceil(a.min / minor - 1e-9);
       const j1 = Math.floor(a.max / minor + 1e-9);
-      for (let j = j0; j <= j1; j++) {
+      for (let j = j0; Number.isSafeInteger(j) && j <= j1; j++) {
         const v = clean(j * minor);
         const r = v / step;
         if (Math.abs(r - Math.round(r)) > 1e-6) push(v, false, null);
