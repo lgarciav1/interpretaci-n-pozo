@@ -264,3 +264,21 @@ export function addTopAt(zones: readonly Zone[], d: number, input: NewZoneInput,
   if ('error' in r || !host) return r;
   return { ...r, clone: r.clone ?? { from: host.id, to: r.created.id } };
 }
+
+/** Parte solo una zona existente. Conserva su base exacta aunque el proyecto la tenga fuera de la grilla MD. */
+export function splitZoneAt(zones: readonly Zone[], depth: number, input: NewZoneInput, opts: ZoneEditOptions): CreateZoneResult {
+  const host = zones.find((zone) => zone.top < depth && depth < zone.base);
+  if (!host) return { error: 'El contacto tiene que estar dentro de una zona. En un borde o un hueco no hay una zona que dividir.' };
+  if (zones.some((zone) => zone !== host && zone.top < host.base && host.top < zone.base)) {
+    return { error: `La zona ${host.name} se superpone con otra. Corregí los límites antes de dividirla.` };
+  }
+  const result = addTopAt(zones, depth, input, opts);
+  if ('error' in result) return result;
+  const min = opts.minThickness ?? MIN_ZONE_THICKNESS;
+  const upper = result.zones.find((zone) => zone.id === host.id);
+  if (!upper || upper.base - host.top < min - 1e-9 || host.base - result.created.top < min - 1e-9) {
+    return { error: 'El contacto queda demasiado cerca de un borde para dividir la zona.' };
+  }
+  const created = { ...result.created, base: host.base };
+  return { ...result, created, zones: result.zones.map((zone) => zone.id === created.id ? created : zone) };
+}

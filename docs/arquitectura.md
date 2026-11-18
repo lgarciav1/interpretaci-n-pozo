@@ -372,7 +372,6 @@ se abre un archivo (`notifySavedToFile`, `notifyOpenedFromFile`). El formato del
 | Elegir método por zona para puertos con módulos distintos (Archie en arenas limpias, Simandoux en arcillosas) | cuando se pida | `sources` por zona: el motor arma una curva por tramos con la salida del módulo elegido en cada zona. |
 | psia y psig se tratan como psi | cuando haya datos reales | Guardar la referencia por columna y avisar en el asistente si se mezclan (desplaza ~14,7 psi la regla «presión ≥ lodo»). |
 | Gradientes de presión en pozos desviados (hoy contra MD; el panel avisa si TVD difiere de MD) | cuando haya un pozo desviado | Serie `mdt` con x = TVD (columna `tvd`) y la pista ubicada por MD. |
-| «Usar un contacto como tope de zona» (opcional del pedido MDT) | cuando se pida | Receta que parta la zona que contiene el contacto (`createZone`, `src/core/state/zones.ts`). |
 | Corrección de Klinkenberg y de presión de confinamiento de los plugs | cuando haya datos reales de laboratorio | El lector (`src/io/core.ts`) elige la columna (Klinkenberg antes que aire) pero no corrige; sumar la columna de presión de confinamiento y un factor opcional. |
 | Modelo k–φ por litofacies o capa (hoy global o por zona) | fase 7b | Una tendencia por capa sobre la serie `core` y «Aplicar» a la zona que corresponda; el módulo `perm-core` ya tiene a y b por zona. El crossplot libre filtra por zona y ajusta tendencias, pero sobre curvas del perfil, no sobre plugs. |
 | Lazo y tramo del visor sin mouse (tacto, teclado) | antes de la fase 12 | Botón «Seleccionar tramo» que arme un modo en la barra del visor; tope y base con el cursor del teclado (0021). |
@@ -574,6 +573,10 @@ Decisión: [`docs/decisiones/0009-presiones-mdt-y-conjuntos-de-puntos.md`](decis
 - **Gradientes** = tendencias lineales sobre la serie `mdt` (`<conjunto>:gas|oil|water`); densidad con
   `gradientReadings` y fluido sugerido con `classifyFluidByDensity` (`src/petro/pressure.ts`). **Contactos** en la
   interfaz (`findContacts` → `intersectTrends`), no en el motor.
+- **Contacto como tope (F10).** «Usar como tope de zona» divide la zona que contiene el contacto en su interior,
+  con `splitZoneAt`, que reutiliza `addTopAt` del menú del visor y conserva la base original. El nuevo tope se
+  ajusta a la muestra MD más cercana y la zona inferior hereda los parámetros de la original. Un solo `commit`
+  guarda la división y su herencia. Los sectores con solapes y los contactos en bordes o huecos se rechazan.
 - Contratos nuevos que heredan las fases siguientes: pista propia dinámica (`track.resolve`, ajustes en
   `display.overlays`), `ViewerData.commit` (escritura de superposiciones de módulos sin stores), `OverlayTrack.unit`,
   `TrendTool.series` (herramienta sobre una serie dada), `ResolvedSeries.canvasLabel` y `pickSamples`, superposición

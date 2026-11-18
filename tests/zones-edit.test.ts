@@ -14,6 +14,7 @@ import {
   moveZoneEdge,
   nudgeZoneEdge,
   snapToSample,
+  splitZoneAt,
   updateZone,
   validateZoneName,
 } from '../src/core/state/zones';
@@ -147,5 +148,44 @@ describe('las zonas pasan por el motor', () => {
     p = applyZoneEdit(p, 'w', r.zones, r.clone);
     expect(getWellEntry(p, 'w').interpretation.params.zones['b2']).toEqual({ grClean: 50 });
     expect(getWellEntry(p, 'w').interpretation.params.zones['n']).toBeUndefined();
+  });
+});
+
+describe('dividir una zona en un contacto MDT', () => {
+  const input = { id: 'mdt', name: 'Z1', color: '#5b8def' };
+
+  it('ajusta el tope a la muestra y conserva la base fuera de grilla sin pisar la zona vecina', () => {
+    const a = { ...zones[0]!, top: 1000, base: 1008.8 };
+    const b = { ...zones[1]!, top: 1008.9, base: 1027 };
+    const depth = Float64Array.from({ length: 30 }, (_, i) => 1000 + i);
+    const result = splitZoneAt([a, b], 1004.1, input, { depth });
+    expect(result).toEqual({
+      zones: [{ ...a, base: 1003 }, { ...a, ...input, top: 1004 }, b],
+      created: { ...a, ...input, top: 1004 },
+      clone: { from: a.id, to: input.id },
+    });
+  });
+
+  it('hereda un parámetro explícito en la zona inferior', () => {
+    const well = createWell({ id: 'mdt-well', name: 'MDT', depth, curves: [] });
+    const project = setParam(addWell(createProject(), well, zones), well.id, 'grClean', 50, 'b');
+    const result = splitZoneAt(zones, 1013, input, opts);
+    if ('error' in result) throw new Error(result.error);
+    const edited = applyZoneEdit(project, well.id, result.zones, result.clone);
+    expect(getWellEntry(edited, well.id).interpretation.params.zones).toMatchObject({
+      b: { grClean: 50 },
+      mdt: { grClean: 50 },
+    });
+  });
+
+  it('rechaza una anfitriona solapada aunque las zonas lleguen desordenadas', () => {
+    const a = z('a', 1005, 1027);
+    const b = z('b', 1000, 1015);
+    expect(splitZoneAt([a, b], 1009, input, opts)).toHaveProperty('error', expect.stringMatching(/superpone/));
+  });
+
+  it('rechaza huecos y bordes sin crear una zona', () => {
+    expect(splitZoneAt(zones, zones[0]!.top, input, opts)).toHaveProperty('error');
+    expect(splitZoneAt(zones, zones[0]!.top - 1, input, opts)).toHaveProperty('error');
   });
 });
