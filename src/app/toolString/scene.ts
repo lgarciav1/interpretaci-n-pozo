@@ -19,6 +19,7 @@ import { mix } from '../../ui/color';
 import { fillColor } from '../../ui/curves';
 import { formatNumber } from '../../ui/format';
 import type { SceneColors } from '../../ui/tokens';
+import { radialBands, type RadialBand, type RadialLog } from './radialProfile';
 import { clipLayers, depthWindow, type FormationColumn, type FormationSource, type LithPattern } from './formation';
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -158,6 +159,7 @@ export interface StratumDesc {
 }
 
 export interface EnvironmentDesc {
+  radial?: RadialBand[];
   rWall: number;
   rOuter: number;
   /** Radio desde el que la formación se desvanece hacia el fondo (contexto, no protagonista). */
@@ -251,6 +253,7 @@ export interface SceneInput {
    * Columna litológica del pozo y la profundidad en la que se centra el tramo dibujado (la del visor). Sin columna, o
    * en planificación, la formación es neutra.
    */
+  radial?: { log: RadialLog; center: number };
   formation?: { column: FormationColumn; center: number } | null;
 }
 
@@ -420,9 +423,6 @@ export function buildToolStringScene(input: SceneInput): ToolStringScene {
       }
     }
 
-    // Profundidad de investigación (las apagadas no miden: sin cáscaras).
-    if (e.on) addShells(e, sheet, y0, y1, lookOf(e) === 'ghost');
-
     layouts.push({ toolId: tool.id, y0, y1, center, radius, lengthM, diameterIn, schematicLength: lenM === undefined, schematicDiameter: diaIn === undefined, mounting });
     prevCenter = center;
     prevBottom = y0;
@@ -447,25 +447,42 @@ export function buildToolStringScene(input: SceneInput): ToolStringScene {
   }
 
   const bottom = layouts.length ? Math.min(...layouts.map((l) => l.y0)) : -headLen;
-  const maxShell = Math.max(rWall, ...shells.map((s) => s.radius), ...bands.map((b) => b.rMax), ...allShellRadii());
-  const rOuter = Math.max(rWall + 45, maxShell + 25);
   const formTop = 22;
   const formBottom = bottom - 18;
+  const radialInput = input.mode === 'data' ? input.radial : undefined;
+  const depth = radialInput?.log.depth;
+  const window = depth?.length && radialInput
+    ? depthWindow({ top: depth[0]!, base: depth[depth.length - 1]! }, radialInput.center, (formTop - formBottom) / AXIAL_SCENE_PER_M)
+    : undefined;
+  const radial = window && radialInput ? radialBands(radialInput.log, window, rWall) : undefined;
+  // La ficha da una sola DOI por curva. Su referencia local corresponde al punto medio del cuerpo.
+  for (const layout of layouts) {
+    if (layout.hostId) continue;
+    const entry = input.entries.find(e => e.tool.id === layout.toolId);
+    if (!entry?.on) continue;
+    const md = window && window.top + (formTop - (layout.y0 + layout.y1) / 2) / AXIAL_SCENE_PER_M;
+    const localWall = md === undefined ? rWall : radial?.find(b => md >= b.top && md < b.base)?.wall ?? rWall;
+    addShells(entry, sheetFor(entry.tool), layout.y0, layout.y1, lookOf(entry) === 'ghost', localWall);
+  }
+  const maxShell = Math.max(rWall, ...shells.map((s) => s.radius), ...bands.map((b) => b.rMax), ...allShellRadii());
+  const radialReach = radial?.reduce((max, band) => Math.max(max, band.wall + INVASION_CM, band.invasion ?? 0), 0) ?? 0;
+  const rOuter = Math.max(rWall + 45, maxShell + 25, radialReach + 10);
   const environment: EnvironmentDesc = {
     rWall,
     rOuter,
-    rFade: rWall + (rOuter - rWall) * 0.5,
+    rFade: Math.max(radialReach, rWall + (rOuter - rWall) * 0.5),
     y0: formBottom,
     y1: formTop,
     wedge: CUT_WEDGE,
     colors: { bg: colors.bg, formation: colors.formation, formationAlt: colors.formationAlt, formationCut: colors.formationCut, wall: colors.wall, mud: colors.mud, mudcake: colors.mudcake, filtrate: colors.filtrate },
     ...strata(formBottom, formTop),
+    ...(radial && window ? { radial, depth: window } : {}),
     invasionCm: INVASION_CM,
     cable: { from: [0, 3, 0], to: [0, formTop + 70, 0], radius: 0.65, color: colors.cable },
   };
 
   // Regla radial desde la pared, sobre el borde superior de la cara del corte en +z (la que mira de frente).
-  const ruler: RulerDesc = { y: formTop + 0.6, rWall, rEnd: rOuter, ticks: [], color: colors.ruler };
+  const ruler: RulerDesc = { y: formTop + 0.6, rWall: radial?.[0]?.wall ?? rWall, rEnd: rOuter, ticks: [], color: colors.ruler };
   for (const [cm, label] of [
     [0, 'pared'],
     [10, '10 cm'],
@@ -473,8 +490,8 @@ export function buildToolStringScene(input: SceneInput): ToolStringScene {
     [100, '1 m'],
     [200, '2 m'],
   ] as const) {
-    if (rWall + cm > rOuter - 2) continue;
-    ruler.ticks.push({ r: rWall + cm, label });
+    if (ruler.rWall + cm > rOuter - 2) continue;
+    ruler.ticks.push({ r: ruler.rWall + cm, label });
   }
   // Rótulos de la regla: las medidas primero (si chocan en pantalla, el último se oculta: «pared»).
   for (const t of [...ruler.ticks.slice(1), ruler.ticks[0]!]) labels.push({ key: `tick:${t.label}`, text: t.label, position: [0, ruler.y, t.r], kind: 'tick' });
@@ -606,7 +623,7 @@ export function buildToolStringScene(input: SceneInput): ToolStringScene {
     });
   }
 
-  function addShells(e: ToolStringEntry, sheet: ToolSheet, y0: number, y1: number, ghost: boolean): void {
+  function addShells(e: ToolStringEntry, sheet: ToolSheet, y0: number, y1: number, ghost: boolean, localWall: number): void {
     const tool = e.tool;
     const specs = shellSpecs(tool, sheet);
     const unverified = !!sheet.unverified?.some((k) => k === 'investigation' || k === 'investigationByRole');
@@ -616,20 +633,22 @@ export function buildToolStringScene(input: SceneInput): ToolStringScene {
     const from = investigationReference(sheet);
     const emphasis: ShellEmphasis = !input.selectedId ? 'normal' : input.selectedId === tool.id ? 'strong' : 'faint';
     const look = SHELL_LOOK[emphasis];
+    const radiusOf = (doiCm: number) => from === 'axis' ? doiCm : localWall + doiCm;
     for (const s of specs) {
       const role = s.role ?? fallback ?? null;
       const doiCm = s.doiIn * CM_PER_IN;
       // En planificación sin datos no hay curvas que puedan faltar: la cáscara ya es tenue por `ghost`.
       const present = ghost || (s.role ? e.roles.includes(s.role) : e.hasData);
       const kk = k * (present ? 1 : ABSENT_SHELL_FACTOR);
+      if (radiusOf(doiCm) <= localWall) continue;
       shells.push({
         key: `shell:${tool.id}:${s.role ?? 'tool'}`,
         toolId: tool.id,
         role: s.role,
         doiCm,
         from,
-        radius: radiusOf(doiCm, from),
-        rWall,
+        radius: radiusOf(doiCm),
+        rWall: localWall,
         y0: y0 + inset,
         y1: y1 - inset,
         color: role ? input.curveColor(role) : colors.outline,
@@ -651,12 +670,13 @@ export function buildToolStringScene(input: SceneInput): ToolStringScene {
     const hi = Math.max(...specs.map((x) => x.doiIn));
     if (!((min !== undefined && min < lo) || (max !== undefined && max > hi))) return;
     const peakRole = specs.length ? (specs[specs.length - 1]!.role ?? fallback) : fallback;
+    if (radiusOf((max ?? typ) * CM_PER_IN) <= localWall) return;
     bands.push({
       key: `band:${tool.id}`,
       toolId: tool.id,
-      rMin: radiusOf((min ?? typ) * CM_PER_IN, from),
-      rPeak: radiusOf(typ * CM_PER_IN, from),
-      rMax: radiusOf((max ?? typ) * CM_PER_IN, from),
+      rMin: Math.max(localWall, radiusOf((min ?? typ) * CM_PER_IN)),
+      rPeak: Math.max(localWall, radiusOf(typ * CM_PER_IN)),
+      rMax: radiusOf((max ?? typ) * CM_PER_IN),
       y0: y0 + inset,
       y1: y1 - inset,
       color: peakRole ? input.curveColor(peakRole) : colors.outline,
@@ -664,10 +684,6 @@ export function buildToolStringScene(input: SceneInput): ToolStringScene {
     });
   }
 
-  /** Radio desde el eje de una profundidad de investigación medida desde la pared o desde el eje (nunca dentro del pozo). */
-  function radiusOf(doiCm: number, from: InvestigationReference): number {
-    return from === 'axis' ? Math.max(doiCm, rWall + 0.5) : rWall + doiCm;
-  }
 }
 
 /** Opacidad de la banda difusa a un radio (0 en los extremos, 1 en el pico; para el degradé). */

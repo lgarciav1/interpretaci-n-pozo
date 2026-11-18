@@ -1,4 +1,5 @@
-import { effectiveWell } from '../preparation/data';
+import { sameContext } from '../../core/engine/context';
+import { effectiveWell, entryContext } from '../preparation/data';
 /**
  * Vista 3D de la sarta (docs/decisiones/0033): ocupa el centro en lugar del visor mientras la pantalla de la sarta está
  * abierta. Se gira, se mueve y se acerca; pasar el puntero resalta y dice el nombre; clic selecciona y abre la ficha.
@@ -15,7 +16,7 @@ import { hasWebGL2, ToolStringRenderer } from './render3d';
 import { AXIAL_COMPRESSION, boreholeDiameter, buildToolStringScene, type Pick } from './scene';
 import { useToolStringView } from './select';
 import { useToolStringUi } from './store';
-import { wellColumn } from './wellColumn';
+import { wellColumn, wellRadialLog } from './wellColumn';
 import { ToolSheetCard } from './ToolSheetCard';
 import './toolString.css';
 
@@ -39,12 +40,14 @@ export function ToolStringView() {
 
   const curves = entry?.well.curves;
   const borehole = useMemo(() => boreholeDiameter(curves ?? []), [curves]);
-  const result = useResults((s) => s.result);
+  const candidate = useResults((s) => s.result);
+  const result = useMemo(() => entry && sameContext(candidate?.context, entryContext(entry)) ? candidate : null, [entry, candidate]);
   const well = entry ? effectiveWell(entry.well, result) : undefined;
   const column = useMemo(() => wellColumn(well, result), [well, result]);
+  const radial = useMemo(() => well && entry ? wellRadialLog(well, entry.interpretation, result) : null, [well, entry, result]);
   // El tramo que mostraba el visor (sigue montado debajo); sin visor, la mitad del pozo.
   const visible = useViewer((s) => s.visible);
-  const center = visible ? (visible.top + visible.base) / 2 : column ? (column.top + column.base) / 2 : 0;
+  const center = visible ? (visible.top + visible.base) / 2 : radial?.depth.length ? (radial.depth[0]! + radial.depth[radial.depth.length - 1]!) / 2 : 0;
   const desc = useMemo(() => {
     if (!view) return null;
     return buildToolStringScene({
@@ -57,9 +60,10 @@ export function ToolStringView() {
       accent: tokens.color.accent,
       curveColor: (role) => curveStyle(role, theme, registry.roles).color,
       theme,
+      ...(radial ? { radial: { log: radial, center } } : {}),
       formation: column ? { column, center } : null,
     });
-  }, [view, borehole, selectedId, hoverId, tokens, theme, column, center]);
+  }, [view, borehole, selectedId, hoverId, tokens, theme, column, radial, center]);
 
   const ready = !!desc;
 
@@ -189,6 +193,19 @@ export function ToolStringView() {
         ? 'Formación esquemática (planificación)'
         : 'Formación esquemática (sin GR ni facies)'
       : `Formación ${fmtDepth(env.depth.top)}–${fmtDepth(env.depth.base)} m · color por ${FORMATION_SOURCE_LABEL[env.source]}`;
+  const bands = env.radial ?? [];
+  const measured = bands.some(b => b.measured);
+  const calculated = bands.some(b => b.invasion !== null);
+  const runs: { top: number; base: number; wall: string; invasion: string }[] = [];
+  for (const b of bands) {
+    const wall = b.measured ? 'CAL medido' : 'pared ilustrativa';
+    const invasion = b.invasion !== null ? 'DI calculado' : b.incompatible ? 'invasión ilustrativa (DI dentro de la pared)' : 'invasión ilustrativa';
+    const previous = runs[runs.length - 1];
+    if (previous && previous.wall === wall && previous.invasion === invasion) previous.base = b.base;
+    else runs.push({ top: b.top, base: b.base, wall, invasion });
+  }
+  const mid = env.depth ? (env.depth.top + env.depth.base) / 2 : center;
+  const current = bands.find(b => mid >= b.top && mid < b.base);
   const bh = `${formatNumber(desc.boreholeDiameterIn, { significant: 3, grouping: false })} in`;
 
   return (
@@ -197,7 +214,7 @@ export function ToolStringView() {
         <div className="ts-view__titles">
           <span className="ts-view__overline">Sarta · vista 3D</span>
           <span className="ts-view__scale">
-            Radios y profundidades de investigación a escala real · largos comprimidos {AXIAL_COMPRESSION}:1 · pozo de {bh}
+            Radios y profundidades de investigación a escala real · largos comprimidos {AXIAL_COMPRESSION}:1 · montaje nominal de {bh}
             {desc.boreholeSchematic ? ' (esquemático)' : borehole.source === 'BS' ? ' (trépano)' : ' (calibre)'}
           </span>
         </div>
@@ -239,7 +256,7 @@ export function ToolStringView() {
             <>
               <div className="ts-view__legend">
                 <span className="ts-view__legend-title">
-                  Profundidad de investigación <span className="ts-view__legend-ref">· desde la pared</span>
+                  Profundidad de investigación <span className="ts-view__legend-ref">· pared al centro de la herramienta</span>
                 </span>
                 <ul aria-label="Profundidad de investigación por herramienta">
                   {legend.map((l) => (
@@ -265,10 +282,17 @@ export function ToolStringView() {
                   )}
                 </span>
               </div>
-              <p className="ts-view__formation">
+              <div className="ts-view__formation">
+                <span>
                 <span className={`ts-view__formation-swatch is-${env.source}`} aria-hidden="true" />
-                {formationNote}
-              </p>
+                {formationNote}</span>
+                <details className="ts-view__radial">
+                  <summary>{measured ? 'Pared · CAL medido' : 'Pared ilustrativa'} · {calculated ? 'invasión · DI calculado' : 'invasión ilustrativa'}{runs.length > 1 ? ' · por tramos' : ''}</summary>
+                  <p>Sección circular esquemática. Los huecos usan respaldo por capa. El filtrado difuso y el revoque son ilustrativos. El borde definido marca DI. La regla parte de la pared superior.</p>
+                  {current?.rxo != null && <p>RXO a {fmtDepth(mid)} m MD · {formatNumber(current.rxo, { significant: 3 })} Ω·m (zona lavada)</p>}
+                  <ul>{runs.map(run => <li key={run.top}>{formatNumber(run.top, { digits: 2 })}–{formatNumber(run.base, { digits: 2 })} m MD · {run.wall} · {run.invasion}</li>)}</ul>
+                </details>
+              </div>
               <p className="ts-view__help" aria-hidden="true">
                 <Icon name="info" size={12} /> Arrastrá para girar · clic derecho o dos dedos para mover · rueda para acercar · clic para ver la ficha
               </p>

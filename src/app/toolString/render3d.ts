@@ -817,10 +817,45 @@ function ruler(r: RulerDesc): Object3D {
  * Formación en corte (D9): las dos caras del corte y la tapa, con la textura de sus capas y desvanecidas hacia el borde
  * exterior y hacia abajo; la pared del pozo con el revoque en las capas permeables; lodo y cable.
  */
+/** La misma sucesión de anillos define la pared, el lodo y los dos cortes. Los escalones
+ * entre muestras se cierran con dos anillos a la misma altura. */
+function wallRings(env: EnvironmentDesc) {
+  const bands = env.radial;
+  if (!bands?.length || !env.depth) return [{ y: env.y1, r: env.rWall }, { y: env.y0, r: env.rWall }];
+  const depth = env.depth;
+  const y = (md: number) => env.y1 - (md - depth.top) / (depth.base - depth.top) * (env.y1 - env.y0);
+  return bands.flatMap(b => [{ y: y(b.top), r: b.wall }, { y: y(b.base), r: b.wall }]);
+}
+
+function profileSurface(env: EnvironmentDesc, kind: 'wall' | 'cut' | 'mud', theta: number, sweep = 0): BufferGeometry {
+  const rings = wallRings(env);
+  const columns = kind === 'wall' ? 64 : 1;
+  const positions: number[] = [], uv: number[] = [], indices: number[] = [];
+  for (const [row, ring] of rings.entries()) {
+    const v = (ring.y - env.y0) / (env.y1 - env.y0);
+    for (let j = 0; j <= columns; j++) {
+      const u = j / columns;
+      const radius = kind === 'cut' ? ring.r + u * (env.rOuter - ring.r) : kind === 'mud' ? u * ring.r : ring.r;
+      const [dx, dz] = dir(theta + sweep * u);
+      positions.push(radius * dx, ring.y, radius * dz);
+      uv.push(u, v);
+      if (row && j) {
+        const d = row * (columns + 1) + j, a = d - columns - 2;
+        indices.push(a, d - 1, d, a, d, a + 1);
+      }
+    }
+  }
+  const geo = new BufferGeometry();
+  geo.setAttribute('position', new BufferAttribute(new Float32Array(positions), 3));
+  geo.setAttribute('uv', new BufferAttribute(new Float32Array(uv), 2));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  return geo;
+}
+
 function environment(env: EnvironmentDesc): Object3D {
   const g = new Group();
-  const H = env.y1 - env.y0;
-  const ym = (env.y0 + env.y1) / 2;
+  const topWall = env.radial?.[0]?.wall ?? env.rWall;
   const [w0, wl] = env.wedge;
   const restStart = w0 + wl;
   const restLen = Math.PI * 2 - wl;
@@ -829,12 +864,11 @@ function environment(env: EnvironmentDesc): Object3D {
   // Lambert (difuso, sin PBR): la roca no necesita reflejos y estas caras cubren media pantalla; es el material más barato
   // que recibe sombras.
   const faceMat = new MeshLambertMaterial({ map: faceTexture(env), color: new Color(0.8, 0.8, 0.8), transparent: true, side: DoubleSide });
-  const cutA = new Mesh(radialQuad(w0, env.rWall, env.rOuter, env.y0, env.y1), faceMat);
-  const cutB = new Mesh(radialQuad(w0 + wl, env.rWall, env.rOuter, env.y0, env.y1), faceMat);
+  const cutA = new Mesh(profileSurface(env, 'cut', w0), faceMat);
+  const cutB = new Mesh(profileSurface(env, 'cut', w0 + wl), faceMat);
   const wallTex = wallTexture(env);
   wallTex.repeat.set(5, 1);
-  const wall = new Mesh(new CylinderGeometry(env.rWall, env.rWall, H, 64, 1, true, restStart, restLen), new MeshLambertMaterial({ map: wallTex, transparent: true, side: BackSide }));
-  wall.position.y = ym;
+  const wall = new Mesh(profileSurface(env, 'wall', restStart, restLen), new MeshLambertMaterial({ map: wallTex, transparent: true, side: BackSide }));
   // Tapa: el color de la capa de arriba, desvanecida hacia el borde exterior.
   const top = topCap(env, restStart, restLen);
   // Solo la pared del pozo recibe sombras (la de la sarta cae ahí): las caras del corte cubren media pantalla y el
@@ -843,9 +877,9 @@ function environment(env: EnvironmentDesc): Object3D {
   for (const m of [cutA, cutB, wall, top]) m.renderOrder = 0;
   // Lodo: caras del corte y superficie, translúcidas (sin escribir profundidad: no tapan la sarta).
   const mudMat = new MeshBasicMaterial({ color: new Color(env.colors.mud), transparent: true, opacity: 0.1, depthWrite: false, side: DoubleSide, toneMapped: false });
-  const mudA = new Mesh(radialQuad(w0, 0, env.rWall, env.y0, env.y1), mudMat);
-  const mudB = new Mesh(radialQuad(w0 + wl, 0, env.rWall, env.y0, env.y1), mudMat);
-  const mudTop = new Mesh(annularSector(0.01, env.rWall, restStart, restStart + restLen, env.y1 - 0.4, 48), mudMat);
+  const mudA = new Mesh(profileSurface(env, 'mud', w0), mudMat);
+  const mudB = new Mesh(profileSurface(env, 'mud', w0 + wl), mudMat);
+  const mudTop = new Mesh(annularSector(0.01, topWall, restStart, restStart + restLen, env.y1 - 0.4, 48), mudMat);
   mudA.renderOrder = mudB.renderOrder = mudTop.renderOrder = 1;
   const c = env.cable;
   const cable = rodMesh(c.from, c.to, c.radius, new MeshStandardMaterial({ color: new Color(c.color), roughness: 0.55, metalness: 0.3 }));
@@ -931,10 +965,15 @@ function faceTexture(env: EnvironmentDesc): CanvasTexture {
   const cake = rgb(env.colors.mudcake);
   const bg = rgb(env.colors.bg);
   const noise = valueNoise(3);
-  const span = env.rOuter - env.rWall;
-  const pxPerCm = W / span;
+  let bandIndex = 0;
   const rowsPerUnit = H / (env.y1 - env.y0);
   for (let row = 0; row < H; row++) {
+    const md = env.depth && env.depth.top + (row + 0.5) / H * (env.depth.base - env.depth.top);
+    const bands = env.radial;
+    while (bands && md !== undefined && bandIndex + 1 < bands.length && md >= bands[bandIndex]!.base) bandIndex++;
+    const band = bands?.[bandIndex];
+    const wall = band?.wall ?? env.rWall;
+    const pxPerCm = W / (env.rOuter - wall);
     const k = rows[row]!;
     const st = env.strata[k]!;
     const [r0, g0, b0] = cols[k]!;
@@ -947,7 +986,7 @@ function faceTexture(env: EnvironmentDesc): CanvasTexture {
     const bottomFade = 1 - smooth(0.82, 1, row / H);
     for (let x = 0; x < W; x++) {
       const cm = (x + 0.5) / pxPerCm;
-      const r = env.rWall + cm;
+      const r = wall + cm;
       let shade = 1 + noise(x / 40, row / 40) * 0.05 + lam;
       switch (st.pattern) {
         case 'sand': {
@@ -979,10 +1018,16 @@ function faceTexture(env: EnvironmentDesc): CanvasTexture {
       let R = r0 * shade;
       let G = g0 * shade;
       let B = b0 * shade;
+      if (band?.invasion != null && r <= band.invasion) {
+        const t = band.invasion - r < 1.2 ? 0.95 : 0.44;
+        R += (filtrate[0] - R) * t;
+        G += (filtrate[1] - G) * t;
+        B += (filtrate[2] - B) * t;
+      }
       if (st.perm > 0.04) {
         // Zona invadida: el filtrado desplaza al fluido de la formación cerca de la pared; se apaga hacia adentro.
         const L = env.invasionCm * st.perm;
-        if (cm < L) {
+        if (band?.invasion == null && cm < L) {
           const t = Math.pow(1 - cm / L, 1.2) * 0.6 * Math.min(1, st.perm * 1.4);
           R += (filtrate[0] - R) * t;
           G += (filtrate[1] - G) * t;
@@ -1045,7 +1090,7 @@ function wallTexture(env: EnvironmentDesc): CanvasTexture {
 /** Tapa de la formación con el color de la capa de arriba, opaca junto al pozo y desvanecida hacia afuera. */
 function topCap(env: EnvironmentDesc, t0: number, len: number): Mesh {
   const rings = 14;
-  const geo = annularSector(env.rWall, env.rOuter, t0, t0 + len, env.y1, 120, rings);
+  const geo = annularSector(env.radial?.[0]?.wall ?? env.rWall, env.rOuter, t0, t0 + len, env.y1, 120, rings);
   const pos = geo.getAttribute('position');
   const col = new Float32Array(pos.count * 4);
   for (let i = 0; i < pos.count; i++) {

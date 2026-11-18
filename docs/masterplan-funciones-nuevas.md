@@ -62,7 +62,7 @@ Tamaño: **C** chico (una sesión corta), **M** mediano (una sesión), **G** gra
 | F11 | Rangos de ejes del crossplot a mano | 4 | C | desarrollador-ui | — | implementada en PR borrador; pendiente verificar apertura por doble clic sin internet (Chromium administrado bloquea `file://`) |
 | F26 | Asistente sin modelo | 5 | M | desarrollador-ui | [0083](decisiones/0083-asistente-sin-modelo.md) | implementada en borrador. Pendiente abrir el HTML por doble clic sin internet. |
 | F23 | Perfilaje en vivo | 5 | G | arquitecto | — | pendiente |
-| F24 | Pozo 3D con calibre e invasión calculados | 5 | M | arquitecto | — | pendiente |
+| F24 | Pozo 3D con calibre e invasión calculados | 5 | M | arquitecto | — | implementada en rama · pendiente apertura por doble clic ([verificación](capturas/f24/README.md)) |
 | F12 | Gráfico de Hingle | cond. | C | desarrollador-ui | — | solo si la materia lo pide |
 | F13 | Saturación de Waxman–Smits | cond. | M | analista-numerico | — | solo si la materia lo pide |
 

@@ -82,6 +82,19 @@ describe('escena de la sarta: escala', () => {
     expect(ind.map((x) => x.color)).toEqual(['color-RA10', 'color-RA20', 'color-RA30', 'color-RM', 'color-RT']);
   });
 
+  it('en un derrumbe toma la pared local para la micro y conserva la DOI axial de la inducción', () => {
+    const depth = Float64Array.from({ length: 100 }, (_, i) => i);
+    const cal = new Float64Array(depth.length).fill(12.96);
+    const s = scene(undefined, { radial: { center: 50, log: { depth, step: 1, cal } } });
+    const wall = 12.96 * 1.27;
+    const micro = s.shells.find(shell => shell.toolId === 'microresistivity')!;
+    const induction = s.shells.find(shell => shell.role === 'RA10')!;
+    expect(micro.rWall).toBeCloseTo(wall);
+    expect(micro.radius).toBeCloseTo(wall + 2 * CM_PER_IN);
+    expect(induction.rWall).toBeCloseTo(wall);
+    expect(induction.radius).toBeCloseTo(10 * CM_PER_IN);
+  });
+
   it('radios a escala real y largos con compresión uniforme; las medidas faltantes son esquemáticas', () => {
     const s = scene({ mode: 'planning', plan: ['spectral-gr', 'density', 'nmr', 'laterolog', 'gr'] });
     const den = layout(s, 'density');
