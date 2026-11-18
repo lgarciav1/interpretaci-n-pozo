@@ -1,7 +1,7 @@
 # F18 · Curva fantasma
 
-La rama parte de `main` en `f92f86c`, el squash de F14 (PR #93). F18 queda pendiente en el masterplan porque
-Chromium administrado bloqueó la apertura del HTML por doble clic. El PR se entrega en borrador.
+La rama parte de `main` en `f92f86c`, el squash de F14 (PR #93). La integración de F18 fue autorizada con la
+apertura por doble clic sin verificar debido al bloqueo de Chromium administrado.
 
 ## Recorrido con el pozo del TP
 
