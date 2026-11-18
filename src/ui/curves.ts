@@ -187,6 +187,7 @@ export type FillId =
   | 'gasCrossover'
   | 'shaleCrossover'
   | 'modelSpread'
+  | 'curveUncertainty'
   | 'shale'
   | 'sand'
   | 'limestone'
@@ -247,6 +248,7 @@ export const FILL_PALETTE: Readonly<Record<FillId, FillEntry>> = {
   netReservoir: { label: 'Reservorio neto', light: '#f0c43c', dark: '#c79f2c', alpha: 0.8 },
   netPay: { label: 'Pay neto', light: '#e0453f', dark: '#d0423c', alpha: 0.8 },
   /** Banda entre la mínima y la máxima de varios modelos de la misma magnitud (modelos de Sw lado a lado). */
+  curveUncertainty: { label: 'Incertidumbre P10–P90', light: '#6050aa', dark: '#a89cf0', alpha: 0.22 },
   modelSpread: { label: 'Dispersión entre modelos', light: '#7c6bd6', dark: '#a99bf0', alpha: 0.5 },
   /** Porosidad sin partir (falta Sw): ni agua ni hidrocarburo. */
   pore: { label: 'Porosidad', light: '#bcdcec', dark: '#4f7f94', alpha: 0.75 },

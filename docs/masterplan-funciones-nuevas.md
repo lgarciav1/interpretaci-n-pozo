@@ -20,8 +20,7 @@ Los seis módulos obligatorios del profesor están completos. Tres problemas vis
 ## 2. Reglas de ejecución
 
 1. **Una función = una rama + un PR.** La app queda funcionando en cada commit (regla de `CLAUDE.md`).
-2. **Decisión antes que código** cuando la ficha dice «ADR»: un archivo en `docs/decisiones/` (el próximo número libre es
-   `0071`) con contexto, decisión y alternativas descartadas.
+2. **Decisión antes que código** cuando la ficha dice «ADR»: un archivo en `docs/decisiones/` (usá el próximo número libre) con contexto, decisión y alternativas descartadas.
 3. **Motor puro con tests.** Todo cálculo nuevo va en `src/petro/` (o `src/ml/`), sin UI, con tests de Vitest contra un
    resultado conocido. Lo revisa un subagente distinto del que lo escribió.
 4. **Los módulos obligatorios ganan.** Si una función compite por lugar o por tiempo con uno de los seis, se posterga.
@@ -57,7 +56,7 @@ Tamaño: **C** chico (una sesión corta), **M** mediano (una sesión), **G** gra
 | F17 | Lupa sobre el perfil | 4 | M | arquitecto | — | pendiente |
 | F18 | Curva fantasma | 4 | M | arquitecto | — | hecha ([PR #94](https://github.com/lgarciav1/interpretaci-n-pozo/pull/94)); apertura local sin verificar ([evidencia](capturas/f18/README.md)) |
 | F06 | Curva calculada por fórmula | 4 | G | arquitecto | [0081](decisiones/0081-curvas-por-formula.md) | implementada en PR borrador. Pendiente abrir el HTML por doble clic sin internet: Chromium administrado bloquea `file://`. |
-| F15 | Bandas de incertidumbre sobre las curvas | 4 | G | analista-numerico | — | pendiente |
+| F15 | Bandas de incertidumbre sobre las curvas | 4 | G | analista-numerico | [0082](decisiones/0082-bandas-de-incertidumbre.md) | implementada en borrador. Pendientes la apertura por doble clic sin red y la calibración de incertidumbre por calidad local. |
 | F09 | Pegar topes desde una planilla | 4 | C | investigador | — | pendiente |
 | F10 | Contacto MDT como tope de zona | 4 | C | desarrollador-ui | — | hecha ([PR #95](https://github.com/lgarciav1/interpretaci-n-pozo/pull/95)); apertura local sin verificar ([evidencia](capturas/f10/README.md)) |
 | F11 | Rangos de ejes del crossplot a mano | 4 | C | desarrollador-ui | — | implementada en PR borrador; pendiente verificar apertura por doble clic sin internet (Chromium administrado bloquea `file://`) |
@@ -276,6 +275,12 @@ decidir antes y cuándo está terminada.
   worker); qué parámetros llevan incertidumbre y con qué distribución.
 - **Terminado cuando:** con incertidumbre cero la banda colapsa sobre la curva; el cálculo no demora el recálculo en
   vivo de los sliders (corre aparte y se marca desactualizado, como hace hoy el panel de incertidumbre).
+- **Evidencia F15:** [ADR 0082](decisiones/0082-bandas-de-incertidumbre.md) y [recorrido del TP](capturas/f15/README.md).
+  Con PHIE y Sw activas se verifican ambos rellenos, los cuatro estados de visibilidad, la actualización separada y
+  el cruce con el cutoff de Sw. Se verificó el HTML único por HTTP local con la red deshabilitada tras cargar.
+  Chromium administrado bloqueó `file://` con `net::ERR_BLOCKED_BY_ADMINISTRATOR`.
+- **Límite del modelo:** la amplitud refleja el error sistemático relativo y los límites físicos. Queda pendiente
+  cuantificar cuánto se ensancha la banda por calidad local del registro con supuestos calibrados.
 
 #### F09 — Pegar topes desde una planilla
 - **Qué hace:** pegar o cargar una tabla nombre–tope(–base) para crear las zonas.

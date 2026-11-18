@@ -13,7 +13,8 @@ Sw es la saturación SW de la fuente activa, calculada o cargada según la inter
 A cada muestra le aplicamos un único multiplicador positivo con moda (o media en la normal) en 1. Para cada curva se
 usan sus controles mínimo y máximo en **Incertidumbre del volumen** (por defecto 0,9 y 1,1), con la distribución
 global elegida allí (triangular por defecto, uniforme o normal truncada). La normal tiene desvío previo al truncado
-igual a un sexto del rango. Los ajustes se usan aunque el Monte Carlo de volumen esté apagado.
+igual a un sexto del rango. Los ajustes se usan aunque el Monte Carlo de volumen esté apagado. Un límite cargado
+fuera del rango de su control usa su valor de fábrica para la banda.
 
 Cada multiplicador representa un error sistemático relativo y es común a todas las profundidades y zonas. Los dos
 multiplicadores son independientes entre sí. El de PHIE resume la incertidumbre de matriz y calibración. El de Sw

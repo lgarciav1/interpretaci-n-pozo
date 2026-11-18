@@ -69,6 +69,7 @@ export interface WellViewerProps {
   toolbarEnd?: ReactNode;
   /** Franja bajo la barra (encabezado de pozo). */
   header?: ReactNode;
+  trackControls?(track: ResolvedTrack): ReactNode;
   /** Encabezados de pista compactos: título y mnemónicos; escalas y unidades en el tooltip (docs/decisiones/0069). */
   compactHeads?: boolean;
   /** Si está, el encabezado de la pista de profundidad muestra el botón que alterna los encabezados compactos. */
@@ -1487,6 +1488,7 @@ export function WellViewer(props: WellViewerProps) {
                     <div className="wv-head__title" title={t.title}>
                       {t.title}
                     </div>
+                    {props.trackControls?.(t)}
                     {hiddenMenu(t)}
                     {t.kind === 'depth' && props.onToggleCompactHeads && !layoutEdit && (
                       <button

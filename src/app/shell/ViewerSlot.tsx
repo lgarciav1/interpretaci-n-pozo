@@ -62,6 +62,8 @@ import { usePlotSelection } from '../../plots/useLink';
 import { formatNumber } from '../../ui';
 import { openProvenance } from '../provenance/store';
 import { useViewsUi } from '../views/store';
+import { BAND_ROLES, type BandRole } from '../../petro/curveBands';
+import { BAND_LABELS, bandCurve, useCurveBands, withCurveBands } from '../curveBands/useCurveBands';
 import { DefenseHud } from '../views/DefenseHud';
 
 /**
@@ -148,6 +150,19 @@ export function ViewerSlot() {
       { keepEmpty: building, look: lookId },
     );
   }, [well, curves, computed, layoutSpec, overrides, building, interpretation?.sources, tvdss, lookId]);
+
+  const engineError = useResults((s) => s.error);
+  const [bandVisibility, setBandVisibility] = useState<ReadonlySet<string>>(() => new Set());
+  const bandKey = (trackId: string, role: BandRole) => JSON.stringify([workspace, trackId, role]);
+  const { bands, pending, failed } = useCurveBands(tracks, result, interpretation?.params);
+  const bandRequested = layoutSpec.some(track => BAND_ROLES.some(role => bandVisibility.has(bandKey(track.id, role))));
+  const bandStatus = bandRequested && (
+    failed || (!result && engineError) ? 'No se pudieron actualizar las bandas de incertidumbre.' :
+    !result || pending ? 'Bandas de incertidumbre desactualizadas · Calculando…' : null
+  );
+  const viewerTracks = bands && bandRequested
+    ? tracks.map(track => withCurveBands(track, result, bands, role => bandVisibility.has(bandKey(track.id, role))))
+    : tracks;
 
   // Cortina antes/después: el snapshot se calcula una vez al elegirlo (caché compartida con el diálogo); arrastrar la
   // línea solo redibuja. Cada lado usa sus datos; una grilla/laboratorio incompatibles bloquean la cortina.
@@ -409,6 +424,7 @@ export function ViewerSlot() {
           {well.name}
         </span>
       </button>
+      {bandStatus && <span className="wv-band-status" role="status" title={bandStatus}>{bandStatus}</span>}
       {/* La selección antes que las zonas: si la barra no alcanza, se recorta lo otro. */}
       {plotSelection ? (
         <Chip
@@ -493,7 +509,31 @@ export function ViewerSlot() {
         wellKey={depthKey(well)}
         depth={well.depth.values}
         depthStep={well.depth.step}
-        tracks={tracks}
+        tracks={viewerTracks}
+        trackControls={track => BAND_ROLES.map(role => {
+          if (!bandCurve(track, role, result)) return null;
+          const key = bandKey(track.id, role);
+          const label = BAND_LABELS[role];
+          return (
+            <button
+              key={role}
+              type="button"
+              className="wv-head__band"
+              aria-label="Mostrar banda de incertidumbre"
+              aria-description={`${label} · ${track.title}`}
+              aria-pressed={bandVisibility.has(key)}
+              title={`Mostrar banda de incertidumbre · ${label} (P10–P90)`}
+              onClick={() => setBandVisibility(previous => {
+                const next = new Set(previous);
+                if (next.has(key)) next.delete(key);
+                else next.add(key);
+                return next;
+              })}
+            >
+              {label} <span aria-hidden="true">↔</span>
+            </button>
+          );
+        })}
         data={data}
         overlays={OVERLAYS}
         label={`Perfiles del pozo ${well.name}`}
