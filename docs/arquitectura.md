@@ -1032,3 +1032,16 @@ relativo, con un multiplicador común a todas las profundidades por magnitud.
 - Los toggles se guardan en estado de UI por espacio, pista y magnitud, inicialmente apagados. El visor dibuja los
   rellenos P10–P90 en el eje de cada curva base, antes de trazar la línea. Los bordes son exclusivos del visor en vivo
   y se dibujan en el lado actual de la cortina.
+
+## Asistente sin modelo (F26)
+
+El [ADR 0083](decisiones/0083-asistente-sin-modelo.md) define una gramática cerrada en
+`src/app/assistant/intents.ts`. El modelo puro lee las tablas activas del motor y el catálogo de Ecuaciones
+para devolver una respuesta con sus fuentes y acciones declarativas. El panel del dock ejecuta las acciones
+explícitas con los comandos registrados, el flujo y la navegación del visor. Ante una pregunta que queda fuera
+de la gramática, el panel puede sugerir acciones de navegación por similitud de texto.
+
+El estado de la pregunta vive en el panel y se reinicia al cambiar de pozo. La respuesta visible sigue el resultado
+del motor y permanece sin cifras si el cálculo todavía está pendiente. El pedido de localizar una curva vive en
+el store del visor y se resuelve con la fuente activa y las pistas visibles. Abrir el asistente o consultar una
+respuesta conserva el proyecto y su historial.

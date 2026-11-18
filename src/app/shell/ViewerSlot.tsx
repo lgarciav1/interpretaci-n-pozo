@@ -152,6 +152,41 @@ export function ViewerSlot() {
   }, [well, curves, computed, layoutSpec, overrides, building, interpretation?.sources, tvdss, lookId]);
 
   const engineError = useResults((s) => s.error);
+  const locateCurve = useViewer(s => s.locateCurve);
+  useEffect(() => {
+    if (!locateCurve) return;
+    if (well?.id === locateCurve.wellId && !result && !engineError) return;
+    const frame = requestAnimationFrame(() => {
+      useViewer.setState({ locateCurve: null });
+      if (well?.id !== locateCurve.wellId) return;
+      const { role } = locateCurve;
+      const source = result?.sources[role];
+      const candidates = tracks.flatMap(track => track.curves.map(curve => ({ track, curve })));
+      const fromSource = (curve: ResolvedTrack['curves'][number]) => source?.kind === 'curve'
+        ? curve.curveId === source.curveId
+        : source?.kind === 'module' ? curve.moduleId === source.moduleId : !curve.alternative;
+      const match = candidates.find(({ curve }) => curve.role === role && fromSource(curve)) ??
+        (source?.kind === 'curve' ? candidates.find(({ curve }) => fromSource(curve)) : undefined);
+      if (match) {
+        const head = document.querySelector(`.wv-head[data-track-id="${CSS.escape(match.track.id)}"]`);
+        const selector = `[data-curve-key="${CSS.escape(match.curve.key)}"]`;
+        const legend = head?.querySelector<HTMLElement>(selector);
+        const target = legend ?? head?.querySelector<HTMLElement>('.wv-head__overflow');
+        target?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        target?.focus({ preventScroll: true });
+        if (!legend && target) {
+          if (target.getAttribute('aria-expanded') === 'false') target.click();
+          requestAnimationFrame(() => {
+            if (!target.isConnected || target.getAttribute('aria-expanded') !== 'true') return;
+            document.querySelector<HTMLElement>(`[role="dialog"] ${selector}`)?.focus();
+          });
+        }
+        return;
+      }
+      toast({ tone: 'info', title: `${role} no está visible en la plantilla actual` });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [locateCurve, well, result, engineError, tracks]);
   const [bandVisibility, setBandVisibility] = useState<ReadonlySet<string>>(() => new Set());
   const bandKey = (trackId: string, role: BandRole) => JSON.stringify([workspace, trackId, role]);
   const { bands, pending, failed } = useCurveBands(tracks, result, interpretation?.params);

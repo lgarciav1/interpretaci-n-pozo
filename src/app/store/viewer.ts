@@ -11,6 +11,8 @@ export interface ViewerStore {
   visible: { top: number; base: number } | null;
   /** Hay un arrastre de un elemento del perfil en curso (tope, zona nueva…): los atajos de deshacer esperan. */
   dragging: boolean;
+  /** Pedido de localización de una curva en las pistas del pozo activo. */
+  locateCurve: { wellId: string; role: string } | null;
 }
 
-export const useViewer = create<ViewerStore>()(() => ({ cursorDepth: null, visible: null, dragging: false }));
+export const useViewer = create<ViewerStore>()(() => ({ cursorDepth: null, visible: null, dragging: false, locateCurve: null }));

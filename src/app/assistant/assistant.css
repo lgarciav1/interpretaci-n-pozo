@@ -1,0 +1,40 @@
+.assistant {
+  padding: var(--space-3);
+  display: grid;
+  gap: var(--space-3);
+}
+
+.assistant__form,
+.assistant__actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.assistant__form > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.assistant__actions {
+  flex-wrap: wrap;
+}
+
+.assistant__answer {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+}
+
+.assistant__answer p {
+  margin: 0;
+  white-space: pre-line;
+}
+
+.assistant__answer small {
+  display: block;
+  margin-top: var(--space-2);
+  color: var(--color-text-muted);
+}
