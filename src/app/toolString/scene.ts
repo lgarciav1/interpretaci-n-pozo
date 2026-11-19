@@ -28,6 +28,9 @@ import { clipLayers, depthWindow, type FormationColumn, type FormationSource, ty
 export const CM_PER_IN = 2.54;
 /** Compresión axial: 1 m de herramienta = 20 unidades (20 cm) de escena (5:1). */
 export const AXIAL_COMPRESSION = 5;
+/** Dimensiones ilustrativas del mecanismo, en cm. Eje distal a 0,75 cm de la cara de contacto del GLB. */
+export const CALIPER_LINK_CM = 16;
+export const CALIPER_SHOE_PIN_CM = 0.75;
 export const AXIAL_SCENE_PER_M = 100 / AXIAL_COMPRESSION;
 /** Largo esquemático de una herramienta sin largo en la ficha (no es un dato: la ficha lo marca «esquemático»). */
 export const GENERIC_LENGTH_M = 3;
@@ -104,6 +107,7 @@ export type ScenePrimitive =
       /** Detalle del torneado: herramienta (chaflanes, collares y anillos identificadores) o cabeza (cuello de pesca). */
       detail?: 'tool' | 'head';
     })
+  | (Base & { kind: 'caliper'; azimuth: number; rootRadius: number; rootY: number; shoeRadius: number; shoeY: number; style: Style })
   | (Base & { kind: 'pad'; azimuth: number; halfAngle: number; rInner: number; rOuter: number; y0: number; y1: number; style: Style })
   | (Base & { kind: 'rod'; from: Vec3; to: Vec3; radius: number; style: Style })
   | (Base & { kind: 'bow'; center: readonly [number, number]; azimuth: number; rIn: number; rOut: number; y0: number; y1: number; radius: number; style: Style })
@@ -215,6 +219,8 @@ export interface ToolLayout {
   mounting: ToolMounting | 'sub';
   /** Pieza dibujada sobre otra (SP sobre la resistividad, calibre como brazo de la densidad). */
   hostId?: string;
+  /** Lectura a la altura de la zapata. El recorrido mecánico del modelo es esquemático. */
+  caliper?: { md?: number; diameterIn: number; measured: boolean; reachesWall: boolean };
 }
 
 export interface ToolStringScene {
@@ -442,7 +448,6 @@ export function buildToolStringScene(input: SceneInput): ToolStringScene {
   const cal = input.entries.find((e) => e.tool.id === 'caliper');
   if (cal && caliperHost) {
     const host = layouts.find((l) => l.toolId === caliperHost)!;
-    addArm('caliper', host.center, host.radius, host.y0, host.y1, cal);
     layouts.push({ toolId: 'caliper', y0: host.y0, y1: host.y1, center: host.center, radius: host.radius, lengthM: 0, diameterIn: 0, schematicLength: true, schematicDiameter: true, mounting: 'pad', hostId: caliperHost });
   }
 
@@ -455,6 +460,27 @@ export function buildToolStringScene(input: SceneInput): ToolStringScene {
     ? depthWindow({ top: depth[0]!, base: depth[depth.length - 1]! }, radialInput.center, (formTop - formBottom) / AXIAL_SCENE_PER_M)
     : undefined;
   const radial = window && radialInput ? radialBands(radialInput.log, window, rWall) : undefined;
+  const caliperLayout = layouts.find(l => l.toolId === 'caliper');
+  if (cal && caliperLayout) {
+    const azimuth = LEAN_AZIMUTH + Math.PI;
+    const [x, z] = dir(azimuth);
+    const { center, radius, y0, y1 } = caliperLayout;
+    const shoeY = y0 + (y1 - y0) * 0.42;
+    const md = window && window.top + (formTop - shoeY) / AXIAL_SCENE_PER_M;
+    const local = md === undefined ? undefined : radial?.find(b => md >= b.top && md < b.base);
+    const wall = local?.wall ?? rWall;
+    // El pasador proximal corre sobre la generatriz del cuerpo. La biela tiene longitud
+    // fija en cm físicos; solo la componente axial se comprime al pasar a la escena.
+    const rootRadius = center[0] * x + center[1] * z + radius;
+    const desired = wall - CALIPER_SHOE_PIN_CM - rootRadius;
+    const extension = Math.min(CALIPER_LINK_CM, Math.max(0, desired));
+    const rise = Math.sqrt(CALIPER_LINK_CM ** 2 - extension ** 2);
+    primitives.push({ kind: 'caliper', key: 'arm:caliper', pick: { toolId: 'caliper' },
+      azimuth, rootRadius, rootY: shoeY + rise / AXIAL_COMPRESSION,
+      shoeY, shoeRadius: rootRadius + extension + CALIPER_SHOE_PIN_CM, style: styleOf(cal, colors.steel) });
+    caliperLayout.caliper = { md, measured: local?.measured ?? false,
+      diameterIn: 2 * wall / CM_PER_IN, reachesWall: extension === desired };
+  }
   // La ficha da una sola DOI por curva. Su referencia local corresponde al punto medio del cuerpo.
   for (const layout of layouts) {
     if (layout.hostId) continue;
@@ -597,7 +623,7 @@ export function buildToolStringScene(input: SceneInput): ToolStringScene {
       if (Math.hypot(to[0] - from[0], to[2] - from[2]) > 0.2) primitives.push({ kind: 'rod', key: `pad-link:${toolId}:${f}`, pick: { toolId }, from, to, radius: 0.35, style: metal(colors.steelDark) });
     }
     // Brazo de respaldo hasta la pared opuesta (en la densidad es el calibre; se dibuja aparte si el calibre está).
-    if (!(toolId === 'density' && ids.has('caliper'))) addArm(toolId, center, radius, y0, y1, e, armKey);
+    if (toolId !== 'caliper' && !(toolId === 'density' && ids.has('caliper'))) addArm(toolId, center, radius, y0, y1, e, armKey);
   }
 
   /** Brazo de respaldo: del cuerpo a la pared opuesta al patín. */

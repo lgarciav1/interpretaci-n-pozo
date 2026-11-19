@@ -150,6 +150,13 @@ export function ToolSheetCard({ tool, entry, layout, view, well, interpretation,
           <Row label="Resolución vertical" mark={sheet.verticalResolution && unverified(sheet, 'verticalResolution') ? 'approx' : null} note={sheet.verticalResolution?.note}>
             {quantityText(sheet.verticalResolution) ?? <span className="ts-sheet__muted">sin dato</span>}
           </Row>
+          {layout?.caliper && (
+            <Row label={layout.caliper.measured ? 'CAL medido' : 'Apertura nominal'}
+              note={layout.caliper.reachesWall ? 'Mecanismo esquemático de un brazo.' : 'La pared queda fuera del recorrido ilustrativo del brazo.'}>
+              {formatNumber(layout.caliper.diameterIn, { digits: 2 })} in
+              {layout.caliper.md !== undefined && ` a ${formatNumber(layout.caliper.md, { digits: 2 })} m MD`}
+            </Row>
+          )}
           <Row label="Montaje" mark={sheet.mounting && unverified(sheet, 'mounting') ? 'approx' : null}>
             {sheet.mounting ? TOOL_MOUNTING_LABEL[sheet.mounting] : <span className="ts-sheet__muted">sin dato</span>}
           </Row>

@@ -58,6 +58,7 @@ import {
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { caliperModel } from './caliperModel';
 import { parseHex } from '../../ui/color';
 import { bandAlpha, dir, initialCamera, type BandPrimitive, type EnvironmentDesc, type Pick, type RulerDesc, type ScenePrimitive, type ShellPrimitive, type Style, type ToolStringScene, type Vec3 } from './scene';
 
@@ -237,7 +238,10 @@ export class ToolStringRenderer {
     };
     put('env', desc.environment, () => environment(desc.environment), false, true);
     if (this.parts.ruler) put('ruler', desc.ruler, () => ruler(desc.ruler));
-    for (const p of desc.primitives) put(p.key, p, () => primitive(p), !!p.pick);
+    for (const p of desc.primitives) put(p.key, p, () => p.kind === 'caliper' ? caliperModel(p, () => {
+      this.renderer.shadowMap.needsUpdate = true;
+      this.requestRender();
+    }) : primitive(p), !!p.pick);
     if (this.parts.shells) {
       // Cáscaras: de afuera hacia adentro (las de adentro se ven a través de las de afuera).
       const shells = [...desc.shells].sort((a, b) => b.radius - a.radius);
@@ -321,12 +325,13 @@ export class ToolStringRenderer {
     const d = this.desc;
     const t = d?.tools.find((x) => x.toolId === toolId);
     if (!d || !t) return;
-    const reach = Math.max(d.environment.rWall * 7, ...d.shells.filter((s) => s.toolId === toolId).map((s) => s.radius), ...d.bands.filter((b) => b.toolId === toolId).map((b) => b.rMax));
-    const target = new Vector3(reach * 0.2 * Math.SQRT1_2, (t.y0 + t.y1) / 2, reach * 0.2 * Math.SQRT1_2);
+    const reach = t.caliper ? Math.max(8, d.environment.rWall) : Math.max(d.environment.rWall * 7, ...d.shells.filter((s) => s.toolId === toolId).map((s) => s.radius), ...d.bands.filter((b) => b.toolId === toolId).map((b) => b.rMax));
+    const target = t.caliper ? new Vector3(0, t.y0 + (t.y1 - t.y0) * 0.42 + 3, 0)
+      : new Vector3(reach * 0.2 * Math.SQRT1_2, (t.y0 + t.y1) / 2, reach * 0.2 * Math.SQRT1_2);
     const dirv = this.camera.position.clone().sub(this.controls.target).normalize();
     // Del lado del corte (θ entre 0 y π/2 mira a +x, +z): si no, una vista de 3/4 sobre el corte.
     if (dirv.x < 0.15 || dirv.z < 0.15) dirv.set(0.8, 0.45, 0.55).normalize();
-    const size = Math.max(reach * 2.2, (t.y1 - t.y0) * 1.5);
+    const size = t.caliper ? reach * 3.4 : Math.max(reach * 2.2, (t.y1 - t.y0) * 1.5);
     const dist = size / 2 / Math.tan(((FOV * Math.PI) / 180) / 2) / Math.min(1, this.size.w / this.size.h);
     this.flyTo(target.clone().add(dirv.multiplyScalar(dist)), target, true);
     this.userMoved = true;
@@ -599,7 +604,7 @@ function pieceMaterial(st: Style, kind: ScenePrimitive['kind']): Material {
 // ---------------------------------------------------------------------------------------------------------------
 // Primitivas
 
-function primitive(p: ScenePrimitive): Object3D {
+function primitive(p: Exclude<ScenePrimitive, { kind: 'caliper' }>): Object3D {
   if (p.kind === 'cylinder' && p.detail) return turned(p);
   const mat = pieceMaterial(p.style, p.kind);
   let mesh: Mesh;
