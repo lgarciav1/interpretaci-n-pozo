@@ -58,7 +58,7 @@ import {
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { caliperModel } from './caliperModel';
+import { caliperModel, CaliperTextures } from './caliperModel';
 import { parseHex } from '../../ui/color';
 import { bandAlpha, dir, initialCamera, type BandPrimitive, type EnvironmentDesc, type Pick, type RulerDesc, type ScenePrimitive, type ShellPrimitive, type Style, type ToolStringScene, type Vec3 } from './scene';
 
@@ -119,6 +119,7 @@ export class ToolStringRenderer {
   protected readonly rim: DirectionalLight;
   protected readonly fill: HemisphereLight;
   private readonly envMap: Texture;
+  private readonly caliperTextures = new CaliperTextures();
   protected readonly objects = new Map<string, { object: Object3D; sig: string }>();
   private readonly pickables: Object3D[] = [];
   private readonly blockers: Object3D[] = [];
@@ -238,7 +239,7 @@ export class ToolStringRenderer {
     };
     put('env', desc.environment, () => environment(desc.environment), false, true);
     if (this.parts.ruler) put('ruler', desc.ruler, () => ruler(desc.ruler));
-    for (const p of desc.primitives) put(p.key, p, () => p.kind === 'caliper' ? caliperModel(p, () => {
+    for (const p of desc.primitives) put(p.key, p, () => p.kind === 'caliper' ? caliperModel(p, this.caliperTextures, () => {
       this.renderer.shadowMap.needsUpdate = true;
       this.requestRender();
     }) : primitive(p), !!p.pick);
@@ -356,6 +357,7 @@ export class ToolStringRenderer {
     for (const [key, { object }] of [...this.objects]) this.remove(key, object);
     this.key.shadow.dispose();
     this.envMap.dispose();
+    this.caliperTextures.dispose();
     this.scene.environment = null;
     this.renderer.dispose();
     if (!this.renderer.getContext().isContextLost()) this.renderer.forceContextLoss();
@@ -1185,8 +1187,9 @@ function disposeObject(o: Object3D): void {
     if (m.geometry) m.geometry.dispose();
     const mat = (m as { material?: Material | Material[] }).material;
     for (const y of Array.isArray(mat) ? mat : mat ? [mat] : []) {
-      // Las texturas no se liberan con el material (capas de la formación).
-      (y as MeshStandardMaterial).map?.dispose();
+      // El lienzo de formación pertenece al objeto; los mapas PBR del calibre, al renderizador.
+      const map = (y as MeshStandardMaterial).map;
+      if (map instanceof CanvasTexture) map.dispose();
       y.dispose();
     }
   });

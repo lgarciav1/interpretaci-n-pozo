@@ -15,11 +15,14 @@ from mathutils import Matrix, Vector
 
 ROOT = Path(__file__).resolve().parents[2]
 GLB = ROOT / "src/app/toolString/assets/caliper.glb"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from caliper_finish import finish, physical_uv
+
 LINK_LENGTH = 16.0
 bpy.ops.wm.read_factory_settings(use_empty=True)
 
 
-def metal(name, color, roughness, metallic=0.9):
+def metal(name, color, roughness, kind=None, metallic=0.9):
     material = bpy.data.materials.new(name)
     material.diffuse_color = (*color, 1)
     material.use_nodes = True
@@ -27,13 +30,16 @@ def metal(name, color, roughness, metallic=0.9):
     shader.inputs["Base Color"].default_value = (*color, 1)
     shader.inputs["Metallic"].default_value = metallic
     shader.inputs["Roughness"].default_value = roughness
+    if kind:
+        finish(material, kind, color, roughness, metallic)
     return material
 
 
-steel = metal("Acero satinado", (0.48, 0.53, 0.57), 0.31)
-dark = metal("Acero pavonado", (0.10, 0.13, 0.15), 0.35)
-wear = metal("Patín de desgaste", (0.65, 0.68, 0.67), 0.23)
-bushing = metal("Casquillo de bronce", (0.46, 0.28, 0.11), 0.36)
+steel = metal("Acero satinado", (0.48, 0.53, 0.57), 0.34, "brushed")
+dark = metal("Acero pavonado", (0.10, 0.13, 0.15), 0.43, "oxide", 0.76)
+wear = metal("Patín de desgaste", (0.65, 0.68, 0.67), 0.38, "contact")
+bushing = metal("Casquillo de bronce", (0.46, 0.28, 0.11), 0.36, "bronze")
+turned = metal("Cabeza torneada", (0.54, 0.58, 0.60), 0.27, "turned")
 socket = metal("Interior de tornillo", (0.032, 0.038, 0.041), 0.57)
 
 
@@ -81,7 +87,7 @@ def allen_pin(x, z, span, r):
     for side in (-1, 1):
         end = side * span / 2
         parts.append(pin("Arandela de apoyo", x, end, z, r * 1.16, 0.08, bushing))
-        parts.append(pin("Cabeza de eje", x, end + side * 0.07, z, r, 0.09, wear))
+        parts.append(pin("Cabeza de eje", x, end + side * 0.07, z, r, 0.09, turned))
         parts.append(pin("Alojamiento hexagonal", x, end + side * 0.119, z, r * 0.48, 0.012, socket, 6))
     return parts
 
@@ -93,6 +99,8 @@ def component(name, parts):
         part.select_set(True)
     bpy.context.view_layer.objects.active = parts[0]
     bpy.ops.object.convert(target="MESH")
+    for part in bpy.context.selected_objects:
+        physical_uv(part, wear, steel)
     bpy.ops.object.join()
     obj = bpy.context.object
     obj.name = name
@@ -153,7 +161,7 @@ if "--" in sys.argv:
             region.view_location = (3, 0, 6)
             region.view_distance = 27
             region.view_rotation = Vector((-0.34, -1, -0.22)).to_track_quat("-Z", "Y")
-            area.spaces.active.shading.color_type = "MATERIAL"
+            area.spaces.active.shading.type = "MATERIAL"
     bpy.context.preferences.filepaths.save_version = 0
     bpy.ops.wm.save_as_mainfile(filepath=str(blend))
 
@@ -165,4 +173,4 @@ bpy.context.scene.unit_settings.scale_length = 1
 link.data.transform(Matrix.Diagonal((1, 1, 1 / LINK_LENGTH, 1)))
 GLB.parent.mkdir(exist_ok=True, parents=True)
 bpy.ops.export_scene.gltf(filepath=str(GLB), export_format="GLB", export_yup=True,
-                          export_texcoords=False, export_cameras=False, export_lights=False)
+                          export_texcoords=True, export_cameras=False, export_lights=False)

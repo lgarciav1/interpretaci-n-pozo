@@ -12,6 +12,14 @@ El editable se abre con el mecanismo armado. El GLB contiene las tres piezas en 
 blender -b -P tools/modeling/caliper.py -- tools/modeling/caliper.blend
 ```
 
+## Superficies del mecanismo
+
+La biela lleva cepillado longitudinal. Las cabezas de los pasadores tienen marcas concéntricas de torneado y las dos caras de contacto de la zapata muestran una franja pulida. El casquillo de bronce y la horquilla pavonada tienen acabados propios. El desgaste es ilustrativo.
+
+El generador de Blender crea cinco acabados originales. Cada uno combina tres mapas de 256 × 256 píxeles: color en sRGB, rugosidad y metalicidad por canales, y normales para el relieve fino. Las coordenadas UV se calculan en centímetros antes de articular la biela. El editable y el GLB contienen las 15 imágenes. La comparación usa la misma geometría, luz y cámara en ambas tomas.
+
+![Mismo primer plano de la biela y la zapata antes y después del texturizado](acabado.jpg)
+
 ## Ver el contacto en el TP
 
 En el visor, cargar **Datos del TP** y elegir el intervalo indicado. Abrir **Sarta → Calibre → Centrar en la vista**. La profundidad de lectura figura en la ficha del calibre. El centro de la ventana está desplazado respecto de la zapata por la posición del calibre en la sarta. Estos intervalos corresponden al orden predeterminado de las herramientas.
@@ -30,10 +38,10 @@ El radio local sale de la mitad del diámetro medido. La zapata toca esa pared c
 | Tramo estable de 8,42 in | [Ver](estable-claro.png) | [Ver](estable-oscuro.png) |
 | Derrumbe de 12,96 in | [Ver](derrumbe-claro.png) | [Ver](derrumbe-oscuro.png) |
 
-Las capturas de 1366 × 768 usan el mismo acercamiento. Después de centrar el calibre, cerrar la ficha y pulsar una vez `=` en la escena. Se verificaron ambos temas por HTTP local con la red deshabilitada después de cargar la página. El navegador solicitó únicamente el HTML. La prueba de apertura directa quedó pendiente por la política de Chromium administrado.
+Las capturas de 1366 × 768 usan el mismo acercamiento. Después de centrar el calibre, cerrar la ficha y pulsar una vez `=` en la escena. Se verificaron ambos temas por HTTP local con la red deshabilitada después de cargar la página. En cada tema, Chromium decodificó las 15 imágenes de 256 × 256 desde el GLB y se observaron 30 cargas de esos mapas en WebGL durante el recorrido de los dos tramos. El navegador solicitó únicamente el HTML. La prueba de apertura directa quedó pendiente por la política de Chromium administrado.
 
 ```text
 Page.goto: net::ERR_BLOCKED_BY_ADMINISTRATOR at file:///workspace/repo/dist/index.html?inicio=no
 ```
 
-Pasaron `npm run typecheck`, `npm test` (3870 pruebas) y `npm run build`. El único archivo producido fue dist/index.html, de 8.981.790 bytes.
+Pasaron `npm run typecheck`, `npm test` (3871 pruebas) y `npm run build`. El único archivo producido fue dist/index.html, de 10.282.128 bytes.
