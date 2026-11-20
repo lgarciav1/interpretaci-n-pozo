@@ -11,6 +11,9 @@ import { THEMES } from '../src/ui/tokens';
 import {
   AXIAL_SCENE_PER_M,
   CM_PER_IN,
+  AXIAL_COMPRESSION,
+  CALIPER_LINK_CM,
+  CALIPER_SHOE_PIN_CM,
   DEFAULT_BOREHOLE_IN,
   GENERIC_DIAMETER_IN,
   GENERIC_LENGTH_M,
@@ -173,7 +176,7 @@ describe('escena de la sarta: piezas', () => {
     const ind = layout(s, 'induction');
     expect(ring.kind === 'ring' && ring.y).toBeGreaterThan(ind.y0);
     expect(layout(s, 'caliper').hostId).toBe('density');
-    expect(prims(s, 'caliper').map((p) => p.kind).sort()).toEqual(['pad', 'rod']);
+    expect(prims(s, 'caliper').map((p) => p.kind).sort()).toEqual(['caliper']);
     // Sin cuerpo propio.
     expect(s.primitives.find((p) => p.key === 'body:sp' || p.key === 'body:caliper')).toBeUndefined();
   });
@@ -188,6 +191,41 @@ describe('escena de la sarta: piezas', () => {
     }
     // El SP no tiene profundidad de investigación: sin cáscara.
     expect(s.shells.find((x) => x.toolId === 'sp')).toBeUndefined();
+  });
+
+  it('articula la biela con CAL a la altura de contacto, en ambos montajes y también en huecos', () => {
+    const depth = Float64Array.from({ length: 201 }, (_, i) => 1000 + i / 2);
+    for (const curves of [CURVES, [curve('CAL', 'CALI')]]) {
+      const radial = { center: 1050, log: { depth, step: 0.5, cal: new Float64Array(depth.length).fill(8.4) } };
+      const pose = () => {
+        const s = scene(undefined, { radial }, curves);
+        const arm = s.primitives.find(p => p.kind === 'caliper')!;
+        if (arm.kind !== 'caliper') throw new Error('Falta la articulación');
+        const contact = layout(s, 'caliper').caliper!;
+        const md = s.environment.depth!.top + (s.environment.y1 - arm.shoeY) / AXIAL_SCENE_PER_M;
+        expect(contact.md).toBeCloseTo(md, 10);
+        const dx = arm.shoeRadius - CALIPER_SHOE_PIN_CM - arm.rootRadius;
+        expect(Math.hypot(dx, (arm.rootY - arm.shoeY) * AXIAL_COMPRESSION)).toBeCloseTo(CALIPER_LINK_CM, 9);
+        return { arm, contact };
+      };
+      const stable = pose();
+      const i = Math.round((stable.contact.md! - depth[0]!) / radial.log.step);
+      expect(stable.arm.shoeRadius).toBeCloseTo(8.4 * CM_PER_IN / 2);
+      radial.log.cal[i] = 12.96;
+      const washout = pose();
+      expect(washout.arm.shoeRadius).toBeCloseTo(12.96 * CM_PER_IN / 2);
+      expect(washout.contact).toMatchObject({ measured: true, reachesWall: true });
+      expect(washout.arm.rootRadius).toBe(stable.arm.rootRadius);
+      expect(washout.arm.rootY).toBeLessThan(stable.arm.rootY);
+      radial.log.cal[i] = NaN;
+      const fallback = pose();
+      expect(fallback.contact.measured).toBe(false);
+      expect(fallback.arm.shoeRadius).toBeCloseTo(rWall);
+      radial.log.cal[i] = 100;
+      const saturated = pose();
+      expect(saturated.contact.reachesWall).toBe(false);
+      expect(saturated.arm.rootY).toBe(saturated.arm.shoeY);
+    }
   });
 
   it('banda difusa del rango cuando va más allá de las cáscaras (laterolog 25–98 in), no en la inducción (10–90 cubierto)', () => {
