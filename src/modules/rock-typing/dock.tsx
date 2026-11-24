@@ -6,17 +6,18 @@
  *                       de garganta; R35 de Winland o R25/R35/R50 de Pittman. «Llevar al pozo» las clases de Winland.
  *   FZI · RQI           log RQI contra log φz con una recta de pendiente 1 por unidad de flujo; 2–6 unidades
  *                       automáticas (Fisher–Jenks) o límites manuales; tabla de clases; «Llevar al pozo» los límites.
- *   Presión capilar     Pc–Sw, J de Leverett y distribución de gargantas (Washburn) del EJEMPLO DE LIBRO, coloreadas
- *                       por la unidad de flujo en que caerían.
+ *   Presión capilar     Pc–Sw, J de Leverett y distribución de gargantas (Washburn) de las curvas MICP del TP («Cargar
+ *                       curvas MICP del TP», un Ctrl+Z) o, sin curvas, del EJEMPLO DE LIBRO rotulado; coloreadas por la
+ *                       unidad de flujo en que caerían. Con curvas medidas, R35 medido contra Winland por muestra.
  *
  * Gráficos del x–y base (`src/plots/xy/`), temas por tokens, colores de clase de `classColor` (los de la pista). Todo
  * cambio va por `commit`. Se descubre solo (`src/modules/<id>/dock.tsx`).
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Interpretation } from '../../core/interpretation';
 import type { PointSet } from '../../core/pointSets';
 import { setPointSetSetting } from '../../core/state/pointSets';
-import { activeWellEntry, setSource } from '../../core/state/project';
+import { activeWellEntry, makeId, setSource } from '../../core/state/project';
 import type { Well } from '../../core/well';
 import { EXAMPLE_PC_SOURCE, normalizedPorosity, PORT_CLASSES, reservoirQualityIndex } from '../../petro/rockTyping';
 import { niceRange, type XYAxis } from '../../plots/xy/axes';
@@ -30,7 +31,7 @@ import { usePlotContext } from '../../app/plots/connect';
 import { selectActiveEntry, useProject } from '../../app/store/project';
 import { useUi } from '../../app/store/ui';
 import { useTrendsUi } from '../../app/trends/store';
-import { loadExample } from '../core/dock';
+import { loadExample, loadTpCore } from '../core/dock';
 import { CORE_DOCK_ID, coreSets, permCoreParams } from '../core/model';
 import { PERM_CORE_ID } from '../perm-core';
 import { MAX_FLOW_UNITS, MIN_FLOW_UNITS } from './index';
@@ -44,6 +45,7 @@ import {
   curveFlowUnit,
   curveThroats,
   encodeBounds,
+  measuredR35Rows,
   flowUnitRows,
   flowUnitsApplied,
   ISO_RADII,
@@ -58,6 +60,7 @@ import {
   rockPlugs,
   rockSettings,
   roundBound,
+  CAPILLARY_KIND,
   rqiLine,
   RT_BOUNDS_SETTING,
   RT_MODE_SETTING,
@@ -67,10 +70,12 @@ import {
   throatIsoline,
   throatMethod,
   type FlowUnitRow,
+  type R35Row,
   type RockPlugs,
   type ThroatMethod,
 } from './model';
 import { classColor } from './draw';
+import { addTpMicp, hasTpMicp, isTpMicpSet, TP_MICP_SAMPLES_COUNT, TP_MICP_SOURCE, tpMicpSet } from './tp';
 import './rock-typing.css';
 
 const f2 = (v: number | null | undefined) => formatNumber(v, { digits: 2 });
@@ -88,6 +93,42 @@ const readTab = (): TabId => {
     return 'fzi';
   }
 };
+
+/** Pide al panel (siempre montado) que muestre una pestaña; la recuerda para el próximo montaje. */
+const tabListeners = new Set<(t: TabId) => void>();
+/** Abre «Tipos de roca» en la pestaña «Presión capilar» (la usa el panel «SCAL»). */
+export const showCapillaryTab = () => showRockTab('pc');
+function showRockTab(t: TabId) {
+  try {
+    localStorage.setItem(TAB_KEY, t);
+  } catch {
+    /* sin almacenamiento */
+  }
+  tabListeners.forEach((fn) => fn(t));
+  useUi.getState().openPanel(ROCK_DOCK_ID);
+}
+
+/**
+ * «Cargar curvas MICP del TP» (8 muestras de la hoja SCAL): un `commit`, un Ctrl+Z. Si ya están, avisa y no las
+ * duplica. Muestra la pestaña «Presión capilar». También lo usa el panel «SCAL».
+ */
+export function loadTpMicp(): void {
+  const entry = activeWellEntry(useProject.getState().project);
+  if (!entry) return;
+  if (hasTpMicp(useProject.getState().project, entry.well.id)) {
+    toast({ tone: 'info', title: 'Las curvas MICP del TP ya están cargadas', description: 'Están en Tipos de roca › Presión capilar. Para cargarlas de nuevo, deshacé la carga anterior con Ctrl+Z.' });
+    showRockTab('pc');
+    return;
+  }
+  const id = entry.well.id;
+  useProject.getState().commit('Cargar curvas MICP del TP', (p) => addTpMicp(p, id, tpMicpSet(makeId('micp'))));
+  toast({
+    tone: 'ok',
+    title: 'Curvas MICP del TP cargadas (datos reales de laboratorio)',
+    description: `${TP_MICP_SAMPLES_COUNT} curvas de inyección de mercurio de la hoja SCAL, con k y φ de cada muestra. Ctrl+Z deshace la carga.`,
+  });
+  showRockTab('pc');
+}
 
 /** Curva activa del pozo (rol) alineada con la profundidad, o null. */
 function activeCurve(ctx: SeriesContext | null, port: string): Float64Array | null {
@@ -139,6 +180,10 @@ export function RockTypingPanel() {
   const ctx = usePlotContext();
   const [picked, setPicked] = useState<string | null>(null);
   const [tab, setTabState] = useState<TabId>(readTab);
+  useEffect(() => {
+    tabListeners.add(setTabState);
+    return () => void tabListeners.delete(setTabState);
+  }, []);
   const setTab = (t: string) => {
     setTabState(t as TabId);
     try {
@@ -159,10 +204,13 @@ export function RockTypingPanel() {
         size="sm"
         icon="mountain"
         title="Sin plugs de corona"
-        description="Los tipos de roca salen de la porosidad y la permeabilidad de los plugs: clases de garganta de Winland y Pittman y unidades de flujo por FZI, que después se llevan al pozo como una pista de colores. Cargá los plugs en el panel Corona o usá los de ejemplo."
+        description={`Los tipos de roca salen de la porosidad y la permeabilidad de los plugs: clases de garganta de Winland y Pittman y unidades de flujo por FZI, que después se llevan al pozo como una pista de colores. Cargá la corona del TP o los plugs en el panel Corona.${well.pointSets.some(isTpMicpSet) ? ' Las curvas MICP del TP ya están cargadas: se ven en la pestaña Presión capilar en cuanto haya plugs.' : ''}`}
         actions={
           <>
-            <Button variant="primary" icon="layers" onClick={() => useUi.getState().set({ dockTab: CORE_DOCK_ID })}>
+            <Button variant="primary" icon="download" onClick={loadTpCore} title="Plugs medidos en el laboratorio (Excel de la cátedra), ya puestos en profundidad">
+              Cargar corona del TP
+            </Button>
+            <Button icon="layers" onClick={() => useUi.getState().set({ dockTab: CORE_DOCK_ID })}>
               Ir a Corona
             </Button>
             <Button icon="play" onClick={loadExample} title="Plugs inventados para practicar sobre el pozo del TP: no son mediciones del pozo">
@@ -175,6 +223,14 @@ export function RockTypingPanel() {
   }
   const set = sets.find((s) => s.id === picked) ?? sets[0]!;
   const idBase = 'rtyp';
+  const capSets = well.pointSets.filter((s) => s.kind === CAPILLARY_KIND);
+  const pcBadge = capSets.some(isTpMicpSet) ? (
+    <Badge tone="ok" title={`Curvas medidas: ${TP_MICP_SOURCE}`}>
+      Datos del TP
+    </Badge>
+  ) : capSets.length ? null : (
+    <Badge tone="warn">Ejemplo de libro</Badge>
+  );
   return (
     <div className="rtyp">
       <RockBar set={set} sets={sets} onPick={setPicked} interp={interp} ctx={ctx} />
@@ -188,7 +244,7 @@ export function RockTypingPanel() {
           items={[
             { id: 'winland', label: 'Winland · Pittman' },
             { id: 'fzi', label: 'Unidades de flujo · FZI' },
-            { id: 'pc', label: 'Presión capilar', badge: <Badge tone="warn">Ejemplo de libro</Badge> },
+            { id: 'pc', label: 'Presión capilar', badge: pcBadge },
           ]}
         />
       </div>
@@ -601,9 +657,11 @@ function FziTab({ set, interp, ctx }: { set: PointSet; interp: Interpretation; c
   );
 }
 
-// ── presión capilar (ejemplo de libro) ─────────────────────────────────────────────────────────────────────
+// ── presión capilar (curvas MICP del TP o ejemplo de libro) ─────────────────────────────────────────────────
 
 const DASHES: readonly (number[] | undefined)[] = [undefined, [6, 3], [2, 3], [8, 3, 2, 3]];
+
+const portName = (c: number) => PORT_CLASSES[c]?.label ?? '—';
 
 function CapillaryTab({ set, well, interp }: { set: PointSet; well: Well; interp: Interpretation }) {
   const theme = useThemeTokens();
@@ -615,6 +673,8 @@ function CapillaryTab({ set, well, interp }: { set: PointSet; well: Well; interp
   const bounds = fu?.bounds ?? rockModuleParams(interp.params).bounds;
   const nc = bounds.length + 1;
   const { curves, book } = useMemo(() => capillaryCurves(well.pointSets), [well.pointSets]);
+  const tp = !book && well.pointSets.some(isTpMicpSet);
+  const r35 = useMemo(() => measuredR35Rows(curves), [curves]);
   const styled = useMemo(() => {
     const seen = new Map<number, number>();
     return curves.map((c) => {
@@ -633,42 +693,112 @@ function CapillaryTab({ set, well, interp }: { set: PointSet; well: Well; interp
 
   const pcR = niceRange(curves.map((c) => c.pc), 'log');
   const jR = niceRange(jLines.map((l) => l.y), 'log');
-  const dMax = Math.max(0.5, ...dist.flatMap(({ d }) => Array.from(d.dSdLogR)));
+  const dMax = Math.max(0.5, ...dist.flatMap(({ d }) => Array.from(d.dSdLogR).filter(Number.isFinite)));
   const sw: XYAxis = { kind: 'linear', min: 0, max: 1, label: 'Sw', unit: 'v/v' };
   const portGuides: XYGuide[] = ISO_RADII.map((r) => ({ axis: 'x', value: r, color: theme.color.textMuted, width: 1, dash: [3, 3] }));
   const portLabel = PORT_CLASSES.map((c) => c.label.toLowerCase()).join(' · ');
+  const what = book ? ' — ejemplo de libro' : tp ? ' — MICP del TP' : '';
+  const curvesText = book ? 'las curvas de ejemplo de libro' : tp ? `las ${curves.length} curvas MICP del TP` : `las ${curves.length} curvas medidas`;
 
   return (
     <div className="rtyp-pc">
-      <Callout tone="warn" title={book ? 'Ejemplo de libro: no son datos del pozo' : 'Curvas Pc–Sw digitalizadas del pozo'}>
-        {book
-          ? 'No hay ensayos de presión capilar (MICP) de este pozo. Las curvas ilustran la función J de Leverett y la distribución de gargantas con cinco rocas de libro; cada una se colorea con la unidad de flujo en la que caería según su FZI.'
-          : 'Curvas mercurio–aire cargadas con el pozo; cada una se colorea con la unidad de flujo de su FZI.'}
-      </Callout>
+      {book ? (
+        <Callout
+          tone="warn"
+          title="Ejemplo de libro: no son datos del pozo"
+          actions={
+            <Button size="sm" variant="primary" icon="download" onClick={loadTpMicp} data-testid="rtyp-load-micp" title="Curvas de inyección de mercurio de 8 muestras, guardadas en los gráficos de la hoja SCAL del Excel de la cátedra">
+              Cargar curvas MICP del TP
+            </Button>
+          }
+        >
+          Cinco rocas de libro ilustran la función J y la distribución de gargantas, coloreadas por la unidad de flujo de su FZI. El Excel del TP trae las curvas medidas de 8 muestras.
+        </Callout>
+      ) : (
+        <div className="rtyp-pc__head">
+          {tp ? (
+            <Badge tone="ok" icon="check-circle" title={`Mediciones reales de laboratorio: ${TP_MICP_SOURCE}`}>
+              Datos del TP · hoja SCAL
+            </Badge>
+          ) : (
+            <Badge tone="info">Curvas medidas</Badge>
+          )}
+          <span className="rtyp-pc__lead">
+            {curves.length} curvas de inyección de mercurio (MICP){tp ? ' de las muestras de corona' : ''}; cada una se colorea con la unidad de flujo de su FZI.
+          </span>
+        </div>
+      )}
       <div className="rtyp-pc__plots">
         <figure className="rtyp-pc__fig">
           <figcaption>Presión capilar (mercurio–aire)</figcaption>
-          <XYPlot height={210} className="rtyp-plot" figureId="rock-typing-pc" figureTitle="Presión capilar mercurio–aire — ejemplo de libro" ariaLabel="Presión capilar contra saturación de agua de las curvas de ejemplo" x={sw} y={{ kind: 'log', min: Math.min(1, pcR?.min ?? 1), max: Math.min(10000, Math.max(1000, pcR?.max ?? 1000)), label: 'Pc', unit: 'psi' }} lines={pcLines} />
+          <XYPlot height={210} className="rtyp-plot" figureId="rock-typing-pc" figureTitle={`Presión capilar mercurio–aire${what}`} ariaLabel={`Presión capilar contra saturación de agua de ${curvesText}`} x={sw} y={{ kind: 'log', min: Math.min(1, pcR?.min ?? 1), max: Math.min(10000, Math.max(1000, pcR?.max ?? 1000)), label: 'Pc', unit: 'psi' }} lines={pcLines} />
         </figure>
         <figure className="rtyp-pc__fig">
           <figcaption>Función J de Leverett</figcaption>
-          <XYPlot height={210} className="rtyp-plot" figureId="rock-typing-j" figureTitle="Función J de Leverett — ejemplo de libro" ariaLabel="Función J de Leverett contra saturación de agua: las curvas de las distintas rocas se acercan al normalizar por la raíz de k sobre φ" x={sw} y={{ kind: 'log', min: Math.min(0.1, jR?.min ?? 0.1), max: Math.max(10, jR?.max ?? 10), label: 'J' }} lines={jLines} />
+          <XYPlot height={210} className="rtyp-plot" figureId="rock-typing-j" figureTitle={`Función J de Leverett${what}`} ariaLabel={`Función J de Leverett contra saturación de agua de ${curvesText}: las curvas de las distintas rocas se acercan al normalizar por la raíz de k sobre φ`} x={sw} y={{ kind: 'log', min: Math.min(0.1, jR?.min ?? 0.1), max: Math.max(10, jR?.max ?? 10), label: 'J' }} lines={jLines} />
         </figure>
         <figure className="rtyp-pc__fig">
           <figcaption>Distribución de gargantas (Washburn)</figcaption>
-          <XYPlot height={210} className="rtyp-plot" figureId="rock-typing-throats" figureTitle="Distribución de tamaño de gargantas — ejemplo de libro" ariaLabel={`Distribución del volumen poral por radio de garganta, con los límites de las clases ${portLabel}`} x={{ kind: 'log', min: 0.01, max: 100, label: 'Radio de garganta', unit: 'µm' }} y={{ kind: 'linear', min: 0, max: Math.ceil(dMax * 1.1 * 10) / 10, label: 'ΔSHg / Δlog r' }} lines={dLines} guides={portGuides} />
+          <XYPlot height={210} className="rtyp-plot" figureId="rock-typing-throats" figureTitle={`Distribución de tamaño de gargantas${what}`} ariaLabel={`Distribución del volumen poral por radio de garganta de ${curvesText}, con los límites de las clases ${portLabel}`} x={{ kind: 'log', min: 0.01, max: 100, label: 'Radio de garganta', unit: 'µm' }} y={{ kind: 'linear', min: 0, max: Math.ceil(dMax * 1.1 * 10) / 10, label: 'ΔSHg / Δlog r' }} lines={dLines} guides={portGuides} />
         </figure>
       </div>
       <div className="rtyp-pc__legend">
         {styled.map(({ c, uf, color, dash }) => (
           <span key={c.id} className="rtyp-legend__item" title={`k ${sig(c.k)} mD · φ ${f2(c.phi)}`}>
             <span className={`rtyp-legend__mark${dash ? ' is-dash' : ''}`} style={{ ['--mark' as string]: color }} aria-hidden="true" />
-            {c.label} · FZI {sig(curveFzi(c), 2)} µm{uf >= 0 ? ` → UF ${uf + 1}` : ''}
+            <span className="num">
+              {c.label} · FZI {sig(curveFzi(c), 2)} µm{uf >= 0 ? ` → UF ${uf + 1}` : ''}
+            </span>
           </span>
         ))}
       </div>
-      <p className="rtyp-source">{book ? EXAMPLE_PC_SOURCE : 'Mercurio–aire (σ = 480 dyn/cm, θ = 140°).'}</p>
+      <p className="rtyp-source">{book ? EXAMPLE_PC_SOURCE : `${tp ? `${TP_MICP_SOURCE}. ` : ''}Mercurio–aire (σ = 480 dyn/cm, θ = 140°).`}</p>
+      {r35.length > 0 && <R35Table rows={r35} />}
     </div>
+  );
+}
+
+function R35Table({ rows }: { rows: R35Row[] }) {
+  const theme = useThemeTokens();
+  const nPort = PORT_CLASSES.length;
+  const portColor = (c: number) => (c >= 0 ? classColor(c, nPort, theme.name) : theme.color.textMuted);
+  const off = rows.filter((r) => Math.abs(r.diffPct) > 10);
+  const cls = (c: number) => (
+    <span className="rtyp-cell">
+      <Swatch color={portColor(c)} />
+      {portName(c)}
+    </span>
+  );
+  const columns: Column<R35Row>[] = [
+    { key: 'label', header: 'Muestra', render: (r) => <span className="mono">{r.label}</span> },
+    { key: 'k', header: 'k (mD)', align: 'num', title: 'Permeabilidad al gas de la muestra', render: (r) => sig(r.k) },
+    { key: 'phi', header: 'φ (%)', align: 'num', title: 'Porosidad de la muestra', render: (r) => formatNumber(100 * r.phi, { digits: 1 }) },
+    { key: 'measured', header: 'R35 medido (µm)', align: 'num', title: 'Radio de garganta a la presión en que el mercurio ocupa el 35 % del poro, leído de la curva', render: (r) => f2(r.measured) },
+    { key: 'winland', header: 'R35 Winland (µm)', align: 'num', title: 'Radio estimado por la correlación de Winland con k y φ de la muestra', render: (r) => f2(r.winland) },
+    {
+      key: 'diff',
+      header: 'Dif. (%)',
+      align: 'num',
+      title: 'Winland respecto del medido: positivo si lo sobreestima',
+      render: (r) => <span className={Math.abs(r.diffPct) > 10 ? 'rtyp-strong' : undefined}>{Number.isFinite(r.diffPct) ? `${r.diffPct > 0 ? '+' : ''}${formatNumber(r.diffPct, { digits: 0 })}` : '—'}</span>,
+    },
+    { key: 'cm', header: 'Clase medida', title: 'Clase de garganta del R35 medido', render: (r) => cls(r.classMeasured) },
+    { key: 'cw', header: 'Clase Winland', title: 'Clase de garganta del R35 de Winland', render: (r) => cls(r.classWinland) },
+  ];
+  return (
+    <section className="rtyp-r35" aria-label="R35 medido contra Winland">
+      <h3 className="rtyp-h">R35 medido contra Winland</h3>
+      <DataTable dense columns={columns} rows={rows} rowKey={(r) => r.id} caption="R35 medido en las curvas y estimado por Winland, por muestra" data-testid="rtyp-r35" />
+      <p className="rtyp-note">
+        El R35 medido sale de cada curva: es el tamaño de las gargantas que el mercurio ya invadió cuando ocupa un tercio del poro, las que controlan el flujo. Winland lo estima solo con k y φ; si los dos coinciden, las clases de garganta del pozo, que usan Winland, son confiables.
+        {off.length === 0
+          ? ' Acá coinciden en todas las muestras (diferencia de 10 % o menos).'
+          : off.length === rows.length
+            ? ' Acá no coincide en ninguna muestra: usá las clases de Winland con cuidado.'
+            : ` Coinciden dentro del 10 % salvo en ${off.map((r) => r.label).join(', ')}, donde Winland ${off.every((r) => r.diffPct > 0) ? 'sobreestima' : 'se aparta de'} la garganta medida.`}
+        {rows.some((r) => r.classMeasured !== r.classWinland) && ' Las filas con clases distintas cambiarían de color en la pista.'}
+      </p>
+    </section>
   );
 }
 

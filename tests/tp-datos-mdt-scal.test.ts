@@ -22,7 +22,7 @@ import { mdtAnalysis } from '../src/modules/mdt/series';
 import { isTpMdtSet, TP_MDT_SOURCE, TP_MDT_ZONE_COLUMN, tpMdtSet } from '../src/modules/mdt/tp';
 import { TP_MDT_POINTS } from '../src/modules/mdt/tpData';
 import { SWI_ZONES } from '../src/modules/swi-pc';
-import { DEFAULT_LEVEL, globalLevel, joinScalTables, LEVEL_STORAGE, levelWrite, outOfRangeSummary, scalDisplacementFit, swiLevelCurve, zonesWithOwnLevel } from '../src/modules/swi-pc/scal';
+import { DEFAULT_LEVEL, globalLevel, joinScalTables, LEVEL_STORAGE, levelWrite, micpLevelRows, outOfRangeSummary, scalDisplacementFit, swiLevelCurve, zonesWithOwnLevel } from '../src/modules/swi-pc/scal';
 import { TP_SCAL_DISPLACEMENT, TP_SCAL_THROAT } from '../src/modules/swi-pc/tpScal';
 import { SWI_CATEDRA_LEVELS, SWI_SCAL_ROOT_RANGE, swiPowerLaw } from '../src/petro/swiPc';
 import { zone } from './helpers';
@@ -218,6 +218,33 @@ describe('datos SCAL del TP', () => {
     const panels = collectDockPanels({ 'swi-pc/dock.tsx': mod }, []);
     expect(panels).toHaveLength(1);
     expect(panels[0]).toMatchObject({ id: 'scal', title: 'SCAL' });
+  });
+});
+
+describe('niveles de Swi de la cátedra desde las curvas MICP (panel SCAL)', () => {
+  const rows = micpLevelRows();
+
+  it('una fila por nivel, del 1 al 6, con la presión del preset y presión creciente', () => {
+    expect(rows.map((r) => r.number)).toEqual(['1', '2', '3', '4', '5', '6']);
+    rows.forEach((r, i) => {
+      expect(r.pcKgCm2).toBeCloseTo(SWI_CATEDRA_LEVELS[i]!.pcKgCm2!, 2);
+      expect(r.A).toBe(SWI_CATEDRA_LEVELS[i]!.A);
+      expect(r.B).toBe(SWI_CATEDRA_LEVELS[i]!.B);
+      if (i > 0) expect(r.pcKgCm2).toBeGreaterThan(rows[i - 1]!.pcKgCm2);
+    });
+  });
+
+  it('A y B reconstruidos cerca de los de la cátedra, RMS de Swi < 0,004 (numpy) y ajuste con 3 o más muestras', () => {
+    const rms = [0.00307, 0.00184, 0.00061, 0.00097, 0.00125, 0.00128];
+    rows.forEach((r, i) => {
+      expect(Math.abs(r.fitA / r.A - 1)).toBeLessThan(0.05);
+      expect(Math.abs(r.fitB - r.B)).toBeLessThan(0.015);
+      expect(r.rmsSwi).toBeCloseTo(rms[i]!, 4);
+      expect(r.n).toBeGreaterThanOrEqual(3);
+      expect(r.r2).toBeGreaterThan(0.5);
+      expect(r.r2).toBeLessThanOrEqual(1);
+    });
+    expect(rows[5]!.n).toBe(7); // a 700 kg/cm² la 2-15 ya no tiene dato
   });
 });
 

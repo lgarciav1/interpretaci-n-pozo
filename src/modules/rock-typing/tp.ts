@@ -53,3 +53,4 @@ export const hasTpMicp = (project: Project, wellId: string) => getWellEntry(proj
 export function addTpMicp(project: Project, wellId: string, set: PointSet): Project {
   return hasTpMicp(project, wellId) ? project : addPointSet(project, wellId, set);
 }
+export const TP_MICP_SAMPLES_COUNT = TP_MICP_SAMPLES.length;

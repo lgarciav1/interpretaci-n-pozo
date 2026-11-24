@@ -7,8 +7,9 @@
  * - Unidades de flujo sobre los plugs: Fisher–Jenks en log FZI (`autoFlowUnits`, 2–6 clases) o límites manuales
  *   (`describeFlowUnits`), guardados en los ajustes del conjunto de plugs. «Llevar al pozo» escribe método, número
  *   de unidades y límites en el módulo `rock-typing` del motor: una receta, un Ctrl+Z.
- * - Presión capilar: hoy solo el EJEMPLO DE LIBRO (`EXAMPLE_PC_CLASSES`); el panel dibuja `PcCurve[]`, la misma
- *   estructura que dará un conjunto de puntos `capillary` (Pc–Sw digitalizado) cuando exista su lector.
+ * - Presión capilar: `PcCurve[]` de un conjunto de puntos `capillary` (las curvas MICP del TP, `./tp.ts`) o, sin
+ *   conjunto, el EJEMPLO DE LIBRO (`EXAMPLE_PC_CLASSES`). Con curvas medidas, R35 medido contra Winland por muestra
+ *   (`measuredR35Rows`).
  * - Colores de clase: `draw.ts` (`classColor`), los mismos en el panel y en la pista del visor.
  *
  * Sin React, stores ni `src/plots` (regla de pureza de las carpetas de módulos): lo importan el panel, la superposición
@@ -27,6 +28,7 @@ import {
   HG_AIR_SIGMA,
   HG_AIR_THETA_DEG,
   leverettJ,
+  measuredR35,
   normalizedPorosity,
   permForThroatRadius,
   PITTMAN_COEFFICIENTS,
@@ -36,6 +38,7 @@ import {
   throatRadius,
   throatSizeDistribution,
   WINLAND_R35,
+  winlandR35,
   classifyByBounds,
   type FlowUnitClassification,
   type ThroatCoefficients,
@@ -317,7 +320,7 @@ export function classRangeText(method: RockTypingMethod, index: number, bounds: 
 
 export { classLabel };
 
-// ── presión capilar: ejemplo de libro hoy, Pc–Sw digitalizado mañana ───────────────────────────────────────
+// ── presión capilar: curvas medidas (conjunto `capillary`) o ejemplo de libro ──────────────────────────────────
 
 /** Tipo de conjunto de puntos de una curva Pc–Sw digitalizada (columnas `sample`, `sw`, `pc`, y opcionales `k`, `phi`). */
 export const CAPILLARY_KIND = 'capillary';
@@ -347,7 +350,7 @@ export function examplePcCurves(n = 60): PcCurve[] {
 }
 
 /**
- * Curvas de un conjunto de puntos `capillary` (Pc–Sw digitalizado; aún sin lector): una por valor de `sample`, ordenada
+ * Curvas de un conjunto de puntos `capillary` (Pc–Sw medido, p. ej. las MICP del TP): una por valor de `sample`, ordenada
  * por Pc creciente, con k y φ del primer valor finito del grupo (NaN si no hay). Mercurio–aire.
  */
 export function pcCurvesFromPointSet(set: PointSet): PcCurve[] {
@@ -401,3 +404,37 @@ export const curveFzi = (c: PcCurve) => flowZoneIndex(c.phi, c.k);
 
 /** Unidad de flujo (índice) en la que cae una curva con los límites dados; −1 sin FZI. */
 export const curveFlowUnit = (c: PcCurve, bounds: readonly number[]) => classifyByBounds(curveFzi(c), bounds);
+
+// ── R35 medido contra Winland ─────────────────────────────────────────────────────────────────────────────────
+
+export interface R35Row {
+  id: string;
+  label: string;
+  /** k de la muestra (mD) y φ (v/v). */
+  k: number;
+  phi: number;
+  /** R35 de la curva medida (µm): Washburn a la Pc en que el mercurio ocupa el 35 % del poro. NaN si no llega. */
+  measured: number;
+  /** R35 de Winland con k y φ de la muestra (µm). */
+  winland: number;
+  /** Diferencia de Winland respecto del medido (%): positiva si Winland lo sobreestima. */
+  diffPct: number;
+  /** Clase de garganta (índice de `PORT_CLASSES`, −1 sin clase) del R35 medido y del de Winland. */
+  classMeasured: number;
+  classWinland: number;
+}
+
+/**
+ * Una fila por curva MEDIDA (las de libro se ignoran): R35 de la curva contra el que estima Winland con su k y φ.
+ * `pc` de la curva en psi y `sw` en v/v, como `PcCurve`.
+ */
+export function measuredR35Rows(curves: readonly PcCurve[]): R35Row[] {
+  return curves
+    .filter((c) => c.source === 'measured')
+    .map((c) => {
+      const measured = measuredR35(c.pc, c.sw, c.sigma, c.thetaDeg);
+      const winland = winlandR35(c.phi, c.k);
+      const diffPct = measured > 0 && winland > 0 ? 100 * (winland / measured - 1) : NaN;
+      return { id: c.id, label: c.label, k: c.k, phi: c.phi, measured, winland, diffPct, classMeasured: portClassIndex(measured), classWinland: portClassIndex(winland) };
+    });
+}

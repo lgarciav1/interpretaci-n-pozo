@@ -21,16 +21,24 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4) var(--space-3);
+}
+.scal-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(calc(270px * var(--ui-scale)), 1fr));
   gap: var(--space-2) var(--space-5);
   align-items: start;
-  padding: var(--space-2) var(--space-4) var(--space-3);
 }
-.scal-body > .ui-section { min-width: 0; }
+.scal-grid > .ui-section, .scal-body > .ui-section { min-width: 0; }
 
 .scal-note { margin: var(--space-1-5) 0 0; color: var(--color-text-muted); font-size: var(--text-xs); line-height: var(--leading-normal); }
 .scal > .scal-note { margin: var(--space-2) var(--space-4) 0; }
 
 .scal-levels { display: flex; flex-wrap: wrap; gap: var(--space-1-5); margin-top: var(--space-2); }
-.scal-swatch { display: inline-block; width: calc(10px * var(--ui-scale)); height: calc(3px * var(--ui-scale)); border-radius: var(--radius-full); flex: none; }
+.scal-swatch { display: inline-block; margin-right: var(--space-1); width: calc(10px * var(--ui-scale)); height: calc(3px * var(--ui-scale)); border-radius: var(--radius-full); flex: none; }
+
+/* Tabla de niveles desde las curvas MICP (ancho completo, debajo de la grilla). */
+.scal-cell { display: inline-flex; align-items: center; gap: var(--space-1-5); font-weight: var(--weight-medium); white-space: nowrap; }

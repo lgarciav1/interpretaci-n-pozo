@@ -7,12 +7,17 @@
  * √(k/φ) es siempre la de la planilla de Swi: k de gas en mD y φ en % (la columna `rootKPhi` de la tabla de garganta
  * poral). La columna «RAIZ» de la tabla de desplazamiento usa φ en fracción (10 veces más) y solo se usa para
  * verificar la unión.
+ *
+ * Niveles desde las curvas MICP (`micpLevelRows`): con las curvas de inyección de mercurio de las 8 muestras (las que
+ * guardan los gráficos de la hoja) se ajusta la ley de Swi a cada escalón de presión del ensayo y se busca el que
+ * reproduce cada nivel de la cátedra (`swiLevelFits`, `matchSwiLevel` del motor).
  */
 import type { Interpretation } from '../../core/interpretation';
 import type { TableValue } from '../../core/module';
 import { paramStorageKey } from '../../core/params';
 import { setParam, type Project } from '../../core/state/project';
-import { fitDisplacementPressure, SWI_CATEDRA_LEVELS, SWI_SCAL_ROOT_RANGE, swiPowerLaw, type DisplacementFit, type SwiPreset } from '../../petro/swiPc';
+import { fitDisplacementPressure, matchSwiLevel, SWI_CATEDRA_LEVELS, SWI_SCAL_ROOT_RANGE, swiLevelFits, swiPowerLaw, type DisplacementFit, type SwiPcSample, type SwiPreset } from '../../petro/swiPc';
+import { TP_MICP_SAMPLES, type TpMicpSample } from '../rock-typing/tpMicp';
 import swiPc, { SWI_PC_ID } from './index';
 import { TP_SCAL_DISPLACEMENT, TP_SCAL_THROAT } from './tpScal';
 
@@ -139,4 +144,42 @@ export function outOfRangeSummary(table: TableValue | null | undefined): OutOfRa
     out += (pct / 100) * k;
   }
   return n > 0 ? { pct: (100 * out) / n, n, manualZones } : null;
+}
+
+// ── niveles reconstruidos con las curvas MICP ───────────────────────────────────────────────────────────────
+
+export interface MicpLevelRow {
+  id: string;
+  /** «1»…«6». */
+  number: string;
+  /** Presión mercurio–aire del escalón que mejor reproduce el nivel (kg/cm²); NaN sin coincidencia. */
+  pcKgCm2: number;
+  /** Coeficientes de la cátedra. */
+  A: number;
+  B: number;
+  /** Coeficientes, R² log–log y n del ajuste de las muestras a esa presión (NaN / 0 sin ajuste). */
+  fitA: number;
+  fitB: number;
+  r2: number;
+  n: number;
+  /** Diferencia RMS de Swi (v/v) entre la curva de la cátedra y la reconstruida, en el rango de las muestras. */
+  rmsSwi: number;
+}
+
+/** Muestra de referencia cuya grilla de presiones (37 escalones) se usa para buscar los niveles. */
+export const MICP_GRID_SAMPLE = '1-32';
+
+/**
+ * Una fila por nivel de la cátedra: el escalón del ensayo MICP cuyo ajuste Swi–√(k/φ) lo reproduce mejor, con los
+ * coeficientes reconstruidos. x = √(k gas / φ%), Sw en v/v, presiones en kg/cm² (las de la muestra `MICP_GRID_SAMPLE`).
+ */
+export function micpLevelRows(samples: readonly TpMicpSample[] = TP_MICP_SAMPLES, levels: readonly SwiPreset[] = LEVELS): MicpLevelRow[] {
+  const pcSamples: SwiPcSample[] = samples.map((s) => ({ rootKPhi: Math.sqrt(s.kGasMd / s.phiPct), pc: s.pcKgCm2, sw: s.swPct.map((v) => v / 100) }));
+  const grid = (samples.find((s) => s.sample === MICP_GRID_SAMPLE) ?? samples[0])?.pcKgCm2 ?? [];
+  const fits = swiLevelFits(pcSamples, grid);
+  return levels.map((l) => {
+    const m = matchSwiLevel(l, fits);
+    const f = m.index >= 0 ? fits[m.index]!.fit : null;
+    return { id: l.id, number: l.id.replace(/^level/, ''), pcKgCm2: m.pc, A: l.A, B: l.B, fitA: f?.A ?? NaN, fitB: f?.B ?? NaN, r2: f?.r2 ?? NaN, n: f?.n ?? 0, rmsSwi: m.rmsSwi };
+  });
 }
