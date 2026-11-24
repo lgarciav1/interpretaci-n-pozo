@@ -5,6 +5,7 @@
  * flujo y se aplica `addPointSet` por `commit`.
  */
 import { useId, useMemo, useState } from 'react';
+import { pointNumbers } from '../../core/pointSets';
 import { addPointSet } from '../../core/state/pointSets';
 import { activeWellEntry, makeId } from '../../core/state/project';
 import { getUnit, listUnits, unitLabel } from '../../core/units';
@@ -13,6 +14,7 @@ import {
   detectFormat,
   listXlsxSheets,
   parseTable,
+  PRESSURE_COLUMNS,
   PRESSURE_FIELD_DIMENSION,
   PRESSURE_FIELD_LABEL,
   suggestPressureMapping,
@@ -25,6 +27,7 @@ import {
 import { Badge, Button, Callout, DataTable, Dialog, Field, FileDrop, Section, Select, Spinner, TextField, WizardSteps, formatNumber, toast, type Column, type Tone } from '../../ui';
 import { useProject } from '../../app/store/project';
 import { useUi } from '../../app/store/ui';
+import { formatDrawdown } from './draw';
 import { assessQuality } from './model';
 
 type Step = 'source' | 'columns';
@@ -43,7 +46,7 @@ const STEPS: Array<{ id: Step; label: string }> = [
 ];
 const CONFIDENCE_LABEL: Record<Confidence, string> = { high: 'alta', medium: 'media', low: 'baja', none: '—' };
 const CONFIDENCE_TONE: Record<Confidence, Tone> = { high: 'ok', medium: 'warn', low: 'error', none: 'neutral' };
-const NUMERIC_FIELDS: PressureField[] = ['depth', 'tvd', 'pressure', 'mobility', 'mudBefore', 'mudAfter'];
+const NUMERIC_FIELDS: PressureField[] = ['depth', 'tvd', 'pressure', 'drawdown', 'mobility', 'mudBefore', 'mudAfter'];
 const TEXT_FIELDS: PressureField[] = ['quality', 'testType', 'comment', 'test'];
 const PREVIEW_ROWS = 8;
 
@@ -176,6 +179,7 @@ export function LoadPressuresDialog({ onClose, onExample, onTp }: { onClose: () 
 
   const set = preview?.set ?? null;
   const pressure = set ? (set.columns['pressure']?.values as Float64Array | undefined) : undefined;
+  const drawdown = set ? pointNumbers(set, PRESSURE_COLUMNS.drawdown) : null;
   const mobility = set ? (set.columns['mobility']?.values as Float64Array | undefined) : undefined;
   const quality = set ? (set.columns['quality']?.values as readonly string[] | undefined) : undefined;
   const previewRows = set ? Array.from({ length: Math.min(PREVIEW_ROWS, set.pointIds.length) }, (_, i) => i) : [];
@@ -183,6 +187,7 @@ export function LoadPressuresDialog({ onClose, onExample, onTp }: { onClose: () 
     { key: 'id', header: 'Prueba', render: (i) => <span className="mono">{set!.pointIds[i]}</span> },
     { key: 'md', header: 'MD (m)', align: 'num', render: (i) => formatNumber(set!.depth[i]!, { digits: 2 }) },
     { key: 'p', header: 'Presión (psi)', align: 'num', render: (i) => formatNumber(pressure?.[i], { digits: 1 }) },
+    ...(drawdown ? [{ key: 'drawdown', header: 'Drawdown (psi)', align: 'num', render: (i) => formatDrawdown(drawdown[i], 'psi') } satisfies Column<number>] : []),
     { key: 'mob', header: 'Movilidad (mD/cP)', align: 'num', render: (i) => formatNumber(mobility?.[i], { significant: 3 }) },
     { key: 'q', header: 'Calidad', render: (i) => quality?.[i] || '—' },
   ];
@@ -228,7 +233,7 @@ export function LoadPressuresDialog({ onClose, onExample, onTp }: { onClose: () 
             disabled={!!busy}
             onFile={(f) => void openFile(f)}
             title="Arrastrá la tabla de presiones acá o hacé clic para elegirla"
-            description="Excel (.xlsx), CSV o LAS: una fila por prueba con profundidad, presión de formación y, si las hay, movilidad, presión del lodo antes y después, calidad y comentario. Las columnas se reconocen por su nombre; en el paso siguiente podés corregirlas."
+            description="Excel (.xlsx), CSV o LAS: una fila por prueba con profundidad, presión de formación y, si las hay, caída de presión (drawdown), movilidad, presión del lodo antes y después, calidad y comentario. Las columnas se reconocen por su nombre; en el paso siguiente podés corregirlas."
           />
           {(onTp || onExample) && (
             <div className="lw-or" aria-hidden="true">

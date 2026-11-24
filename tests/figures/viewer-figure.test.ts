@@ -4,9 +4,15 @@
  */
 import { describe, expect, it } from 'vitest';
 import { SvgContext2D, formatScale, pxPerMeterForScale, scaleDenominatorFor, templateById, withSvgPath2D } from '../../src/io/export/figures';
+import { drawdownScale } from '../../src/modules/mdt/draw';
+import { overlays as mdtOverlays } from '../../src/modules/mdt/overlay';
+import { tpMdtSet } from '../../src/modules/mdt/tp';
+import { registry } from '../../src/modules';
 import type { ExportSummary } from '../../src/io/export/types';
 import { drawViewerFigure, layoutViewerFigure, trackHeaderRows, type ViewerFigureInput } from '../../src/viewer/figure';
 import { buildViewerFigure, fitViewerFigure, isEmptyTrack, resolveRange, selectTracks } from '../../src/viewer/figureInput';
+import { resolveTracks } from '../../src/viewer/resolve';
+import { withOverlayTracks } from '../../src/viewer/templates';
 import { checkXml } from './xml';
 import { tpFigureContext, tpRequest } from './support';
 
@@ -185,5 +191,34 @@ describe('ajuste a la página', () => {
     const { input: both } = fitViewerFigure(input, 1500, 0.5);
     expect(both.pxPerM).toBeLessThan(input.pxPerM);
     expect(both.scaleText).toBe(`Escala vertical ${formatScale(Math.round(scaleDenominatorFor(both.pxPerM * 0.5)))}`);
+  });
+});
+
+
+describe('leyenda de drawdown en la exportación de la pista MDT', () => {
+  const well = { ...ctx.data.well, pointSets: [tpMdtSet('mdt-tp')] };
+  const settings = { mdt: { unit: 'bar', pointColor: 'drawdown' } };
+  const tracks = resolveTracks(withOverlayTracks([], mdtOverlays, 'petrophysics', { well, settings }), {
+    depth: well.depth.values, curves: well.curves, computed: [], catalog: registry.roles,
+  });
+  const data = { ...ctx.data, well, overlaySettings: settings };
+
+  it.each(['B', 'D'])('usa todo el conjunto en zona %s, aun si se omiten los encabezados', (zoneId) => {
+    const zone = ctx.zones.find((z) => z.name === zoneId)!;
+    const input = buildViewerFigure(tpRequest({ range: { kind: 'zone', zoneId: zone.id } }), { ...ctx, well, tracks, data, overlays: mdtOverlays }, { parts: { trackHeaders: false } });
+    const { svg, layout } = toSvg(input);
+    const doc = checkXml(svg);
+    const texts = doc.elements.filter((e) => e.name === 'text').map((e) => e.text);
+    const scale = drawdownScale(data, 'bar')!;
+    expect(layout.headerHeight).toBeGreaterThan(0);
+    expect(texts).toEqual(expect.arrayContaining(['Drawdown (bar)', '0,01241', '4,591', 'Sin dato']));
+    expect(new Set(scale.legend.colors).size).toBe(7);
+    // El color de uno de los puntos de la zona aparece tanto en la barra como en el dato renderizado.
+    const set = well.pointSets[0]!;
+    const index = set.depth.findIndex((md) => md >= zone.top && md <= zone.base);
+    const value = (set.columns['drawdown']!.values as Float64Array)[index];
+    const color = scale.colorOf(value);
+    expect(doc.elements.some((e) => e.name === 'rect' && e.attrs['fill'] === color)).toBe(true);
+    expect(doc.elements.some((e) => e.name === 'path' && e.attrs['fill'] === color)).toBe(true);
   });
 });

@@ -10,7 +10,7 @@
  *   Separadas para que los puntos se vean sobre los gradientes sin quitarle el puntero a la herramienta «elegir
  *   tramo» de las tendencias (que va primero en el `hit`).
  *
- * Puntos: incluidos = círculo lleno del color del fluido del gradiente que los usa (gris si ninguno); descartados =
+ * Puntos: el color indica el fluido del gradiente o el drawdown. Incluidos = círculo lleno; descartados =
  * círculo vacío con ×; incluidos a pesar de la propuesta de descartarlos = anillo de advertencia. Fuera de escala:
  * triángulo en el borde de la pista.
  * Escribe solo por `frame.data.commit` (recetas de `src/core/state/pointSets.ts`): no importa stores.
@@ -18,6 +18,7 @@
 import { setPointDecision } from '../../core/state/pointSets';
 import { pointNumbers, pointTexts, shiftedDepth, type PointSet } from '../../core/pointSets';
 import { conversionCoefficients, unitLabel } from '../../core/units';
+import { PRESSURE_COLUMNS } from '../../io/pressures';
 import { contrastRatio, ensureContrast, withAlpha } from '../../ui/color';
 import { formatNumber } from '../../ui/format';
 import { BASE_TOKENS, scalePx, type ThemeTokens } from '../../ui/tokens';
@@ -38,15 +39,20 @@ import {
   type Fluid,
   type FluidContact,
 } from './model';
+import { drawdownScale, formatDrawdown, pointColorOf } from './draw';
+import { TP_MDT_ZONE_COLUMN } from './tp';
 import { mdtAnalysis, pointRef, type MdtAnalysis } from './series';
 
 export const POINT_RADIUS = 4;
 export const POINT_HIT_PX = 8;
 
+function asDisplayUnit(unit: unknown): DisplayUnit {
+  return (DISPLAY_UNITS as readonly unknown[]).includes(unit) ? (unit as DisplayUnit) : DEFAULT_DISPLAY_UNIT;
+}
+
 /** Unidad elegida para la pista (ajuste guardado) o psi. */
 export function displayUnitOf(settings: Readonly<Record<string, unknown>> | undefined): DisplayUnit {
-  const u = settings?.['unit'];
-  return (DISPLAY_UNITS as readonly unknown[]).includes(u) ? (u as DisplayUnit) : DEFAULT_DISPLAY_UNIT;
+  return asDisplayUnit(settings?.['unit']);
 }
 
 /** Paso «lindo» (1, 2, 2,5 o 5 × 10ⁿ) para unas `divisions` divisiones de `span`. */
@@ -183,11 +189,19 @@ function pointLabel(frame: OverlayHitFrame, an: MdtAnalysis, d: DrawnPoint): str
   const p = pointNumbers(set, 'pressure')![i]!;
   const mob = pointNumbers(set, 'mobility')?.[i];
   const qText = pointTexts(set, 'quality')?.[i];
+  const sourceZone = pointTexts(set, TP_MDT_ZONE_COLUMN)?.[i];
+  const drawdown = pointNumbers(set, PRESSURE_COLUMNS.drawdown);
+  const colorMode = pointColorOf(frame.data.overlaySettings?.[MDT_OVERLAY_ID]);
   const st = pointStatuses(set, frame.data.interpretation.pointSets?.[set.id])[i]!;
   const lines = [`${set.pointIds[i]} · ${m1(d.depth)}${set.synthetic ? ' · ejemplo sintético' : ''}`];
   const parts = [`Presión ${formatNumber(p * a + b, { digits: unit === 'psi' || unit === 'kPa' ? 1 : 2 })} ${unitLabel(unit)}`];
   if (mob !== undefined && Number.isFinite(mob)) parts.push(`movilidad ${formatNumber(mob, { significant: 3 })} mD/cP`);
   lines.push(parts.join(' · '));
+  if (drawdown || colorMode === 'drawdown') {
+    const value = drawdown?.[i];
+    lines.push(`Drawdown: ${formatDrawdown(value, unit)}${Number.isFinite(value) ? ` ${unitLabel(unit)}` : ''}`);
+  }
+  if (sourceZone) lines.push(`Zona de origen: ${sourceZone}`);
   if (qText) lines.push(`Calidad: ${qText}`);
   if (st.quality.reasons.length) lines.push(`Propuesta: descartar (${st.quality.reasons.map((r) => QUALITY_REASON_LABEL[r]).join(', ')})`);
   const f = an.fluidOfPoint.get(d.key);
@@ -253,6 +267,7 @@ const main: ViewerOverlay = {
     unit: 'psi',
     width: 1.35,
     after: 'saturation',
+    colorLegend: (data, unit) => drawdownScale(data, asDisplayUnit(unit))?.legend ?? null,
     resolve({ well, settings }) {
       const sets = pressureSets(well.pointSets);
       if (sets.length === 0) return null;
@@ -348,6 +363,7 @@ const points: ViewerOverlay = {
     const active = frame.active?.overlayId === MDT_OVERLAY_ID ? frame.active.key : null;
     const halo = theme.viewer.trackBg;
     const muted = theme.color.textMuted;
+    const drawdown = drawdownScale(frame.data, asDisplayUnit(t.unit));
     const warn = theme.color.warn;
     ctx.save();
     ctx.beginPath();
@@ -359,20 +375,28 @@ const points: ViewerOverlay = {
       for (const d of list) {
         if (d.included !== pass || d.y < -8 || d.y > vp.height + 8) continue;
         const r = POINT_RADIUS;
+        const color = drawdown
+          ? drawdown.colorOf(pointNumbers(d.set, PRESSURE_COLUMNS.drawdown)?.[d.i])
+          : d.included ? fluidColor(d.fluid, theme) : muted;
         if (d.clamp !== 0) {
           // Fuera de escala: triángulo apuntando hacia afuera.
           const dir = d.clamp;
-          ctx.fillStyle = d.included ? fluidColor(d.fluid, theme) : muted;
+          ctx.fillStyle = drawdown && !d.included ? halo : color;
           ctx.beginPath();
           ctx.moveTo(d.x + dir * 4, d.y);
           ctx.lineTo(d.x - dir * 3, d.y - 4);
           ctx.lineTo(d.x - dir * 3, d.y + 4);
           ctx.closePath();
           ctx.fill();
+          if (drawdown && !d.included) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.25;
+            ctx.stroke();
+          }
           continue;
         }
         if (d.included) {
-          ctx.fillStyle = fluidColor(d.fluid, theme);
+          ctx.fillStyle = color;
           ctx.strokeStyle = halo;
           ctx.lineWidth = 1.5;
           ctx.beginPath();
@@ -388,7 +412,7 @@ const points: ViewerOverlay = {
           }
         } else {
           ctx.fillStyle = withAlpha(halo, 0.85);
-          ctx.strokeStyle = muted;
+          ctx.strokeStyle = color;
           ctx.lineWidth = 1.25;
           ctx.beginPath();
           ctx.arc(d.x, d.y, r, 0, 2 * Math.PI);

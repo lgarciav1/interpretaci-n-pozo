@@ -290,9 +290,10 @@ export function ViewerSlot() {
       interpretation,
       computed,
       tables: computedTables(result, well),
+      ...(display.overlays ? { overlaySettings: display.overlays } : {}),
       commit,
     };
-  }, [well, interpretation, editingZoneId, qc, computed, result, commit]);
+  }, [well, interpretation, editingZoneId, qc, computed, result, display.overlays, commit]);
 
   // Editor de escala: qué curva y dónde anclarlo (la curva se vuelve a buscar en cada render: llega al día).
   const [editing, setEditing] = useState<{ trackId: string; key: string } | null>(null);

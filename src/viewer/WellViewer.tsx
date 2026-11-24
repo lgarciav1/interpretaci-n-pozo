@@ -30,7 +30,7 @@ import { PointerGestures, type HitResult } from './interaction';
 import { Minimap, type MinimapHandle } from './MinimapView';
 import { pickMinimapCurve } from './minimap';
 import { RangeNavigator } from './RangeNavigator';
-import { guard, type OverlayHit, type OverlayPointer, type ViewerData, type ViewerOverlay } from './overlay';
+import { guard, type OverlayColorLegend, type OverlayHit, type OverlayPointer, type ViewerData, type ViewerOverlay } from './overlay';
 import { formatDepth, formatReadout, nearestIndex, valueAt } from './readout';
 import { overlayTracks, overlayViewport, stackFillColor, ViewerRenderer, type FrameInput } from './render';
 import { scaleKey } from './scale';
@@ -163,9 +163,31 @@ interface Target {
   hit: OverlayHit & { key: string };
 }
 
+function TrackColorLegend({ legend }: { legend: OverlayColorLegend }) {
+  return (
+    <div className="wv-head__color-legend" aria-label={legend.title}>
+      <span className="wv-head__color-title">{legend.title}</span>
+      {legend.colors.length > 0 && (
+        <>
+          <div className="wv-head__color-bar" aria-hidden="true">
+            {legend.colors.map((color) => <span key={color} style={{ backgroundColor: color }} />)}
+          </div>
+          <div className="wv-head__color-limits num"><span>{legend.minLabel}</span><span>{legend.maxLabel}</span></div>
+        </>
+      )}
+      <span className="wv-head__color-missing"><i aria-hidden="true" style={{ backgroundColor: legend.missing.color }} />{legend.missing.label}</span>
+    </div>
+  );
+}
+
 export function WellViewer(props: WellViewerProps) {
   const { tracks, wellKey, label, toolbarStart, toolbarEnd, header, notice, onEditCurve, onShowCurve, layoutEdit } = props;
   const theme = useResolvedTheme();
+  const colorLegends = useMemo(() => tracks.map((track) => {
+    const overlay = props.overlays.find((item) => item.id === track.overlayId);
+    const colorLegend = overlay?.track?.colorLegend;
+    return colorLegend && guard(overlay.id, 'leyenda', () => colorLegend(props.data, track.unit));
+  }), [tracks, props.overlays, props.data]);
   /** Tamaño de interfaz: anchos fijos y mínimos de pista, rótulos del canvas (las figuras exportadas usan 1). */
   const ui = useUiScaleFactor();
   const propsRef = useRef(props);
@@ -1735,6 +1757,7 @@ export function WellViewer(props: WellViewerProps) {
                   ) : (
                     curvesHead(t)
                   )}
+                  {colorLegends[ti] && <TrackColorLegend legend={colorLegends[ti]} />}
                   {layoutEdit && t.fixed === undefined && layout.boxes[ti] && (
                     <ResizeEdge
                       track={t}

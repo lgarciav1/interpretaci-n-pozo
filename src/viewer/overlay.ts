@@ -55,6 +55,8 @@ export interface ViewerData {
   interpretation: Readonly<Interpretation>;
   /** Curvas calculadas por el motor para este pozo (activas y alternativas). */
   computed: readonly ComputedCurve[];
+  /** Ajustes guardados de las superposiciones. Disponible también al exportar figuras. */
+  overlaySettings?: Readonly<Record<string, Readonly<Record<string, string | number | boolean>>>>;
   /** Tablas de la misma corrida que las curvas; evita recalcular resultados en las superposiciones. */
   tables?: readonly ViewerTable[];
   /**
@@ -223,6 +225,15 @@ export interface OverlayTrackState {
   title?: string;
 }
 
+/** Escala de color para el encabezado de una pista y su figura exportada. */
+export interface OverlayColorLegend {
+  title: string;
+  colors: readonly string[];
+  minLabel: string;
+  maxLabel: string;
+  missing: { label: string; color: string };
+}
+
 /** Pista propia de una superposición (p. ej. presión vs. profundidad). El visor la agrega a las pistas activas. */
 export interface OverlayTrackDecl {
   /** Rótulos categóricos, posición relativa al ancho completo de pista. Reemplazan los extremos numéricos. */
@@ -240,6 +251,8 @@ export interface OverlayTrackDecl {
    * pistas (cuando cambian el pozo o la configuración del visor), no en cada cuadro.
    */
   resolve?(ctx: OverlayTrackContext): OverlayTrackState | null;
+  /** Leyenda de color resuelta con los mismos datos que usa el dibujo de la pista. */
+  colorLegend?(data: ViewerData, unit: string | undefined): OverlayColorLegend | null;
   /** Ancho relativo (por defecto 1). */
   width?: number;
   /** Se ubica después de esta pista (id); si falta o no existe, al final. */

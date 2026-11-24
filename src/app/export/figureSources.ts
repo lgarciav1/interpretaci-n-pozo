@@ -69,6 +69,7 @@ export function viewerFigureContext(measure: TextMeasure): ViewerFigureContext |
   const entry = selectActiveEntry(useProject.getState());
   if (!entry) return null;
   const { well: originalWell, interpretation } = entry;
+  const display = useProject.getState().project.display;
   const candidate = useResults.getState().result;
   const result = candidate && sameContext(candidate.context,entryContext(entry)) ? candidate : null;
   const well = effectiveWell(originalWell, result);
@@ -76,7 +77,18 @@ export function viewerFigureContext(measure: TextMeasure): ViewerFigureContext |
   const zones = interpretation.zones.map((z) => ({ id: z.id, name: z.name, top: z.top, base: z.base, color: z.color }));
   const stored = useQc.getState().entries[well.id];
   const qc = stored && stored.well.depth === originalWell.depth && stored.well.curves === originalWell.curves ? stored.report : computeQc(originalWell);
-  const data: ViewerData = { wellId: well.id, depth: well.depth.values, zones, selectedZoneId: null, qc: visibleQc(qc, well, interpretation), well, interpretation, computed, tables: computedTables(result, well) };
+  const data: ViewerData = {
+    wellId: well.id,
+    depth: well.depth.values,
+    zones,
+    selectedZoneId: null,
+    qc: visibleQc(qc, well, interpretation),
+    well,
+    interpretation,
+    computed,
+    tables: computedTables(result, well),
+    ...(display.overlays ? { overlaySettings: display.overlays } : {}),
+  };
   return {
     well,
     tracks: figureTracks(originalWell),
@@ -88,7 +100,7 @@ export function viewerFigureContext(measure: TextMeasure): ViewerFigureContext |
     stackHints: STACK_ROLE_HINTS,
     date: new Date(),
     measure,
-    look: lookOf(useProject.getState().project.display.look),
+    look: lookOf(display.look),
   };
 }
 

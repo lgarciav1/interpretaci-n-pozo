@@ -15,6 +15,7 @@ import { activeWellEntry, applyZoneEdit, makeId, setOverlaySetting } from '../..
 import { removeTrend } from '../../core/state/trends';
 import { defaultZoneName, splitZoneAt } from '../../core/state/zones';
 import { conversionCoefficients, unitLabel } from '../../core/units';
+import { PRESSURE_COLUMNS } from '../../io/pressures';
 import { formatGradientValue, formatR2 } from '../../plots/trend/format';
 import { Badge, Button, Callout, Checkbox, DataTable, EmptyState, IconButton, NumberField, SegmentedControl, Select, formatNumber, toast, useFlash, useThemeTokens, zoneColor, type Column } from '../../ui';
 import type { DockPanelDef } from '../../ui/dockPanel';
@@ -45,6 +46,7 @@ import {
   type Fluid,
   type FluidContact,
 } from './model';
+import { formatDrawdown, pointColorOf, type MdtPointColor } from './draw';
 import { displayUnitOf } from './overlay';
 import { mdtAnalysis, pointRef, type MdtAnalysis, type MdtGradient } from './series';
 import '../../app/components/load-well.css';
@@ -137,7 +139,6 @@ export function MdtPanel() {
   const settings = useProject((s) => s.project.display.overlays?.[MDT_OVERLAY_ID]);
   const [loading, setLoading] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
-  const [selectedPoint, setSelectedPoint] = useState<string | null>(null);
   const well = entry?.well ?? null;
   const interp = entry?.interpretation ?? null;
   const analysis = useMemo(() => (well && interp ? mdtAnalysis(well, interp) : null), [well, interp]);
@@ -177,9 +178,9 @@ export function MdtPanel() {
   const unit = displayUnitOf(settings);
   return (
     <div className="mdt">
-      <MdtBar set={set} sets={sets} unit={unit} onPick={setPicked} onLoad={() => setLoading(true)} />
+      <MdtBar set={set} sets={sets} unit={unit} pointColor={pointColorOf(settings)} onPick={setPicked} onLoad={() => setLoading(true)} />
       <div className="mdt-body">
-        <PointsTable set={set} analysis={analysis} unit={unit} selected={selectedPoint} onSelect={setSelectedPoint} />
+        <PointsTable key={`${well.id}:${set.id}`} set={set} analysis={analysis} unit={unit} />
         <aside className="mdt-side">
           <Gradients set={set} analysis={analysis} />
           <Contacts contacts={analysis.contacts.filter((c) => analysis.gradients.some((g) => g.setId === set.id && g.spec.id === c.upper.id))} unit={unit} wellId={well.id} />
@@ -192,7 +193,7 @@ export function MdtPanel() {
 
 // ── barra superior ──────────────────────────────────────────────────────────────────────────────────────────
 
-function MdtBar({ set, sets, unit, onPick, onLoad }: { set: PointSet; sets: PointSet[]; unit: DisplayUnit; onPick(id: string): void; onLoad(): void }) {
+function MdtBar({ set, sets, unit, pointColor, onPick, onLoad }: { set: PointSet; sets: PointSet[]; unit: DisplayUnit; pointColor: MdtPointColor; onPick(id: string): void; onLoad(): void }) {
   const interp = useProject((s) => selectActiveEntry(s)?.interpretation);
   const dec = interp?.pointSets[set.id];
   const tvd = pointNumbers(set, 'tvd');
@@ -245,6 +246,16 @@ function MdtBar({ set, sets, unit, onPick, onLoad }: { set: PointSet; sets: Poin
           onChange={(u) => useProject.getState().commit('Cambiar la unidad de presión', (p) => setOverlaySetting(p, MDT_OVERLAY_ID, 'unit', u === 'psi' ? undefined : u))}
           options={DISPLAY_UNITS.map((u) => ({ value: u, label: unitLabel(u) }))}
         />
+        <label className="mdt-bar__field">
+          <span>Color de puntos</span>
+          <Select
+            size="sm"
+            aria-label="Color de puntos"
+            value={pointColor}
+            options={[{ value: 'fluid', label: 'Fluido' }, { value: 'drawdown', label: 'Drawdown' }]}
+            onChange={(mode) => useProject.getState().commit('Cambiar el color de puntos MDT', (p) => setOverlaySetting(p, MDT_OVERLAY_ID, 'pointColor', mode === 'drawdown' ? mode : undefined))}
+          />
+        </label>
         <IconButton size="sm" icon="upload" label="Cargar otra tabla de presiones" onClick={onLoad} />
         <IconButton
           size="sm"
@@ -275,17 +286,60 @@ interface PointRow {
   id: string;
 }
 
-function PointsTable({ set, analysis, unit, selected, onSelect }: { set: PointSet; analysis: MdtAnalysis; unit: DisplayUnit; selected: string | null; onSelect(id: string | null): void }) {
+interface ZoneFilter {
+  value: string;
+  label: string;
+  matches(index: number): boolean;
+  range?: { top: number; base: number };
+}
+
+const ALL_POINTS = '';
+
+function PointsTable({ set, analysis, unit }: { set: PointSet; analysis: MdtAnalysis; unit: DisplayUnit }) {
+  const [selected, onSelect] = useState<string | null>(null);
+  const [filter, setFilter] = useState(ALL_POINTS);
   const interp = useProject((s) => selectActiveEntry(s)?.interpretation);
   const theme = useThemeTokens();
   const st = pointStatuses(set, interp?.pointSets[set.id]);
   const p = pointNumbers(set, 'pressure');
+  const drawdown = pointNumbers(set, PRESSURE_COLUMNS.drawdown);
   const mob = pointNumbers(set, 'mobility');
   const qual = pointTexts(set, 'quality');
   const comment = pointTexts(set, 'comment');
   const zoneCol = pointTexts(set, TP_MDT_ZONE_COLUMN);
   const [a, b] = conversionCoefficients('psi', unit);
-  const rows: PointRow[] = set.pointIds.map((id, i) => ({ i, id }));
+  const depth = shiftedDepth(set, interp?.pointSets[set.id]);
+  const zones = interp?.zones ?? [];
+  const origins = [...new Set(zoneCol?.filter(Boolean))];
+  const sourceOptions = origins.map((zone) => ({ value: `origin:${zone}`, label: `${zone} · origen`, matches: (i: number) => zoneCol?.[i] === zone }));
+  const interpretedOptions = zones.map((zone) => ({
+    value: `interpreted:${zone.id}`,
+    label: `${zone.name} · interpretada`,
+    matches: (i: number) => depth[i]! >= zone.top && depth[i]! <= zone.base,
+    range: { top: zone.top, base: zone.base },
+  }));
+  const filters: ZoneFilter[] = [...sourceOptions, ...interpretedOptions];
+  const selectedFilter = filters.find((item) => item.value === filter);
+  const rows: PointRow[] = set.pointIds.map((id, i) => ({ i, id })).filter(({ i }) => !selectedFilter || selectedFilter.matches(i));
+
+  const changeFilter = (value: string) => {
+    setFilter(value);
+    onSelect(null);
+    const option = filters.find((item) => item.value === value);
+    if (!option) return;
+    if (option.range) {
+      useTrendsUi.getState().requestRange(option.range.top, option.range.base);
+    } else {
+      let top = Infinity;
+      let base = -Infinity;
+      for (let i = 0; i < depth.length; i++) {
+        if (!option.matches(i)) continue;
+        top = Math.min(top, depth[i]!);
+        base = Math.max(base, depth[i]!);
+      }
+      if (top <= base) useTrendsUi.getState().requestRange(top - 10, base + 10);
+    }
+  };
 
   const toggle = (i: number, include: boolean) => {
     const w = activeWellId();
@@ -335,8 +389,18 @@ function PointsTable({ set, analysis, unit, selected, onSelect }: { set: PointSe
         </span>
       ),
     },
-    ...(zoneCol ? [{ key: 'zone', header: 'Zona', title: 'Zona de la hoja de datos', render: (r: PointRow) => zoneCol[r.i] || '—' } satisfies Column<PointRow>] : []),
-    { key: 'md', header: 'MD (m)', align: 'num', render: (r) => m1(set.depth[r.i]!) },
+    ...(zoneCol ? [{ key: 'zone', header: 'Zona de origen', title: 'Zona de la hoja de datos', render: (r: PointRow) => zoneCol[r.i] || '—' } satisfies Column<PointRow>] : []),
+    {
+      key: 'md',
+      header: 'MD (m)',
+      title: 'Profundidad medida con el desplazamiento aplicado, si lo hay',
+      align: 'num',
+      render: ({ i }) => (
+        <span title={`MD ${formatNumber(depth[i], { digits: 4 })} m${depth[i] !== set.depth[i] ? ` · origen ${formatNumber(set.depth[i], { digits: 4 })} m` : ''}`}>
+          {m1(depth[i]!)}
+        </span>
+      ),
+    },
     {
       key: 'p',
       header: `P (${unitLabel(unit)})`,
@@ -344,6 +408,7 @@ function PointsTable({ set, analysis, unit, selected, onSelect }: { set: PointSe
       align: 'num',
       render: (r) => formatNumber(p ? p[r.i]! * a + b : NaN, { digits: UNIT_DIGITS[unit] }),
     },
+    { key: 'drawdown', header: `Drawdown (${unitLabel(unit)})`, title: 'Caída de presión de la prueba', align: 'num', render: (r) => formatDrawdown(drawdown?.[r.i], unit) },
     { key: 'mob', header: 'Mov. (mD/cP)', title: 'Movilidad k/µ de la prueba', align: 'num', render: (r) => formatNumber(mob?.[r.i], { significant: 3 }) },
     {
       key: 'q',
@@ -387,14 +452,23 @@ function PointsTable({ set, analysis, unit, selected, onSelect }: { set: PointSe
     },
   ];
 
-  const included = st.filter((x) => x.included).length;
+  const included = rows.filter(({ i }) => st[i]!.included).length;
   return (
     <section className="mdt-points" aria-label="Pruebas de presión">
       <header className="mdt-points__head">
         <h3>Pruebas</h3>
         <span className="num">
-          {set.pointIds.length} · <span className="mdt-ok">{included} incluidas</span> · {set.pointIds.length - included} descartadas
+          {rows.length} · <span className="mdt-ok">{included} incluidas</span> · {rows.length - included} descartadas
         </span>
+        {filters.length > 0 && (
+          <Select
+            size="sm"
+            aria-label="Filtrar pruebas por zona"
+            value={selectedFilter?.value ?? ALL_POINTS}
+            options={[{ value: ALL_POINTS, label: 'Todas las zonas' }, ...filters]}
+            onChange={changeFilter}
+          />
+        )}
         <span className="mdt-points__help">Clic en una fila: verla en el visor · en el visor, clic en un punto: incluirlo o descartarlo</span>
       </header>
       <DataTable
@@ -406,7 +480,7 @@ function PointsTable({ set, analysis, unit, selected, onSelect }: { set: PointSe
         selectedKey={selected}
         onRowClick={(r) => {
           onSelect(r.id === selected ? null : r.id);
-          const z = shiftedDepth(set, interp?.pointSets[set.id])[r.i]!;
+          const z = depth[r.i]!;
           useTrendsUi.getState().requestRange(z - 30, z + 30);
         }}
         rowProps={(r) => ({ 'data-excluded': st[r.i]!.included ? undefined : '' })}
@@ -479,6 +553,9 @@ function Gradients({ set, analysis }: { set: PointSet; analysis: MdtAnalysis }) 
         <p className="mdt-hint" role="status">
           Arrastrá sobre el visor (en cualquier pista) de arriba hacia abajo para elegir el tramo de los puntos · <kbd>Esc</kbd> para cancelar
         </p>
+      )}
+      {list.length > 0 && !pointNumbers(set, 'tvd')?.some(Number.isFinite) && (
+        <p className="mdt-grad__meta">Ajuste sobre MD. Verificá la verticalidad del pozo para interpretar densidades y contactos.</p>
       )}
       {list.length === 0 ? (
         <p className="mdt-empty">Elegí un fluido y arrastrá sobre el visor el tramo de sus puntos: la recta, su gradiente y la densidad del fluido aparecen mientras arrastrás.</p>
@@ -632,7 +709,7 @@ function Contacts({ contacts, unit, wellId }: { contacts: FluidContact[]; unit: 
                   {depth !== null ? (
                     <span className="mdt-contact__value num">
                       <button type="button" className="mdt-contact__go" title="Ver en el visor" onClick={() => useTrendsUi.getState().requestRange(depth - 40, depth + 40)}>
-                        <Flash value={depth}>{m1(depth)} m</Flash>
+                        <Flash value={depth}>{m1(depth)} m MD</Flash>
                       </button>
                       <span className="ui-text-muted">
                         {' · '}

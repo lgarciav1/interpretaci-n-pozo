@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createPointSet, type PointSet } from '../src/core/pointSets';
-import { addWell, createProject, getWellEntry, type Project } from '../src/core/state/project';
+import { addWell, createProject, getWellEntry, setOverlaySetting, type Project } from '../src/core/state/project';
+import { deserializeProject, serializeProject } from '../src/core/state/serialize';
 import { setPointDecision, setPointSetSetting } from '../src/core/state/pointSets';
 import { createWell } from '../src/core/well';
 import { densityFromPsiPerFt } from '../src/petro/pressure';
@@ -17,6 +18,7 @@ import {
   type GradientLine,
 } from '../src/modules/mdt/model';
 import { mdtAnalysis, mdtSeries, mdtSeriesProvider } from '../src/modules/mdt/series';
+import { drawdownScale, formatDrawdown } from '../src/modules/mdt/draw';
 import { pressureTrackScale } from '../src/modules/mdt/overlay';
 import { registry } from '../src/modules';
 
@@ -355,5 +357,29 @@ describe('mdt: escala automática de la pista', () => {
   });
   it('sin presiones → null', () => {
     expect(pressureTrackScale([], 'psi')).toBeNull();
+  });
+});
+
+
+describe('mdt: el color es un ajuste de vista', () => {
+  it('un proyecto v6 sin drawdown conserva sus gradientes, densidades y contactos al cambiar el color', async () => {
+    const old = await deserializeProject(await serializeProject(projectWithExample(), { version: 6 }));
+    const entry = getWellEntry(old, 'w');
+    const data = { wellId: 'w', depth: entry.well.depth.values, zones: [], selectedZoneId: null, qc: null, ...entry, computed: [] };
+    expect(drawdownScale(data, 'psi')).toBeNull();
+    const formatted = setOverlaySetting(old, 'mdt', 'pointColor', 'drawdown');
+    const scale = drawdownScale({ ...data, ...(formatted.display.overlays ? { overlaySettings: formatted.display.overlays } : {}) }, 'psi')!;
+    expect(scale.legend.colors).toHaveLength(0);
+    expect(scale.legend.missing.label).toBe('Sin dato');
+    expect(scale.colorOf(undefined)).toBe(scale.legend.missing.color);
+    const after = getWellEntry(formatted, 'w');
+    expect(mdtAnalysis(after.well, after.interpretation)).toBe(mdtAnalysis(entry.well, entry.interpretation));
+    expect(mdtAnalysis(after.well, after.interpretation).contacts).toHaveLength(2);
+  });
+
+  it('un cero y su conversión son datos, mientras que un número no finito queda ausente', () => {
+    expect(formatDrawdown(0, 'bar')).toBe('0');
+    expect(formatDrawdown(66.59, 'bar')).toBe('4,591');
+    expect(formatDrawdown(NaN, 'psi')).toBe('Sin dato');
   });
 });
