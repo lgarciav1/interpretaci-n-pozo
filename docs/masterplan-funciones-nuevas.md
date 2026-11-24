@@ -1,11 +1,12 @@
 # Masterplan: funciones nuevas (calidad de vida, validación y lucimiento)
 
-- Estado: **en ejecución.** Hechas: F01, F02, F08, F16, F25, F19, F03, F04, F07, F05. Cada función se marca en la tabla de la sección 3 a medida que se entrega.
+- Estado: **en ejecución.** Hechas: F01, F02, F08, F16, F25, F19, F03, F04, F07, F05, F09. Cada función se marca en la tabla de la sección 3 a medida que se entrega.
 - Fecha: 2026-11-17. Base inspeccionada: `main`, commit `c74ba09`.
 - Origen: auditoría de la app corriendo con los datos del TP (recorrido con Playwright a 1600 × 900) y del código.
 - Entrega del TP: diciembre de 2026. **No entra todo.** La sección 4 fija el orden y la línea de corte.
 - Lectura complementaria: [arquitectura](arquitectura.md), [masterplan de preparación y DRX](masterplan-preparacion-y-drx.md)
   (sus invariantes I01–I08 siguen valiendo para todo lo que toque curvas preparadas).
+- [Másterplan de réplica del TP](masterplan-replica-tp.md) con el recorrido de la clase, drawdown en MDT y ley potencial de corona.
 
 ## 1. Qué encontró la auditoría
 
@@ -57,7 +58,7 @@ Tamaño: **C** chico (una sesión corta), **M** mediano (una sesión), **G** gra
 | F18 | Curva fantasma | 4 | M | arquitecto | — | hecha ([PR #94](https://github.com/lgarciav1/interpretaci-n-pozo/pull/94)); apertura local sin verificar ([evidencia](capturas/f18/README.md)) |
 | F06 | Curva calculada por fórmula | 4 | G | arquitecto | [0081](decisiones/0081-curvas-por-formula.md) | implementada en PR borrador. Pendiente abrir el HTML por doble clic sin internet: Chromium administrado bloquea `file://`. |
 | F15 | Bandas de incertidumbre sobre las curvas | 4 | G | analista-numerico | [0082](decisiones/0082-bandas-de-incertidumbre.md) | implementada en borrador. Pendientes la apertura por doble clic sin red y la calibración de incertidumbre por calidad local. |
-| F09 | Pegar topes desde una planilla | 4 | C | investigador | — | pendiente |
+| F09 | Pegar topes desde una planilla | 4 | C | investigador | — | hecha |
 | F10 | Contacto MDT como tope de zona | 4 | C | desarrollador-ui | — | hecha ([PR #95](https://github.com/lgarciav1/interpretaci-n-pozo/pull/95)); apertura local sin verificar ([evidencia](capturas/f10/README.md)) |
 | F11 | Rangos de ejes del crossplot a mano | 4 | C | desarrollador-ui | — | implementada en PR borrador; pendiente verificar apertura por doble clic sin internet (Chromium administrado bloquea `file://`) |
 | F26 | Asistente sin modelo | 5 | M | desarrollador-ui | [0083](decisiones/0083-asistente-sin-modelo.md) | implementada en borrador. Pendiente abrir el HTML por doble clic sin internet. |

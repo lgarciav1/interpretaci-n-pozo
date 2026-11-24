@@ -282,3 +282,42 @@ export function splitZoneAt(zones: readonly Zone[], depth: number, input: NewZon
   const created = { ...result.created, base: host.base };
   return { ...result, created, zones: result.zones.map((zone) => zone.id === created.id ? created : zone) };
 }
+
+export type ZoneTopsMode = 'replace' | 'append';
+
+/** Zona leída de una planilla de topes (ya validada y ajustada a las muestras, ver `src/io/zoneTops.ts`). */
+export interface ZoneTopsDraft {
+  name: string;
+  top: number;
+  base: number;
+}
+
+/**
+ * Receta de «Pegar topes» (F09): las zonas que resultan de aplicar la planilla.
+ * - `replace`: la lista pasa a ser la de la planilla. Una zona de la planilla con el nombre de una actual la conserva
+ *   (id, color y tipo: así no pierde sus parámetros); las demás son nuevas (`newZone` da id y color).
+ * - `append`: las zonas actuales quedan como están y se suman las de la planilla.
+ * Es una lista nueva de zonas: se guarda con `applyZoneEdit` dentro de UN `commit`, o sea un solo paso de deshacer.
+ * La validación (solapes, rango, nombres) es de `parseZoneTops`: acá no se repite.
+ */
+export function zonesFromTops(
+  current: readonly Zone[],
+  drafts: readonly ZoneTopsDraft[],
+  mode: ZoneTopsMode,
+  newZone: (index: number) => { id: string; color: string },
+): Zone[] {
+  const sorted = [...drafts].sort((a, b) => a.top - b.top);
+  if (mode === 'append') {
+    const added = sorted.map((d, i): Zone => ({ ...newZone(current.length + i), name: d.name, top: d.top, base: d.base, kind: 'formation' }));
+    return byTop([...current, ...added]);
+  }
+  const free = new Map(current.map((z) => [z.name.trim().toLowerCase(), z]));
+  return sorted.map((d, i): Zone => {
+    const old = free.get(d.name.trim().toLowerCase());
+    if (old) {
+      free.delete(d.name.trim().toLowerCase());
+      return { ...old, name: d.name, top: d.top, base: d.base };
+    }
+    return { ...newZone(i), name: d.name, top: d.top, base: d.base, kind: 'formation' };
+  });
+}

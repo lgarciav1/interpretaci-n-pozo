@@ -8,7 +8,8 @@
  */
 import { looksLikeLas, parseLas } from './las';
 import { parseCsv, type CsvOptions } from './csv';
-import { parseXlsx, type XlsxOptions } from './xlsx';
+import { parseXlsx, readXlsxGrid, type XlsxOptions } from './xlsx';
+import { gridToText } from './zoneTops';
 import { buildWell, type BuildOptions, type BuildResult } from './build';
 import type { RawTable, SourceFormat } from './table';
 
@@ -18,7 +19,9 @@ export { buildWell, suggestMapping } from './build';
 export type { BuildOptions, BuildResult, ColumnKind, ColumnMapping } from './build';
 export { normalizeMnemonic, resolveUnit, suggestRole } from './mnemonics';
 export type { Confidence, RoleSuggestion } from './mnemonics';
-export { listXlsxSheets, parseXlsx } from './xlsx';
+export { listXlsxSheets, parseXlsx, readXlsxGrid } from './xlsx';
+export { gridFromText, gridToText, parseDepthCell, parseZoneTops, parseZoneTopsText } from './zoneTops';
+export type { CellGrid, ZoneDraft, ZoneTopsContext, ZoneTopsProblem, ZoneTopsResult, ZoneTopsRow, ZoneTopsSeverity } from './zoneTops';
 export { parseLas } from './las';
 export { parseCsv } from './csv';
 export {
@@ -106,6 +109,19 @@ export function parseTable(input: FileInput, fileName: string, options: ParseOpt
   if (format === 'las') return parseLas(text, fileName);
   // Un .las sin extensión reconocible o un .txt con LAS adentro ya se detectaron arriba; el resto es CSV.
   return parseCsv(text, fileName, options);
+}
+
+/**
+ * Texto de una planilla de topes de zona (F09): un .xlsx (primera hoja con contenido) pasa a texto tabulado; un .csv o
+ * .txt se devuelve tal cual (UTF-8 o Windows-1252). Así el cuadro de pegado es la única fuente de la vista previa.
+ */
+export function readZoneTopsFile(input: FileInput, fileName: string): string {
+  if (typeof input !== 'string' && toBytes(input).length === 0) throw new Error('El archivo está vacío.');
+  if (detectFormat(input, fileName) === 'xlsx') {
+    if (typeof input === 'string') throw new Error('Un archivo .xlsx debe entregarse como bytes, no como texto.');
+    return gridToText(readXlsxGrid(toBytes(input)));
+  }
+  return decodeText(input);
 }
 
 /** Lee un archivo completo con el mapeo de columnas sugerido. */
