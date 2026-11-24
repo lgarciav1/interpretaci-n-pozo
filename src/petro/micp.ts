@@ -97,6 +97,20 @@ export const SYSTEM_GAS_WATER: InterfacialSystem = {
   thetaDeg: 0,
 };
 
+/**
+ * Aire–salmuera de laboratorio: σ = 72 dyn/cm, θ = 0°. Es el sistema de la calibración estándar del corte de T2 del
+ * CMR: el agua ligada es la que queda a 100 psi aire–salmuera (`CMR_CALIBRATION_AIR_BRINE_PSI`).
+ */
+export const SYSTEM_AIR_BRINE: InterfacialSystem = {
+  id: 'air-brine',
+  label: 'Aire–salmuera (laboratorio)',
+  sigmaDynPerCm: 72,
+  thetaDeg: 0,
+};
+
+/** Presión aire–salmuera (psi) de la calibración convencional del corte de T2 (33 ms en areniscas). */
+export const CMR_CALIBRATION_AIR_BRINE_PSI = 100;
+
 /** Densidad de agua de formación por defecto (g/cm³): salmuera moderada (~70 000 ppm NaCl). Supuesto. */
 export const DEFAULT_WATER_DENSITY_GCC = 1.05;
 /** Densidad de petróleo por defecto (g/cm³): crudo mediano, ~45 °API. Supuesto. */
@@ -295,8 +309,10 @@ export function fitThomeer(pc: ArrayLike<number>, swFrac: ArrayLike<number>, phi
  * Coeficientes de Swanson (1981) para permeabilidad AL AIRE: k = a·(Sb/Pc)_A^b, k en mD, Sb en % del volumen total, Pc en
  * psi. a = 399, b = 1,691. Verificación: no pude abrir el artículo original (JPT dic. 1981); las constantes coinciden con
  * las que reproduce una presentación de flujo de trabajo MICP (LR Senergy) y, sobre las 8 muestras del TP, la k estimada
- * reproduce la k de gas de la hoja SCAL dentro del 1–4 % en 7 de 8 (la k de la tabla del laboratorio parece derivada de
- * Swanson). Otra correlación general de Swanson (355·(Sb/Pc)^2,005, citada en una patente) NO es la de aire.
+ * reproduce la «k de gas» de la hoja SCAL dentro del 0,7 % en 6 de 8 (1-2L +4,7 %, 1-32 −13 %). Un acuerdo así es
+ * imposible contra una k medida (Swanson dispersa un factor ~2): la k de esa tabla casi seguro se CALCULÓ con Swanson
+ * sobre estas curvas, y no sirve como verdad medida (la k medida del TP es la de los plugs de la hoja PB). Otra
+ * correlación de Swanson (355·(Sb/Pc)^2,005, citada en una patente) es la de salmuera, NO la de aire.
  */
 export const SWANSON_AIR = { a: 399, b: 1.691 } as const;
 
@@ -328,7 +344,8 @@ export function swansonApex(pcPsi: ArrayLike<number>, swFrac: ArrayLike<number>,
   for (let i = 0; i < n; i++) {
     const p = pcPsi[i]!;
     const sw = swFrac[i]!;
-    if (!isPos(p) || !Number.isFinite(sw) || sw < 0 || sw > 1 + 1e-9) continue;
+    if (sw > 1 + 1e-9) return null; // casi seguro Sw en %: mejor no inventar (como fitThomeer)
+    if (!isPos(p) || !Number.isFinite(sw) || sw < 0) continue;
     const sb = Math.max(0, 1 - sw) * phiFrac * 100;
     const ratio = sb / p;
     if (ratio > 0 && (!best || ratio > best.sbOverPc)) best = { sbOverPc: ratio, pcPsi: p, sbPct: sb, index: i };
@@ -356,7 +373,8 @@ export function swansonPermeabilityFromCurve(pcPsi: ArrayLike<number>, swFrac: A
  *   k = 3,8068·G^(−1,3334)·(Bv∞/Pd)²      (k en mD, Pd en psi, Bv∞ en % del volumen total, G adimensional)
  * Verificación: no pude abrir el artículo (JPT abr. 1983); la forma 3,8068·G^−1,334·(Bv∞/Pd)² figura citada en la patente
  * US 4 648 261. Aquí se usa el exponente −1,3334 (= −4/3, como en la bibliografía de petrofísica); la diferencia con −1,334
- * es < 0,03 % para G ∈ [0,1; 1]. La correlación tiene dispersión de un factor ~2 (en el TP da 0,5–0,9 veces la k de gas).
+ * es < 0,03 % para G ∈ [0,1; 1]. La correlación tiene dispersión de un factor ~2 (en el TP da 0,48–0,88 veces la «k de gas»
+ * de la tabla SCAL, que es de Swanson: ver `SWANSON_AIR`).
  * NaN si algún argumento no es > 0.
  */
 export function thomeerPermeability(g: number, pdPsi: number, bvInfPct: number): number {
@@ -374,6 +392,11 @@ export interface BrooksCoreyFitOptions {
   pcMax?: number;
   /** Se usan solo puntos con Sw ≥ swFitMin (v/v): descarta la cola de microporos. Por defecto 0. */
   swFitMin?: number;
+  /**
+   * Swirr FIJO (v/v, [0, 1)): no se busca; se ajustan solo Pd y λ con los puntos Sw > swirr. Sirve para tomar el Swirr
+   * de la curva a la altura del tope de la columna (`swAtHeightFromCurve`), porque el Swirr libre no es identificable.
+   */
+  swirr?: number;
 }
 
 /** Ajuste de Brooks–Corey de una curva. */
@@ -389,7 +412,7 @@ export interface BrooksCoreyFit {
   /** Puntos de la rama usados. */
   n: number;
   /** 'lower' o 'upper' si Swirr quedó en un extremo del intervalo explorado (no identificable con esa curva); null si es interior. */
-  swirrAtBound: 'lower' | 'upper' | null;
+  swirrAtBound: 'lower' | 'upper' | 'fixed' | null;
 }
 
 /**
@@ -406,20 +429,24 @@ export interface BrooksCoreyFit {
  *
  * @param pc presión de inyección creciente (cualquier unidad; Pd sale en la misma)
  * @param swFrac saturación mojante (v/v), no creciente
- * @returns el ajuste, o null si quedan menos de 4 puntos en la rama o la pendiente no es negativa
+ * @returns el ajuste, o null si quedan menos de 4 puntos en la rama, la pendiente no es negativa, Sw parece venir en %
+ *   o el Swirr fijo no está en [0, 1)
  */
 export function fitBrooksCorey(pc: ArrayLike<number>, swFrac: ArrayLike<number>, opts: BrooksCoreyFitOptions = {}): BrooksCoreyFit | null {
   const entrySw = opts.entrySw ?? 0.99;
   const pcMax = opts.pcMax ?? Infinity;
   const swFitMin = opts.swFitMin ?? 0;
+  const fixed = opts.swirr;
+  if (fixed !== undefined && !(fixed >= 0 && fixed < 1)) return null;
   const px: number[] = [];
   const sx: number[] = [];
   const n0 = Math.min(pc.length, swFrac.length);
   for (let i = 0; i < n0; i++) {
     const p = pc[i]!;
     const sw = swFrac[i]!;
-    if (!isPos(p) || !Number.isFinite(sw) || sw > 1 + 1e-9 || sw < 0) continue;
-    if (sw <= entrySw && sw > 0 && sw >= swFitMin && p <= pcMax) {
+    if (sw > 1 + 1e-9) return null; // casi seguro Sw en %
+    if (!isPos(p) || !Number.isFinite(sw) || sw < 0) continue;
+    if (sw <= entrySw && sw > 0 && sw >= swFitMin && p <= pcMax && (fixed === undefined || sw > fixed)) {
       px.push(p);
       sx.push(sw);
     }
@@ -435,6 +462,10 @@ export function fitBrooksCorey(pc: ArrayLike<number>, swFrac: ArrayLike<number>,
     return fit && fit.b < 0 && fit.n === px.length ? fit : null;
   };
   const score = (swirr: number) => trial(swirr)?.r2 ?? -Infinity;
+  if (fixed !== undefined) {
+    const fit = trial(fixed);
+    return fit ? { pd: fit.a, lambda: -1 / fit.b, swirr: fixed, r2: fit.r2, n: fit.n, swirrAtBound: 'fixed' } : null;
+  }
 
   const N = 200;
   let bestI = 0;
@@ -778,4 +809,18 @@ export function cmrBviEquivalentHeights(
     const pcLabPsi = Number.isFinite(ratio) ? pcAtWettingSaturation(s.pcPsi, s.swFrac, ratio) : NaN;
     return { bviOverPhie: ratio, nWindow: count, pcLabPsi, heightM: heightFromLabPc(pcLabPsi, ctx) };
   });
+}
+
+/**
+ * Sw de la curva MICP a la presión de calibración convencional del CMR: 100 psi aire–salmuera (`SYSTEM_AIR_BRINE`),
+ * llevada a mercurio–aire con el cociente de σ|cosθ| (≈ 511 psi Hg). Es el «agua ligada» con la que se calibra el corte de
+ * T2 sin necesitar el FWL: si el BVI/PHIE del CMR es bastante mayor que este valor, el corte de T2 sobreestima el agua
+ * ligada de esa roca. NaN si la curva no llega a esa presión (no extrapola).
+ * @param pcHgPsi presión mercurio–aire (psi), creciente
+ * @param swFrac saturación mojante (v/v), no creciente
+ */
+export function swAtCmrCalibration(pcHgPsi: ArrayLike<number>, swFrac: ArrayLike<number>, airBrinePsi = CMR_CALIBRATION_AIR_BRINE_PSI): number {
+  const f = labToReservoirFactor(SYSTEM_HG_AIR, SYSTEM_AIR_BRINE);
+  if (!(f > 0) || !(airBrinePsi > 0)) return NaN;
+  return wettingSaturationAtPc(pcHgPsi, swFrac, airBrinePsi / f);
 }

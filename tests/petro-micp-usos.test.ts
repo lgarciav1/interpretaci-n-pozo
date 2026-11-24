@@ -35,6 +35,9 @@ import {
   thomeerBv,
   thomeerPermeability,
   type HeightContext,
+  fitBrooksCorey as fitBrooksCoreyFixed,
+  swAtCmrCalibration,
+  swansonApex as swansonApexCheck,
 } from '../src/petro/micp';
 import { brooksCoreyPc, KGF_CM2_TO_PSI } from '../src/petro/rockTyping';
 
@@ -247,6 +250,8 @@ describe('petro/micp: Brooks–Corey–Burdine y flujo fraccional', () => {
 
   it('cutoff: fw(cutoff) = umbral; a mano λ = 2, Swirr = 0, μ iguales: Se⁴ = (1 − Se)³(1 + Se) tiene su raíz entre 0,5 y 0,6', () => {
     const c = swAtFractionalFlow(2, 0, 1, 1);
+    // λ = 2, Swirr = 0, μ iguales: Se⁴ = (1 − Se)³(1 + Se); scipy brentq → 0,5825222078.
+    expect(c).toBeCloseTo(0.5825222078104774, 8);
     expect(c).toBeGreaterThan(0.5);
     expect(c).toBeLessThan(0.6);
     expect(fractionalFlowWater(c, 2, 0, 1, 1)).toBeCloseTo(0.5, 12);
@@ -414,5 +419,43 @@ describe('petro/micp: 8 muestras del TP contra numpy/scipy', () => {
     });
     // Ventana de ±0,5 m con paso de 0,1524 m: 6 o 7 muestras del perfil.
     expect(out.every((r) => r.nWindow === 6 || r.nWindow === 7)).toBe(true);
+  });
+});
+
+describe('petro/micp: Swirr fijo en Brooks–Corey, Sw en % y calibración del CMR (revisión independiente)', () => {
+  // Brooks–Corey exacta: Pd 10, λ 1,5, Swirr 0,2 (Sw = 0,2 + 0,8·(10/Pc)^1,5).
+  const pc = [12, 15, 20, 30, 50, 80, 120, 200];
+  const sw = pc.map((p) => 0.2 + 0.8 * (10 / p) ** 1.5);
+
+  it('con Swirr fijo recupera Pd y λ y marca el ajuste como «fixed»', () => {
+    const f = fitBrooksCoreyFixed(pc, sw, { swirr: 0.2 })!;
+    expect(f.swirrAtBound).toBe('fixed');
+    expect(f.swirr).toBe(0.2);
+    expect(f.pd).toBeCloseTo(10, 8);
+    expect(f.lambda).toBeCloseTo(1.5, 8);
+    expect(f.r2).toBeCloseTo(1, 10);
+  });
+
+  it('con Swirr fijo excluye los puntos con Sw ≤ Swirr; Swirr fuera de [0, 1) da null', () => {
+    const f = fitBrooksCoreyFixed([...pc, 400, 800], [...sw, 0.2, 0.19], { swirr: 0.2 })!;
+    expect(f.n).toBe(pc.length);
+    expect(fitBrooksCoreyFixed(pc, sw, { swirr: 1 })).toBeNull();
+    expect(fitBrooksCoreyFixed(pc, sw, { swirr: -0.1 })).toBeNull();
+    expect(fitBrooksCoreyFixed(pc, sw, { swirr: NaN })).toBeNull();
+  });
+
+  it('Sw en % (> 1) da null en Brooks–Corey y en el ápice de Swanson, como en Thomeer', () => {
+    const pct = sw.map((v) => v * 100);
+    expect(fitBrooksCoreyFixed(pc, pct)).toBeNull();
+    expect(swansonApexCheck(pc, pct, 0.2)).toBeNull();
+  });
+
+  it('Sw a 100 psi aire–salmuera (≈ 510,7 psi Hg): 0,21–0,36 en el TP; la 2-15 no llega (scipy)', () => {
+    const expected: Record<string, number> = { '1-2': 0.32857, '1-2L': 0.25633, '1-32': 0.21199, '1-33CK': 0.30802, '1-33': 0.24487, '2-17': 0.2963, '2-6L': 0.36082 };
+    for (const s of TP_MICP_SAMPLES) {
+      const v = swAtCmrCalibration(s.pcKgCm2.map((p) => p * KGF_CM2_TO_PSI), s.swPct.map((x) => x / 100));
+      if (s.sample === '2-15') expect(v).toBeNaN();
+      else expect(v).toBeCloseTo(expected[s.sample]!, 4);
+    }
   });
 });
