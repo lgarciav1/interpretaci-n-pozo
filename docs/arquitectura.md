@@ -182,6 +182,8 @@ con mínimo 2, `lithology-facies`, `electrofacies` y `electrofacies-scan`. Un m�
 - `ctx.segments`: tramos contiguos de una misma zona con sus parámetros ya resueltos (para cálculos por muestra).
 - `ctx.paramsFor(zoneId)`: parámetros efectivos de una zona (para tablas y sumarios por zona), incluso de zonas
   sin muestras; `paramsFor(null)` = globales.
+- `resolveParams` en la definición del módulo permite resolver una familia de coeficientes como unidad. El motor
+  y el informe comparten esa resolución. [Permeabilidad potencial de corona](decisiones/0086-permeabilidad-potencial-corona.md).
 - `ctx.zones`: zonas en orden de tope, con `id`, `name`, `kind`, `top`, `base`, `start`, `end`.
 - `ctx.warn(mensaje, where?)`: aviso para el usuario (p. ej. parámetros incoherentes en una zona). Se vuelve a mostrar
   mientras el resultado siga en caché. `where` es opcional (0072): `{ zoneId }` si el aviso es de una zona (el id de

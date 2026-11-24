@@ -147,3 +147,51 @@ export function logLinearPermeabilityInto(
   for (let i = start; i < end; i++) out[i] = logLinearPermeability(phi[i]!, a, b, kMin, kMax);
   return out;
 }
+
+/** Coeficientes de k = A·φᵇ guardados como a = log10(A), con φ en v/v. */
+export interface PowerPermModel {
+  method: 'power';
+  a: number;
+  b: number;
+  /** Rango de φ observado en los plugs. */
+  phiMin?: number;
+  phiMax?: number;
+}
+
+export type CorePermModel = LogLinearPermModel | PowerPermModel;
+
+export function isPowerPermModel(model: CorePermModel): model is PowerPermModel {
+  return 'method' in model && model.method === 'power';
+}
+
+/**
+ * Ley potencial de corona k = A·φᵇ en mD. Se evalúa como log10(k) = log10(A) + b·log10(φ),
+ * con φ efectiva en v/v y recorte a [kMin, kMax]. φ ausente o no positiva queda sin estimación.
+ * Referencia: Nelson (1994), "Permeability-porosity relationships in sedimentary rocks", The Log Analyst 35(3).
+ */
+export function powerPermeability(phi: number, logA: number, b: number, kMin = 0, kMax = Infinity): number {
+  if (!isPositiveFinite(phi) || !Number.isFinite(logA) || !Number.isFinite(b)) return NaN;
+  const k = 10 ** (logA + b * Math.log10(phi));
+  return Math.min(kMax, Math.max(kMin, k));
+}
+
+/** Variante por tramo [start, end). Devuelve cuántas muestras estimadas extrapolan el rango de los plugs. */
+export function powerPermeabilityInto(
+  phi: ArrayLike<number>,
+  out: Float64Array,
+  model: PowerPermModel,
+  kMin: number,
+  kMax: number,
+  start: number,
+  end: number,
+): number {
+  let extrapolated = 0;
+  for (let i = start; i < end; i++) {
+    const porosity = phi[i]!;
+    out[i] = powerPermeability(porosity, model.a, model.b, kMin, kMax);
+    if (Number.isFinite(out[i]) && model.phiMin !== undefined && model.phiMax !== undefined && (porosity < model.phiMin || porosity > model.phiMax)) {
+      extrapolated++;
+    }
+  }
+  return extrapolated;
+}

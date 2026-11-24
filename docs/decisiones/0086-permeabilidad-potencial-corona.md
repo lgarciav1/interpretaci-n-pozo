@@ -1,4 +1,4 @@
-# 0085 · Permeabilidad potencial de corona
+# 0086 · Permeabilidad potencial de corona
 
 ## Contexto
 

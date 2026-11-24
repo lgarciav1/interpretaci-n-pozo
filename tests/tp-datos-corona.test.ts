@@ -4,6 +4,10 @@
  * código TS (tests/fixtures/tp-corona-electrica-scal.json), y que viajen en guardar/abrir (v7) y snapshots.
  */
 import { describe, expect, it } from 'vitest';
+import { Engine } from '../src/core/engine/engine';
+import { registry } from '../src/modules';
+import { setPointSetDepthShift, setPointDecision } from '../src/core/state/pointSets';
+import { setTrendZone, updateTrend } from '../src/core/state/trends';
 import { listRuns, pointNumbers, pointTexts, shiftedDepth } from '../src/core/pointSets';
 import { emptyHistory, recordChange, undo } from '../src/core/state/history';
 import { enableProjectInputRevisions } from '../src/core/state/inputRevisions';
@@ -16,12 +20,12 @@ import { applyArchie, depthMatchState, dominantPlugZone, plugCementation } from 
 import { riSaturation, riSets, setRiPlugIncluded } from '../src/modules/core-calibration/saturation';
 import { addTpRi, isTpRiSet, TP_RI_COMPOSITE_PLUG, TP_RI_DEFAULT_EXCLUDED, tpRiSet } from '../src/modules/core-calibration/tpRi';
 import { exampleCoreSet } from '../src/modules/core/example';
-import { assessCoreQuality, COL, CORE_KIND, coreGroups, coreSets, DEPTH_ON_LOG_SETTING, plugStatuses } from '../src/modules/core/model';
+import { applyKPhiModel, assessCoreQuality, COL, CORE_KIND, coreGroups, coreSets, DEPTH_ON_LOG_SETTING, kphiSync, PERM_CORE_KEYS, plugStatuses } from '../src/modules/core/model';
 import { kphiTrends } from '../src/modules/core/series';
 import { addTpCore, isTpCoreSet, TP_CORE_SOURCE, tpCoreSet } from '../src/modules/core/tp';
 import { TP_CORE_PLUGS, TP_RI_COMPOSITE } from '../src/modules/core/tpData';
 import scal from './fixtures/tp-corona-electrica-scal.json';
-import { zone } from './helpers';
+import { curve, zone } from './helpers';
 
 const W = 'w';
 const e = scal.expected;
@@ -220,5 +224,55 @@ describe('persistencia de los datos del TP', () => {
     expect(Object.keys(i.pointSets['ri']!.points)).toHaveLength(12);
     expect(i.pointSets['corona']!.settings?.[DEPTH_ON_LOG_SETTING]).toBe(true);
     expect(getWellEntry(p3, W).well).toBe(getWellEntry(p2, W).well);
+  });
+});
+
+describe('permeabilidad potencial de corona en el TP', () => {
+  it('ajusta los 90 plugs de B, persiste precisión y trazabilidad, y reabre ambos modelos con una sola acción de deshacer', async () => {
+    let p = addTpCore(project(), W, tpCoreSet('corona'), 'tend');
+    p = applyKPhiModel(p, W, { a: -1.7, b: 20 }, { zoneId: 'D' });
+    p = setTrendZone(updateTrend(p, W, 'tend', { model: 'power' }), W, 'tend', 'B');
+    const entry = getWellEntry(p, W);
+    const set = entry.well.pointSets[0]!;
+    const [fit] = kphiTrends(set, entry.interpretation);
+    expect(fit?.result).toMatchObject({ n: 90, fit: { xMin: 0.12055, xMax: 0.24863 } });
+    expect(fit?.model).toMatchObject({ method: 'power', a: expect.closeTo(10.330877750413752, 12), b: expect.closeTo(13.26110991353595, 12) });
+    expect(fit?.trace?.points).toHaveLength(90);
+    const applied = applyKPhiModel(p, W, fit!.model!, { zoneId: 'B', useAsSource: true, trace: fit!.trace });
+    const reopened = await deserializeProject(await serializeProject(enableProjectInputRevisions(applied)));
+    const i = getWellEntry(reopened, W).interpretation;
+    expect(i.params.zones['B']?.[PERM_CORE_KEYS.powerB]).toBe(fit!.model!.b);
+    expect(i.params.zones['D']?.[PERM_CORE_KEYS.method]).toBe('exp');
+    expect(i.sources['PERM']).toEqual({ kind: 'module', moduleId: 'perm-core' });
+    expect(kphiSync(i, fit!.model!, 'B', fit!.trace).state).toBe('synced');
+
+    const phiB608 = 0.205168148;
+    const engine = new Engine(registry);
+    engine.setWell({ id: W, depth: Float64Array.of(7724.5464, 8000), curves: [curve('PHIE', 'PHIE', [phiB608, 0.2])] });
+    const run = engine.run({
+      ...i,
+      zones: i.zones.map((z) => z.id === 'B' ? { ...z, top: 7724.5464 } : z),
+    });
+    const perm = run.outputs.find((o) => o.key === 'perm-core:PERM' && o.active)!.value as Float64Array;
+    // Ajuste independiente con los 90 puntos en log10 φ y log10 k, evaluado con la φ redondeada del masterplan.
+    expect(perm[0]).toBeCloseTo(16.169330293638218, 9);
+    expect(Math.abs(perm[0]! - 16.16902543)).toBeLessThan(0.001);
+    expect(perm[1]).toBeCloseTo(10 ** 2.3, 10);
+
+    const shifted = setPointSetDepthShift(applied, W, set.id, 0.1, '1');
+    const iShifted = getWellEntry(shifted, W).interpretation;
+    const [shiftedFit] = kphiTrends(set, iShifted);
+    // Desplazar todos los plugs dentro de la zona conserva los coeficientes, pero cambia las MD del ajuste.
+    expect(shiftedFit?.model).toEqual(fit!.model);
+    expect(kphiSync(iShifted, shiftedFit!.model!, 'B', shiftedFit!.trace).state).toBe('stale');
+
+    const excluded = setPointDecision(applied, W, set.id, set.pointIds[0]!, { status: 'exclude' });
+    const iExcluded = getWellEntry(excluded, W).interpretation;
+    const [excludedFit] = kphiTrends(set, iExcluded);
+    expect(excludedFit?.result?.n).toBe(89);
+    expect(kphiSync(iExcluded, excludedFit!.model!, 'B', excludedFit!.trace).state).toBe('stale');
+    expect(undo(recordChange(emptyHistory(), p, 'Aplicar modelo k–φ a la zona B', 0), applied)?.project).toBe(p);
+    expect(getWellEntry(p, W).interpretation.params.zones['B']).toBeUndefined();
+    expect(getWellEntry(p, W).interpretation.sources['PERM']).toBeUndefined();
   });
 });

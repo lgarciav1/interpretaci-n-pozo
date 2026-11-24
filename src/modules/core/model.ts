@@ -5,18 +5,20 @@
  * - Calidad de los plugs: reglas que PROPONEN descartar (sin φ ni k, φ fuera de rango, k ≤ 0, densidad de grano fuera
  *   de rango, plug fisurado o dañado según la descripción). Decide el usuario (`Interpretation.pointSets`).
  * - Coronas (grupos de puesta en profundidad): la columna `run` del conjunto (`RUN_COLUMN` del núcleo).
- * - Modelo k–φ hacia el motor: conversión de la tendencia exponencial a log10 k = a + b·φ, receta «Aplicar al pozo»
+ * - Modelo k–φ hacia el motor: conversión de las tendencias exponencial y potencial, receta «Aplicar al pozo»
  *   (parámetros del módulo `perm-core`, globales o de una zona, y opcionalmente fuente de PERM) y estado de
  *   sincronización entre el ajuste y los parámetros.
  *
  * Sin React ni stores ni `src/plots`: lo importan el proveedor de series, la superposición, el panel y los tests.
  */
-import type { Interpretation } from '../../core/interpretation';
+import type { Interpretation, JsonValue } from '../../core/interpretation';
 import { listRuns, pointNumbers, pointRuns, pointTexts, RUN_COLUMN, shiftOf, type PointSet, type PointSetDecisions } from '../../core/pointSets';
-import { setParam, setSource, type Project } from '../../core/state/project';
-import { expTrendToLogLinear, type LogLinearPermModel } from '../../petro/permeability';
+import { clearParam, getWellEntry, setModuleState, setParam, setSource, type Project } from '../../core/state/project';
+import { expTrendToLogLinear, isPowerPermModel, type CorePermModel, type LogLinearPermModel } from '../../petro/permeability';
 import type { TrendCoefficients } from '../../petro/regression';
-import { PERM_CORE_ID } from '../perm-core';
+import { effectivePermCoreModel, isValidPowerModel, PERM_CORE_ID, PERM_CORE_KEYS } from '../perm-core/params';
+
+export { PERM_CORE_DEFAULTS, PERM_CORE_KEYS } from '../perm-core/params';
 
 export const CORE_KIND = 'core';
 export const CORE_PROVIDER_ID = 'core';
@@ -181,44 +183,81 @@ export function plugDecisionFor(q: PlugQuality, include: boolean): { status: 'in
 
 // ── modelo k–φ hacia el motor ─────────────────────────────────────────────────────────────────────────────
 
-/** Claves de almacenamiento de los parámetros del módulo `perm-core` (propios del módulo: `<id>.<clave>`). */
-export const PERM_CORE_KEYS = { a: `${PERM_CORE_ID}.kphiA`, b: `${PERM_CORE_ID}.kphiB` } as const;
-export const PERM_CORE_DEFAULTS: LogLinearPermModel = { a: -2, b: 20 };
-
-/** Coeficientes a guardar: a con 4 decimales y b con 3 (lo que muestra el panel; la sincronización compara esto). */
+/** Coeficientes exponenciales guardados con el redondeo histórico. */
 export function roundModel(m: LogLinearPermModel): LogLinearPermModel {
   return { a: Math.round(m.a * 1e4) / 1e4, b: Math.round(m.b * 1e3) / 1e3 };
 }
 
-/** log10 k = a + b·φ desde los coeficientes de la tendencia k–φ (solo el modelo exponencial; si no, null). */
-export function kphiModelOf(c: TrendCoefficients | null | undefined): LogLinearPermModel | null {
-  if (!c || c.model !== 'exp') return null;
+/** Convierte la tendencia al modelo de PERM de corona. El potencial conserva todos sus dígitos. */
+export function kphiModelOf(c: TrendCoefficients | null | undefined): CorePermModel | null {
+  if (c?.model === 'power') {
+    const a = Math.log10(c.a);
+    return isValidPowerModel(a, c.b) ? { method: 'power', a, b: c.b } : null;
+  }
+  if (c?.model !== 'exp') return null;
   const m = expTrendToLogLinear(c.a, c.b);
   return m ? roundModel(m) : null;
 }
 
-/** Valores efectivos de a y b del módulo para una zona (null = globales). */
-export function permCoreParams(interp: Pick<Interpretation, 'params'>, zoneId: string | null): LogLinearPermModel & { set: boolean } {
-  const g = interp.params.global;
-  const z = zoneId ? interp.params.zones[zoneId] : undefined;
-  const pick = (key: string, dflt: number) => {
-    const v = z?.[key] ?? g[key];
-    return typeof v === 'number' && Number.isFinite(v) ? v : dflt;
-  };
-  const set = (z?.[PERM_CORE_KEYS.a] ?? g[PERM_CORE_KEYS.a]) !== undefined || (z?.[PERM_CORE_KEYS.b] ?? g[PERM_CORE_KEYS.b]) !== undefined;
-  return { a: pick(PERM_CORE_KEYS.a, PERM_CORE_DEFAULTS.a), b: pick(PERM_CORE_KEYS.b, PERM_CORE_DEFAULTS.b), set };
+export function permCoreParams(interp: Pick<Interpretation, 'params'>, zoneId: string | null): CorePermModel & { set: boolean } {
+  const effective = effectivePermCoreModel(interp.params, zoneId);
+  return { ...effective.model, set: effective.origin !== 'default' };
+}
+
+/** Evidencia de ajuste para repetir la selección y detectar cambios aunque los coeficientes sean los mismos. */
+export type KPhiFitTrace = {
+  setId: string;
+  trendId: string;
+  zoneId: string | null;
+  method: 'exp' | 'power';
+  depthRange: [number | null, number | null];
+  phiFilter: [number | null, number | null];
+  excluded: string[];
+  points: [id: string, correctedMd: number | null, phi: number, k: number][];
+  r2: number;
+};
+
+function savedFits(value: JsonValue | undefined): Readonly<Record<string, JsonValue>> {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value as Readonly<Record<string, JsonValue>>;
+  return {};
+}
+
+const fitScope = (zoneId: string | null) => zoneId === null ? 'global' : `zone:${zoneId}`;
+
+/** Otros ámbitos donde se aplicó la misma tendencia antes de cambiar el tramo del ajuste. */
+export function otherKPhiScopes(interp: Interpretation, trendId: string, zoneId: string | null): string[] {
+  const fits = savedFits(interp.moduleState?.[PERM_CORE_ID]);
+  return [null, ...interp.zones.map((zone) => zone.id)].flatMap((scope) => {
+    if (scope === zoneId) return [];
+    const fit = fits[fitScope(scope)];
+    if (!fit || typeof fit !== 'object' || !('trendId' in fit) || fit.trendId !== trendId) return [];
+    return [scope === null ? 'global' : `zona ${interp.zones.find((zone) => zone.id === scope)!.name}`];
+  });
 }
 
 export type KPhiSync = 'synced' | 'stale' | 'unapplied';
 
-/** ¿Los parámetros del módulo coinciden con el ajuste actual? 'unapplied': nunca se aplicó (valores por defecto). */
-export function kphiSync(interp: Pick<Interpretation, 'params'>, model: LogLinearPermModel | null, zoneId: string | null): { state: KPhiSync; params: LogLinearPermModel } {
-  const p = permCoreParams(interp, zoneId);
-  const params = { a: p.a, b: p.b };
-  if (!p.set) return { state: 'unapplied', params };
-  if (!model) return { state: 'stale', params };
+/** Comprueba los coeficientes y, si existe, la evidencia del ajuste aplicado en este alcance. */
+export function kphiSync(
+  interp: Pick<Interpretation, 'params' | 'moduleState'>,
+  model: CorePermModel | null,
+  zoneId: string | null,
+  trace?: KPhiFitTrace | null,
+): { state: KPhiSync; params: CorePermModel } {
+  const { model: params, origin } = effectivePermCoreModel(interp.params, zoneId);
+  if (origin === 'default' || (zoneId !== null && origin !== 'local')) return { state: 'unapplied', params };
+  if (!model || isPowerPermModel(params) !== isPowerPermModel(model)) return { state: 'stale', params };
+  const applied = savedFits(interp.moduleState?.[PERM_CORE_ID])[fitScope(zoneId)];
+  if (applied !== undefined && trace !== undefined) {
+    const { a, b } = params;
+    const expected = trace ? { ...trace, a, b } : null;
+    if (JSON.stringify(applied) !== JSON.stringify(expected)) return { state: 'stale', params };
+  }
+  if (isPowerPermModel(model)) {
+    return { state: model.a === params.a && model.b === params.b ? 'synced' : 'stale', params };
+  }
   const r = roundModel(model);
-  return { state: Math.abs(r.a - p.a) < 5e-5 && Math.abs(r.b - p.b) < 5e-4 ? 'synced' : 'stale', params };
+  return { state: Math.abs(r.a - params.a) < 5e-5 && Math.abs(r.b - params.b) < 5e-4 ? 'synced' : 'stale', params };
 }
 
 /** ¿`perm-core` es la fuente elegida de PERM? */
@@ -227,15 +266,62 @@ export const permCoreIsSource = (interp: Pick<Interpretation, 'sources'>) => {
   return s?.kind === 'module' && s.moduleId === PERM_CORE_ID;
 };
 
-/**
- * «Aplicar al pozo»: escribe a y b en los parámetros de `perm-core` (globales, o de la zona si la tendencia usa una
- * zona como tramo) y, si `useAsSource`, elige `perm-core` como fuente de PERM. Una sola receta (un solo Ctrl+Z).
- */
-export function applyKPhiModel(project: Project, wellId: string, model: LogLinearPermModel, opts: { zoneId?: string | null; useAsSource?: boolean } = {}): Project {
-  const m = roundModel(model);
+/** Guarda el modelo y su evidencia en una sola receta, con activación de PERM opcional. */
+export function applyKPhiModel(
+  project: Project,
+  wellId: string,
+  model: CorePermModel,
+  opts: { zoneId?: string | null; useAsSource?: boolean; trace?: KPhiFitTrace | null } = {},
+): Project {
   const zone = opts.zoneId ?? null;
-  let p = setParam(project, wellId, PERM_CORE_KEYS.a, m.a, zone);
-  p = setParam(p, wellId, PERM_CORE_KEYS.b, m.b, zone);
-  if (opts.useAsSource) p = setSource(p, wellId, 'PERM', { kind: 'module', moduleId: PERM_CORE_ID });
-  return p;
+  const normalized = isPowerPermModel(model) ? model : roundModel(model);
+  if (!validModel(normalized)) return project;
+  const next = storeKPhiModel(project, wellId, normalized, zone, opts.trace);
+  return opts.useAsSource ? setSource(next, wellId, 'PERM', { kind: 'module', moduleId: PERM_CORE_ID }) : next;
+}
+
+/** Guarda los coeficientes efectivos, también cuando se editan desde el panel de parámetros. */
+export function storeKPhiModel(project: Project, wellId: string, model: CorePermModel, zone: string | null, trace?: KPhiFitTrace | null): Project {
+  let next = project;
+  const power = isPowerPermModel(model);
+  const m = model;
+  if (!validModel(m)) return project;
+  next = setParam(next, wellId, PERM_CORE_KEYS.method, power ? 'power' : 'exp', zone);
+  if (isPowerPermModel(m)) {
+    next = setParam(next, wellId, PERM_CORE_KEYS.powerLogA, m.a, zone);
+    next = setParam(next, wellId, PERM_CORE_KEYS.powerB, m.b, zone);
+    next = setParam(next, wellId, PERM_CORE_KEYS.powerPhiMin, m.phiMin ?? 0, zone);
+    next = setParam(next, wellId, PERM_CORE_KEYS.powerPhiMax, m.phiMax ?? 0, zone);
+  } else {
+    next = setParam(next, wellId, PERM_CORE_KEYS.a, m.a, zone);
+    next = setParam(next, wellId, PERM_CORE_KEYS.b, m.b, zone);
+    for (const key of [PERM_CORE_KEYS.powerLogA, PERM_CORE_KEYS.powerB, PERM_CORE_KEYS.powerPhiMin, PERM_CORE_KEYS.powerPhiMax]) {
+      next = clearParam(next, wellId, key, zone);
+    }
+  }
+  return updateFitTrace(next, wellId, zone, trace ? { ...trace, a: m.a, b: m.b } : null);
+}
+
+function validModel(model: CorePermModel): boolean {
+  if (!Number.isFinite(model.a) || !Number.isFinite(model.b)) return false;
+  if (!isPowerPermModel(model)) return true;
+  return isValidPowerModel(model.a, model.b) && (
+    (model.phiMin === undefined && model.phiMax === undefined) ||
+    (model.phiMin !== undefined && model.phiMax !== undefined && Number.isFinite(model.phiMax) && model.phiMin > 0 && model.phiMin <= model.phiMax)
+  );
+}
+
+function updateFitTrace(project: Project, wellId: string, zone: string | null, trace: JsonValue): Project {
+  const saved = savedFits(getWellEntry(project, wellId).interpretation.moduleState?.[PERM_CORE_ID]);
+  const scope = fitScope(zone);
+  if (trace !== null) return setModuleState(project, wellId, PERM_CORE_ID, { ...saved, [scope]: trace });
+  if (saved[scope] === undefined) return project;
+  const { [scope]: _discarded, ...rest } = saved;
+  return setModuleState(project, wellId, PERM_CORE_ID, Object.keys(rest).length ? rest : undefined);
+}
+
+export function clearKPhiModel(project: Project, wellId: string, zone: string | null): Project {
+  let next = project;
+  for (const key of Object.values(PERM_CORE_KEYS)) next = clearParam(next, wellId, key, zone);
+  return updateFitTrace(next, wellId, zone, null);
 }
