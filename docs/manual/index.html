@@ -373,6 +373,27 @@ dialog.lb button { position: absolute; top: 8px; right: 8px; width: 36px; height
 .pipe span { font: 600 10px/1 var(--f-mono); color: var(--muted); letter-spacing: .08em; }
 @media (max-width: 700px) { .pipe div, .pipe div:first-child, .pipe div:last-child { border-radius: 0; flex-basis: 50%; } }
 
+/* Impresión / PDF */
+@page { margin: 0; }
+@media print {
+  html { background: var(--bg); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .rail, .mbar, dialog.lb, .paper { display: none !important; }
+  .page { margin-left: 0 !important; }
+  .hero { padding-top: 48px; }
+  .hero::before { filter: none; }
+  .chapter { break-before: page; padding-block: 56px 24px; border-top: 0; }
+  .block { margin-top: 48px; }
+  figure, .card, .note, .cat section, .keys section, .stepcard, .tbl-wrap, .pipe, .steps li, .legend li, details, .curves div, .stats, .annot { break-inside: avoid; }
+  h2, h3, h4, .eyebrow, .chapter__head { break-after: avoid; }
+  .hs::after { display: none; }
+  figure[tabindex]:hover .frame { transform: none; }
+  details > *:not(summary) { display: block; }
+  summary::after { content: ""; }
+  .foot { break-before: avoid; }
+  .stepcard { padding-block: 28px; }
+  .stepcard img { max-height: 470px !important; }
+  .hero { padding-bottom: 40px; }
+}
 .big-num { font: 800 clamp(40px, 6vw, 72px)/0.9 var(--f-display); font-stretch: 90%; letter-spacing: -.03em; }
 </style>
 
