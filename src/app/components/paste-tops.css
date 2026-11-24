@@ -1,5 +1,9 @@
 /* «Pegar topes» (F09). */
-.paste-tops { display: flex; flex-direction: column; gap: var(--space-3); }
+/* Llena el cuerpo del diálogo: si no entra todo, se achica la vista previa (que scrollea sola, con la cabecera fija)
+   en vez de que el cuerpo scrollee y corte la última fila detrás del pie. Debajo del mínimo, scrollea el cuerpo. */
+.paste-tops { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+.paste-tops > * { flex-shrink: 0; }
+.paste-tops > .ui-table-wrap { flex: 0 1 auto; min-height: calc(120px * var(--ui-scale)); }
 .paste-tops__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .paste-tops__problems { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
 .paste-tops__problem { font-size: var(--text-sm); overflow-wrap: anywhere; }

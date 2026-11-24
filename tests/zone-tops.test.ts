@@ -57,6 +57,7 @@ describe('aplicar topes pegados', () => {
     expect(useProject.getState().undoLabel).toBe('Pegar topes (3 zonas)');
     useProject.getState().undo();
     expect(getWellEntry(useProject.getState().project, 'w1').interpretation.zones).toEqual(before);
+    expect(getWellEntry(useProject.getState().project, 'w1').interpretation.params.zones['old']).toMatchObject({ grClean: 50 });
     expect(useProject.getState().undoLabel).toBeNull();
     useProject.getState().redo();
     expect(getWellEntry(useProject.getState().project, 'w1').interpretation.zones.map((x) => x.name)).toEqual(['A', 'B', 'C']);

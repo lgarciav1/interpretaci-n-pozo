@@ -67,14 +67,25 @@ export interface ZoneTopsResult {
   hasHeader: boolean;
 }
 
-export type CellGrid = { rows: string[][]; rowNumbers: number[] };
+export type CellGrid = { rows: string[][]; rowNumbers: number[]; /** Separador del texto de origen (si vino de texto). */ delimiter?: string };
 
-/** Parte un texto pegado o leído de un archivo en celdas. Detecta el separador (`;`, tabulación o coma). */
+/**
+ * Separador de una tabla de topes. Lo pegado desde Excel o Sheets viene SIEMPRE tabulado, y con decimal coma cada
+ * celda numérica trae una coma: si hay tabulaciones manda la tabulación, y si no, el «;» antes que la coma.
+ */
+function topsDelimiter(text: string): ',' | ';' | '\t' {
+  if (text.includes('\t')) return '\t';
+  const d = detectDelimiter(text);
+  return d === ',' && /;/.test(text.replace(/"[^"]*"/g, '')) ? ';' : d;
+}
+
+/** Parte un texto pegado o leído de un archivo en celdas. Detecta el separador (tabulación, `;` o coma). */
 export function gridFromText(text: string): CellGrid {
   const clean = stripBom(text);
   if (clean.trim() === '') return { rows: [], rowNumbers: [] };
-  const { rows, lineNumbers } = splitCsv(clean, detectDelimiter(clean));
-  return { rows, rowNumbers: lineNumbers };
+  const delimiter = topsDelimiter(clean);
+  const { rows, lineNumbers } = splitCsv(clean, delimiter);
+  return { rows, rowNumbers: lineNumbers, delimiter };
 }
 
 /** Texto tabulado de una grilla de celdas (lo que se muestra en el cuadro de pegado al cargar un .xlsx). */
@@ -85,15 +96,28 @@ export function gridToText(grid: CellGrid): string {
 // ---------------------------------------------------------------------------------------------------------------
 // Números y encabezados
 
-type Cell = { kind: 'empty' } | { kind: 'bad'; text: string } | { kind: 'ok'; value: number };
+/**
+ * `value` en metros. `alt`: la otra lectura posible cuando un solo signo va seguido de exactamente tres cifras
+ * («7.633» = 7,633 o 7633 con separador de miles); la validación se queda con la que cae dentro del pozo.
+ */
+type Cell = { kind: 'empty' } | { kind: 'bad'; text: string } | { kind: 'ok'; value: number; alt?: number };
+
+const FT = 0.3048;
+const UNIT_SUFFIX = /\s*(m|mts?|metros?|ft|pies|feet|')\.?$/i;
+/** Encabezado de una columna en pies («Tope (ft)», «Base [pies]», «MD ft»). */
+const FEET_HEADER = /(^|[^a-z])(ft|pies|feet)([^a-z]|$)/i;
 
 /**
- * Lee una profundidad: decimal coma o punto, miles con el otro signo («7.633,5», «7,633.5»), unidad «m» al final.
- * Con un solo signo y una sola aparición, ese signo es el decimal.
+ * Lee una profundidad: decimal coma o punto, miles con el otro signo («7.633,5», «7,633.5»), unidad al final («m»,
+ * «ft», «pies»). Con un solo signo y una sola aparición, ese signo es el decimal (y si van tres cifras detrás, `alt`
+ * guarda la lectura como miles). Sin unidad en la celda, `factor` pasa a metros (0,3048 si la columna está en pies).
  */
-export function parseDepthCell(raw: string): Cell {
-  const s = raw.trim().replace(/\s*m$/i, '').replace(/\s/g, '');
-  if (s === '') return { kind: 'empty' };
+export function parseDepthCell(raw: string, factor = 1): Cell {
+  const trimmed = raw.trim();
+  const unit = UNIT_SUFFIX.exec(trimmed);
+  const k = unit ? (/^[m]/i.test(unit[1]!) ? 1 : FT) : factor;
+  const s = (unit ? trimmed.slice(0, unit.index) : trimmed).replace(/\s/g, '');
+  if (s === '') return unit ? { kind: 'bad', text: trimmed } : { kind: 'empty' };
   if (!/^[+-]?[\d.,]+$/.test(s) || !/\d/.test(s)) return { kind: 'bad', text: raw.trim() };
   const lastDot = s.lastIndexOf('.');
   const lastComma = s.lastIndexOf(',');
@@ -109,7 +133,9 @@ export function parseDepthCell(raw: string): Cell {
     t = (s.match(/\./g) ?? []).length > 1 ? s.split('.').join('') : s;
   }
   const v = Number(t);
-  return Number.isFinite(v) ? { kind: 'ok', value: v } : { kind: 'bad', text: raw.trim() };
+  if (!Number.isFinite(v)) return { kind: 'bad', text: raw.trim() };
+  const thousands = /^[+-]?\d{1,3}[.,]\d{3}$/.test(s) ? Number(s.replace(/[.,]/, '')) : null;
+  return thousands !== null ? { kind: 'ok', value: v * k, alt: thousands * k } : { kind: 'ok', value: v * k };
 }
 
 const norm = (s: string) =>
@@ -224,6 +250,23 @@ export function parseZoneTops(grid: CellGrid, ctx: ZoneTopsContext): ZoneTopsRes
   if (col.top < 0) {
     return result([], [], [global('No encontré la columna del tope: tiene que haber una columna con profundidades (encabezado «Tope» o «Top»).')], hasHeader);
   }
+  // CSV separado por comas con decimal coma sin comillas: «A,7633,5» parte el número en dos columnas. Es ambiguo,
+  // así que no se adivina: si una fila tiene más celdas que el encabezado (o, sin encabezado, números en columnas
+  // que no son nombre, tope ni base), se pide otro separador.
+  if (grid.delimiter === ',') {
+    const roles = new Set([col.name, col.top, col.base]);
+    const headerWidth = hasHeader ? lines[0]!.cells.length : 0;
+    const extra = data.find((l) =>
+      l.cells.some((c, j) => (hasHeader ? j >= headerWidth && c.trim() !== '' : !roles.has(j) && parseDepthCell(c).kind === 'ok')),
+    );
+    if (extra) {
+      return result([], [], [global(`La fila ${extra.row} tiene más números que columnas de tope y base: si los decimales van con coma, separá las columnas con «;» o tabulación (o poné los números entre comillas).`)], hasHeader);
+    }
+  }
+  // Unidad de cada columna: en pies si el encabezado lo dice («Tope (ft)»); si no, metros.
+  const factor = (j: number) => (hasHeader && j >= 0 && FEET_HEADER.test(lines[0]!.cells[j] ?? '') ? FT : 1);
+  const topFactor = factor(col.top);
+  const baseFactor = factor(col.base);
 
   const d0 = depth[0]!;
   const d1 = depth[n - 1]!;
@@ -235,12 +278,17 @@ export function parseZoneTops(grid: CellGrid, ctx: ZoneTopsContext): ZoneTopsRes
     it.bad = true;
   };
   const warn = (it: Item, message: string) => it.problems.push({ row: it.row, severity: 'warning', message });
+  const inWell = (v: number) => v >= d0 - 1e-6 && v <= d1 + 1e-6;
+  /** Valor de una celda leída: si la lectura decimal cae fuera del pozo y la de miles adentro, la de miles. */
+  const pick = (c: Cell & { kind: 'ok' }) => (!inWell(c.value) && c.alt !== undefined && inWell(c.alt) ? c.alt : c.value);
+  /** Pista cuando el número, leído en pies, sí caería dentro del pozo (el pozo se guarda en metros). */
+  const feetHint = (v: number, f: number) => (f === 1 && inWell(v * FT) ? ' Si está en pies, indicalo en el encabezado (p. ej. «Tope (ft)») o en la celda («25 040 ft»).' : '');
 
   // 1. Lectura fila por fila.
   data.forEach((l, idx) => {
     const name = (col.name >= 0 ? (l.cells[col.name] ?? '') : '').trim();
-    const top = parseDepthCell(col.top >= 0 ? (l.cells[col.top] ?? '') : '');
-    const base = col.base >= 0 ? parseDepthCell(l.cells[col.base] ?? '') : ({ kind: 'empty' } as Cell);
+    const top = parseDepthCell(col.top >= 0 ? (l.cells[col.top] ?? '') : '', topFactor);
+    const base = col.base >= 0 ? parseDepthCell(l.cells[col.base] ?? '', baseFactor) : ({ kind: 'empty' } as Cell);
     const it: Item = { idx, row: l.row, name, topRaw: null, baseRaw: null, topSnap: NaN, baseSnap: NaN, explicitBase: false, problems: [], bad: false };
     items.push(it);
     if (!name) err(it, `Fila ${l.row}: falta el nombre de la zona.`);
@@ -249,15 +297,16 @@ export function parseZoneTops(grid: CellGrid, ctx: ZoneTopsContext): ZoneTopsRes
     if (top.kind === 'empty') err(it, `Fila ${l.row}: falta el tope de ${label}.`);
     else if (top.kind === 'bad') err(it, `Fila ${l.row}: el tope de ${label} («${top.text}») no es un número.`);
     else {
-      it.topRaw = top.value;
-      if (top.value < d0 - 1e-6 || top.value > d1 + 1e-6) err(it, `Fila ${l.row}: el tope de ${label} (${m(top.value)} m) está fuera del pozo, que va de ${span}.`);
+      it.topRaw = pick(top);
+      if (!inWell(it.topRaw)) err(it, `Fila ${l.row}: el tope de ${label} (${m(it.topRaw)} m) está fuera del pozo, que va de ${span}.${feetHint(it.topRaw, topFactor)}`);
     }
     if (base.kind === 'bad') err(it, `Fila ${l.row}: la base de ${label} («${base.text}») no es un número.`);
     else if (base.kind === 'ok') {
-      it.baseRaw = base.value;
+      const b = pick(base);
+      it.baseRaw = b;
       it.explicitBase = true;
-      if (base.value < d0 - 1e-6 || base.value > d1 + 1e-6) err(it, `Fila ${l.row}: la base de ${label} (${m(base.value)} m) está fuera del pozo, que va de ${span}.`);
-      else if (it.topRaw !== null && base.value <= it.topRaw) err(it, `Fila ${l.row}: la base de ${label} (${m(base.value)} m) no está por debajo de su tope (${m(it.topRaw)} m).`);
+      if (!inWell(b)) err(it, `Fila ${l.row}: la base de ${label} (${m(b)} m) está fuera del pozo, que va de ${span}.${feetHint(b, baseFactor)}`);
+      else if (it.topRaw !== null && b <= it.topRaw) err(it, `Fila ${l.row}: la base de ${label} (${m(b)} m) no está por debajo de su tope (${m(it.topRaw)} m).`);
     }
   });
 
@@ -276,24 +325,25 @@ export function parseZoneTops(grid: CellGrid, ctx: ZoneTopsContext): ZoneTopsRes
   // 3. Resolver bases sobre las filas legibles, ordenadas por tope.
   const ok = items.filter((it) => !it.bad && it.topRaw !== null);
   ok.sort((a, b) => a.topRaw! - b.topRaw! || a.idx - b.idx);
-  const sameTop: Item[] = [];
-  for (let k = 1; k < ok.length; k++) {
-    const a = ok[k - 1]!;
-    const b = ok[k]!;
-    if (Math.abs(a.topRaw! - b.topRaw!) < 1e-6 && !sameTop.includes(a)) {
-      err(b, `Filas ${a.row} y ${b.row}: «${a.name}» y «${b.name}» empiezan en el mismo tope (${m(a.topRaw!)} m).`);
-      sameTop.push(b);
-    }
+  // Varias filas con el mismo tope: la primera queda y cada una de las demás se compara con ella.
+  let anchor: Item | undefined;
+  for (const b of ok) {
+    if (anchor && Math.abs(anchor.topRaw! - b.topRaw!) < 1e-6) {
+      err(b, `Filas ${anchor.row} y ${b.row}: «${anchor.name}» y «${b.name}» empiezan en el mismo tope (${m(anchor.topRaw!)} m).`);
+    } else anchor = b;
   }
   const live = ok.filter((it) => !it.bad);
   const tops = [...live.map((it) => it.topRaw!), ...keep.map((z) => z.top)].sort((a, b) => a - b);
   const placed: Placed[] = keep.map((z) => ({ name: z.name, top: z.top, base: z.base }));
   for (const it of live) {
     const next = tops.find((t) => t > it.topRaw! + 1e-6);
-    const it0 = nearestSample(depth, it.topRaw!);
-    let ib: number;
-    if (it.explicitBase && !(next !== undefined && Math.abs(it.baseRaw! - next) < 1e-6)) ib = nearestSample(depth, it.baseRaw!);
-    else ib = next !== undefined ? nearestSample(depth, next) - 1 : n - 1;
+    const iNext = next !== undefined ? nearestSample(depth, next) : n;
+    let it0 = nearestSample(depth, it.topRaw!);
+    // Tope igual a la base de una zona que se conserva: contacto compartido (empieza en la muestra siguiente).
+    if (it0 < n - 1 && keep.some((z) => Math.abs(z.base - depth[it0]!) < 1e-6)) it0++;
+    // Base explícita en la misma muestra que el tope siguiente: también es un contacto compartido, no un solape.
+    const ibx = it.explicitBase ? nearestSample(depth, it.baseRaw!) : -1;
+    const ib = it.explicitBase && ibx !== iNext ? ibx : iNext - 1;
     it.topSnap = depth[it0]!;
     if (ib <= it0) {
       err(it, `Fila ${it.row}: «${it.name}» queda sin espesor: su tope y su base (o el tope de la zona siguiente) caen en la misma muestra del pozo.`);
@@ -312,7 +362,8 @@ export function parseZoneTops(grid: CellGrid, ctx: ZoneTopsContext): ZoneTopsRes
     if (deepest && p.top <= deepest.base + 1e-9) {
       const target = p.item ?? deepest.item;
       if (target && !target.bad) err(target, `Fila ${target.row}: ${label(p)} se solapa con ${label(deepest)}.`);
-    } else if (deepest && (p.item || deepest.item) && p.top - deepest.base > step * 1.5 + 1e-6) {
+    } else if (deepest && (p.item || deepest.item) && !p.item?.bad && !deepest.item?.bad && p.top - deepest.base > step * 1.5 + 1e-6) {
+      // Junto a una fila con error no se avisa de huecos: al corregirla, el hueco suele cambiar o desaparecer.
       const target = p.item ?? deepest.item!;
       warn(target, `Hay un hueco entre «${deepest.name}» y «${p.name}» (${range(deepest.base, p.top)}): esas muestras quedan sin zona.`);
     }

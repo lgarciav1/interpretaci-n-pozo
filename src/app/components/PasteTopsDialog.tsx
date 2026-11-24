@@ -95,7 +95,7 @@ export function PasteTopsDialog({ wellId, depth, zones, onClose }: { wellId: str
       onClose={onClose}
       size="lg"
       title="Pegar topes"
-      description="Pegá una tabla con el nombre y el tope de cada zona (y, si querés, la base), o cargá un .csv o .xlsx. Decimales con coma o punto."
+      description="Una fila por zona: nombre, tope y, si querés, base. Decimales con coma o punto."
       footer={
         <>
           <span className="ui-text-muted">{result ? `${result.rows.length} ${result.rows.length === 1 ? 'fila' : 'filas'} leídas` : 'Sin datos todavía'}</span>
@@ -108,8 +108,25 @@ export function PasteTopsDialog({ wellId, depth, zones, onClose }: { wellId: str
       }
     >
       <div className="paste-tops">
-        <Field label="Tabla de topes" htmlFor={textId} hint="Desde Excel o Sheets: copiá las celdas y pegalas acá. Separador tabulación, «;» o coma.">
-          <TextArea id={textId} mono rows={6} value={text} onChange={setText} placeholder={EXAMPLE} spellCheck={false} data-testid="paste-tops-text" />
+        <Field label="Tabla de topes" htmlFor={textId} hint="Copiá las celdas en Excel o Sheets y pegalas acá, o cargá un .csv o .xlsx. Ctrl+Enter aplica.">
+          <TextArea
+            id={textId}
+            mono
+            rows={6}
+            value={text}
+            onChange={setText}
+            placeholder={EXAMPLE}
+            spellCheck={false}
+            data-autofocus
+            onKeyDown={(e) => {
+              // Enter es salto de línea en la tabla; Ctrl+Enter (⌘+Enter) aplica.
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                apply();
+              }
+            }}
+            data-testid="paste-tops-text"
+          />
         </Field>
         <div className="paste-tops__bar">
           <input ref={fileRef} type="file" accept=".csv,.tsv,.txt,.xlsx,.xlsm" hidden data-testid="paste-tops-file" onChange={(e) => { const f = e.currentTarget.files?.[0]; e.currentTarget.value = ''; if (f) void openFile(f); }} />
@@ -147,8 +164,8 @@ export function PasteTopsDialog({ wellId, depth, zones, onClose }: { wellId: str
                     ? 'Las zonas con el mismo nombre conservan sus parámetros; el resto de las actuales se descarta.'
                     : 'Se agregan sin tocar las zonas actuales.'}
             </Callout>
-            <DataTable dense caption="Vista previa de las zonas" data-testid="paste-tops-preview" rows={result.rows} rowKey={(r) => String(r.row)} columns={columns} maxHeight={260} rowProps={(r) => ({ 'data-state': r.problems.some((p) => p.severity === 'error') ? 'error' : r.problems.length ? 'warning' : 'ok' })} />
-            <p className="paste-tops__note">* Base calculada: llega hasta la muestra anterior al tope de la zona siguiente (la última, hasta el fondo del pozo). Tope y base se ajustan a la muestra más cercana.</p>
+            <DataTable dense caption="Vista previa de las zonas" data-testid="paste-tops-preview" rows={result.rows} rowKey={(r) => String(r.row)} columns={columns} rowProps={(r) => ({ 'data-state': r.problems.some((p) => p.severity === 'error') ? 'error' : r.problems.length ? 'warning' : 'ok' })} />
+            <p className="paste-tops__note">* Base calculada: hasta la muestra anterior a la zona siguiente o al fondo del pozo. Todo se ajusta a la muestra más cercana.</p>
           </>
         )}
       </div>

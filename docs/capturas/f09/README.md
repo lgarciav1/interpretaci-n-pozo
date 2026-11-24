@@ -4,4 +4,4 @@ Panel izquierdo, sección **Zonas**, botón **Pegar topes**: pegar (o cargar .cs
 ver la vista previa con los problemas por fila y crear las zonas (reemplazar o agregar). Un solo Ctrl+Z las deshace.
 
 [Claro](pegar-topes-claro.png) · [Oscuro](pegar-topes-oscuro.png), 1366 × 768. La tabla de la captura trae un solape
-(error, bloquea) y un hueco (aviso). Guion: `scripts/qa/pegar-topes.cjs` (con `npm run dev` levantado).
+(error, bloquea; junto a esa fila no se avisan huecos) y un hueco entre C y D (aviso). Guion: `scripts/qa/pegar-topes.cjs` (con `npm run dev` levantado).

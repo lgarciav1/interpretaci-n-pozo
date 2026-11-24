@@ -155,3 +155,72 @@ describe('validaciones', () => {
     expect(r.rows[1]!.problems).toHaveLength(1);
   });
 });
+
+describe('revisión F09: separadores, miles, pies y contactos', () => {
+  it('lo pegado desde Excel es tabulado aunque los nombres y los decimales traigan comas', () => {
+    const r = parse('A, sup\t1000,5\nB\t1011,5\t1020,5\nC\t1030,5\t1040,5');
+    expect(r.errors).toBe(0);
+    expect(r.drafts.map((d) => [d.name, d.top, d.base])).toEqual([['A, sup', 1000.5, 1011], ['B', 1011.5, 1020.5], ['C', 1030.5, 1040.5]]);
+  });
+
+  it('CSV con «;» y decimal coma en filas irregulares: manda el «;»', () => {
+    const r = parse('Zona;Tope;Base\nA;1000,5\nB;1011,5;1020,5\nC;1030,5;1040,5');
+    expect(r.errors).toBe(0);
+    expect(r.drafts.map((d) => d.top)).toEqual([1000.5, 1011.5, 1030.5]);
+  });
+
+  it('CSV con coma y decimal coma sin comillas: no adivina, pide otro separador', () => {
+    expect(errorsOf('Zona,Tope,Base\nA,1000,5,1010,5\nB,1011,1020')[0]).toMatch(/^La fila 2 tiene más números que columnas de tope y base: si los decimales van con coma, separá las columnas con «;»/);
+    expect(parse('Zona,Tope,Base\nA,"1000,5","1010,5"').errors).toBe(0);
+  });
+
+  it('separador de miles sin decimales («1.010»): se queda con la lectura que cae dentro del pozo', () => {
+    expect(parseDepthCell('1.010')).toEqual({ kind: 'ok', value: 1.01, alt: 1010 });
+    const r = parse('Zona\tTope\tBase\nA\t1.000\t1.010\nB\t1,020\t1030');
+    expect(r.errors).toBe(0);
+    expect(r.drafts.map((d) => [d.top, d.base])).toEqual([[1000, 1010], [1020, 1030]]);
+  });
+
+  it('profundidades en pies: por encabezado o por celda; sin unidad, el error lo sugiere', () => {
+    expect(parseDepthCell('3300 ft')).toMatchObject({ kind: 'ok', value: 3300 * 0.3048 });
+    expect(parseDepthCell("3300'")).toMatchObject({ kind: 'ok', value: 3300 * 0.3048 });
+    expect(parseDepthCell('1010 metros')).toEqual({ kind: 'ok', value: 1010 });
+    const r = parse('Zona\tTope (ft)\nA\t3281\nB\t3300 ft\nC\t1040 m');
+    expect(r.errors).toBe(0);
+    expect(r.drafts.map((d) => d.top)).toEqual([1000, 1006, 1040]);
+    expect(errorsOf('Zona\tTope\nA\t3300')[0]).toContain('Si está en pies, indicalo en el encabezado');
+  });
+
+  it('base y tope siguiente en la misma muestra (aunque no sean iguales): contacto, no solape', () => {
+    const r = parse('Zona\tTope\tBase\nA\t1000\t1010,1\nB\t1010\t1050');
+    expect(r.problems).toEqual([]);
+    expect(r.drafts.map((d) => [d.top, d.base])).toEqual([[1000, 1009.5], [1010, 1050]]);
+  });
+
+  it('agregar: un tope igual a la base de una zona existente es contacto compartido', () => {
+    const r = parse('Zona\tTope\tBase\nN\t1020\t1030', [zone('a', 1000, 1020)]);
+    expect(r.errors).toBe(0);
+    expect(r.drafts[0]).toMatchObject({ top: 1020.5, base: 1030 });
+  });
+
+  it('tres zonas con el mismo tope: las dos repetidas se nombran contra la primera', () => {
+    expect(errorsOf('Zona\tTope\nA\t1010\nB\t1010\nC\t1010')).toEqual([
+      'Filas 2 y 3: «A» y «B» empiezan en el mismo tope (1010 m).',
+      'Filas 2 y 4: «A» y «C» empiezan en el mismo tope (1010 m).',
+    ]);
+  });
+
+  it('una fila con solape no hace avisar un hueco a la vecina', () => {
+    const r = parse('Zona\tTope\tBase\nA\t1000\t1020\nB\t1015\t1030\nC\t1031\t1050');
+    expect(r.errors).toBe(1);
+    expect(r.warnings).toBe(0);
+  });
+});
+
+describe('revisión F09: columnas extra', () => {
+  it('CSV con coma y una columna numérica extra con encabezado (espesor): no es ambigüedad de decimales', () => {
+    const r = parse('Zona,Tope,Base,Espesor\nA,1000,1010,10\nB,1011,1020,9');
+    expect(r.errors).toBe(0);
+    expect(r.drafts).toHaveLength(2);
+  });
+});

@@ -12,7 +12,7 @@ const TABLA = [
   'Formación\tTope (m)\tBase (m)',
   'A\t7633,3\t7800',
   'B\t7790\t7900',
-  'C\t7900,5\t',
+  'C\t7900,5\t8100',
   'D\t8150\t',
   'E\t8300\t',
 ].join('\n');
@@ -45,6 +45,18 @@ async function main() {
     await page.getByTestId('paste-tops-text').fill(TABLA);
     await page.getByTestId('paste-tops-preview').waitFor();
     assert.equal(await page.getByTestId('paste-tops-apply').isDisabled(), true, 'el solape bloquea');
+    assert.equal(await page.getByTestId('paste-tops-text').evaluate((el) => el === document.activeElement), true, 'el foco empieza en el cuadro de pegado');
+    // A 1366×768 la vista previa se achica y scrollea sola: el cuerpo del diálogo no scrollea ni corta la última fila.
+    const fit = await page.evaluate(() => {
+      const body = document.querySelector('.ui-dialog__body');
+      const wrap = document.querySelector('[data-testid=paste-tops-preview]')?.closest('.ui-table-wrap') ?? document.querySelector('.paste-tops .ui-table-wrap');
+      wrap.scrollTop = wrap.scrollHeight;
+      const last = wrap.querySelector('tbody tr:last-child').getBoundingClientRect();
+      const box = wrap.getBoundingClientRect();
+      return { bodyScrolls: body.scrollHeight > body.clientHeight + 1, lastVisible: last.bottom <= box.bottom + 1 && last.top >= box.top };
+    });
+    assert.deepEqual(fit, { bodyScrolls: false, lastVisible: true }, 'la última fila de la vista previa se ve entera');
+    await page.evaluate(() => { document.querySelector('.paste-tops .ui-table-wrap').scrollTop = 0; });
     for (const theme of ['claro', 'oscuro']) {
       await command(`Usar el tema ${theme}`);
       await page.screenshot({ path: join(output, `pegar-topes-${theme}.png`) });
@@ -58,7 +70,7 @@ async function main() {
     await page.keyboard.press('Control+z');
     assert.deepEqual(await zoneNames(), before, 'un solo Ctrl+Z vuelve a las zonas previas');
     assert.deepEqual(errors, []);
-    console.log('OK · bloqueo por solape · aplicar · un solo deshacer');
+    console.log('OK · bloqueo por solape · vista previa entera a 1366×768 · aplicar · un solo deshacer');
   } finally {
     await browser.close();
   }
