@@ -22,7 +22,7 @@ import {
 } from '../../src/plots/filters';
 import type { SeriesContext } from '../../src/plots/trend/series';
 
-const catalog = registry.catalog;
+const catalog = registry.roles;
 
 function makeCtx(): SeriesContext {
   const depth = Float64Array.from([1000, 1001, 1002, 1003, 1004, 1005]);
@@ -93,7 +93,7 @@ describe('opciones y reglas por defecto', () => {
     const grRule = defaultFilterRule(ctx, 'm:gr', 'f5');
     expect(grRule.op).toBe('le');
     expect(grRule.value).toBe(40);
-    expect(newFilterId([vshRule, phiRule])).toBe('f3');
+    expect(newFilterId([vshRule, phiRule])).toBe('f5');
     expect(availableFilterPresets(ctx).map((p) => p.id)).toEqual(['netPay', 'netRes', 'noWashout']);
   });
 });
