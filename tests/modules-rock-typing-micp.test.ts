@@ -7,9 +7,9 @@ import { describe, expect, it } from 'vitest';
 import { emptyHistory, recordChange, undo } from '../src/core/state/history';
 import { addWell, createProject, getWellEntry } from '../src/core/state/project';
 import { createWell } from '../src/core/well';
-import { capillaryCurves, examplePcCurves, measuredR35Rows } from '../src/modules/rock-typing/model';
+import { capillaryCurves, examplePcCurves, labThroatGroups, labThroatSeries, measuredR35Rows, pcInUnit, TP_LAB_DIAMETER_PC_UM_KGCM2 } from '../src/modules/rock-typing/model';
 import { addTpMicp, hasTpMicp, isTpMicpSet, TP_MICP_SAMPLES_COUNT, tpMicpSet } from '../src/modules/rock-typing/tp';
-import { PORT_CLASSES } from '../src/petro/rockTyping';
+import { PORT_CLASSES, washburnRadius } from '../src/petro/rockTyping';
 
 const W = 'w';
 const project = () => addWell(createProject(), createWell({ id: W, name: 'Pozo TP', depth: Float64Array.from({ length: 10 }, (_, i) => 7800 + i), curves: [], pointSets: [] }), []);
@@ -59,5 +59,71 @@ describe('R35 medido contra Winland por muestra', () => {
     expect(name(by['1-32']!.classWinland)).toBe('macro');
     expect(name(by['2-6L']!.classMeasured)).toBe('meso');
     for (const r of rows) expect(r.classMeasured).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('unidad de presión del gráfico Pc–Sw', () => {
+  it('kg/cm² = psi / 14,2233; psi sin cambios', () => {
+    const pc = Float64Array.of(14.22334330746688, 142.2334330746688);
+    expect([...pcInUnit(pc, 'kgcm2')].map((v) => +v.toFixed(9))).toEqual([1, 10]);
+    expect([...pcInUnit(pc, 'psi')]).toEqual([...pc]);
+  });
+});
+
+describe('vista del laboratorio de la distribución de gargantas (caché de los gráficos del Excel)', () => {
+  const curves = capillaryCurves([tpMicpSet('m')]).curves;
+  const lab = (name: string) => labThroatSeries(curves.find((c) => c.label === name)!, TP_LAB_DIAMETER_PC_UM_KGCM2);
+  const s132 = lab('1-32');
+
+  it('diámetro del laboratorio = 15,507 / Pc (kg/cm²): 0,0436 → 355,74 µm y 3,889 → 3,99 µm; acumulada = Sw en %', () => {
+    expect(s132.diameter.length).toBe(37);
+    expect(s132.diameter[0]).toBeCloseTo(355.74, 1);
+    expect(s132.diameter[16]).toBeCloseTo(3.99, 2);
+    expect(s132.cumulative[0]).toBe(100);
+    expect(s132.cumulative[36]).toBeCloseTo(1.78, 9);
+    for (let i = 1; i < s132.diameter.length; i++) expect(s132.diameter[i]!).toBeLessThan(s132.diameter[i - 1]!);
+  });
+
+  it('incremental = promedio centrado de las caídas de Sw (valores del laboratorio, ±0,01 %)', () => {
+    const want: Record<string, [number, number[]]> = {
+      '1-2': [15, [10.0, 21.35, 15.38, 7.05, 4.32, 2.98, 2.82]],
+      '1-32': [12, [3.96, 25.0, 25.94, 7.69]],
+      '2-6L': [17, [10.46, 21.47, 14.49]],
+    };
+    for (const [name, [from, k]] of Object.entries(want)) {
+      const s = lab(name);
+      k.forEach((v, j) => expect(s.incremental[from + j]!).toBeCloseTo(v, 2));
+    }
+    // suma = la caída total (cada caída se reparte entre dos escalones)
+    expect(s132.incremental.reduce((a, b) => a + b, 0)).toBeCloseTo(100 - 1.78, 9);
+    expect(s132.incremental[0]).toBe(0);
+  });
+
+  it('picos de las incrementales en el diámetro del laboratorio', () => {
+    const peak: Record<string, number> = { '1-2': 3.99, '1-2L': 3.99, '1-32': 7.35, '1-33CK': 5.41, '1-33': 8.81, '2-15': 5.41, '2-17': 3.99, '2-6L': 2.21 };
+    for (const c of curves) {
+      const s = lab(c.label);
+      const k = s.incremental.indexOf(Math.max(...s.incremental));
+      expect(s.diameter[k]!).toBeCloseTo(peak[c.label]!, 2);
+    }
+  });
+
+  it('sin constante del laboratorio: diámetro = 2 × radio de Washburn de la app', () => {
+    const c = curves.find((x) => x.label === '1-32')!;
+    expect(labThroatSeries(c).diameter[0]).toBeCloseTo(2 * washburnRadius(c.pc[0]!), 9);
+  });
+
+  it('curvas del TP: un gráfico por reservorio (prefijo 1- y 2-) con la constante del laboratorio; otro conjunto: un único grupo con Washburn', () => {
+    const g = labThroatGroups(curves, true);
+    expect(g.map((x) => x.title)).toEqual(['Reservorio 1', 'Reservorio 2']);
+    expect(g[0]!.series.map((x) => x.label)).toEqual(['1-2', '1-2L', '1-32', '1-33', '1-33CK']);
+    expect(g[1]!.series.map((x) => x.label)).toEqual(['2-6L', '2-15', '2-17']);
+    expect(g[0]!.series[2]!.diameter[0]).toBeCloseTo(355.74, 1);
+    const one = labThroatGroups(curves, false);
+    expect(one).toHaveLength(1);
+    expect(one[0]!.series).toHaveLength(8);
+    expect(one[0]!.series.find((x) => x.label === '1-32')!.diameter[0]).toBeCloseTo(2 * washburnRadius(curves.find((x) => x.label === '1-32')!.pc[0]!), 9);
+    expect(labThroatGroups([], false)).toEqual([]);
+    expect(labThroatGroups(examplePcCurves(), false)[0]!.series).toHaveLength(5);
   });
 });

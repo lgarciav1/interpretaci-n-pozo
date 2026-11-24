@@ -27,8 +27,10 @@ import {
   flowZoneIndex,
   HG_AIR_SIGMA,
   HG_AIR_THETA_DEG,
+  KGF_CM2_TO_PSI,
   leverettJ,
   measuredR35,
+  washburnRadius,
   normalizedPorosity,
   permForThroatRadius,
   PITTMAN_COEFFICIENTS,
@@ -437,4 +439,89 @@ export function measuredR35Rows(curves: readonly PcCurve[]): R35Row[] {
       const diffPct = measured > 0 && winland > 0 ? 100 * (winland / measured - 1) : NaN;
       return { id: c.id, label: c.label, k: c.k, phi: c.phi, measured, winland, diffPct, classMeasured: portClassIndex(measured), classWinland: portClassIndex(winland) };
     });
+}
+
+// ── unidad de presión y vista del laboratorio de la distribución de gargantas ─────────────────────────────────
+
+export type PcUnit = 'kgcm2' | 'psi';
+export const PC_UNITS: readonly { id: PcUnit; label: string }[] = [
+  { id: 'kgcm2', label: 'kg/cm²' },
+  { id: 'psi', label: 'psi' },
+];
+/** Presiones de una curva (psi) en la unidad pedida. */
+export const pcInUnit = (pcPsi: ArrayLike<number>, unit: PcUnit): Float64Array =>
+  Float64Array.from(pcPsi as ArrayLike<number>, (p) => (unit === 'psi' ? p : p / KGF_CM2_TO_PSI));
+
+/**
+ * Constante del informe del laboratorio del TP: diámetro de garganta (µm) × Pc (kg/cm²) = 15,507, la misma en los 37
+ * escalones de los gráficos «Distribution of pore throat diameter» de la hoja SCAL. Equivale a Washburn con
+ * σ·|cos θ| ≈ 380,2 dyn/cm (la app usa 480 · |cos 140°| = 367,7, un 3 % menos). Solo para la vista del laboratorio de
+ * las curvas del TP; el resto de la app usa la constante estándar.
+ */
+export const TP_LAB_DIAMETER_PC_UM_KGCM2 = 15.507;
+
+/** Series de una muestra en la vista del laboratorio («Distribution of pore throat diameter»). */
+export interface LabThroatSeries {
+  id: string;
+  label: string;
+  /** Diámetro de garganta de cada escalón (µm). */
+  diameter: Float64Array;
+  /** Acumulada: saturación mojante (% del volumen poral) en cada escalón; 100 en los diámetros grandes. */
+  cumulative: Float64Array;
+  /**
+   * Incremental del laboratorio (% del volumen poral): promedio centrado de las caídas de Sw, (ΔSwᵢ + ΔSwᵢ₊₁)/2 con
+   * ΔSwᵢ = Swᵢ₋₁ − Swᵢ, ΔSw₀ = 0 y 0 después del último escalón.
+   */
+  incremental: Float64Array;
+}
+
+/**
+ * Acumulada e incremental de una curva, escalón por escalón (Pc creciente; se omiten escalones sin Pc > 0 o sin Sw).
+ * Diámetro: con `diameterPcKgCm2` (µm·kg/cm²), d = constante / Pc; sin ella, 2 × radio de Washburn con σ y θ de la curva.
+ */
+export function labThroatSeries(c: PcCurve, diameterPcKgCm2?: number): LabThroatSeries {
+  const d: number[] = [];
+  const sw: number[] = [];
+  for (let i = 0; i < c.pc.length; i++) {
+    const p = c.pc[i]!;
+    const dia = diameterPcKgCm2 ? (diameterPcKgCm2 * KGF_CM2_TO_PSI) / p : 2 * washburnRadius(p, c.sigma, c.thetaDeg);
+    if (!(p > 0) || !(dia > 0) || !Number.isFinite(dia) || !Number.isFinite(c.sw[i]!)) continue;
+    d.push(dia);
+    sw.push(100 * c.sw[i]!);
+  }
+  const n = sw.length;
+  const drop = (i: number) => (i <= 0 || i >= n ? 0 : sw[i - 1]! - sw[i]!);
+  return {
+    id: c.id,
+    label: c.label,
+    diameter: Float64Array.from(d),
+    cumulative: Float64Array.from(sw),
+    incremental: Float64Array.from({ length: n }, (_, i) => (drop(i) + drop(i + 1)) / 2),
+  };
+}
+
+export interface LabThroatGroup {
+  id: string;
+  title: string;
+  series: LabThroatSeries[];
+}
+
+/**
+ * Curvas del TP (`tp`): un gráfico por reservorio (corona) según el prefijo de la muestra («1-…» → reservorio 1, «2-…» →
+ * reservorio 2) y diámetro con la constante del laboratorio (`TP_LAB_DIAMETER_PC_UM_KGCM2`), como los gráficos del
+ * Excel. Cualquier otro conjunto: un único grupo, diámetro con Washburn y la constante de la app.
+ */
+export function labThroatGroups(curves: readonly PcCurve[], tp: boolean): LabThroatGroup[] {
+  const series = curves.map((c) => labThroatSeries(c, tp ? TP_LAB_DIAMETER_PC_UM_KGCM2 : undefined));
+  const byReservoir = tp;
+  if (!byReservoir) return series.length ? [{ id: 'all', title: 'Todas las muestras', series }] : [];
+  const groups = new Map<string, LabThroatSeries[]>();
+  for (const s of series) {
+    const m = /^(\d+)-/.exec(s.label);
+    const key = m ? m[1]! : '?';
+    groups.set(key, [...(groups.get(key) ?? []), s]);
+  }
+  return [...groups]
+    .sort(([a], [b]) => (a === '?' ? 1 : b === '?' ? -1 : Number(a) - Number(b)))
+    .map(([k, list]) => ({ id: `res-${k}`, title: k === '?' ? 'Otras muestras' : `Reservorio ${k}`, series: [...list].sort((a, b) => a.label.localeCompare(b.label, 'es', { numeric: true })) }));
 }

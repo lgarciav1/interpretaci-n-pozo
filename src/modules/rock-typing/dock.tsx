@@ -26,6 +26,7 @@ import { XYPlot } from '../../plots/xy/XYPlot';
 import type { SeriesContext } from '../../plots/trend/series';
 import { Badge, Button, Callout, DataTable, EmptyState, NumberField, SegmentedControl, Select, TabPanel, Tabs, formatNumber, toast, useThemeTokens, type Column } from '../../ui';
 import { ensureContrast } from '../../ui/color';
+import { CATEGORICAL } from '../../ui/curves';
 import type { DockPanelDef } from '../../ui/dockPanel';
 import { usePlotContext } from '../../app/plots/connect';
 import { selectActiveEntry, useProject } from '../../app/store/project';
@@ -46,6 +47,11 @@ import {
   curveThroats,
   encodeBounds,
   measuredR35Rows,
+  labThroatGroups,
+  pcInUnit,
+  PC_UNITS,
+  type LabThroatGroup,
+  type PcUnit,
   flowUnitRows,
   flowUnitsApplied,
   ISO_RADII,
@@ -93,6 +99,32 @@ const readTab = (): TabId => {
     return 'fzi';
   }
 };
+
+/** Preferencia de vista guardada en este navegador (como la pestaña); sin almacenamiento, el valor de fábrica. */
+function readPref<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
+  try {
+    const v = localStorage.getItem(key);
+    return allowed.includes(v as T) ? (v as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+function usePref<T extends string>(key: string, allowed: readonly T[], fallback: T): [T, (v: T) => void] {
+  const [v, setV] = useState<T>(() => readPref(key, allowed, fallback));
+  const set = (next: T) => {
+    setV(next);
+    try {
+      localStorage.setItem(key, next);
+    } catch {
+      /* sin almacenamiento: no se recuerda */
+    }
+  };
+  return [v, set];
+}
+
+type ThroatView = 'density' | 'lab';
+const THROAT_VIEWS: readonly ThroatView[] = ['density', 'lab'];
+const PC_UNIT_IDS: readonly PcUnit[] = PC_UNITS.map((u) => u.id);
 
 /** Pide al panel (siempre montado) que muestre una pestaña; la recuerda para el próximo montaje. */
 const tabListeners = new Set<(t: TabId) => void>();
@@ -675,6 +707,9 @@ function CapillaryTab({ set, well, interp }: { set: PointSet; well: Well; interp
   const { curves, book } = useMemo(() => capillaryCurves(well.pointSets), [well.pointSets]);
   const tp = !book && well.pointSets.some(isTpMicpSet);
   const r35 = useMemo(() => measuredR35Rows(curves), [curves]);
+  const [unit, setUnit] = usePref<PcUnit>('rtyp.pcUnit', PC_UNIT_IDS, 'kgcm2');
+  const [view, setView] = usePref<ThroatView>('rtyp.throatView', THROAT_VIEWS, 'density');
+  const labGroups = useMemo(() => (view === 'lab' ? labThroatGroups(curves, tp) : []), [view, curves, tp]);
   const styled = useMemo(() => {
     const seen = new Map<number, number>();
     return curves.map((c) => {
@@ -686,12 +721,21 @@ function CapillaryTab({ set, well, interp }: { set: PointSet; well: Well; interp
     });
   }, [curves, bounds, nc, theme]);
 
-  const pcLines: XYLineLayer[] = styled.map(({ c, color, dash }) => ({ id: c.id, name: c.label, x: c.sw, y: c.pc, color, width: 1.75, ...(dash ? { dash } : {}) }));
+  const pcValues = useMemo(() => curves.map((c) => pcInUnit(c.pc, unit)), [curves, unit]);
+  const pcLines: XYLineLayer[] = styled.map(({ c, color, dash }, i) => ({ id: c.id, name: c.label, x: c.sw, y: pcValues[i]!, color, width: 1.75, ...(dash ? { dash } : {}) }));
   const jLines: XYLineLayer[] = styled.map(({ c, color, dash }) => ({ id: c.id, name: c.label, x: c.sw, y: leverettCurve(c), color, width: 1.75, ...(dash ? { dash } : {}) }));
   const dist = styled.map(({ c, color, dash }) => ({ c, color, dash, d: curveThroats(c) }));
   const dLines: XYLineLayer[] = dist.map(({ c, color, dash, d }) => ({ id: c.id, name: c.label, x: d.radius, y: d.dSdLogR, color, width: 1.75, ...(dash ? { dash } : {}) }));
 
-  const pcR = niceRange(curves.map((c) => c.pc), 'log');
+  const pcR = niceRange(pcValues, 'log');
+  const psi = unit === 'psi';
+  const pcAxis: XYAxis = {
+    kind: 'log',
+    min: Math.max(psi ? 0.1 : 0.01, Math.min(psi ? 1 : 0.1, pcR?.min ?? 1)),
+    max: Math.min(psi ? 10000 : 1000, Math.max(psi ? 1000 : 100, pcR?.max ?? 1000)),
+    label: 'Pc',
+    unit: psi ? 'psi' : 'kg/cm²',
+  };
   const jR = niceRange(jLines.map((l) => l.y), 'log');
   const dMax = Math.max(0.5, ...dist.flatMap(({ d }) => Array.from(d.dSdLogR).filter(Number.isFinite)));
   const sw: XYAxis = { kind: 'linear', min: 0, max: 1, label: 'Sw', unit: 'v/v' };
@@ -728,20 +772,42 @@ function CapillaryTab({ set, well, interp }: { set: PointSet; well: Well; interp
           </span>
         </div>
       )}
-      <div className="rtyp-pc__plots">
+      <div className="rtyp-controls">
+        <label className="rtyp-field">
+          <span>Presión en</span>
+          <SegmentedControl<PcUnit> size="sm" aria-label="Unidad de la presión capilar" value={unit} options={PC_UNITS.map((u) => ({ value: u.id, label: u.label }))} onChange={setUnit} />
+        </label>
+        <label className="rtyp-field">
+          <span>Gargantas</span>
+          <SegmentedControl<ThroatView>
+            size="sm"
+            aria-label="Vista de la distribución de gargantas"
+            value={view}
+            options={[
+              { value: 'density', label: 'Densidad por radio', title: 'Volumen poral por década de radio de garganta, con los límites de las clases de garganta' },
+              { value: 'lab', label: 'Vista del laboratorio', title: 'Como los gráficos del informe: diámetro de garganta hacia abajo, acumulada e incremental en % del volumen poral' },
+            ]}
+            onChange={setView}
+          />
+        </label>
+      </div>
+      <div className={`rtyp-pc__plots${view === 'lab' ? ' is-lab' : ''}`}>
         <figure className="rtyp-pc__fig">
           <figcaption>Presión capilar (mercurio–aire)</figcaption>
-          <XYPlot height={210} className="rtyp-plot" figureId="rock-typing-pc" figureTitle={`Presión capilar mercurio–aire${what}`} ariaLabel={`Presión capilar contra saturación de agua de ${curvesText}`} x={sw} y={{ kind: 'log', min: Math.min(1, pcR?.min ?? 1), max: Math.min(10000, Math.max(1000, pcR?.max ?? 1000)), label: 'Pc', unit: 'psi' }} lines={pcLines} />
+          <XYPlot height={210} className="rtyp-plot" figureId="rock-typing-pc" figureTitle={`Presión capilar mercurio–aire${what}`} ariaLabel={`Presión capilar en ${pcAxis.unit} contra saturación de agua de ${curvesText}`} x={sw} y={pcAxis} lines={pcLines} />
         </figure>
         <figure className="rtyp-pc__fig">
           <figcaption>Función J de Leverett</figcaption>
           <XYPlot height={210} className="rtyp-plot" figureId="rock-typing-j" figureTitle={`Función J de Leverett${what}`} ariaLabel={`Función J de Leverett contra saturación de agua de ${curvesText}: las curvas de las distintas rocas se acercan al normalizar por la raíz de k sobre φ`} x={sw} y={{ kind: 'log', min: Math.min(0.1, jR?.min ?? 0.1), max: Math.max(10, jR?.max ?? 10), label: 'J' }} lines={jLines} />
         </figure>
-        <figure className="rtyp-pc__fig">
-          <figcaption>Distribución de gargantas (Washburn)</figcaption>
-          <XYPlot height={210} className="rtyp-plot" figureId="rock-typing-throats" figureTitle={`Distribución de tamaño de gargantas${what}`} ariaLabel={`Distribución del volumen poral por radio de garganta de ${curvesText}, con los límites de las clases ${portLabel}`} x={{ kind: 'log', min: 0.01, max: 100, label: 'Radio de garganta', unit: 'µm' }} y={{ kind: 'linear', min: 0, max: Math.ceil(dMax * 1.1 * 10) / 10, label: 'ΔSHg / Δlog r' }} lines={dLines} guides={portGuides} />
-        </figure>
+        {view === 'density' && (
+          <figure className="rtyp-pc__fig">
+            <figcaption>Distribución de gargantas (Washburn)</figcaption>
+            <XYPlot height={210} className="rtyp-plot" figureId="rock-typing-throats" figureTitle={`Distribución de tamaño de gargantas${what}`} ariaLabel={`Distribución del volumen poral por radio de garganta de ${curvesText}, con los límites de las clases ${portLabel}`} x={{ kind: 'log', min: 0.01, max: 100, label: 'Radio de garganta', unit: 'µm' }} y={{ kind: 'linear', min: 0, max: Math.ceil(dMax * 1.1 * 10) / 10, label: 'ΔSHg / Δlog r' }} lines={dLines} guides={portGuides} />
+          </figure>
+        )}
       </div>
+      {view === 'lab' && <LabThroats groups={labGroups} what={what} />}
       <div className="rtyp-pc__legend">
         {styled.map(({ c, uf, color, dash }) => (
           <span key={c.id} className="rtyp-legend__item" title={`k ${sig(c.k)} mD · φ ${f2(c.phi)}`}>
@@ -752,8 +818,62 @@ function CapillaryTab({ set, well, interp }: { set: PointSet; well: Well; interp
           </span>
         ))}
       </div>
-      <p className="rtyp-source">{book ? EXAMPLE_PC_SOURCE : `${tp ? `${TP_MICP_SOURCE}. ` : ''}Mercurio–aire (σ = 480 dyn/cm, θ = 140°).`}</p>
+      <p className="rtyp-source">
+        {book ? EXAMPLE_PC_SOURCE : `${tp ? `${TP_MICP_SOURCE}. ` : ''}Mercurio–aire (σ = 480 dyn/cm, θ = 140°).`}
+        {view === 'lab' &&
+          (tp
+            ? ' Densidad por radio y R35 usan esa constante. La vista del laboratorio usa la del informe del TP (diámetro × Pc = 15,507 µm·kg/cm², σ·|cos θ| ≈ 380 dyn/cm: diámetros un 3 % mayores) y su incremental, el promedio de las caídas de saturación de dos escalones vecinos.'
+            : ' Vista del laboratorio: diámetro = 2 × radio de Washburn con esa constante; incremental = promedio de las caídas de saturación de dos escalones vecinos.')}
+      </p>
       {r35.length > 0 && <R35Table rows={r35} />}
+    </div>
+  );
+}
+
+/** Vista del laboratorio: un gráfico por reservorio, diámetro hacia abajo, acumulada (llena) e incremental (trazos). */
+function LabThroats({ groups, what }: { groups: LabThroatGroup[]; what: string }) {
+  const theme = useThemeTokens();
+  const palette = CATEGORICAL[theme.name];
+  const x: XYAxis = { kind: 'linear', min: 0, max: 100, label: 'Volumen poral', unit: '%' };
+  const y: XYAxis = { kind: 'log', min: 0.01, max: 100, label: 'Diámetro de garganta', unit: 'µm', reversed: true };
+  return (
+    <div className="rtyp-pc__lab" data-testid="rtyp-lab-throats">
+      {groups.map((g) => {
+        const color = (i: number) => ensureContrast(palette[i % palette.length]!, theme.viewer.trackBg, 2.6);
+        const lines: XYLineLayer[] = g.series.flatMap((s, i) => [
+          { id: `${s.id}:cum`, name: `${s.label} · acumulada`, x: s.cumulative, y: s.diameter, color: color(i), width: 1.75 },
+          { id: `${s.id}:inc`, name: `${s.label} · incremental`, x: s.incremental, y: s.diameter, color: color(i), width: 1.5, dash: [4, 3] },
+        ]);
+        return (
+          <figure key={g.id} className="rtyp-pc__fig">
+            <figcaption>Distribución del diámetro de garganta · {g.title}</figcaption>
+            <XYPlot
+              height={300}
+              className="rtyp-plot"
+              figureId={`rock-typing-lab-${g.id}`}
+              figureTitle={`Distribución del diámetro de garganta — ${g.title}${what}`}
+              ariaLabel={`Diámetro de garganta hacia abajo contra porcentaje del volumen poral de ${g.series.length} muestras de ${g.title}: acumulada en línea llena e incremental en trazos`}
+              x={x}
+              y={y}
+              lines={lines}
+            />
+            <div className="rtyp-pc__legend">
+              {g.series.map((s, i) => (
+                <span key={s.id} className="rtyp-legend__item">
+                  <span className="rtyp-legend__mark" style={{ ['--mark' as string]: color(i) }} aria-hidden="true" />
+                  <span className="num">{s.label}</span>
+                </span>
+              ))}
+              <span className="rtyp-legend__item rtyp-legend__key">
+                <span className="rtyp-legend__mark" style={{ ['--mark' as string]: theme.color.textMuted }} aria-hidden="true" />
+                acumulada
+                <span className="rtyp-legend__mark is-dash" style={{ ['--mark' as string]: theme.color.textMuted }} aria-hidden="true" />
+                incremental
+              </span>
+            </div>
+          </figure>
+        );
+      })}
     </div>
   );
 }
