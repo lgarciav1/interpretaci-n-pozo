@@ -30,6 +30,7 @@ Lo monta `src/app/shell/ViewerSlot.tsx`, que conecta los stores; el componente n
 | `layoutEdit.tsx`, `layoutEdit.css` | modo «Armar pistas»: destinos del arrastre (`data-drop-*`, `dropTargetAt`), borde de ancho | sí |
 | `animation.ts` | animación de carga (duración, curva de los tokens) | no |
 | `curtain.ts` | cortina antes/después: alinea las pistas «antes» con las actuales (misma escala y estilo por curva) | no |
+| `loupe.ts`, `loupeView.ts` | lupa (F17, ADR 0085): geometría pura (tamaño, viewport 1:N, pistas de la ventana, posición, marca) y su dibujo con el mismo `ViewerRenderer` | no |
 | `minimap.ts`, `wellHeader.ts` | geometría del minimapa y campos del encabezado de pozo | no |
 | `render.ts` | dibujo en canvas 2D (base y cursor; pilas; frente de la animación) | no |
 | `figure.ts`, `figureInput.ts` | figura de publicación del perfil (marco, encabezados de pista, zonas, sumario, créditos) y armado del pedido | no |

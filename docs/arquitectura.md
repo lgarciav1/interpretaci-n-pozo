@@ -476,6 +476,13 @@ Decisión y catálogo completo: [`docs/decisiones/0007-modulos-fase-6a.md`](deci
 - Al abrir un proyecto, `display` se valida: lo inválido se descarta con un aviso.
 - El cursor publica su profundidad en `useViewer.cursorDepth`; clic en la franja de zonas fija
   `useUi.editingZoneId`.
+- **Lupa** (F17, [ADR 0085](decisiones/0085-lupa-del-visor.md)): la tecla L (paleta y hoja de atajos, grupo «Visor»)
+  abre un recuadro que sigue al cursor con su tramo a 1:200 reales (96 ppp; la rueda va de 1:50 a 1:1.000) y Esc lo
+  cierra. Es otro viewport sobre el mismo `ViewerRenderer` (`src/viewer/loupeView.ts`: `drawBase` + `drawCursor` en un
+  canvas propio), así que hereda escalas, rellenos y todas las superposiciones; la geometría (tamaño, pistas de la
+  ventana con la profundidad fija, posición dentro del visor y marca del tramo en la vista general) es pura en
+  `src/viewer/loupe.ts`. Se dibuja en el mismo cuadro que el cursor, sin estado en el proyecto: ≈ 0,9 ms por cuadro y
+  58–60 cuadros por segundo con el TP moviendo el puntero (`scripts/qa/lupa.cjs`).
 
 ## Pistas armables y plantillas propias (fase 7b)
 

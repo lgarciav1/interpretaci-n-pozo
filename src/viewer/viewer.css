@@ -632,3 +632,66 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Lupa (F17, docs/decisiones/0085): recuadro flotante con el tramo del cursor a escala de detalle. No toma el puntero:
+   el visor de abajo sigue respondiendo. Posición y tamaño los escribe el visor en cada cuadro (transform). Sin
+   `will-change`: una capa compuesta más le costaba al navegador más por cuadro (capas y commit) que repintar el recuadro. */
+.wv-loupe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: var(--z-sticky);
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--viewer-track-bg);
+  box-shadow: var(--shadow-lg);
+  pointer-events: none;
+}
+.wv-loupe[hidden], .wv-loupe-mark[hidden] { display: none; }
+.wv-loupe__head {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  border-bottom: 1px solid var(--viewer-track-border);
+  background: var(--color-surface-subtle);
+}
+.wv-loupe__title {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  padding: 0 var(--space-1-5);
+  border-left: 1px solid var(--viewer-track-border);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  line-height: calc(20px * var(--ui-scale));
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wv-loupe__title:first-child { border-left: 0; }
+.wv-loupe__scale {
+  color: var(--color-accent-text);
+  font-family: var(--font-mono);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.wv-loupe__scale--end { border-left: 0; text-align: right; }
+.wv-loupe__canvas { position: absolute; left: 0; display: block; }
+/* Tramo que muestra la lupa, marcado sobre la vista general. */
+.wv-loupe-mark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: var(--z-raised);
+  box-sizing: border-box;
+  border: 1.5px solid var(--color-accent);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  pointer-events: none;
+}

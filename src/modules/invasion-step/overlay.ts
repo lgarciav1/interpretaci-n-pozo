@@ -1,7 +1,9 @@
 /**
  * Superposición «Perfil radial fijado» (docs/decisiones/0020, sección 8): con una profundidad fijada en la pestaña
  * «Perfil radial», una línea fina a esa profundidad en todas las pistas y una etiqueta, para no perder de vista qué
- * muestra el panel mientras el cursor recorre el pozo. Lee el estado de `pin.ts` y se redibuja con `subscribe`. Solo
+ * muestra el panel mientras el cursor recorre el pozo. Lee el estado de `pin.ts` y se redibuja con `subscribe` SOLO
+ * cuando cambia lo que dibuja (profundidad fijada o pozo): `pin.ts` también avisa en cada movimiento del cursor
+ * (`lastDepth`), y redibujar el canvas base por eso costaba un cuadro entero por movimiento del puntero. Solo
  * en pantalla (las figuras exportadas no tienen `commit`). Se descubre sola (`src/modules/<id>/overlay.ts`).
  */
 import { withAlpha } from '../../ui/color';
@@ -9,13 +11,24 @@ import { BASE_TOKENS, canvasFont, scalePx } from '../../ui/tokens';
 import type { ViewerOverlay } from '../../viewer/overlay';
 import { getRadialPin, subscribeRadialPin } from './pin';
 
+/** Avisa a `listener` solo cuando cambian la profundidad fijada o el pozo (no la última profundidad del cursor). */
+export function subscribePinnedDepth(listener: () => void): () => void {
+  let prev = getRadialPin();
+  return subscribeRadialPin(() => {
+    const next = getRadialPin();
+    const changed = next.pinnedDepth !== prev.pinnedDepth || next.wellId !== prev.wellId;
+    prev = next;
+    if (changed) listener();
+  });
+}
+
 export const overlays: ViewerOverlay[] = [
   {
     id: 'radial-pin',
     label: 'Perfil radial fijado',
     layer: 'over',
     order: 40,
-    subscribe: subscribeRadialPin,
+    subscribe: subscribePinnedDepth,
     draw(frame) {
       if (!frame.data.commit) return;
       const pin = getRadialPin();
