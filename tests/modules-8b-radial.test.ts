@@ -13,6 +13,7 @@ import { registry } from '../src/modules';
 import invasionStep from '../src/modules/invasion-step';
 import { RADIAL_X_AXIS, drawRadialProfile, radialLayout, readableColors, resistivityAxis } from '../src/modules/invasion-step/draw';
 import { getRadialPin, noteCursorDepth, pinRadialDepth, resetRadialPin } from '../src/modules/invasion-step/pin';
+import { subscribePinnedDepth } from '../src/modules/invasion-step/overlay';
 import {
   apparentCurve,
   corteBands,
@@ -309,6 +310,24 @@ describe('fijar profundidad', () => {
     expect(getRadialPin()).toEqual({ wellId: 'w2', lastDepth: 50, pinnedDepth: null });
     pinRadialDepth('w2', null);
     expect(getRadialPin().pinnedDepth).toBeNull();
+  });
+});
+
+describe('superposición «Perfil radial fijado»', () => {
+  it('no pide redibujar el visor cuando solo se mueve el cursor', () => {
+    resetRadialPin();
+    let calls = 0;
+    const off = subscribePinnedDepth(() => calls++);
+    for (let k = 0; k < 50; k++) noteCursorDepth('w1', 2000 + k * 0.1524);
+    expect(calls).toBe(1); // el primer aviso trae el pozo nuevo
+    pinRadialDepth('w1', 2001.5);
+    expect(calls).toBe(2);
+    noteCursorDepth('w1', 2050);
+    expect(calls).toBe(2);
+    pinRadialDepth('w1', null);
+    expect(calls).toBe(3);
+    off();
+    resetRadialPin();
   });
 });
 

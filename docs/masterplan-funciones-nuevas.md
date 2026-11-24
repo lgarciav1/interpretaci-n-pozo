@@ -1,6 +1,6 @@
 # Masterplan: funciones nuevas (calidad de vida, validación y lucimiento)
 
-- Estado: **en ejecución.** Hechas: F01, F02, F08, F16, F25, F19, F03, F04, F07, F05, F09. Cada función se marca en la tabla de la sección 3 a medida que se entrega.
+- Estado: **en ejecución.** Hechas: F01, F02, F08, F16, F25, F19, F03, F04, F07, F05, F09, F17. Cada función se marca en la tabla de la sección 3 a medida que se entrega.
 - Fecha: 2026-11-17. Base inspeccionada: `main`, commit `c74ba09`.
 - Origen: auditoría de la app corriendo con los datos del TP (recorrido con Playwright a 1600 × 900) y del código.
 - Entrega del TP: diciembre de 2026. **No entra todo.** La sección 4 fija el orden y la línea de corte.
@@ -54,7 +54,7 @@ Tamaño: **C** chico (una sesión corta), **M** mediano (una sesión), **G** gra
 | F22 | Torneo de modelos contra la corona | 3 | G | analista-numerico | [0078](decisiones/0078-torneo-modelos-corona.md) | [hecha, PR #91](https://github.com/lgarciav1/interpretaci-n-pozo/pull/91); integración autorizada con file:// pendiente |
 | F21 | Saturación por altura (MDT + SCAL + perfil) | 3 | M | analista-numerico | [0079](decisiones/0079-saturacion-por-altura.md) | hecha ([#92](https://github.com/lgarciav1/interpretaci-n-pozo/pull/92), apertura local pendiente) |
 | F14 | Entrenador: pozo con respuesta conocida | 3 | M | analista-numerico | [0080](decisiones/0080-entrenador.md) | pendiente de apertura local ([evidencia](validacion/2026-11-18-f14.md)); integración autorizada ([PR #93](https://github.com/lgarciav1/interpretaci-n-pozo/pull/93)) |
-| F17 | Lupa sobre el perfil | 4 | M | arquitecto | — | pendiente |
+| F17 | Lupa sobre el perfil | 4 | M | arquitecto | — | hecha ([0085](decisiones/0085-lupa-del-visor.md)) |
 | F18 | Curva fantasma | 4 | M | arquitecto | — | hecha ([PR #94](https://github.com/lgarciav1/interpretaci-n-pozo/pull/94)); apertura local sin verificar ([evidencia](capturas/f18/README.md)) |
 | F06 | Curva calculada por fórmula | 4 | G | arquitecto | [0081](decisiones/0081-curvas-por-formula.md) | implementada en PR borrador. Pendiente abrir el HTML por doble clic sin internet: Chromium administrado bloquea `file://`. |
 | F15 | Bandas de incertidumbre sobre las curvas | 4 | G | analista-numerico | [0082](decisiones/0082-bandas-de-incertidumbre.md) | implementada en borrador. Pendientes la apertura por doble clic sin red y la calibración de incertidumbre por calidad local. |

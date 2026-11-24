@@ -713,10 +713,13 @@ export class ViewerRenderer {
     return this.rowBufs.size;
   }
 
-  /** Dibuja el canvas de cursor (línea, puntos sobre las curvas y rótulo de profundidad). */
-  drawCursor(ctx: CanvasRenderingContext2D, f: FrameInput, depth: number | null): void {
+  /**
+   * Dibuja el canvas de cursor (línea, puntos sobre las curvas y rótulo de profundidad). `clear: false` lo dibuja encima
+   * de lo que ya hay (la lupa lo pone sobre su propio cuadro base, en un solo canvas).
+   */
+  drawCursor(ctx: CanvasRenderingContext2D, f: FrameInput, depth: number | null, clear = true): void {
     const h = f.viewport.height;
-    ctx.clearRect(0, 0, f.width, h);
+    if (clear) ctx.clearRect(0, 0, f.width, h);
     if (depth === null) return;
     const y = yOf(f.viewport, depth);
     if (y < 0 || y > h) return;

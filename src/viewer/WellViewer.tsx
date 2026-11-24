@@ -13,7 +13,7 @@ import { NotesDialog } from './NotesDialog';
  * `onEditCurve` (el visor solo dice qué curva y dónde anclarlo).
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ContextMenu, CurveLegend, copyText, formatNumber, getResolvedTheme, getUiScaleFactor, Icon, IconButton, Menu, Popover, prefersReducedMotion, toast, useResolvedTheme, useUiScaleFactor, type MenuEntry } from '../ui';
+import { ContextMenu, CurveLegend, copyText, formatNumber, getResolvedTheme, getUiScaleFactor, Icon, IconButton, isTypingTarget, Menu, Popover, prefersReducedMotion, toast, useCommandSource, useResolvedTheme, useUiScaleFactor, type MenuEntry } from '../ui';
 import { pxPerMeterForScale } from '../io/export/figures/sizing';
 import { nearestCurveAt, outputKeyOfViewerCurve, readingsText } from './contextMenu';
 import { VIEWER_LOOKS, type ViewerLook } from './look';
@@ -23,6 +23,8 @@ import { matchingPrintScale, printScaleOptions, scaleButtonLabel } from './print
 import { THEMES } from '../ui/tokens';
 import { LOAD_ANIMATION_MS, revealAt } from './animation';
 import { layoutTracks, MIN_TRACK_WIDTH, trackAt } from './layout';
+import { DEFAULT_LOUPE_SCALE, loupeMark, loupeSize, placeLoupe, setLoupeOpen as markLoupeOpen, stepLoupeScale } from './loupe';
+import { LoupePainter } from './loupeView';
 import { DropLayer, ResizeEdge, type ViewerLayoutEditing } from './layoutEdit';
 import { PointerGestures, type HitResult } from './interaction';
 import { Minimap, type MinimapHandle } from './MinimapView';
@@ -140,6 +142,9 @@ function headEditClass(edit: ViewerLayoutEditing, t: ResolvedTrack): string {
 const headerUnit = (u: string) => (u === 'ohm·m' ? 'Ω·m' : u);
 
 const ZOOM_STEP = 1.25;
+/** Alto del encabezado de la lupa (px CSS a tamaño de interfaz 1) y rueda acumulada para cambiar un aumento. */
+const LOUPE_HEAD = 20;
+const LOUPE_WHEEL_NOTCH = 60;
 
 const WHEEL_ZOOM = 0.0018;
 const LINE_PX = 16;
@@ -181,6 +186,8 @@ export function WellViewer(props: WellViewerProps) {
   const targetEls = useRef(new Map<string, HTMLButtonElement>());
 
   const [size, setSize] = useState({ width: 0, height: 0, heads: 0 });
+  const sizeRef = useRef(size);
+  sizeRef.current = size;
   /** Ancho que se está arrastrando en modo «Armar pistas» (vista previa hasta soltar). */
   const [resizing, setResizing] = useState<{ id: string; width: number } | null>(null);
   // Si el modo edición termina en medio del arrastre del borde, la vista previa no queda pegada.
@@ -244,6 +251,21 @@ export function WellViewer(props: WellViewerProps) {
   const overlays = useMemo(() => [...props.overlays, measure.current.overlay, ghost.current!.overlay], [props.overlays]);
   const overlaysRef = useRef(overlays);
   overlaysRef.current = overlays;
+  /**
+   * Lupa (F17, docs/decisiones/0085): abierta o no es estado (monta su recuadro); el aumento, el ancla y el dibujo viven
+   * en refs y se redibujan en el mismo cuadro que el cursor.
+   */
+  const [loupeOpen, setLoupeOpen] = useState(false);
+  const loupe = useRef<{ scale: number; wheel: number; x: number | null; painter: LoupePainter; w: number; h: number; headScale: number } | null>(null);
+  const loupeBoxRef = useRef<HTMLDivElement>(null);
+  const loupeHeadRef = useRef<HTMLDivElement>(null);
+  const loupeCanvasRef = useRef<HTMLCanvasElement>(null);
+  const loupeMarkRef = useRef<HTMLDivElement>(null);
+  /**
+   * Desplazamiento horizontal del visor, leído en el evento `scroll` y no en cada cuadro: leer `scrollLeft` o
+   * `clientWidth` después de escribir lecturas en el DOM fuerza un recálculo de estilos y diseño por cuadro.
+   */
+  const hScroll = useRef(0);
   /** Menú contextual abierto: punto de la ventana, profundidad y pista donde se abrió. */
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; depth: number; track: number; localX: number } | null>(null);
 
@@ -321,6 +343,89 @@ export function WellViewer(props: WellViewerProps) {
     }
   }, []);
 
+  /**
+   * Lupa: recuadro junto al puntero con el tramo a escala de detalle y, sobre el visor, la marca del tramo que muestra.
+   * Corre en el mismo cuadro que el cursor; sin cursor (puntero fuera del visor) se oculta.
+   */
+  const paintLoupe = useCallback((f: FrameInput) => {
+    const lp = loupe.current;
+    const box = loupeBoxRef.current;
+    const mark = loupeMarkRef.current;
+    const head = loupeHeadRef.current;
+    if (!lp || !box || !mark || !head) return;
+    const d = cursor.current.depth;
+    if (d === null) {
+      box.hidden = true;
+      mark.hidden = true;
+      return;
+    }
+    const vp = f.viewport;
+    const ui = f.uiScale ?? 1;
+    const visible = sizeRef.current.width || f.width;
+    const left = hScroll.current;
+    const size = loupeSize(visible, vp.height, ui);
+    const headH = Math.round(LOUPE_HEAD * ui);
+    // Borde de 1 px por lado (box-sizing: border-box).
+    const w = Math.max(1, size.width - 2);
+    const h = Math.max(1, size.height - 2 - headH);
+    if (cursor.current.source === 'pointer' && pointer.current) lp.x = pointer.current.x;
+    const x = lp.x ?? left + visible / 2;
+    const at = placeLoupe({ x, y: yOf(vp, d) }, size, { left, top: 0, width: visible, height: vp.height });
+    // Primero los canvas y después el DOM: escribir estilos antes de dibujar obliga al navegador a recalcularlos en
+    // medio del cuadro (fijar `ctx.font` en un canvas del documento los necesita al día).
+    const canvas = loupeCanvasRef.current;
+    const resized = lp.w !== size.width || lp.h !== size.height;
+    const changed = lp.painter.update(f, x, w);
+    const cols = lp.painter.columns!;
+    const ctx = prepare(canvas, w, h);
+    if (!ctx) return;
+    const ms = lp.painter.paint(ctx, f, d, lp.scale, w, h);
+    box.hidden = false;
+    box.style.transform = `translate(${at.x}px, ${at.y}px)`;
+    if (resized) {
+      lp.w = size.width;
+      lp.h = size.height;
+      box.style.width = `${size.width}px`;
+      box.style.height = `${size.height}px`;
+      head.style.height = `${headH}px`;
+      if (canvas) {
+        canvas.style.width = `${w}px`;
+        canvas.style.height = `${h}px`;
+        canvas.style.top = `${headH}px`;
+      }
+    }
+    if (changed || lp.headScale !== lp.scale) {
+      // Encabezado: la escala sobre la columna de profundidad y el título de cada pista sobre la suya.
+      lp.headScale = lp.scale;
+      const scaleText = `1:${formatNumber(lp.scale, { digits: 0 })}`;
+      const spans: HTMLSpanElement[] = [];
+      const add = (text: string, cls: string, bx: number, bw: number) => {
+        const el = document.createElement('span');
+        el.className = cls;
+        el.textContent = text;
+        el.style.left = `${bx}px`;
+        el.style.width = `${bw}px`;
+        spans.push(el);
+      };
+      const off = cols.depthIndex >= 0 ? 1 : 0;
+      if (off) add(scaleText, 'wv-loupe__title wv-loupe__scale', 0, cols.boxes[0]!.width);
+      cols.indices.forEach((ti, k) => add(f.tracks[ti]!.title, 'wv-loupe__title', cols.boxes[k + off]!.x, cols.boxes[k + off]!.width));
+      if (!off) add(scaleText, 'wv-loupe__title wv-loupe__scale wv-loupe__scale--end', Math.max(0, w - 56 * ui), 56 * ui);
+      head.replaceChildren(...spans);
+    }
+    if (rootRef.current) rootRef.current.dataset['loupeMs'] = ms.toFixed(2);
+    const lv = lp.painter.viewport;
+    const any = cols.indices.length > 0;
+    const m = loupeMark(vp, lv.top, lv.top + lv.height / lv.pxPerM, any ? cols.from : 0, any ? cols.to : f.width);
+    if (!m) mark.hidden = true;
+    else {
+      mark.hidden = false;
+      mark.style.transform = `translate(${m.x}px, ${m.y}px)`;
+      mark.style.width = `${m.width}px`;
+      mark.style.height = `${m.height}px`;
+    }
+  }, []);
+
   const paint = useCallback(() => {
     dirty.current.frame = 0;
     const f = frameInput();
@@ -357,9 +462,11 @@ export function WellViewer(props: WellViewerProps) {
     if (base || cur) {
       const ctx = prepare(cursorRef.current, f.width, f.viewport.height);
       if (ctx) renderer.current.drawCursor(ctx, f, cursor.current.depth);
+      // La lupa antes de escribir lecturas en el DOM (ver paintLoupe).
+      if (loupe.current) paintLoupe(f);
       updateReadouts();
     }
-  }, [frameInput, updateReadouts, placeTargets]);
+  }, [frameInput, updateReadouts, placeTargets, paintLoupe]);
 
   const invalidate = useCallback(
     (what: 'base' | 'cursor') => {
@@ -467,6 +574,7 @@ export function WellViewer(props: WellViewerProps) {
       const isNew = wellKeyRef.current !== wellKey;
       wellKeyRef.current = wellKey;
       renderer.current.reset();
+      loupe.current?.painter.reset();
       vpRef.current = fitAll(lim, size.height);
       cursor.current = { depth: null, source: null };
       if (isNew) startReveal();
@@ -773,6 +881,22 @@ export function WellViewer(props: WellViewerProps) {
       const lim = limRef.current;
       if (!vp || !lim) return;
       const unit = e.deltaMode === 1 ? LINE_PX : e.deltaMode === 2 ? vp.height : 1;
+      const lp = loupe.current;
+      if (lp && !e.ctrlKey && !e.metaKey && Math.abs(e.deltaY) >= Math.abs(e.deltaX)) {
+        // Con la lupa abierta, la rueda cambia su aumento (hacia arriba acerca); Ctrl+rueda sigue haciendo zoom en el visor.
+        e.preventDefault();
+        if (Math.sign(lp.wheel) !== Math.sign(e.deltaY)) lp.wheel = 0;
+        lp.wheel += e.deltaY * unit;
+        if (Math.abs(lp.wheel) >= LOUPE_WHEEL_NOTCH) {
+          const next = stepLoupeScale(lp.scale, lp.wheel < 0 ? 1 : -1);
+          lp.wheel = 0;
+          if (next !== lp.scale) {
+            lp.scale = next;
+            invalidate('cursor');
+          }
+        }
+        return;
+      }
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
         stopReveal();
@@ -787,7 +911,82 @@ export function WellViewer(props: WellViewerProps) {
     };
     body.addEventListener('wheel', onWheel, { passive: false });
     return () => body.removeEventListener('wheel', onWheel);
-  }, [setViewport, setCursor, stopReveal]);
+  }, [setViewport, setCursor, stopReveal, invalidate]);
+
+  // ── lupa (F17) ──────────────────────────────────────────────────────────────────────────────────────────────
+  const toggleLoupe = useCallback(() => {
+    if (loupe.current) {
+      loupe.current = null;
+      markLoupeOpen(loupe, false);
+      setLoupeOpen(false);
+      announceRef.current('Lupa cerrada.');
+      return;
+    }
+    const vp = vpRef.current;
+    if (!vp) return;
+    loupe.current = { scale: DEFAULT_LOUPE_SCALE, wheel: 0, x: pointer.current?.x ?? null, painter: new LoupePainter(), w: 0, h: 0, headScale: 0 };
+    // Sin cursor (puntero fuera del visor, abierta desde la paleta): cursor de teclado en el medio de la vista.
+    if (cursor.current.depth === null) setCursor(depthOf(vp, vp.height / 2), 'keyboard');
+    markLoupeOpen(loupe, true);
+    setLoupeOpen(true);
+    announceRef.current(`Lupa abierta a 1:${DEFAULT_LOUPE_SCALE}: sigue al cursor. La rueda cambia el aumento; Escape la cierra.`);
+  }, [setCursor]);
+  const toggleLoupeRef = useRef(toggleLoupe);
+  toggleLoupeRef.current = toggleLoupe;
+  // Al desmontar el visor, la lupa deja de contar como abierta (el modo defensa vuelve a tomar Esc).
+  useEffect(() => () => markLoupeOpen(loupe, false), []);
+  useEffect(() => {
+    const sc = scrollRef.current;
+    if (!sc) return;
+    hScroll.current = sc.scrollLeft;
+    const onScroll = () => {
+      hScroll.current = sc.scrollLeft;
+      if (loupe.current) invalidate('cursor');
+    };
+    sc.addEventListener('scroll', onScroll, { passive: true });
+    return () => sc.removeEventListener('scroll', onScroll);
+  }, [invalidate]);
+  // Recién montado el recuadro: dibujarlo.
+  useLayoutEffect(() => {
+    if (loupeOpen) invalidate('cursor');
+  }, [loupeOpen, invalidate]);
+  // Tecla L (paleta y hoja de atajos, grupo «Visor»): abre o cierra. La capa global la ignora al escribir en un campo
+  // o con un diálogo abierto.
+  useCommandSource(
+    'viewer:loupe',
+    () => [
+      {
+        id: 'viewer:loupe',
+        title: loupe.current ? 'Cerrar la lupa del visor' : 'Abrir la lupa del visor (detalle a 1:200)',
+        group: 'Visor',
+        keywords: ['lupa', 'detalle', 'aumento', 'ampliar', 'escala', '1:200', 'zoom'],
+        icon: 'zoom-in',
+        shortcut: { key: 'l' },
+        // Un menú abierto o una lista con foco usan las letras para saltar a una opción: ahí la L no es de la lupa.
+        enabled: () => typeof document === 'undefined' || !(document.querySelector('[role="menu"]') || document.activeElement?.closest('[role="listbox"], [role="menu"], [role="menubar"]')),
+        run: () => toggleLoupeRef.current(),
+      },
+      { id: 'doc:viewer-loupe-wheel', title: 'Cambiar el aumento de la lupa (1:50 a 1:1.000)', group: 'Visor', keys: 'Rueda con la lupa abierta' },
+      { id: 'doc:viewer-loupe-close', title: 'Cerrar la lupa', group: 'Visor', keys: 'Esc' },
+    ],
+    [],
+  );
+  // Esc la cierra antes que cualquier otro uso de Esc en el visor (cursor, modos) y que el modo defensa (que consulta
+  // `isLoupeOpen` y le cede este Esc); un diálogo o menú abierto, un campo de texto o un arrastre en curso se quedan
+  // con su Esc.
+  useEffect(() => {
+    if (!loupeOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing || draggingRef.current) return;
+      if (isTypingTarget(e.target as HTMLElement | null) || document.querySelector('[role="dialog"], [role="menu"]')) return;
+      e.preventDefault();
+      // Inmediata: otros oyentes en captura sobre `window` registrados antes (modo defensa) no deben verlo.
+      e.stopImmediatePropagation();
+      toggleLoupeRef.current();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [loupeOpen]);
 
   const localPoint = (e: { clientX: number; clientY: number }): Pointer => {
     const rect = bodyRef.current!.getBoundingClientRect();
@@ -1559,7 +1758,7 @@ export function WellViewer(props: WellViewerProps) {
               aria-roledescription="visor de perfiles"
               aria-label={label}
               aria-describedby={helpId}
-              aria-keyshortcuts="ArrowUp ArrowDown PageUp PageDown Home End + - 0 Escape ContextMenu Shift+F10"
+              aria-keyshortcuts="ArrowUp ArrowDown PageUp PageDown Home End + - 0 L Escape ContextMenu Shift+F10"
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
               onPointerUp={endPointer}
@@ -1583,6 +1782,15 @@ export function WellViewer(props: WellViewerProps) {
               />
               <canvas ref={cursorRef} className="wv-canvas wv-canvas--cursor" style={{ width: layout.total, ...heights }} aria-hidden="true" />
               <div className="wv-tip" ref={tipRef} role="tooltip" hidden />
+              {loupeOpen && (
+                <>
+                  <div className="wv-loupe-mark" ref={loupeMarkRef} aria-hidden="true" hidden />
+                  <div className="wv-loupe" ref={loupeBoxRef} aria-hidden="true" data-testid="viewer-loupe" hidden>
+                    <div className="wv-loupe__head" ref={loupeHeadRef} />
+                    <canvas className="wv-loupe__canvas" ref={loupeCanvasRef} />
+                  </div>
+                </>
+              )}
               {props.curtain && (
                 <div
                   ref={curtainRef}
@@ -1696,7 +1904,8 @@ export function WellViewer(props: WellViewerProps) {
         Flechas arriba y abajo mueven el cursor de profundidad (con Mayús, de a diez muestras); Re Pág y Av Pág desplazan
         una pantalla; Inicio y Fin van al tope y a la base; más y menos acercan y alejan; cero muestra todo el pozo. Con
         Tab se llega a los topes y bases de las zonas, que se mueven con las flechas. La tecla Menú o Mayús y F10 abren el
-        menú del perfil en la profundidad del cursor: copiar lecturas, crear un tope, editar la pista, medir y exportar.
+        menú del perfil en la profundidad del cursor: copiar lecturas, crear un tope, editar la pista, medir y exportar. La
+        tecla L abre o cierra la lupa, que muestra el tramo del cursor a escala 1:200; Escape la cierra.
       </p>
       <div className="ui-visually-hidden" aria-live="polite" ref={liveRef} />
     </div>
