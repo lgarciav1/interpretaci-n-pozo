@@ -57,6 +57,8 @@ describe('modelo de la pantalla', () => {
     expect(filterEntries(entries, 'ARCHIE').some((e) => e.id === 'sw-archie')).toBe(true);
     expect(filterEntries(entries, 'saturacion').length).toBeGreaterThan(0);
     expect(filterEntries(entries, 'frac').length).toBeGreaterThan(0);
+    expect(filterEntries(entries, 'archie tortuosidad').map((e) => e.id)).toContain('sw-archie');
+    expect(filterEntries(entries, 'timur swirrfrom').map((e) => e.id)).toContain('perm-timur');
     expect(filterEntries(entries, 'zzz-no-existe')).toEqual([]);
   });
 });

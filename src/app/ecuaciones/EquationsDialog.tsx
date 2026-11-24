@@ -133,7 +133,7 @@ function EquationsBody({ initialId }: { initialId: string | null }) {
             value={query}
             onChange={setQuery}
             icon="search"
-            placeholder="Buscar método o ecuación"
+            placeholder="Buscar método, parámetro o ecuación"
             aria-label="Buscar en las ecuaciones"
             block
             data-autofocus

@@ -111,6 +111,19 @@ describe('searchCommands', () => {
   });
 });
 
+describe('parámetros de los métodos en el buscador', () => {
+  it('indexa cada parámetro del registro y reserva la lista inicial para las acciones habituales', async () => {
+    const { registry } = await import('../src/modules');
+    const { parameterCommands } = await import('../src/app/ecuaciones/parameterCommands');
+    const expected = registry.modules.flatMap((module) => Object.keys(module.params).map((key) => `param:${module.id}:${key}`));
+    expect(parameterCommands.map((command) => command.id)).toEqual(expected);
+    expect(searchCommands(parameterCommands, '')).toEqual([]);
+    expect(ids(searchCommands(parameterCommands, 'parámetros archie'))).toEqual(expect.arrayContaining(['param:sw-archie:a', 'param:sw-archie:m', 'param:sw-archie:n']));
+    expect(ids(searchCommands(parameterCommands, 'timur swirr'))).toEqual(expect.arrayContaining(['param:perm-timur:swirrFrom', 'param:perm-timur:swirr']));
+    expect(ids(searchCommands(parameterCommands, 'wyllie compactacion'))).toContain('param:phi-sonic-wyllie:cp');
+  });
+});
+
 describe('highlightRanges', () => {
   it('marca los términos sobre el texto original, sin acentos', () => {
     expect(highlightRanges('Ir al paso Saturación', 'saturacion')).toEqual([[11, 21]]);
