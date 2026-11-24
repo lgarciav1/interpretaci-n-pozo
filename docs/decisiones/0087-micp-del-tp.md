@@ -13,7 +13,7 @@ Los cinco gráficos son de las mismas 8 muestras (1-2, 1-2L, 1-32, 1-33CK, 1-33,
 
 | Gráfico | Qué muestra |
 |---|---|
-| Presiones capilares · método de inyección de mercurio | Pc (kg/cm², log) contra saturación de la fase mojante (%). 37 escalones de 0,044 a 700 kg/cm² (la 2-15, 22: se corta en 21 kg/cm²) |
+| Presiones capilares · método de inyección de mercurio | Pc (kg/cm², log) contra saturación de la fase mojante (%). 37 escalones de 0,044 a 700 kg/cm² (en este gráfico la 2-15 corta en fila 28 / 21 kg/cm², pero los 15 escalones restantes están completos en el gráfico de diámetro de garganta del Reservorio 2) |
 | Distribución de tamaños de gargantas porales | % del volumen poral invadido por escalón contra diámetro de garganta (µm, log) |
 | Distribución de diámetro de garganta · Reservorio 1 y Reservorio 2 | Saturación de mercurio contra diámetro de garganta, muestras 1-x y 2-x |
 | Correlación presión de desplazamiento vs √(k/φ) | La tabla de la 0057, con ajuste potencial |
@@ -44,19 +44,18 @@ estándar de la app (480 dyn/cm, 140°: 367,7); la app usa el estándar para que
 
    | Nivel | A · B de la cátedra | Pc (kg/cm²) | Diferencia RMS de Swi |
    |---|---|---|---|
-   | 1 | 28,93 · −0,333 | 28,2 | 0,0031 |
-   | 2 | 21,155 · −0,322 | 70,0 | 0,0018 |
-   | 3 | 15,102 · −0,403 | 122,6 | 0,0006 |
-   | 4 | 8,8036 · −0,442 | 245,7 | 0,0010 |
-   | 5 | 6,3007 · −0,463 | 351,9 | 0,0013 |
-   | 6 | 2,7807 · −0,582 | 700,4 | 0,0013 |
+   | 1 | 28,93 · −0,333 | 28,2 | 0,00004 |
+   | 2 | 21,155 · −0,322 | 70,0 | 0,00000 |
+   | 3 | 15,102 · −0,403 | 122,6 | 0,00000 |
+   | 4 | 8,8036 · −0,442 | 245,7 | 0,00003 |
+   | 5 | 6,3007 · −0,463 | 351,9 | 0,00000 |
+   | 6 | 2,7807 · −0,582 | 700,4 | 0,00001 |
 
-   La presión queda en `SWI_CATEDRA_LEVELS[i].pcKgCm2` y en el rótulo («Nivel 3 · Pc ≈ 123 kg/cm²»). Los coeficientes
-   siguen siendo los de la cátedra; la reconstrucción los respalda pero no es exacta (A dentro del 5 %, B dentro de
-   0,015; ningún subconjunto de muestras los reproduce exactos). La asignación es robusta: el segundo mejor escalón
-   queda entre 5 y 40 veces más lejos. A presiones bajas, por debajo de la presión de desplazamiento de las rocas
-   pobres, el ajuste se sesga hacia las rocas buenas (las no invadidas quedan afuera); los niveles están todos por
-   encima.
+   La presión queda en `SWI_CATEDRA_LEVELS[i].pcKgCm2` y en el rótulo («Nivel 3 · Pc ≈ 123 kg/cm²»). Con las 8 muestras
+   completas (incluidos los 15 escalones de la 2-15 recuperados del gráfico de Reservorio 2), el ajuste reproduce los
+   coeficientes de la cátedra al último decimal publicado (RMS < 0,00005). A presiones bajas, por debajo de la presión
+   de desplazamiento de las rocas pobres, el ajuste se sesga hacia las rocas buenas (las no invadidas quedan afuera);
+   los niveles están todos por encima.
 5. **R35 medido contra Winland.** El R35 de Winland desde k y φ coincide con el medido dentro del 10 % en 7 de las 8
    muestras. La 1-32 es la excepción: 3,79 µm medido contra 5,10 estimado (Winland la sobreestima un 35 %; las dos caen
    en la clase macro de todas formas). El acuerdo depende de σ|cosθ|: con el del laboratorio (380,2 dyn/cm, d·Pc
@@ -92,8 +91,8 @@ con el CMR. Lo que salió de los datos del TP:
   seguro el laboratorio la calculó con Swanson sobre estas mismas curvas. La k medida del TP es la de los plugs de la
   hoja PB, que difiere de la de SCAL entre ×0,33 y ×4,4 (son otros tapones, a ±1 m). Thomeer da 0,48–0,88 veces esa k.
 - **El Swirr de Brooks–Corey no es identificable** con estas curvas (entrada abrupta y cola larga hasta 700 kg/cm²):
-  el ajuste libre da Swirr = 0 en 7 de 8. Para kr y cutoff se toma el Swirr de la curva a la altura del tope de la
-  columna (`fitBrooksCorey` con `swirr` fijo).
+  el ajuste libre da Swirr = 0 en las 8 muestras. Para kr y cutoff se toma el Swirr de la curva a la altura del tope de
+  la columna (`fitBrooksCorey` con `swirr` fijo).
 - **El cutoff de Sw a fw = 0,5 depende sobre todo de μw/μo**, no de Swirr ni de λ: 0,63–0,73 con μw/μo = 0,5, y
   0,61–0,79 con μw/μo entre 0,25 y 2. Se muestra como banda.
 - **El FWL no se puede fijar con las presiones MDT del TP.** Zona B: 0,412 psi/ft (0,95 g/cm³: crudo pesado de unos
@@ -102,7 +101,7 @@ con el CMR. Lo que salió de los datos del TP:
   usuario y así se rotulan.
 - **CMR.** A la profundidad de las muestras, promediando ±1 m (la incertidumbre de su cota), BVI/PHIE da 0,65–0,77
   (con ±0,5 m, 0,68–0,82). La Sw de las curvas a la presión estándar de calibración del corte de T2 (100 psi
-  aire–salmuera ≈ 511 psi mercurio) es 0,21–0,36 (la 2-15 no llega). El CMR marca entre 1,9 y 3,6 veces más agua
+  aire–salmuera ≈ 511 psi mercurio) es 0,21–0,36 en las 8 muestras. El CMR marca entre 1,9 y 3,6 veces más agua
   ligada: con el corte de 33 ms sobreestima el BVI en estas rocas. Esta comparación no necesita FWL.
 
 ## Panel «Análisis MICP» (`src/modules/micp/`)
@@ -112,7 +111,7 @@ la k de la tabla y la del plug), altura sobre el agua libre (Sw contra altura po
 perfil con un FWL supuesto), permeabilidad relativa y cutoff de Sw (Swirr de la curva a la altura de la columna, kr,
 flujo fraccional, banda por μw/μo y «Usar Sw cutoff» con deshacer) y CMR. Los ajustes viven en
 `moduleState['micp']`. Con los valores de fábrica (petróleo–agua, Δρ 0,25 g/cm³, columna de 100 m, μw 0,5 y μo 1 cP)
-el cutoff de Sw del TP da mediana 0,66 (0,63–0,68 en 7 muestras; la 2-15 no llega a esa presión).
+el cutoff de Sw del TP da mediana 0,66 en las 8 muestras.
 
 ## Qué NO cubre
 

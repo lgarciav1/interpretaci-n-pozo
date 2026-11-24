@@ -234,17 +234,17 @@ describe('niveles de Swi de la cátedra desde las curvas MICP (panel SCAL)', () 
     });
   });
 
-  it('A y B reconstruidos cerca de los de la cátedra, RMS de Swi < 0,004 (numpy) y ajuste con 3 o más muestras', () => {
-    const rms = [0.00307, 0.00184, 0.00061, 0.00097, 0.00125, 0.00128];
+  it('A y B reconstruidos reproducen los de la cátedra (RMS de Swi < 0,0001) con las 8 muestras', () => {
+    const rms = [0.000042, 0.000002, 0.000004, 0.000027, 0.000000, 0.000005];
     rows.forEach((r, i) => {
-      expect(Math.abs(r.fitA / r.A - 1)).toBeLessThan(0.05);
-      expect(Math.abs(r.fitB - r.B)).toBeLessThan(0.015);
-      expect(r.rmsSwi).toBeCloseTo(rms[i]!, 4);
-      expect(r.n).toBeGreaterThanOrEqual(3);
+      expect(Math.abs(r.fitA / r.A - 1)).toBeLessThan(0.001);
+      expect(Math.abs(r.fitB - r.B)).toBeLessThan(0.001);
+      expect(r.rmsSwi).toBeCloseTo(rms[i]!, 5);
+      expect(r.n).toBe(8);
       expect(r.r2).toBeGreaterThan(0.5);
       expect(r.r2).toBeLessThanOrEqual(1);
     });
-    expect(rows[5]!.n).toBe(7); // a 700 kg/cm² la 2-15 ya no tiene dato
+    expect(rows[5]!.n).toBe(8);
   });
 });
 

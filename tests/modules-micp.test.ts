@@ -199,11 +199,11 @@ describe('micp: CMR contra la curva capilar (perfil del TP)', () => {
     });
   const rows = cmrRows(col('DEPTH'), col('PHI_BVI'), col('PHIE_CMR'), samples, ctx);
 
-  it('ventana de ±1 m (13 muestras del perfil); Sw a la calibración del CMR 0,21–0,36; la 2-15 no llega', () => {
+  it('ventana de ±1 m (13 muestras del perfil); Sw a la calibración del CMR 0,21–0,36 en las 8 muestras', () => {
     for (const r of rows) expect(r.nWindow).toBeGreaterThanOrEqual(12);
-    expect(by('2-15') && Number.isNaN(rows.find((r) => r.sample.label === '2-15')!.swCal)).toBe(true);
+    expect(rows.find((r) => r.sample.label === '2-15')!.swCal).toBeCloseTo(0.2554, 4);
     const c = cmrConclusion(rows)!;
-    expect(c.n).toBe(7);
+    expect(c.n).toBe(8);
     expect(c.lab[0]).toBeGreaterThan(0.2);
     expect(c.lab[1]).toBeLessThan(0.37);
     expect(c.cmr[0]).toBeGreaterThan(0.6);
