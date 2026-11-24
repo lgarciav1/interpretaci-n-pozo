@@ -18,7 +18,7 @@ import {
   type GradientLine,
 } from '../src/modules/mdt/model';
 import { mdtAnalysis, mdtSeries, mdtSeriesProvider } from '../src/modules/mdt/series';
-import { drawdownScale, formatDrawdown } from '../src/modules/mdt/drawdown';
+import { drawdownScale, formatDrawdown } from '../src/modules/mdt/draw';
 import { pressureTrackScale } from '../src/modules/mdt/overlay';
 import { registry } from '../src/modules';
 

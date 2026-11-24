@@ -46,7 +46,7 @@ import {
   type Fluid,
   type FluidContact,
 } from './model';
-import { formatDrawdown, pointColorOf, type MdtPointColor } from './drawdown';
+import { formatDrawdown, pointColorOf, type MdtPointColor } from './draw';
 import { displayUnitOf } from './overlay';
 import { mdtAnalysis, pointRef, type MdtAnalysis, type MdtGradient } from './series';
 import '../../app/components/load-well.css';

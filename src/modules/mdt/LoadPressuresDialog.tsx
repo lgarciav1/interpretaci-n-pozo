@@ -27,7 +27,7 @@ import {
 import { Badge, Button, Callout, DataTable, Dialog, Field, FileDrop, Section, Select, Spinner, TextField, WizardSteps, formatNumber, toast, type Column, type Tone } from '../../ui';
 import { useProject } from '../../app/store/project';
 import { useUi } from '../../app/store/ui';
-import { formatDrawdown } from './drawdown';
+import { formatDrawdown } from './draw';
 import { assessQuality } from './model';
 
 type Step = 'source' | 'columns';

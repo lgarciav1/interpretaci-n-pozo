@@ -577,6 +577,10 @@ Decisión: [`docs/decisiones/0009-presiones-mdt-y-conjuntos-de-puntos.md`](decis
   el fluido del gradiente; `mdtAnalysis`), `overlay.ts` (pista «Presión» con escala automática y unidad elegida,
   puntos con clic para incluir o descartar, contactos que cruzan todas las pistas), `dock.tsx` (panel),
   `LoadPressuresDialog.tsx` (asistente) y `example.ts` (ejemplo sintético rotulado).
+- **Drawdown.** La columna numérica opcional `drawdown` se importa en psi. El modo `display.overlays.mdt.pointColor`
+  admite `drawdown`, con el color por fluido por defecto. `ViewerData.overlaySettings` lleva la configuración al visor
+  y al exportador. `ViewerOverlay.track.colorLegend` declara la leyenda que ambos dibujan con el dominio canónico de
+  la pista, independiente del intervalo visible y de la unidad mostrada.
 - **Gradientes** = tendencias lineales sobre la serie `mdt` (`<conjunto>:gas|oil|water`); densidad con
   `gradientReadings` y fluido sugerido con `classifyFluidByDensity` (`src/petro/pressure.ts`). **Contactos** en la
   interfaz (`findContacts` → `intersectTrends`), no en el motor.

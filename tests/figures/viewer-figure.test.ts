@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { SvgContext2D, formatScale, pxPerMeterForScale, scaleDenominatorFor, templateById, withSvgPath2D } from '../../src/io/export/figures';
-import { drawdownScale } from '../../src/modules/mdt/drawdown';
+import { drawdownScale } from '../../src/modules/mdt/draw';
 import { overlays as mdtOverlays } from '../../src/modules/mdt/overlay';
 import { tpMdtSet } from '../../src/modules/mdt/tp';
 import { registry } from '../../src/modules';

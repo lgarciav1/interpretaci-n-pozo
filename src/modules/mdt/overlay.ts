@@ -39,7 +39,7 @@ import {
   type Fluid,
   type FluidContact,
 } from './model';
-import { drawdownScale, formatDrawdown, pointColorOf } from './drawdown';
+import { drawdownScale, formatDrawdown, pointColorOf } from './draw';
 import { TP_MDT_ZONE_COLUMN } from './tp';
 import { mdtAnalysis, pointRef, type MdtAnalysis } from './series';
 
