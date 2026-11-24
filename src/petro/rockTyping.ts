@@ -733,3 +733,64 @@ export function throatSizeDistribution(
   }
   return { radius: Float64Array.from(r), deltaS: Float64Array.from(ds), dSdLogR: Float64Array.from(dd) };
 }
+
+// ── curvas MICP medidas: interpolación y R35 medido ────────────────────────────────────────────────────────────
+
+/** psi por kg/cm² (kilogramo fuerza): 98,0665 kPa / 6,894757293 kPa. */
+export const KGF_CM2_TO_PSI = 98.0665 / 6.894757293;
+
+/**
+ * Saturación de la fase mojante a una presión capilar dada, interpolando una curva medida (Pc creciente, Sw no
+ * creciente) LINEAL en Sw y LOGARÍTMICA en Pc, que es como se grafican y como se espacian los escalones de un ensayo
+ * de inyección. Sin extrapolar: NaN si Pc cae fuera de [Pc₁, Pcₙ], si no es > 0 o si la curva tiene menos de 2 puntos.
+ * La unidad de Sw es la de la curva (v/v o %); la de Pc, cualquiera, con tal de que sea la misma en `pc` y `pcTarget`.
+ */
+export function wettingSaturationAtPc(pc: ArrayLike<number>, sw: ArrayLike<number>, pcTarget: number): number {
+  const n = Math.min(pc.length, sw.length);
+  if (n < 2 || !isPos(pcTarget)) return NaN;
+  for (let i = 0; i < n - 1; i++) {
+    const p0 = pc[i]!;
+    const p1 = pc[i + 1]!;
+    if (!isPos(p0) || !isPos(p1) || !(p1 > p0)) continue;
+    if (pcTarget < p0 || pcTarget > p1) continue;
+    const s0 = sw[i]!;
+    const s1 = sw[i + 1]!;
+    if (!Number.isFinite(s0) || !Number.isFinite(s1)) return NaN;
+    const t = Math.log(pcTarget / p0) / Math.log(p1 / p0);
+    return s0 + t * (s1 - s0);
+  }
+  return NaN;
+}
+
+/**
+ * Presión capilar a la que la curva medida llega a una saturación mojante dada (inversa de `wettingSaturationAtPc`,
+ * misma interpolación: lineal en Sw, logarítmica en Pc). Toma el PRIMER cruce con Pc creciente; en una meseta con
+ * Sw igual al objetivo devuelve la menor presión. NaN si la curva no alcanza esa saturación (sin extrapolar).
+ */
+export function pcAtWettingSaturation(pc: ArrayLike<number>, sw: ArrayLike<number>, swTarget: number): number {
+  const n = Math.min(pc.length, sw.length);
+  if (n < 2 || !Number.isFinite(swTarget)) return NaN;
+  for (let i = 0; i < n - 1; i++) {
+    const p0 = pc[i]!;
+    const p1 = pc[i + 1]!;
+    const s0 = sw[i]!;
+    const s1 = sw[i + 1]!;
+    if (!isPos(p0) || !isPos(p1) || !(p1 > p0) || !Number.isFinite(s0) || !Number.isFinite(s1)) continue;
+    if (s0 === swTarget) return p0;
+    if (!(s0 > swTarget && swTarget >= s1)) continue;
+    const t = (s0 - swTarget) / (s0 - s1);
+    return p0 * (p1 / p0) ** t;
+  }
+  return NaN;
+}
+
+/**
+ * R35 MEDIDO (µm): radio de Washburn a la presión a la que el mercurio ocupa el 35 % del volumen poral (SHg = 0,35,
+ * o sea Sw mojante = 0,65), leído de la curva de inyección. Es la magnitud que la ecuación de Winland estima desde
+ * k y φ (Kolodzie, 1980). Mercurio–aire por defecto (σ = 480 dyn/cm, θ = 140°). NaN si la curva no llega a SHg = 0,35.
+ * @param pcPsi presión de inyección (psi), creciente
+ * @param swFrac saturación mojante (v/v), no creciente
+ */
+export function measuredR35(pcPsi: ArrayLike<number>, swFrac: ArrayLike<number>, sigma = HG_AIR_SIGMA, thetaDeg = HG_AIR_THETA_DEG): number {
+  return washburnRadius(pcAtWettingSaturation(pcPsi, swFrac, 0.65), sigma, thetaDeg);
+}

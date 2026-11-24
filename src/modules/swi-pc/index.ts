@@ -79,7 +79,7 @@ export default defineModule({
     level: param.enum({
       label: 'Nivel de presión capilar',
       tooltip:
-        'Cada nivel es una presión capilar de la hoja SCAL de la cátedra, del 1 (menor presión capilar, mayor Swi) al 6 (mayor presión capilar, menor Swi). La planilla no trae las presiones ni las alturas de cada nivel. «Manual» usa los coeficientes A y B de abajo.',
+        'Cada nivel es una presión capilar de la hoja SCAL de la cátedra, del 1 (menor presión capilar, mayor Swi) al 6 (mayor presión capilar, menor Swi). La presión mercurio–aire de cada nivel sale de las curvas de inyección de mercurio de las muestras. «Manual» usa los coeficientes A y B de abajo.',
       options: [...SWI_CATEDRA_LEVELS.map((p) => ({ value: p.id, label: p.label })), { value: SWI_MANUAL_LEVEL, label: 'Manual' }],
       default: 'level6',
       scope: 'zone',

@@ -64,12 +64,13 @@ describe('petro/swiPc: √(k/φ) en la unidad de la planilla', () => {
 });
 
 describe('petro/swiPc: ley de potencia y presets de la cátedra', () => {
-  it('los seis presets de la hoja SCAL, en orden y con sus rótulos sin presiones inventadas', () => {
+  it('los seis presets de la hoja SCAL, en orden; el rótulo lleva la presión reconstruida de las curvas MICP (petro-micp)', () => {
     expect(SWI_CATEDRA_LEVELS.map((p) => [p.A, p.B])).toEqual(scal.swiPowerLaw.coef.map((c) => [c.A, c.B]));
     expect(SWI_CATEDRA_LEVELS.map((p) => p.id)).toEqual(['level1', 'level2', 'level3', 'level4', 'level5', 'level6']);
-    expect(SWI_CATEDRA_LEVELS[0]!.label).toBe('Nivel 1 (menor presión capilar)');
-    expect(SWI_CATEDRA_LEVELS[5]!.label).toBe('Nivel 6 (mayor presión capilar)');
-    for (const p of SWI_CATEDRA_LEVELS.slice(1, 5)) expect(p.label).not.toMatch(/kg|psi|kPa|m\b/);
+    expect(SWI_CATEDRA_LEVELS[0]!.label).toBe('Nivel 1 · Pc ≈ 28 kg/cm² (menor)');
+    expect(SWI_CATEDRA_LEVELS[5]!.label).toBe('Nivel 6 · Pc ≈ 700 kg/cm² (mayor)');
+    // La presión del rótulo es la de `pcKgCm2` redondeada (sin presiones que no salgan de los datos).
+    for (const p of SWI_CATEDRA_LEVELS) expect(p.label).toContain(`Pc ≈ ${Math.round(p.pcKgCm2!)} kg/cm²`);
     // A decrece con el nivel (Swi decrece al subir la presión capilar)
     for (let i = 1; i < 6; i++) expect(SWI_CATEDRA_LEVELS[i]!.A).toBeLessThan(SWI_CATEDRA_LEVELS[i - 1]!.A);
     expect(swiPresetById('level3')).toMatchObject({ A: 15.102, B: -0.403 });

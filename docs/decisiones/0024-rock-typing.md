@@ -83,7 +83,8 @@ puntos pasan por `ensureContrast` contra el fondo.
 
 ## Abierto
 
-- Lector de Pc–Sw digitalizado (CSV) hacia un conjunto `capillary`.
+- Lector de Pc–Sw digitalizado (CSV) hacia un conjunto `capillary`. Las curvas MICP del TP ya se cargan embebidas
+  (0087); falta el lector genérico para otros pozos.
 - Un k–φ por unidad de flujo (permeabilidad por FZI) como módulo alternativo de PERM, para que las unidades no
   sean bandas de φ.
 - Límites arrastrables sobre el gráfico RQI–φz y clasificación de Pittman en el pozo.
