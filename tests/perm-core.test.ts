@@ -6,9 +6,12 @@
 import { describe, expect, it } from 'vitest';
 import { Engine, type EngineRunResult } from '../src/core/engine/engine';
 import { emptyInterpretation, type Interpretation } from '../src/core/interpretation';
+import type { TableValue } from '../src/core/module';
+import type { ParamValue } from '../src/core/params';
+import { PERM_CORE_KEYS } from '../src/modules/perm-core/params';
 import { registry } from '../src/modules';
 import permCore, { PERM_CORE_ID } from '../src/modules/perm-core';
-import { expTrendToLogLinear, logLinearPermeability, logLinearPermeabilityInto, logLinearToExpTrend } from '../src/petro/permeability';
+import { expTrendToLogLinear, logLinearPermeability, logLinearPermeabilityInto, logLinearToExpTrend, powerPermeability } from '../src/petro/permeability';
 import { curve, well, zone } from './helpers';
 
 describe('petro/permeabilidad: modelo k–φ de corona', () => {
@@ -100,7 +103,7 @@ function run(partial: Partial<Interpretation> = {}): EngineRunResult {
 }
 const permOf = (r: EngineRunResult) => r.outputs.find((o) => o.key === `${PERM_CORE_ID}:PERM`)!.value as Float64Array;
 const warningsOf = (r: EngineRunResult) => r.diagnostics.filter((d) => d.code === 'module-warning' && d.moduleId === PERM_CORE_ID).map((d) => d.message);
-const g = (global: Record<string, number>, zones: Record<string, Record<string, number>> = {}) => ({ params: { global, zones } });
+const g = (global: Record<string, ParamValue>, zones: Record<string, Record<string, ParamValue>> = {}) => ({ params: { global, zones } });
 
 describe('módulo perm-core en el motor', () => {
   it('está registrado como PERM, después de Timur y Coates', () => {
@@ -173,5 +176,91 @@ describe('módulo perm-core en el motor', () => {
     const r = run({ sources: { PERM: { kind: 'module', moduleId: PERM_CORE_ID } } });
     expect(r.sources['PERM']).toEqual({ kind: 'module', moduleId: PERM_CORE_ID });
     expect(r.outputs.find((o) => o.key === `${PERM_CORE_ID}:PERM`)!.active).toBe(true);
+  });
+});
+
+describe('ley potencial de corona en el motor', () => {
+  const K = PERM_CORE_KEYS;
+  const power = { [K.method]: 'power', [K.powerLogA]: 2, [K.powerB]: 2 };
+  const source = { kind: 'module', moduleId: PERM_CORE_ID } as const;
+
+  it('evalúa 100·φ² en mD, recorta y deja la φ no positiva/ausente sin estimación', () => {
+    expect(powerPermeability(0.2, 2, 2)).toBeCloseTo(4, 13);
+    expect(powerPermeability(0.02, 2, 2, 0.1, 9)).toBe(0.1);
+    expect(powerPermeability(0.4, 2, 2, 0.1, 9)).toBe(9);
+    expect(powerPermeability(0.00001, 2, -100, 0.1, 100)).toBe(100);
+    expect(powerPermeability(0.00001, 2, 100, 0.1, 100)).toBe(0.1);
+    for (const phi of [0, -0.1, NaN, Infinity]) expect(powerPermeability(phi, 2, 2, 0.1)).toBeNaN();
+    expect(powerPermeability(0.2, NaN, 2)).toBeNaN();
+    expect(powerPermeability(0.2, 2, Infinity)).toBeNaN();
+  });
+
+  it('conserva una exponencial legada parcial al cambiar el global a potencial y no mezcla un potencial local incompleto', () => {
+    const r = run({
+      sources: { PERM: source },
+      ...g({ ...power, [K.a]: -1.7, [K.b]: 20 }, {
+        [ZA]: { [K.a]: -2.5 },
+        [ZB]: { [K.method]: 'power', [K.powerLogA]: 99 },
+      }),
+    });
+    expect(permOf(r)[5]).toBeCloseTo(10 ** (-2.5 + 20 * 0.1), 12);
+    expect(permOf(r)[10]).toBeCloseTo(100 * PHIE[10]! ** 2, 12);
+    expect(r.diagnostics).toContainEqual(expect.objectContaining({ code: 'params', moduleId: PERM_CORE_ID, message: expect.stringMatching(/incompleto.*zb/) }));
+    expect(r.nodes.find((n) => n.moduleId === PERM_CORE_ID)?.params?.byZone).toMatchObject({
+      [ZA]: { kphiMethod: 'exp', kphiA: -2.5, kphiB: 20 },
+      [ZB]: { kphiMethod: 'power', powerLogA: 2, powerB: 2 },
+    });
+  });
+
+  it('recalcula con modelos completos por zona y avisa la extrapolación del rango medido', () => {
+    const r = run({
+      sources: { PERM: source },
+      ...g({ [K.a]: -1, [K.b]: 0 }, {
+        [ZB]: { ...power, [K.powerPhiMin]: 0.16, [K.powerPhiMax]: 0.22, 'perm-core.kMax': 3 },
+      }),
+    });
+    expect(permOf(r)[5]).toBeCloseTo(0.1, 12);
+    expect(permOf(r)[10]).toBeCloseTo(2.25, 12);
+    expect(permOf(r)[19]).toBe(3);
+    expect(warningsOf(r)).toEqual([expect.stringMatching(/En la zona ZB el modelo potencial extrapola el rango de porosidad de los plugs\.$/)]);
+  });
+
+  it('descarta un potencial global fuera de rango y usa la exponencial predeterminada', () => {
+    const r = run({ sources: { PERM: source }, ...g({ ...power, [K.powerB]: 101 }) });
+    expect(permOf(r)[5]).toBeCloseTo(1, 12);
+    expect(r.diagnostics).toContainEqual(expect.objectContaining({ code: 'params', moduleId: PERM_CORE_ID, message: expect.stringMatching(/global incompleto/) }));
+  });
+
+  it('la PERM activa alimenta Swi, el sumario, kh y el corte opcional de k', () => {
+    const engine = new Engine(registry, { checkInputs: true });
+    engine.setWell(well([
+      curve('VSH', 'VSH', [0.1, 0.1]),
+      curve('PHIE', 'PHIE', [0.1, 0.2]),
+      curve('SW', 'SW', [0.2, 0.2]),
+      curve('Kmed', 'PERM', [20, 20]),
+    ], 2, 1000, 1));
+    const interp = {
+      ...emptyInterpretation([zone('z', 1000, 1001)]),
+      compare: ['flow-capacity', 'swi-pc', 'cutoffs', 'zone-summary'],
+      ...g({ ...power, 'swi-pc.level': 'level1', 'flow-capacity.filter': 'all' }),
+    };
+    const measured = engine.run({ ...interp, sources: { PERM: { kind: 'curve', curveId: 'Kmed' } } });
+    const withCore = { ...interp, sources: { PERM: source } };
+    const computed = engine.run(withCore);
+    const values = (r: EngineRunResult, key: string) => r.outputs.find((o) => o.key === key)!.value as Float64Array;
+    const row = (r: EngineRunResult, key: string) => (r.outputs.find((o) => o.key === key)!.value as TableValue).rows[0]!;
+    expect(permOf(computed)[0]).toBeCloseTo(1, 12);
+    expect(permOf(computed)[1]).toBeCloseTo(4, 12);
+    // SCAL nivel 1, φ en %; a mano, el primer término es √(1 mD / 10).
+    expect(values(computed, 'swi-pc:SWI')[0]).toBeCloseTo(0.2893 * Math.sqrt(1 / 10) ** -0.333, 12);
+    expect(values(measured, 'swi-pc:SWI')[0]).toBeCloseTo(0.2893 * Math.sqrt(20 / 10) ** -0.333, 12);
+    expect(row(computed, 'zone-summary:ZONE_SUMMARY')['kPay']).toBeCloseTo(2.5, 12);
+    expect(row(computed, 'zone-summary:ZONE_SUMMARY')['khPay']).toBeCloseTo(5, 12);
+    expect(row(measured, 'zone-summary:ZONE_SUMMARY')['khPay']).toBeCloseTo(40, 12);
+    expect(row(computed, 'flow-capacity:FLOW_SUMMARY')['kH']).toBeCloseTo(5, 12);
+    expect(values(computed, 'cutoffs:NET_PAY')).toEqual(values(measured, 'cutoffs:NET_PAY'));
+    const cut = engine.run({ ...withCore, ...g({ ...interp.params.global, permCutoffOn: true, permCutoff: 2 }) });
+    expect([...values(cut, 'cutoffs:NET_RES')]).toEqual([0, 1]);
+    expect([...values(cut, 'cutoffs:NET_PAY')]).toEqual([0, 1]);
   });
 });

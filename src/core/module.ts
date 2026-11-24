@@ -11,7 +11,7 @@
  * - Escalares, escalares por zona y tablas: el puerto es un id en MAYÚSCULAS declarado en `outputs` (no puede
  *   coincidir con un rol). Los cuatro tipos pueden ser entrada de otro módulo.
  */
-import type { ParamsSpec, ParamValues } from './params';
+import { resolveModuleParams, type ParamState, type ParamsSpec, type ParamValues, type ResolvedModuleParams } from './params';
 import type { RoleDef, RoleId } from './roles';
 import type { ToolDef } from './tools';
 import type { UnitId } from './units';
@@ -368,6 +368,8 @@ export interface ModuleDefinition<
    */
   inputGroups?: readonly InputGroupSpec<Extract<keyof I, string>>[];
   params: P;
+  /** Resolución especial cuando varios coeficientes forman un único modelo indivisible. */
+  resolveParams?(state: ParamState, zoneIds: readonly string[]): ResolvedModuleParams;
   outputs: O;
   /**
    * Función PURA: no muta las entradas, no tiene efectos, mismo resultado para mismo contexto.
@@ -380,6 +382,11 @@ export interface ModuleDefinition<
 
 /** Módulo con tipos borrados, como lo maneja el registro y el motor. */
 export type AnyModule = ModuleDefinition<InputsSpec, ParamsSpec, OutputsSpec>;
+
+/** Resolución compartida por el motor y los informes de parámetros. */
+export function resolveParamsForModule(module: AnyModule, state: ParamState, zoneIds: readonly string[]): ResolvedModuleParams {
+  return module.resolveParams?.(state, zoneIds) ?? resolveModuleParams(module.id, module.params, state, zoneIds);
+}
 
 /** Declara un módulo con inferencia completa de tipos en `compute`. */
 export function defineModule<const I extends InputsSpec, const P extends ParamsSpec, const O extends OutputsSpec>(

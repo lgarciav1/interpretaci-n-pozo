@@ -6,8 +6,8 @@ import { stageQualityCounts, alignmentQualityCounts, normalizationQualityCounts 
 import { NORMALIZATION_METHOD_LABEL, normalizationAnchorsList } from '../../core/preparation/normalization';
 import type { ClientResult } from '../../core/engine/client';
 import type { Interpretation } from '../../core/interpretation';
-import type { TableCell, TableColumn, TableValue } from '../../core/module';
-import { resolveModuleParams, type ParamSpec, type ParamValue } from '../../core/params';
+import { resolveParamsForModule, type TableCell, type TableColumn, type TableValue } from '../../core/module';
+import type { ParamSpec, ParamValue } from '../../core/params';
 import type { Registry } from '../../core/registry';
 import { unitLabel } from '../../core/units';
 import type { Well } from '../../core/well';
@@ -99,7 +99,7 @@ export function buildReportModel(well: Well, interpretation: Interpretation, res
   for (const node of current?.nodes ?? []) {
     const mod = catalog.get(node.moduleId);
     if (!mod) continue;
-    const resolved = resolveModuleParams(mod.id, mod.params, interpretation.params, zones.map((z) => z.id));
+    const resolved = resolveParamsForModule(mod, interpretation.params, zones.map((z) => z.id));
     warnings.push(...resolved.problems);
     const status = { ok: 'Calculado', error: 'Error de cálculo', 'missing-input': 'Faltan datos de entrada', cycle: 'Dependencias circulares', blocked: 'Bloqueado por una dependencia' }[node.status];
     parameters.push({ module: mod.name, status: `${node.reason === 'compare' ? 'Comparación' : node.reason === 'dependency' ? 'Dependencia' : 'Cadena principal'} · ${status}`, rows: Object.entries(mod.params).map(([key, spec]) => ({ label: spec.label, global: paramText(spec, resolved.global[key]!), zones: zones.map((z) => paramText(spec, resolved.byZone.get(z.id)![key]!)) })) });

@@ -6,18 +6,17 @@
  * filtrar por tramo o zona: «usar zona como tramo» ajusta el modelo de una zona). Clave de punto = id del plug.
  * No se dibuja en el visor (sin `placement`): la dibuja el gráfico x–y del panel «Corona».
  *
- * El modelo k–φ es una tendencia normal (`model: 'exp'`: k = A·e^(B·φ), recta en log k) sobre esta serie; el panel
- * la convierte a log10 k = a + b·φ para el módulo del motor `perm-core` (`kphiModelOf`).
+ * El modelo k–φ reutiliza las tendencias exponencial y potencial antes de aplicarlas en `perm-core`.
  *
  * Interfaz (importa `src/plots`): el worker no lo carga.
  */
 import type { Interpretation } from '../../core/interpretation';
 import { pointNumbers, shiftedDepth, type PointSet } from '../../core/pointSets';
 import type { TrendSpec } from '../../core/trends';
-import { evaluateTrend, type TrendResult } from '../../plots/trend/compute';
+import { evaluateTrend, excludedIndices, selectionWindow, type TrendResult } from '../../plots/trend/compute';
 import type { ResolvedSeries, SeriesOption, TrendSeriesProvider } from '../../plots/trend/series';
-import { COL, CORE_KIND, CORE_PROVIDER_ID, coreSets, KPHI, kphiModelOf, kphiSeriesKey, parseCoreSeriesKey, plugStatuses } from './model';
-import type { LogLinearPermModel } from '../../petro/permeability';
+import { COL, CORE_KIND, CORE_PROVIDER_ID, coreSets, KPHI, kphiModelOf, kphiSeriesKey, parseCoreSeriesKey, plugStatuses, type KPhiFitTrace } from './model';
+import { isPowerPermModel, type CorePermModel } from '../../petro/permeability';
 
 const cache = new WeakMap<PointSet, WeakMap<object, ResolvedSeries>>();
 const NO_DEC = {};
@@ -35,7 +34,7 @@ export function kphiSeries(set: PointSet, interpretation: Pick<Interpretation, '
   const st = plugStatuses(set, dec);
   const z = shiftedDepth(set, dec);
   const idx: number[] = [];
-  for (let i = 0; i < set.depth.length; i++) if (st[i]!.included && Number.isFinite(phi[i]!) && k[i]! > 0) idx.push(i);
+  for (let i = 0; i < set.depth.length; i++) if (st[i]!.included && Number.isFinite(phi[i]!) && Number.isFinite(k[i]!) && k[i]! > 0) idx.push(i);
   const ids = idx.map((i) => set.pointIds[i]!);
   const at = new Map(ids.map((id, j) => [id, j]));
   const s: ResolvedSeries = {
@@ -87,8 +86,8 @@ export interface KPhiTrend {
   index: number;
   series: ResolvedSeries | null;
   result: TrendResult | null;
-  /** log10 k = a + b·φ (solo si el modelo es exponencial y hay ajuste). */
-  model: LogLinearPermModel | null;
+  model: CorePermModel | null;
+  trace: KPhiFitTrace | null;
 }
 
 /** Tendencias k–φ de un conjunto, con su ajuste y el modelo para el motor. */
@@ -99,7 +98,36 @@ export function kphiTrends(set: PointSet, interpretation: Interpretation): KPhiT
     if (spec.series.provider !== CORE_PROVIDER_ID || spec.series.key !== key) return;
     const series = kphiSeries(set, interpretation);
     const result = series ? evaluateTrend(spec, series, interpretation.zones) : null;
-    out.push({ spec, index, series, result, model: kphiModelOf(result?.coeffs) });
+    const rawModel = kphiModelOf(result?.coeffs);
+    const fit = result?.fit;
+    const model = rawModel && isPowerPermModel(rawModel)
+      ? fit && { ...rawModel, phiMin: fit.xMin, phiMax: fit.xMax }
+      : rawModel;
+    const trace = model && series && fit ? coreFitTrace(set, spec, series, interpretation.zones, fit.r2) : null;
+    out.push({ spec, index, series, result, model: model ?? null, trace });
   });
   return out;
+}
+
+function coreFitTrace(set: PointSet, spec: TrendSpec, series: ResolvedSeries, zones: Interpretation['zones'], r2: number): KPhiFitTrace {
+  const win = selectionWindow(spec.selection, series, zones);
+  const excluded = excludedIndices(spec.selection.excluded, series);
+  const method = spec.model === 'power' ? 'power' : 'exp';
+  const points: KPhiFitTrace['points'] = [];
+  for (let i = win.start; i < win.end; i++) {
+    if (win.outside?.(i) || excluded.has(i) || (method === 'power' && !(series.x[i]! > 0))) continue;
+    const md = series.depth?.[i];
+    points.push([series.pointKey(i), md !== undefined && Number.isFinite(md) ? md : null, series.x[i]!, series.y[i]!]);
+  }
+  return {
+    setId: set.id,
+    trendId: spec.id,
+    zoneId: spec.selection.zoneId && zones.some((zone) => zone.id === spec.selection.zoneId) ? spec.selection.zoneId : null,
+    method,
+    depthRange: [Number.isFinite(win.range.top) ? win.range.top : null, Number.isFinite(win.range.base) ? win.range.base : null],
+    phiFilter: [spec.selection.xMin ?? null, spec.selection.xMax ?? null],
+    excluded: [...spec.selection.excluded].sort(),
+    points,
+    r2,
+  };
 }

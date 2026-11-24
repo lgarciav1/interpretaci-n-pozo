@@ -32,6 +32,7 @@ export function ModulePanelView({ module }: { module: AnyModule }) {
   const zoneId = useUi((s) => s.editingZoneId);
   const setUi = useUi((s) => s.set);
   const custom = panels.get(module.id);
+  const genericParams = Object.entries(module.params).filter(([key]) => !custom?.customParams?.includes(key));
   const toolString = useToolStringView();
 
   const curvePorts = useMemo(() => Object.values(module.outputs).map(portOf), [module]);
@@ -150,7 +151,7 @@ export function ModulePanelView({ module }: { module: AnyModule }) {
         </Section>
       )}
 
-      {Object.keys(module.params).length > 0 && custom?.mode !== 'replace' && (
+      {genericParams.length > 0 && custom?.mode !== 'replace' && (
         <Section title="Parámetros" meta={zone ? `zona ${zone.name}` : 'todo el pozo'}>
           {hasZoned && interpretation.zones.length > 0 && (
             <div className="module-panel__zones">
@@ -177,7 +178,7 @@ export function ModulePanelView({ module }: { module: AnyModule }) {
             </div>
           )}
           <div className="module-panel__params">
-            {Object.entries(module.params).map(([key, spec]) => {
+            {genericParams.map(([key, spec]) => {
               const storage = paramStorageKey(module.id, key, spec);
               const zoned = paramScope(spec) === 'zone';
               const globalValue = interpretation.params.global[storage] ?? spec.default;

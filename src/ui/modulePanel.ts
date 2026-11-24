@@ -26,4 +26,6 @@ export interface ModulePanel {
   component: ComponentType<ModulePanelProps>;
   /** 'replace' reemplaza los controles generados; 'append' (por defecto) se muestra debajo. */
   mode?: 'replace' | 'append';
+  /** Controles del esquema que maneja el panel a medida. Conserva los controles generados restantes. */
+  customParams?: readonly string[];
 }

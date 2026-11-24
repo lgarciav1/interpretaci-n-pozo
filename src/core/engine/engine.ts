@@ -13,6 +13,7 @@ import {
   portOf,
   unmetInputGroup,
   type AnyModule,
+  resolveParamsForModule,
   type ComputeContext,
   type InputsSpec,
   type OutputValue,
@@ -21,7 +22,7 @@ import {
   type ReadonlyCurve,
   type TableValue,
 } from '../module';
-import { resolveModuleParams, type ParamsSpec, type ParamValue, type ParamValues } from '../params';
+import type { ParamsSpec, ParamValue, ParamValues } from '../params';
 import type { Registry } from '../registry';
 import type { RoleId } from '../roles';
 import { convertArray, getUnit, unitLabel, type UnitId } from '../units';
@@ -373,7 +374,7 @@ export class Engine {
         continue;
       }
 
-      const params = resolveModuleParams(id, m.params, interp.params, zoneIds);
+      const params = resolveParamsForModule(m, interp.params, zoneIds);
       for (const p of params.problems) diagnostics.push({ level: 'warning', code: 'params', moduleId: id, message: `'${m.name}': ${p}` });
       const formulaStamp = expressions.has(id) ? [expressions.get(id), registry.roles.get(m.name)?.unit] : null;
       const stamp = JSON.stringify([formulaStamp, params.key, layout.spans.map((s) => [s.id, s.name, s.kind, s.start, s.end]), inputStamps]);

@@ -1,7 +1,7 @@
 /**
  * Panel «Corona» del dock (docs/decisiones/0010-datos-de-corona.md, D7): plugs (incluir o descartar), puesta en
  * profundidad corona–perfil (desplazamiento por corona, sugerido por correlación con su curva r y «Usar sugerido") y
- * crossplot k–φ (gráfico x–y base de `src/plots/xy/`) con el modelo k–φ (una tendencia exponencial), su ecuación, R²
+ * crossplot k–φ (gráfico x–y base de `src/plots/xy/`) con el modelo k–φ exponencial o potencial, su rango de ajuste, R²
  * y «Aplicar al pozo» hacia el módulo del motor `perm-core`. Estado vacío con «Cargar plugs», «Cargar corona del TP»
  * (datos reales del laboratorio, embebidos: docs/decisiones/0056) y «Usar plugs de ejemplo». Todo cambio va por `commit` (Ctrl+Z). Se descubre solo (`src/modules/<id>/dock.tsx`).
  */
@@ -11,11 +11,11 @@ import { pointNumbers, pointTexts, shiftedDepth, shiftOf, type PointSet } from '
 import { removePointSet, setPointDecision, setPointSetDepthShift, setPointSetSetting } from '../../core/state/pointSets';
 import { activeWellEntry, makeId } from '../../core/state/project';
 import { addTrend, removeTrend, setTrendZone, updateTrend } from '../../core/state/trends';
-import type { Well } from '../../core/well';
+import { layoutZones, type Well } from '../../core/well';
 import { suggestDepthShift, type DepthShiftResult } from '../../petro/depthMatch';
 import { pointsInRect, niceRange, type DataRect, type XYAxis } from '../../plots/xy/axes';
 import { XYPlot, type XYPointLayer, type XYTrendLayer } from '../../plots/xy/XYPlot';
-import { formatR2, trendEquation } from '../../plots/trend/format';
+import { formatR2 } from '../../plots/trend/format';
 import { trendColor } from '../../plots/trend/overlay';
 import type { ResolvedSeries } from '../../plots/trend/series';
 import { Badge, Button, Callout, Checkbox, DataTable, EmptyState, IconButton, NumberField, Select, formatNumber, toast, useFlash, useThemeTokens, type Column } from '../../ui';
@@ -29,6 +29,8 @@ import { resolveSeries } from '../../app/trends/providers';
 import { useTrendsUi } from '../../app/trends/store';
 import { addCoreExample, exampleCoreSet, kphiTrendSpec } from './example';
 import { LoadCoreDialog } from './LoadCoreDialog';
+import { isPowerPermModel } from '../../petro/permeability';
+import { effectivePermCoreModel } from '../perm-core/params';
 import { addTpCore, isTpCoreSet, TP_CORE_VIEW, tpCoreSet } from './tp';
 import {
   applyKPhiModel,
@@ -39,6 +41,7 @@ import {
   coreSets,
   DEFAULT_MATCH_CURVE,
   kphiSync,
+  otherKPhiScopes,
   MATCH_CURVE_SETTING,
   permCoreIsSource,
   plugDecisionFor,
@@ -51,6 +54,8 @@ import { kphiSeries, kphiTrends, type KPhiTrend } from './series';
 import '../../app/components/load-well.css';
 import './core.css';
 import { visibleWell } from '../../app/plots/context';
+
+const modelLabel = (method: string) => method === 'power' ? 'Potencial' : method === 'exp' ? 'Exponencial' : null;
 
 const m2 = (d: number) => formatNumber(d, { digits: 2 });
 const signed = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${m2(Math.abs(v))}`;
@@ -578,7 +583,7 @@ function KPhiSection({ set, well, interp }: { set: PointSet; well: Well; interp:
       color: trendColor(t.spec, t.index, theme),
       extend: t.spec.extend,
       emphasis: t === main,
-      label: [trendEquation(t.result!, t.series), `R² ${formatR2(t.result!.r2)} · n ${t.result!.n}`] as const,
+      label: [modelLabel(t.spec.model) ?? t.spec.name, `R² ${formatR2(t.result!.r2)} · n ${t.result!.n}`] as const,
     }));
 
   const onRect = (r: DataRect) => {
@@ -628,19 +633,20 @@ function KPhiSection({ set, well, interp }: { set: PointSet; well: Well; interp:
         ) : (
           <p className="core-empty">Para el modelo k–φ hacen falta la porosidad y la permeabilidad de los plugs.</p>
         )}
-        <ModelCard set={set} interp={interp} main={main} />
+        <ModelCard set={set} well={well} interp={interp} main={main} />
       </div>
     </section>
   );
 }
 
-function ModelCard({ set, interp, main }: { set: PointSet; interp: Interpretation; main: KPhiTrend | null }) {
+function ModelCard({ set, well, interp, main }: { set: PointSet; well: Well; interp: Interpretation; main: KPhiTrend | null }) {
   const [useAsSource, setUseAsSource] = useState(true);
   const isSource = permCoreIsSource(interp);
+  const layout = useMemo(() => layoutZones(well.depth.values, interp.zones), [well.depth.values, interp.zones]);
   if (!main) {
     return (
       <div className="core-model">
-        <p className="core-empty">Ajustá la recta de log k contra φ de los plugs incluidos (exponencial en k).</p>
+        <p className="core-empty">Ajustá un modelo exponencial o potencial con los plugs incluidos.</p>
         <Button
           size="sm"
           variant="primary"
@@ -658,18 +664,28 @@ function ModelCard({ set, interp, main }: { set: PointSet; interp: Interpretatio
   const r = main.result;
   const zoneId = main.spec.selection.zoneId ?? null;
   const zone = zoneId ? interp.zones.find((z) => z.id === zoneId) : undefined;
-  const sync = kphiSync(interp, main.model, zone ? zoneId : null);
+  const sync = kphiSync(interp, main.model, zone ? zoneId : null, main.trace);
   const target = zone ? `la zona ${zone.name}` : 'todo el pozo';
   const id = main.spec.id;
+  const family = modelLabel(main.spec.model);
+  const previousScopes = otherKPhiScopes(interp, id, zone ? zoneId : null);
+  const coverage = { local: [] as string[], global: [] as string[], default: [] as string[] };
+  const globalOrigin = !zone && main.model ? 'global' : effectivePermCoreModel(interp.params, null).origin;
+  for (const z of layout.spans) {
+    if (z.start === z.end) continue;
+    const origin = z.id === zoneId && main.model ? 'local' : effectivePermCoreModel(interp.params, z.id).origin;
+    coverage[origin === 'local' ? 'local' : globalOrigin].push(z.name);
+  }
+  if (layout.segments.some((s) => s.zoneId === null)) coverage[globalOrigin].push('tramos sin zona');
   const apply = () => {
     const w = activeWellId();
     if (!w || !main.model) return;
     const model = main.model;
-    useProject.getState().commit(zone ? `Aplicar modelo k–φ a la zona ${zone.name}` : 'Aplicar modelo k–φ al pozo', (p) => applyKPhiModel(p, w, model, { zoneId: zone ? zoneId : null, useAsSource }));
+    useProject.getState().commit(zone ? `Aplicar modelo k–φ a la zona ${zone.name}` : 'Aplicar modelo k–φ al pozo', (p) => applyKPhiModel(p, w, model, { zoneId: zone ? zoneId : null, useAsSource, trace: main.trace }));
     toast({
       tone: 'ok',
       title: 'Modelo k–φ aplicado',
-      description: useAsSource || isSource ? `La permeabilidad (PERM) de ${target} ahora sale del modelo de la corona.` : `Se guardaron a y b en el módulo; PERM sigue saliendo de otro método.`,
+      description: useAsSource || isSource ? `La permeabilidad (PERM) de ${target} ahora sale del modelo de la corona.` : `Se guardó el modelo de corona para usarlo como fuente de PERM cuando lo elijas.`,
     });
   };
   return (
@@ -678,19 +694,10 @@ function ModelCard({ set, interp, main }: { set: PointSet; interp: Interpretatio
         <p className="core-warn">{main.series ? (r?.problem ?? 'Sin ajuste.') : 'Los plugs de este modelo ya no están.'}</p>
       ) : (
         <>
-          <div className="core-model__eq">
-            <span className="core-model__k num">
-              <Flash value={r.coeffs.b}>{trendEquation(r, main.series)}</Flash>
-            </span>
-            {main.model && (
-              <span className="core-model__log num" title="La misma recta en logaritmo decimal: es lo que usa el módulo del motor">
-                log k = {formatNumber(main.model.a, { digits: 3 }).replace('-', '−')} {main.model.b < 0 ? '−' : '+'} {formatNumber(Math.abs(main.model.b), { digits: 2 })}·φ
-              </span>
-            )}
-          </div>
           <div className="core-model__meta num">
-            <span>R² {formatR2(r.r2)}</span>
-            <span>n {r.n}</span>
+            <span><Flash value={r.coeffs.b}>R² {formatR2(r.r2)}</Flash></span>
+            <span>{r.n} plugs</span>
+            {r.fit && <span>φ {formatNumber(r.fit.xMin, { digits: 4 })}–{formatNumber(r.fit.xMax, { digits: 4 })} v/v</span>}
             {r.excluded > 0 && (
               <button type="button" className="core-link" title="Volver a ajustar con todos los plugs incluidos" onClick={() => useProject.getState().commit('Ajustar con todos los plugs', (p) => updateTrend(p, activeWellId()!, id, { selection: { ...main.spec.selection, excluded: [] } }))}>
                 {r.excluded} fuera del ajuste · usar todos
@@ -700,6 +707,24 @@ function ModelCard({ set, interp, main }: { set: PointSet; interp: Interpretatio
         </>
       )}
       <div className="core-model__row">
+        <label className="core-field">
+          <span>Método</span>
+          <Select
+            size="sm"
+            aria-label="Método del modelo k–φ"
+            value={family ? main.spec.model : ''}
+            options={[
+              ...(family ? [] : [{ value: '', label: 'Elegir método' }]),
+              { value: 'exp', label: 'Exponencial' },
+              { value: 'power', label: 'Potencial' },
+            ]}
+            onChange={(model) => {
+              const w = activeWellId();
+              if (!w || (model !== 'exp' && model !== 'power')) return;
+              useProject.getState().commit('Cambiar el método del modelo k–φ', (p) => updateTrend(p, w, id, { model, mode: 'fit' }));
+            }}
+          />
+        </label>
         <label className="core-field">
           <span>Plugs de</span>
           <Select
@@ -720,9 +745,20 @@ function ModelCard({ set, interp, main }: { set: PointSet; interp: Interpretatio
         </label>
         <IconButton size="sm" icon="trash" label="Borrar el modelo k–φ" onClick={() => useProject.getState().commit('Borrar modelo k–φ', (p) => removeTrend(p, activeWellId()!, id))} />
       </div>
-      {main.spec.model !== 'exp' && <Callout tone="info">El modelo del motor es log k lineal en φ: elegí el modelo exponencial en el panel Tendencias para poder aplicarlo.</Callout>}
+      {!family && <Callout tone="info">Elegí Exponencial o Potencial para aplicar el ajuste al perfil.</Callout>}
+      {family && r?.coeffs && !main.model && (
+        <Callout tone="warn">{r.fit ? 'Los coeficientes del ajuste están fuera del rango admitido.' : 'Para aplicar la ley potencial, ajustá con los plugs incluidos.'}</Callout>
+      )}
+      {(isSource || useAsSource) && (
+        <div className="core-sync" role="note">
+          PERM de corona se aplica a todo el pozo.
+          {coverage.local.length > 0 && <div>Modelo local · {coverage.local.join(', ')}</div>}
+          {coverage.global.length > 0 && <div>Modelo global · {coverage.global.join(', ')}</div>}
+          {coverage.default.length > 0 && <div>Exponencial predeterminada · {coverage.default.join(', ')}</div>}
+        </div>
+      )}
       <div className="core-model__apply">
-        <Button size="sm" variant={sync.state === 'synced' ? 'secondary' : 'primary'} icon="check" disabled={!main.model} onClick={apply} title={`Escribe a y b en el módulo «Permeabilidad — modelo k–φ de corona» para ${target}`}>
+        <Button size="sm" variant={sync.state === 'synced' ? 'secondary' : 'primary'} icon="check" disabled={!main.model} onClick={apply} title={`Guarda el ajuste de corona para ${target}`}>
           {zone ? `Aplicar a la zona ${zone.name}` : 'Aplicar al pozo'}
         </Button>
         {!isSource && <Checkbox checked={useAsSource} onChange={setUseAsSource} label="y usarlo para PERM" />}
@@ -740,11 +776,12 @@ function ModelCard({ set, interp, main }: { set: PointSet; interp: Interpretatio
             <Badge tone="warn" icon="warning">
               Desactualizado
             </Badge>{' '}
-            El módulo usa a = {formatNumber(sync.params.a, { digits: 3 })} y b = {formatNumber(sync.params.b, { digits: 2 })}: aplicá de nuevo para usar el ajuste actual.
+            PERM de corona conserva el ajuste {isPowerPermModel(sync.params) ? 'potencial' : 'exponencial'} anterior. Aplicá de nuevo para usar el ajuste actual.
           </>
         ) : (
           <>
-            <Badge>Sin aplicar</Badge> {isSource ? 'PERM sale del módulo con sus valores por defecto.' : 'PERM sale de otro método (Timur o Coates).'}
+            <Badge>Sin aplicar</Badge> {isSource ? 'Consultá la cobertura para ver qué modelo se aplica en este tramo.' : 'PERM usa otro método.'}
+            {previousScopes.length > 0 && ` El ajuste anterior sigue guardado en: ${previousScopes.join(', ')}.`}
           </>
         )}
       </p>

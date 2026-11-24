@@ -268,8 +268,9 @@ describe('series: proveedor «core» (crossplot k–φ)', () => {
 });
 
 describe('modelo k–φ hacia el motor', () => {
-  it('kphiModelOf: solo el exponencial, redondeado; lineal, nulo o inválido → null', () => {
+  it('kphiModelOf: conserva el redondeo exponencial y la precisión potencial; descarta ajustes inválidos', () => {
     expect(kphiModelOf({ model: 'exp', a: 0.02007, b: 50.22 })).toEqual({ a: -1.6975, b: 21.81 });
+    expect(kphiModelOf({ model: 'power', a: 100.12345678, b: 11.123456789 })).toEqual({ method: 'power', a: Math.log10(100.12345678), b: 11.123456789 });
     expect(kphiModelOf({ model: 'linear', a: 1, b: 2 })).toBeNull();
     expect(kphiModelOf({ model: 'exp', a: -1, b: 2 })).toBeNull();
     expect(kphiModelOf(null)).toBeNull();
@@ -312,7 +313,7 @@ describe('modelo k–φ hacia el motor', () => {
     let p = applyKPhiModel(base(), W, { a: -1.7, b: 22 });
     p = applyKPhiModel(p, W, { a: -2.5, b: 18 }, { zoneId: 'za' });
     const i = getWellEntry(p, W).interpretation;
-    expect(i.params.zones['za']).toEqual({ 'perm-core.kphiA': -2.5, 'perm-core.kphiB': 18 });
+    expect(i.params.zones['za']).toEqual({ 'perm-core.kphiMethod': 'exp', 'perm-core.kphiA': -2.5, 'perm-core.kphiB': 18 });
     expect(permCoreParams(i, 'za')).toEqual({ a: -2.5, b: 18, set: true });
     expect(permCoreParams(i, null)).toEqual({ a: -1.7, b: 22, set: true });
     expect(kphiSync(i, { a: -2.5, b: 18 }, 'za').state).toBe('synced');
