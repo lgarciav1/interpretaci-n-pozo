@@ -6,6 +6,7 @@
 - Entrega del TP: diciembre de 2026. **No entra todo.** La sección 4 fija el orden y la línea de corte.
 - Lectura complementaria: [arquitectura](arquitectura.md), [masterplan de preparación y DRX](masterplan-preparacion-y-drx.md)
   (sus invariantes I01–I08 siguen valiendo para todo lo que toque curvas preparadas).
+- [Másterplan de réplica del TP](masterplan-replica-tp.md) con el recorrido de la clase, drawdown en MDT y ley potencial de corona.
 
 ## 1. Qué encontró la auditoría
 
