@@ -743,11 +743,14 @@ export const KGF_CM2_TO_PSI = 98.0665 / 6.894757293;
  * Saturación de la fase mojante a una presión capilar dada, interpolando una curva medida (Pc creciente, Sw no
  * creciente) LINEAL en Sw y LOGARÍTMICA en Pc, que es como se grafican y como se espacian los escalones de un ensayo
  * de inyección. Sin extrapolar: NaN si Pc cae fuera de [Pc₁, Pcₙ], si no es > 0 o si la curva tiene menos de 2 puntos.
+ * Los intervalos con Pc no creciente o sin dato se saltean (no se avisa): la curva debe venir ordenada y limpia.
  * La unidad de Sw es la de la curva (v/v o %); la de Pc, cualquiera, con tal de que sea la misma en `pc` y `pcTarget`.
  */
 export function wettingSaturationAtPc(pc: ArrayLike<number>, sw: ArrayLike<number>, pcTarget: number): number {
   const n = Math.min(pc.length, sw.length);
   if (n < 2 || !isPos(pcTarget)) return NaN;
+  // En un nodo, su valor exacto (sin el redondeo de interpolar con t = 1 ni depender de un vecino sin dato).
+  for (let i = 0; i < n; i++) if (pc[i] === pcTarget && Number.isFinite(sw[i]!)) return sw[i]!;
   for (let i = 0; i < n - 1; i++) {
     const p0 = pc[i]!;
     const p1 = pc[i + 1]!;

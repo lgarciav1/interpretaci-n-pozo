@@ -36,10 +36,23 @@ describe('petro/rockTyping: interpolación de curvas Pc–Sw medidas', () => {
     for (const p of [1.7, 23, 88]) expect(pcAtWettingSaturation(PC, SW, wettingSaturationAtPc(PC, SW, p))).toBeCloseTo(p, 10);
   });
 
+  it('casos borde: nodo exacto, vecino sin dato, Sw = 0 al final, objetivo fuera de la curva, Pc no creciente', () => {
+    expect(wettingSaturationAtPc([1, 3, 100], [0.9, 0.1, 0.05], 3)).toBe(0.1);
+    expect(wettingSaturationAtPc([1, 10, 100], [1, NaN, 0.2], 1)).toBe(1);
+    expect(wettingSaturationAtPc([1, 10, 100], [1, NaN, 0.2], 50)).toBeNaN();
+    expect(pcAtWettingSaturation([1, 10, 100], [1, 0.3, 0], 0)).toBe(100);
+    expect(pcAtWettingSaturation([1, 10, 100], [0.9, 0.5, 0.2], 0.95)).toBeNaN();
+    expect(pcAtWettingSaturation(PC, SW, 0.2)).toBeCloseTo(100, 10);
+    // Pc no creciente: se saltea el intervalo inválido (10 → 5) sin avisar; 7 cae en el primero válido (1 → 10) y 50 en 5 → 100.
+    expect(wettingSaturationAtPc([1, 10, 5, 100], [1, 0.5, 0.4, 0.2], 7)).toBeCloseTo(1 - 0.5 * (Math.log(7) / Math.log(10)), 12);
+    expect(wettingSaturationAtPc([1, 10, 5, 100], [1, 0.5, 0.4, 0.2], 50)).toBeCloseTo(0.4 - 0.2 * (Math.log(10) / Math.log(20)), 12);
+  });
+
   it('R35 medido = Washburn a la Pc de Sw = 0,65 (SHg = 35 %): con Sw 0,65 a 10 psi da 106,66/10 µm', () => {
     expect(measuredR35([1, 10, 100], [1, 0.65, 0.2])).toBeCloseTo(washburnRadius(10), 12);
     expect(washburnRadius(10)).toBeCloseTo(10.666, 3);
     expect(measuredR35([1, 10], [1, 0.8])).toBeNaN();
+    expect(measuredR35([1, 10, 100], [100, 65, 20])).toBeNaN(); // Sw en % por error: no inventa un radio
   });
 });
 
@@ -70,6 +83,8 @@ describe('curvas MICP del TP (hoja SCAL, caché de los gráficos)', () => {
     for (const s of tpSamples) expect(measuredR35(s.pcPsi, s.swFrac)).toBeCloseTo(R35[s.sample]!, 4);
   });
 
+  // El 10 % depende de σ|cosθ|: con el estándar (480 dyn/cm, 140°). Los diámetros del laboratorio implican 380,2 dyn/cm
+  // (3,4 % más de radio): con ese valor quedarían 5 de 8 dentro del 10 % (1-33CK y 2-17 pasan a ~11 %).
   it('Winland R35 desde k y φ coincide con el medido dentro del 10 % en 7 de 8 muestras (la 1-32 lo sobreestima un 35 %)', () => {
     const ratio = Object.fromEntries(tpSamples.map((s) => [s.sample, winlandR35(s.phiPct / 100, s.kGasMd) / measuredR35(s.pcPsi, s.swFrac)]));
     for (const [name, r] of Object.entries(ratio)) {
@@ -112,7 +127,16 @@ describe('petro/swiPc: presión de los niveles de Swi de la cátedra desde las c
     }
   });
 
-  it('sin ajustes válidos no hay coincidencia', () => {
-    expect(matchSwiLevel(SWI_CATEDRA_LEVELS[0]!, [{ pc: 1, fit: null }])).toEqual({ index: -1, pc: NaN, rmsSwi: NaN });
+  it('sin ajustes válidos, o con un nivel o un rango inválido, no hay coincidencia', () => {
+    const none = { index: -1, pc: NaN, rmsSwi: NaN };
+    expect(matchSwiLevel(SWI_CATEDRA_LEVELS[0]!, [{ pc: 1, fit: null }])).toEqual(none);
+    expect(matchSwiLevel({ A: NaN, B: -0.3 }, fits)).toEqual(none);
+    expect(matchSwiLevel(SWI_CATEDRA_LEVELS[0]!, fits, { min: 0, max: 2 })).toEqual(none);
+  });
+
+  it('a presión baja quedan afuera las rocas todavía sin invadir (Sw = 1): n = 5 a 2,87 y n = 7 a 3,89 kg/cm²', () => {
+    const at = (p: number) => fits.find((f) => Math.abs(f.pc - p) < 0.01)!.fit!.n;
+    expect(at(2.8685)).toBe(5);
+    expect(at(3.8887)).toBe(7);
   });
 });

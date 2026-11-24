@@ -108,7 +108,7 @@ export function swiFromPermPhiInto(
 export interface SwiPreset {
   /** Id estable del nivel (`level1` … `level6`). */
   id: string;
-  /** Rótulo para la interfaz; el orden es el de presión capilar creciente, sin inventar las presiones. */
+  /** Rótulo para la interfaz, con la presión del nivel (`pcKgCm2`) redondeada; orden de presión capilar creciente. */
   label: string;
   /** Coeficiente A (Swi% = A·x^B). */
   A: number;
@@ -229,6 +229,8 @@ export interface SwiLevelFit {
  * Ley de potencia de Swi a cada presión de `pcLevels`: la Sw de cada muestra a esa presión (`wettingSaturationAtPc`, sin
  * extrapolar) contra su √(k/φ%), ajustada con `fitSwiPowerLaw`. Entran solo las muestras ya invadidas y sin saturar:
  * 0 < Sw < 1 (con Sw = 1 el mercurio todavía no entró a esa roca y la ley de potencia no la describe).
+ * Por debajo de la mayor presión de desplazamiento de las muestras el ajuste queda SESGADO hacia las rocas buenas (las
+ * pobres, sin invadir, quedan afuera; `fit.n` dice cuántas entraron). Los niveles de la cátedra están todos por encima.
  */
 export function swiLevelFits(samples: readonly SwiPcSample[], pcLevels: ArrayLike<number>): SwiLevelFit[] {
   const out: SwiLevelFit[] = [];
@@ -274,6 +276,7 @@ export function matchSwiLevel(level: Pick<SwiPreset, 'A' | 'B'>, fits: readonly 
       sum += d * d;
     }
     const rms = Math.sqrt(sum / N);
+    if (!Number.isFinite(rms)) return;
     if (!(rms >= best.rmsSwi)) best = { index: idx, pc: f.pc, rmsSwi: rms };
   });
   return best;

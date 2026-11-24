@@ -33,7 +33,9 @@ estándar de la app (480 dyn/cm, 140°: 367,7); la app usa el estándar para que
 2. **Profundidad aproximada.** Cada muestra se ubica con el plug de corona del mismo número (1-32 → C1-32; 1-2 y
    1-2L → C1-02; 2-6L → C2-06): corona 1 en 7814–7828 m, corona 2 en 8016–8020 m. Las «L» y «CK» son subplugs del
    mismo nivel. k y φ de SCAL no son las del plug (p. ej. 1-32: 92,4 mD y 23,2 % contra 108 mD y 21,9 %), así que la
-   cota es por nombre, no por medición: alcanza para el visor y para filtrar por zona, no para calibrar.
+   cota es por nombre, no por medición: alcanza para el visor y para filtrar por zona, no para calibrar. La revisión
+   encontró plugs hermanos más parecidos en k y φ para 1-2, 1-2L y 2-6L a menos de 0,9 m: la incertidumbre es de ±1 m
+   (unas 6 muestras del perfil).
 3. **Motor.** `wettingSaturationAtPc` y `pcAtWettingSaturation` (interpolación lineal en Sw y logarítmica en Pc, sin
    extrapolar) y `measuredR35` (Washburn a SHg = 35 %) en `src/petro/rockTyping.ts`; `swiLevelFits` y
    `matchSwiLevel` en `src/petro/swiPc.ts`. Tests: `tests/petro-micp.test.ts`, contra cuentas a mano y numpy.
@@ -50,10 +52,15 @@ estándar de la app (480 dyn/cm, 140°: 367,7); la app usa el estándar para que
    | 6 | 2,7807 · −0,582 | 700,4 | 0,0013 |
 
    La presión queda en `SWI_CATEDRA_LEVELS[i].pcKgCm2` y en el rótulo («Nivel 3 · Pc ≈ 123 kg/cm²»). Los coeficientes
-   siguen siendo los de la cátedra; la reconstrucción los respalda (A dentro del 5 %, B dentro de 0,015).
+   siguen siendo los de la cátedra; la reconstrucción los respalda pero no es exacta (A dentro del 5 %, B dentro de
+   0,015; ningún subconjunto de muestras los reproduce exactos). La asignación es robusta: el segundo mejor escalón
+   queda entre 5 y 40 veces más lejos. A presiones bajas, por debajo de la presión de desplazamiento de las rocas
+   pobres, el ajuste se sesga hacia las rocas buenas (las no invadidas quedan afuera); los niveles están todos por
+   encima.
 5. **R35 medido contra Winland.** El R35 de Winland desde k y φ coincide con el medido dentro del 10 % en 7 de las 8
    muestras. La 1-32 es la excepción: 3,79 µm medido contra 5,10 estimado (Winland la sobreestima un 35 %; las dos caen
-   en la clase macro de todas formas).
+   en la clase macro de todas formas). El acuerdo depende de σ|cosθ|: con el del laboratorio (380,2 dyn/cm, d·Pc
+   constante en los gráficos de diámetro) los radios medidos suben un 3,4 % y quedan 5 de 8 dentro del 10 %.
 
    | Muestra | R35 medido (µm) | R35 Winland (µm) |
    |---|---|---|
