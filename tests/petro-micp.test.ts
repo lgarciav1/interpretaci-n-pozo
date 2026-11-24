@@ -67,7 +67,7 @@ describe('curvas MICP del TP (hoja SCAL, caché de los gráficos)', () => {
   it('8 muestras ubicadas con el plug de corona del mismo número; Pc creciente y Sw no creciente', () => {
     expect(TP_MICP_SAMPLES.map((s) => `${s.sample}→${s.plugId}`)).toEqual(['1-2→C1-02', '1-2L→C1-02', '1-32→C1-32', '1-33CK→C1-33', '1-33→C1-33', '2-15→C2-15', '2-17→C2-17', '2-6L→C2-06']);
     for (const s of TP_MICP_SAMPLES) {
-      expect(s.pcKgCm2.length).toBe(s.sample === '2-15' ? 22 : 37);
+      expect(s.pcKgCm2.length).toBe(37);
       expect(s.swPct[0]).toBe(100);
       for (let i = 1; i < s.pcKgCm2.length; i++) {
         expect(s.pcKgCm2[i]!).toBeGreaterThan(s.pcKgCm2[i - 1]!);
@@ -99,21 +99,21 @@ describe('petro/swiPc: presión de los niveles de Swi de la cátedra desde las c
   const grid = TP_MICP_SAMPLES.find((s) => s.sample === '1-32')!.pcKgCm2;
   const fits = swiLevelFits(samples, grid);
 
-  it('a presiones bajas ninguna roca está invadida (sin ajuste); a 700 kg/cm² entran 7 (la 2-15 se corta en 21)', () => {
+  it('a presiones bajas ninguna roca está invadida (sin ajuste); a 700 kg/cm² entran las 8 muestras', () => {
     expect(fits[0]!.fit).toBeNull();
     const last = fits[fits.length - 1]!;
     expect(last.pc).toBeCloseTo(700.449, 3);
-    expect(last.fit!.n).toBe(7);
+    expect(last.fit!.n).toBe(8);
   });
 
-  it('cada nivel coincide con un escalón del ensayo (RMS de Swi < 0,004 v/v) y es el `pcKgCm2` del preset', () => {
-    // numpy: 28,215 · 69,970 · 122,56 · 245,68 · 351,92 · 700,45 kg/cm², RMS 0,0031 · 0,0018 · 0,0006 · 0,0010 · 0,0013 · 0,0013.
-    const rms = [0.00307, 0.00184, 0.00061, 0.00097, 0.00125, 0.00128];
+  it('cada nivel reproduce exacto un escalón del ensayo (RMS de Swi < 0,0001 v/v) y es el `pcKgCm2` del preset', () => {
+    // 28,215 · 69,970 · 122,56 · 245,68 · 351,92 · 700,45 kg/cm² (con las 8 muestras completas, incluida 2-15).
+    const rms = [0.000042, 0.000002, 0.000004, 0.000027, 0.000000, 0.000005];
     SWI_CATEDRA_LEVELS.forEach((level, i) => {
       const m = matchSwiLevel(level, fits);
       expect(m.pc).toBeCloseTo(level.pcKgCm2!, 2);
-      expect(m.rmsSwi).toBeCloseTo(rms[i]!, 4);
-      expect(m.rmsSwi).toBeLessThan(0.004);
+      expect(m.rmsSwi).toBeCloseTo(rms[i]!, 5);
+      expect(m.rmsSwi).toBeLessThan(0.0001);
     });
   });
 

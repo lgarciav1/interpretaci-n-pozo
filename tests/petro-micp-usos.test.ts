@@ -315,20 +315,20 @@ describe('petro/micp: 8 muestras del TP contra numpy/scipy', () => {
   const ref = (o: Record<string, number>) => names.map((n) => o[n]!);
 
   // scipy.optimize.least_squares (multiarranque, cotas Bv∞ ∈ [Bv máx, φ]) en Bv.
-  const PD = ref({ '1-2': 33.1126, '1-2L': 32.8158, '1-32': 19.078, '1-33CK': 18.2065, '1-33': 14.6972, '2-15': 27.9053, '2-17': 30.3132, '2-6L': 64.0782 });
-  const G = ref({ '1-2': 0.353809, '1-2L': 0.245834, '1-32': 0.198149, '1-33CK': 0.405906, '1-33': 0.319281, '2-15': 0.157965, '2-17': 0.331321, '2-6L': 0.328024 });
-  const BV = ref({ '1-2': 21.0653, '1-2L': 21.2593, '1-32': 22.8205, '1-33CK': 21.2414, '1-33': 23.1821, '2-15': 14.3055, '2-17': 16.3025, '2-6L': 15.5937 });
-  const RMSE = ref({ '1-2': 0.857314, '1-2L': 0.870958, '1-32': 1.08475, '1-33CK': 0.939027, '1-33': 0.862351, '2-15': 0.0652171, '2-17': 0.666966, '2-6L': 0.560586 });
+  const PD = ref({ '1-2': 33.1126, '1-2L': 32.8158, '1-32': 19.078, '1-33CK': 18.2065, '1-33': 14.6972, '2-15': 24.0938, '2-17': 30.3132, '2-6L': 64.0782 });
+  const G = ref({ '1-2': 0.353809, '1-2L': 0.245834, '1-32': 0.198149, '1-33CK': 0.405906, '1-33': 0.319281, '2-15': 0.294207, '2-17': 0.331321, '2-6L': 0.328024 });
+  const BV = ref({ '1-2': 21.0653, '1-2L': 21.2593, '1-32': 22.8205, '1-33CK': 21.2414, '1-33': 23.1821, '2-15': 17.5588, '2-17': 16.3025, '2-6L': 15.5937 });
+  const RMSE = ref({ '1-2': 0.857314, '1-2L': 0.870958, '1-32': 1.08475, '1-33CK': 0.939027, '1-33': 0.862351, '2-15': 0.662322, '2-17': 0.666966, '2-6L': 0.560586 });
   const K_SW = ref({ '1-2': 11.0772, '1-2L': 18.6373, '1-32': 79.9986, '1-33CK': 19.4716, '1-33': 54.5299, '2-15': 17.1061, '2-17': 9.3562, '2-6L': 2.08716 });
-  const K_TH = ref({ '1-2': 6.15716, '1-2L': 10.3755, '1-32': 47.1558, '1-33CK': 17.2424, '1-33': 43.4044, '2-15': 11.7174, '2-17': 4.8029, '2-6L': 0.99662 });
+  const K_TH = ref({ '1-2': 6.15716, '1-2L': 10.3755, '1-32': 47.1558, '1-33CK': 17.2424, '1-33': 43.4044, '2-15': 10.3333, '2-17': 4.8029, '2-6L': 0.99662 });
   // numpy.polyfit en ln–ln + minimize_scalar para Swirr.
-  const BC_PD = ref({ '1-2': 47.6575, '1-2L': 35.4863, '1-32': 17.9803, '1-33CK': 30.8307, '1-33': 19.5094, '2-15': 23.711, '2-17': 38.7843, '2-6L': 92.1846 });
-  const BC_L = ref({ '1-2': 0.53031, '1-2L': 0.578612, '1-32': 0.555232, '1-33CK': 0.512879, '1-33': 0.517031, '2-15': 1.15737, '2-17': 0.52008, '2-6L': 0.59835 });
-  const BC_SWIRR = ref({ '1-2': 0, '1-2L': 0, '1-32': 0, '1-33CK': 0, '1-33': 0, '2-15': 0.255864, '2-17': 0, '2-6L': 0 });
-  const H_ENTRY = ref({ '1-2': 6.57973, '1-2L': 6.52076, '1-32': 3.79095, '1-33CK': 3.61777, '1-33': 2.92044, '2-15': 5.545, '2-17': 6.02347, '2-6L': 12.7328 });
-  const H_ENTRY_BC = ref({ '1-2': 9.46992, '1-2L': 7.0514, '1-32': 3.57283, '1-33CK': 6.12631, '1-33': 3.87667, '2-15': 4.71155, '2-17': 7.70674, '2-6L': 18.3178 });
+  const BC_PD = ref({ '1-2': 47.6575, '1-2L': 35.4863, '1-32': 17.9803, '1-33CK': 30.8307, '1-33': 19.5094, '2-15': 37.5016, '2-17': 38.7843, '2-6L': 92.1846 });
+  const BC_L = ref({ '1-2': 0.53031, '1-2L': 0.578612, '1-32': 0.555232, '1-33CK': 0.512879, '1-33': 0.517031, '2-15': 0.595247, '2-17': 0.52008, '2-6L': 0.59835 });
+  const BC_SWIRR = ref({ '1-2': 0, '1-2L': 0, '1-32': 0, '1-33CK': 0, '1-33': 0, '2-15': 0, '2-17': 0, '2-6L': 0 });
+  const H_ENTRY = ref({ '1-2': 6.57973, '1-2L': 6.52076, '1-32': 3.79095, '1-33CK': 3.61777, '1-33': 2.92044, '2-15': 4.78763, '2-17': 6.02347, '2-6L': 12.7328 });
+  const H_ENTRY_BC = ref({ '1-2': 9.46992, '1-2L': 7.0514, '1-32': 3.57283, '1-33CK': 6.12631, '1-33': 3.87667, '2-15': 7.45186, '2-17': 7.70674, '2-6L': 18.3178 });
   // brentq sobre fw(Sw) = 0,5, μw = 0,5 cP, μo = 1 cP.
-  const CUT = ref({ '1-2': 0.649256, '1-2L': 0.639872, '1-32': 0.644293, '1-33CK': 0.652892, '1-33': 0.652013, '2-15': 0.681773, '2-17': 0.651373, '2-6L': 0.636304 });
+  const CUT = ref({ '1-2': 0.649256, '1-2L': 0.639872, '1-32': 0.644293, '1-33CK': 0.652892, '1-33': 0.652013, '2-15': 0.636855, '2-17': 0.651373, '2-6L': 0.636304 });
   const BVI_PHIE = ref({ '1-2': 0.677134, '1-2L': 0.677134, '1-32': 0.817502, '1-33CK': 0.804505, '1-33': 0.804505, '2-15': 0.761269, '2-17': 0.714801, '2-6L': 0.70582 });
   const PC_BVI = ref({ '1-2': 65.1773, '1-2L': 51.41, '1-32': 26.1694, '1-33CK': 31.4592, '1-33': 23.3799, '2-15': 38.0242, '2-17': 51.531, '2-6L': 116.715 });
   const H_BVI = ref({ '1-2': 12.9512, '1-2L': 10.2156, '1-32': 5.20007, '1-33CK': 6.25118, '1-33': 4.64576, '2-15': 7.5557, '2-17': 10.2396, '2-6L': 23.1921 });
@@ -348,11 +348,11 @@ describe('petro/micp: 8 muestras del TP contra numpy/scipy', () => {
     });
   });
 
-  it('Thomeer: Bv∞ cae en el tope de porosidad en 6 de 8 muestras; la 2-15 (cortada a 21 kg/cm²) llega a 87 % de su Bv∞', () => {
-    expect(thomeer.filter((f) => f.bvInfAtPorosityCap).length).toBe(6); // todas menos la 1-32 y la 2-15
+  it('Thomeer: Bv∞ cae en el tope de porosidad en 7 de 8 muestras (todas menos la 1-32); la 2-15 llega a 98 %', () => {
+    expect(thomeer.filter((f) => f.bvInfAtPorosityCap).length).toBe(7); // todas menos la 1-32
     const i = names.indexOf('2-15');
-    expect(thomeer[i]!.bvInfAtPorosityCap).toBe(false);
-    expect(thomeer[i]!.reachedFraction).toBeCloseTo(12.4116 / 14.3055, 2);
+    expect(thomeer[i]!.bvInfAtPorosityCap).toBe(true);
+    expect(thomeer[i]!.reachedFraction).toBeCloseTo(0.9791, 3);
   });
 
   it('Swanson con 399 y 1,691 coincide con scipy/numpy y con la k de gas de la hoja SCAL (7 de 8 dentro del 5 %; la 1-32 da 13 % menos)', () => {
@@ -374,14 +374,13 @@ describe('petro/micp: 8 muestras del TP contra numpy/scipy', () => {
     });
   });
 
-  it('Brooks–Corey: Pd, λ y Swirr contra numpy; Swirr = 0 (límite inferior) en 7 de 8 (la 2-15, cortada, sí tiene Swirr interior)', () => {
+  it('Brooks–Corey: Pd, λ y Swirr contra numpy; Swirr = 0 (límite inferior) en las 8 muestras', () => {
     bc.forEach((f, i) => {
       expect(rel(f.pd, BC_PD[i]!), `Pd ${names[i]}`).toBeLessThan(5e-3);
       expect(rel(f.lambda, BC_L[i]!), `λ ${names[i]}`).toBeLessThan(5e-3);
       expect(Math.abs(f.swirr - BC_SWIRR[i]!), `Swirr ${names[i]}`).toBeLessThan(2e-3);
     });
-    expect(bc.filter((f) => f.swirrAtBound === 'lower').length).toBe(7);
-    expect(bc[names.indexOf('2-15')]!.swirrAtBound).toBeNull();
+    expect(bc.filter((f) => f.swirrAtBound === 'lower').length).toBe(8);
   });
 
   it('altura de entrada petróleo–agua (Δρ 0,25 g/cm³) con Pd de Thomeer y con Pd de Brooks–Corey contra numpy en SI', () => {
@@ -450,12 +449,11 @@ describe('petro/micp: Swirr fijo en Brooks–Corey, Sw en % y calibración del C
     expect(swansonApexCheck(pc, pct, 0.2)).toBeNull();
   });
 
-  it('Sw a 100 psi aire–salmuera (≈ 510,7 psi Hg): 0,21–0,36 en el TP; la 2-15 no llega (scipy)', () => {
-    const expected: Record<string, number> = { '1-2': 0.32857, '1-2L': 0.25633, '1-32': 0.21199, '1-33CK': 0.30802, '1-33': 0.24487, '2-17': 0.2963, '2-6L': 0.36082 };
+  it('Sw a 100 psi aire–salmuera (≈ 510,7 psi Hg): 0,21–0,36 en las 8 muestras del TP', () => {
+    const expected: Record<string, number> = { '1-2': 0.32857, '1-2L': 0.25633, '1-32': 0.21199, '1-33CK': 0.30802, '1-33': 0.24487, '2-15': 0.25542, '2-17': 0.2963, '2-6L': 0.36082 };
     for (const s of TP_MICP_SAMPLES) {
       const v = swAtCmrCalibration(s.pcKgCm2.map((p) => p * KGF_CM2_TO_PSI), s.swPct.map((x) => x / 100));
-      if (s.sample === '2-15') expect(v).toBeNaN();
-      else expect(v).toBeCloseTo(expected[s.sample]!, 4);
+      expect(v).toBeCloseTo(expected[s.sample]!, 4);
     }
   });
 });

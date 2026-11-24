@@ -21,6 +21,7 @@ NS = {
     'rel': 'http://schemas.openxmlformats.org/package/2006/relationships',
 }
 PC_TITLE = 'Presiones Capilares'
+THROAT_TITLE = 'DISTRIBUTION OF PORE THROAT DIAMETER'
 
 
 def norm(name):
@@ -55,8 +56,14 @@ def title(root):
 
 
 def pc_curves(z, charts):
-    """Serie por muestra del gráfico de presión capilar: X = Sw mojante (%), Y = Pc (kg/cm²)."""
-    root = next(r for r in (ET.fromstring(z.read(c)) for c in charts) if title(r).startswith(PC_TITLE))
+    """Serie por muestra del gráfico de presión capilar: X = Sw mojante (%), Y = Pc (kg/cm²).
+
+    Si alguna muestra quedó truncada en el gráfico de Pc (como 2-15, cuyo rango en el Excel corta en la fila 28),
+    completa los escalones faltantes desde la serie acumulada del gráfico «DISTRIBUTION OF PORE THROAT DIAMETER»,
+    que comparte la misma grilla de 37 presiones/diámetros.
+    """
+    roots = [ET.fromstring(z.read(c)) for c in charts]
+    root = next(r for r in roots if title(r).startswith(PC_TITLE))
     out = {}
     for s in root.iter(f'{{{NS["c"]}}}ser'):
         name = s.findtext('c:tx//c:v', namespaces=NS)
@@ -66,6 +73,28 @@ def pc_curves(z, charts):
         x, y = cache(xv), cache(yv)
         pts = [(y[i], x[i]) for i in sorted(y) if i in x]
         out[norm(name)] = pts
+
+    full_pc = max((p for p in out.values()), key=len)
+    pc_grid = [p for p, _ in full_pc]
+    throat_sw = {}
+    for r in roots:
+        if not title(r).upper().startswith(THROAT_TITLE):
+            continue
+        for s in r.iter(f'{{{NS["c"]}}}ser'):
+            name = s.findtext('c:tx//c:v', namespaces=NS)
+            xv, yv = s.find('c:xVal', NS), s.find('c:yVal', NS)
+            if not name or xv is None or yv is None:
+                continue
+            x, y = cache(xv), cache(yv)
+            # La acumulada empieza en Sw = 100 %; la incremental empieza en 0 %.
+            if len(x) == len(pc_grid) and x.get(0, 0) > 50:
+                throat_sw[norm(name)] = [x[i] for i in sorted(x)]
+
+    for name, pts in list(out.items()):
+        if len(pts) < len(pc_grid) and name in throat_sw:
+            sw_full = throat_sw[name]
+            assert all(abs(pts[i][0] - pc_grid[i]) < 1e-6 and abs(pts[i][1] - sw_full[i]) < 1e-4 for i in range(len(pts))), name
+            out[name] = list(zip(pc_grid, sw_full))
     return out
 
 
