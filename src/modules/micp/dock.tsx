@@ -14,7 +14,7 @@
  * Lógica pura en `./model.ts`; ajustes en `interpretation.moduleState['micp']` (cada cambio, un `commit`). Las ecuaciones
  * no se muestran (módulo Ecuaciones). Se descubre solo (`src/modules/<id>/dock.tsx`).
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { Interpretation } from '../../core/interpretation';
 import { activeWellEntry } from '../../core/state/project';
 import type { Well } from '../../core/well';
@@ -28,7 +28,7 @@ import { CATEGORICAL } from '../../ui/curves';
 import type { DockPanelDef } from '../../ui/dockPanel';
 import { usePlotContext } from '../../app/plots/connect';
 import { selectActiveEntry, useProject } from '../../app/store/project';
-import { loadTpMicp } from '../rock-typing/dock';
+import { importMicpCsvFile, loadTpMicp } from '../rock-typing/dock';
 import {
   applySwCutoff,
   cmrConclusion,
@@ -151,20 +151,34 @@ export function MicpPanel() {
   const well = entry?.well ?? null;
   const samples = useMemo(() => (well ? micpSamples(well.pointSets) : []), [well]);
   const color = useSampleColors(samples);
+  const csvInput = useRef<HTMLInputElement>(null);
+  const onCsvChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    void importMicpCsvFile(file, { show: false });
+  };
   if (!entry || !well || !ctx) return <EmptyState size="sm" icon="activity" title="Sin pozo" description="Cargá un pozo y sus curvas de inyección de mercurio para analizarlas." />;
   if (samples.length === 0) {
     return (
-      <EmptyState
-        size="sm"
-        icon="activity"
-        title="Sin curvas de inyección de mercurio"
-        description="Este panel ajusta Thomeer y Brooks–Corey a cada curva, estima la permeabilidad, lleva la presión a altura sobre el agua libre, arma permeabilidades relativas con un cutoff de Sw y controla el agua ligada del CMR. El Excel del TP trae las curvas de 8 muestras en la hoja SCAL."
-        actions={
-          <Button variant="primary" icon="download" data-testid="micp-load" onClick={() => loadTpMicp({ show: false })}>
-            Cargar curvas MICP del TP
-          </Button>
-        }
-      />
+      <>
+        <input ref={csvInput} type="file" accept=".csv,.tsv,.txt" hidden onChange={onCsvChange} />
+        <EmptyState
+          size="sm"
+          icon="activity"
+          title="Sin curvas de inyección de mercurio"
+          description="Este panel ajusta Thomeer y Brooks–Corey a cada curva, estima la permeabilidad, lleva la presión a altura sobre el agua libre, arma permeabilidades relativas con un cutoff de Sw y controla el agua ligada del CMR. El Excel del TP trae las curvas de 8 muestras en la hoja SCAL, o podés importar un CSV propio."
+          actions={
+            <>
+              <Button variant="primary" icon="download" data-testid="micp-load" onClick={() => loadTpMicp({ show: false })}>
+                Cargar curvas MICP del TP
+              </Button>
+              <Button variant="secondary" icon="upload" data-testid="micp-import-csv" onClick={() => csvInput.current?.click()} title="CSV o TSV con columnas pc y sw/shg (opcionales sample, k, phi y depth)">
+                Importar CSV
+              </Button>
+            </>
+          }
+        />
+      </>
     );
   }
   const interp = entry.interpretation;

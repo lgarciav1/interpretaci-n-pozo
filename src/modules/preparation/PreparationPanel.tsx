@@ -40,7 +40,7 @@ import { indexRange, qualityOf, withSuspects } from './flags';
 import { InterpolationEditor } from './InterpolationEditor';
 import { NormalizationEditor } from './NormalizationEditor';
 import { stagePriorView } from './normalizationView';
-import { Pipeline } from './Pipeline';
+import { Pipeline } from './PipelineView';
 import { pipelineStages, type PipelineStage, type PreparedView, type ToolId } from './pipeline';
 import { CorrelationReview, RunEditor } from './RunEditor';
 import { SavedPreparations } from './SavedPreparations';

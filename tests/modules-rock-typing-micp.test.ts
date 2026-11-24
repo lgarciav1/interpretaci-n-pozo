@@ -9,6 +9,7 @@ import { addWell, createProject, getWellEntry } from '../src/core/state/project'
 import { createWell } from '../src/core/well';
 import { capillaryCurves, examplePcCurves, labThroatGroups, labThroatSeries, measuredR35Rows, pcInUnit, TP_LAB_DIAMETER_PC_UM_KGCM2 } from '../src/modules/rock-typing/model';
 import { addTpMicp, hasTpMicp, isTpMicpSet, TP_MICP_SAMPLES_COUNT, tpMicpSet } from '../src/modules/rock-typing/tp';
+import { parseMicpCsv } from '../src/modules/rock-typing/micpCsv';
 import { PORT_CLASSES, washburnRadius } from '../src/petro/rockTyping';
 
 const W = 'w';
@@ -125,5 +126,46 @@ describe('vista del laboratorio de la distribución de gargantas (caché de los 
     expect(one[0]!.series.find((x) => x.label === '1-32')!.diameter[0]).toBeCloseTo(2 * washburnRadius(curves.find((x) => x.label === '1-32')!.pc[0]!), 9);
     expect(labThroatGroups([], false)).toEqual([]);
     expect(labThroatGroups(examplePcCurves(), false)[0]!.series).toHaveLength(5);
+  });
+});
+
+describe('importador genérico CSV/TSV de MICP (parseMicpCsv)', () => {
+  it('lee CSV con Pc en kg/cm², SHg en %, coma decimal y punto y coma; convierte a psi y Sw en v/v', () => {
+    const csv = [
+      'muestra;pc (kg/cm2);shg%;k_md;phi%;depth',
+      'M1;1,0;0;45,2;20,5;2100,5',
+      'M1;10,0;50;45,2;20,5;2100,5',
+      'M1;100,0;92;45,2;20,5;2100,5',
+      'M2;2,0;0;5,0;14,0;2110,0',
+      'M2;20,0;40;5,0;14,0;2110,0',
+    ].join('\n');
+    const res = parseMicpCsv(csv, 'ensayo.csv', 'micp-csv-1');
+    expect(res.sampleCount).toBe(2);
+    expect(res.rowCount).toBe(5);
+    expect(res.pressureUnit).toBe('kg/cm²');
+    const { curves, book } = capillaryCurves([res.set]);
+    expect(book).toBe(false);
+    expect(curves).toHaveLength(2);
+    expect(curves[0]!.label).toBe('M1');
+    expect(curves[0]!.pc[0]).toBeCloseTo(14.22334, 4);
+    expect(curves[0]!.sw[1]).toBeCloseTo(0.5, 9);
+    expect(curves[0]!.sw[2]).toBeCloseTo(0.08, 9);
+    expect(curves[0]!.k).toBeCloseTo(45.2, 6);
+    expect(curves[0]!.phi).toBeCloseTo(0.205, 6);
+  });
+
+  it('acepta CSV mínimo con solo pc (psi) y sw (v/v) sin columna de muestra', () => {
+    const csv = 'pc,sw\n10,1\n50,0.65\n200,0.2\n';
+    const res = parseMicpCsv(csv, 'plug_A.csv', 'micp-csv-2');
+    expect(res.sampleCount).toBe(1);
+    expect(res.pressureUnit).toBe('psi');
+    const { curves } = capillaryCurves([res.set]);
+    expect(curves[0]!.label).toBe('plug_A');
+    expect(curves[0]!.sw[1]).toBeCloseTo(0.65, 9);
+  });
+
+  it('rechaza archivos sin columna de presión o de saturación', () => {
+    expect(() => parseMicpCsv('a,b\n1,2\n3,4', 'mal.csv', 'x')).toThrow(/presión capilar/i);
+    expect(() => parseMicpCsv('pc,otro\n10,2\n20,4', 'mal.csv', 'x')).toThrow(/saturación/i);
   });
 });

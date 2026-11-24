@@ -13,10 +13,10 @@
  * Gráficos del x–y base (`src/plots/xy/`), temas por tokens, colores de clase de `classColor` (los de la pista). Todo
  * cambio va por `commit`. Se descubre solo (`src/modules/<id>/dock.tsx`).
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Interpretation } from '../../core/interpretation';
 import type { PointSet } from '../../core/pointSets';
-import { setPointSetSetting } from '../../core/state/pointSets';
+import { addPointSet, setPointSetSetting } from '../../core/state/pointSets';
 import { activeWellEntry, makeId, setSource } from '../../core/state/project';
 import type { Well } from '../../core/well';
 import { EXAMPLE_PC_SOURCE, normalizedPorosity, PORT_CLASSES, reservoirQualityIndex } from '../../petro/rockTyping';
@@ -82,6 +82,7 @@ import {
 } from './model';
 import { classColor } from './draw';
 import { addTpMicp, hasTpMicp, isTpMicpSet, TP_MICP_SAMPLES_COUNT, TP_MICP_SOURCE, tpMicpSet } from './tp';
+import { parseMicpCsv } from './micpCsv';
 import './rock-typing.css';
 
 const f2 = (v: number | null | undefined) => formatNumber(v, { digits: 2 });
@@ -124,6 +125,7 @@ function usePref<T extends string>(key: string, allowed: readonly T[], fallback:
 
 type ThroatView = 'density' | 'lab';
 const THROAT_VIEWS: readonly ThroatView[] = ['density', 'lab'];
+const ON_OFF: readonly ('off' | 'on')[] = ['off', 'on'];
 const PC_UNIT_IDS: readonly PcUnit[] = PC_UNITS.map((u) => u.id);
 
 /** Pide al panel (siempre montado) que muestre una pestaña; la recuerda para el próximo montaje. */
@@ -161,6 +163,30 @@ export function loadTpMicp(opts: { show?: boolean } = {}): void {
     description: `${TP_MICP_SAMPLES_COUNT} curvas de inyección de mercurio de la hoja SCAL, con k y φ de cada muestra. Ctrl+Z deshace la carga.`,
   });
   if (show) showRockTab('pc');
+}
+
+/** Importa curvas MICP desde un archivo CSV o TSV (`sample, pc, sw/shg, [k], [phi], [depth]`) como conjunto `capillary`. */
+export async function importMicpCsvFile(file: File | undefined, opts: { show?: boolean } = {}): Promise<void> {
+  if (!file) return;
+  const entry = activeWellEntry(useProject.getState().project);
+  if (!entry) return;
+  try {
+    const { set, sampleCount, rowCount, pressureUnit } = parseMicpCsv(await file.text(), file.name, makeId('micp'));
+    const wellId = entry.well.id;
+    useProject.getState().commit(`Importar MICP (${file.name})`, (p) => addPointSet(p, wellId, set));
+    toast({
+      tone: 'ok',
+      title: `MICP importado: ${sampleCount} ${sampleCount === 1 ? 'muestra' : 'muestras'}`,
+      description: `${rowCount} escalones desde ${file.name} (presión en ${pressureUnit} → psi). Ctrl+Z deshace la carga.`,
+    });
+    if (opts.show !== false) showRockTab('pc');
+  } catch (err) {
+    toast({
+      tone: 'error',
+      title: 'No se pudo importar el CSV de MICP',
+      description: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
 
 /** Curva activa del pozo (rol) alineada con la profundidad, o null. */
@@ -710,6 +736,14 @@ function CapillaryTab({ set, well, interp }: { set: PointSet; well: Well; interp
   const r35 = useMemo(() => measuredR35Rows(curves), [curves]);
   const [unit, setUnit] = usePref<PcUnit>('rtyp.pcUnit', PC_UNIT_IDS, 'kgcm2');
   const [view, setView] = usePref<ThroatView>('rtyp.throatView', THROAT_VIEWS, 'density');
+  const [labClasses, setLabClasses] = usePref<'off' | 'on'>('rtyp.labClasses', ON_OFF, 'off');
+  const csvInput = useRef<HTMLInputElement>(null);
+  const pickCsv = () => csvInput.current?.click();
+  const onCsvChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    void importMicpCsvFile(file);
+  };
   const labGroups = useMemo(() => (view === 'lab' ? labThroatGroups(curves, tp) : []), [view, curves, tp]);
   const styled = useMemo(() => {
     const seen = new Map<number, number>();
@@ -747,17 +781,23 @@ function CapillaryTab({ set, well, interp }: { set: PointSet; well: Well; interp
 
   return (
     <div className="rtyp-pc">
+      <input ref={csvInput} type="file" accept=".csv,.tsv,.txt" hidden onChange={onCsvChange} />
       {book ? (
         <Callout
           tone="warn"
           title="Ejemplo de libro: no son datos del pozo"
           actions={
-            <Button size="sm" variant="primary" icon="download" onClick={() => loadTpMicp()} data-testid="rtyp-load-micp" title="Curvas de inyección de mercurio de 8 muestras, guardadas en los gráficos de la hoja SCAL del Excel de la cátedra">
-              Cargar curvas MICP del TP
-            </Button>
+            <>
+              <Button size="sm" variant="primary" icon="download" onClick={() => loadTpMicp()} data-testid="rtyp-load-micp" title="Curvas de inyección de mercurio de 8 muestras, guardadas en los gráficos de la hoja SCAL del Excel de la cátedra">
+                Cargar curvas MICP del TP
+              </Button>
+              <Button size="sm" variant="secondary" icon="upload" onClick={pickCsv} data-testid="rtyp-import-micp" title="CSV o TSV con columnas pc (psi, kg/cm², bar, kPa o MPa) y sw o shg; opcionales sample, k, phi y depth">
+                Importar CSV
+              </Button>
+            </>
           }
         >
-          Cinco rocas de libro ilustran la función J y la distribución de gargantas, coloreadas por la unidad de flujo de su FZI. El Excel del TP trae las curvas medidas de 8 muestras.
+          Cinco rocas de libro ilustran la función J y la distribución de gargantas, coloreadas por la unidad de flujo de su FZI. El Excel del TP trae las curvas medidas de 8 muestras, o podés importar un CSV propio.
         </Callout>
       ) : (
         <div className="rtyp-pc__head">
@@ -771,6 +811,9 @@ function CapillaryTab({ set, well, interp }: { set: PointSet; well: Well; interp
           <span className="rtyp-pc__lead">
             {curves.length} curvas de inyección de mercurio (MICP){tp ? ' de las muestras de corona' : ''}; cada una se colorea con la unidad de flujo de su FZI.
           </span>
+          <Button size="sm" variant="secondary" icon="upload" onClick={pickCsv} data-testid="rtyp-import-micp" title="Agregar curvas MICP desde un archivo CSV o TSV (pc, sw/shg, sample, k, phi, depth)">
+            Importar CSV
+          </Button>
         </div>
       )}
       <div className="rtyp-controls">
@@ -791,6 +834,18 @@ function CapillaryTab({ set, well, interp }: { set: PointSet; well: Well; interp
             onChange={setView}
           />
         </label>
+        {view === 'lab' && (
+          <Button
+            size="sm"
+            variant={labClasses === 'on' ? 'primary' : 'secondary'}
+            aria-pressed={labClasses === 'on'}
+            data-testid="rtyp-lab-classes"
+            onClick={() => setLabClasses(labClasses === 'on' ? 'off' : 'on')}
+            title="Muestra los límites de clase de garganta de Martin et al. en diámetro (0,2 · 1 · 4 · 20 µm)"
+          >
+            Clases de garganta
+          </Button>
+        )}
       </div>
       <div className={`rtyp-pc__plots${view === 'lab' ? ' is-lab' : ''}`}>
         <figure className="rtyp-pc__fig">
@@ -808,7 +863,7 @@ function CapillaryTab({ set, well, interp }: { set: PointSet; well: Well; interp
           </figure>
         )}
       </div>
-      {view === 'lab' && <LabThroats groups={labGroups} what={what} />}
+      {view === 'lab' && <LabThroats groups={labGroups} what={what} showClasses={labClasses === 'on'} />}
       <div className="rtyp-pc__legend">
         {styled.map(({ c, uf, color, dash }) => (
           <span key={c.id} className="rtyp-legend__item" title={`k ${sig(c.k)} mD · φ ${f2(c.phi)}`}>
@@ -832,11 +887,21 @@ function CapillaryTab({ set, well, interp }: { set: PointSet; well: Well; interp
 }
 
 /** Vista del laboratorio: un gráfico por reservorio, diámetro hacia abajo, acumulada (llena) e incremental (trazos). */
-function LabThroats({ groups, what }: { groups: LabThroatGroup[]; what: string }) {
+function LabThroats({ groups, what, showClasses }: { groups: LabThroatGroup[]; what: string; showClasses: boolean }) {
   const theme = useThemeTokens();
   const palette = CATEGORICAL[theme.name];
   const x: XYAxis = { kind: 'linear', min: 0, max: 100, label: 'Volumen poral', unit: '%' };
   const y: XYAxis = { kind: 'log', min: 0.01, max: 100, label: 'Diámetro de garganta', unit: 'µm', reversed: true };
+  const classGuides: XYGuide[] = showClasses
+    ? ISO_RADII.map((r, i) => ({
+        axis: 'y',
+        value: 2 * r,
+        color: theme.color.textMuted,
+        width: 1,
+        dash: [3, 3],
+        label: `${formatNumber(2 * r, { significant: 2 })} µm · ${PORT_CLASSES[i + 1]?.label ?? ''}`,
+      }))
+    : [];
   return (
     <div className="rtyp-pc__lab" data-testid="rtyp-lab-throats">
       {groups.map((g) => {
@@ -857,6 +922,7 @@ function LabThroats({ groups, what }: { groups: LabThroatGroup[]; what: string }
               x={x}
               y={y}
               lines={lines}
+              guides={classGuides}
             />
             <div className="rtyp-pc__legend">
               {g.series.map((s, i) => (
