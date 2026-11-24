@@ -14,7 +14,7 @@ import { formatNumber } from '../ui/format';
 import { FILL_PALETTE } from '../ui/curves';
 import { BASE_TOKENS, THEMES } from '../ui/tokens';
 import { layoutTracks, type TrackBox } from './layout';
-import type { OverlayTrackDecl, ViewerData, ViewerOverlay, ViewerZone } from './overlay';
+import { guard, type OverlayColorLegend, type OverlayTrackDecl, type ViewerData, type ViewerOverlay, type ViewerZone } from './overlay';
 import type { ViewerLook } from './look';
 import { stackFillColor, ViewerRenderer } from './render';
 import type { ResolvedCurve, ResolvedTrack } from './resolve';
@@ -65,6 +65,7 @@ export interface ViewerFigureInput {
 // ── encabezado de pista ─────────────────────────────────────────────────────────────────────────────────────────
 
 type HeaderRow =
+  | { kind: 'colorLegend'; legend: OverlayColorLegend; height: number }
   | { kind: 'categories'; labels: NonNullable<OverlayTrackDecl['axisLabels']>; height: number }
   | { kind: 'title'; text: string; height: number }
   | { kind: 'unit'; text: string; height: number }
@@ -128,6 +129,15 @@ export function trackHeaderRows(t: ResolvedTrack, depthUnit = 'm', declaration?:
     }
   }
   for (const c of t.curves) if (c.kind === 'band') rows.push({ kind: 'swatch', color: c.styles.light.color, text: c.short, shortText: c.short, height: SWATCH_H });
+  return rows;
+}
+
+function figureHeaderRows(input: ViewerFigureInput, track: ResolvedTrack): HeaderRow[] {
+  const overlay = input.overlays.find((item) => item.id === track.overlayId);
+  const rows = input.parts.trackHeaders ? trackHeaderRows(track, 'm', overlay?.track) : [];
+  const colorLegend = overlay?.track?.colorLegend;
+  const legend = colorLegend && guard(overlay.id, 'leyenda', () => colorLegend(input.data, track.unit));
+  if (legend) rows.push({ kind: 'colorLegend', legend, height: legend.colors.length ? 39 : 25 });
   return rows;
 }
 
@@ -202,7 +212,10 @@ export function layoutViewerFigure(input: ViewerFigureInput): ViewerFigureLayout
   const fieldLines = parts.wellHeader ? wrapItems(input.wellFields, inner, (f) => fieldWidth(measure, f), 18) : [];
   if (fieldLines.length) y += fieldLines.length * LINE_FIELDS + 10;
   const headerY = y;
-  const headerHeight = parts.trackHeaders ? Math.max(...input.tracks.map((t) => rowsHeight(trackHeaderRows(t, 'm', input.overlays.find(o => o.id === t.overlayId)?.track))), 0) : 0;
+  const headerHeight = Math.max(0, ...input.tracks.map((track) => {
+    const rows = figureHeaderRows(input, track);
+    return rows.length ? rowsHeight(rows) : 0;
+  }));
   y += headerHeight;
   const bodyY = y;
   const bodyHeight = Math.max(1, Math.round((input.range.base - input.range.top) * input.pxPerM));
@@ -260,7 +273,7 @@ function drawHeaders(ctx: CanvasRenderingContext2D, input: ViewerFigureInput, L:
     const x1 = L.tracksX + b.x + b.width - 5;
     const inner = x1 - x0;
     let y = L.headerY + 3;
-    for (const row of trackHeaderRows(t, 'm', input.overlays.find(o => o.id === t.overlayId)?.track)) {
+    for (const row of figureHeaderRows(input, t)) {
       const mid = y + row.height / 2;
       if (row.kind === 'title') {
         const f = font(BASE_TOKENS.text.xs, W.semibold);
@@ -295,6 +308,8 @@ function drawHeaders(ctx: CanvasRenderingContext2D, input: ViewerFigureInput, L:
           ctx.textAlign = 'center';
           ctx.fillText(center, (x0 + x1) / 2, mid);
         }
+      } else if (row.kind === 'colorLegend') {
+        drawColorLegend(ctx, row.legend, x0, x1, y, measure);
       } else if (row.kind === 'curve') {
         // Nombre y unidad arriba; abajo, extremo izquierdo, trazo de la curva y extremo derecho.
         const st = row.curve.styles.light;
@@ -348,6 +363,39 @@ function drawHeaders(ctx: CanvasRenderingContext2D, input: ViewerFigureInput, L:
   }
   ctx.stroke();
   ctx.restore();
+}
+
+function drawColorLegend(ctx: CanvasRenderingContext2D, legend: OverlayColorLegend, left: number, right: number, y: number, measure: TextMeasure): void {
+  const theme = FIGURE_THEME;
+  const titleFont = font(10, W.semibold);
+  ctx.font = titleFont;
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = theme.color.text;
+  ctx.fillText(fitText(measure, titleFont, legend.title, right - left), left, y + 6);
+  const { colors } = legend;
+  ctx.font = font(9);
+  if (colors.length) {
+    const width = (right - left) / colors.length;
+    colors.forEach((color, index) => {
+      const from = Math.round(left + index * width);
+      const to = Math.round(left + (index + 1) * width);
+      ctx.fillStyle = color;
+      ctx.fillRect(from, y + 13, to - from, 5);
+    });
+    ctx.fillStyle = theme.viewer.axisText;
+    ctx.fillText(legend.minLabel, left, y + 24);
+    ctx.textAlign = 'right';
+    ctx.fillText(legend.maxLabel, right, y + 24);
+  }
+  const missingY = y + (colors.length ? 35 : 19);
+  ctx.fillStyle = legend.missing.color;
+  ctx.beginPath();
+  ctx.arc(left + 3, missingY, 3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.textAlign = 'left';
+  ctx.fillStyle = theme.viewer.axisText;
+  ctx.fillText(legend.missing.label, left + 10, missingY);
 }
 
 /** Muestra del trazo de una curva (color, grosor y rayas reales). */
@@ -467,7 +515,7 @@ export function drawViewerFigure(ctx: CanvasRenderingContext2D, input: ViewerFig
     }
   });
 
-  if (parts.trackHeaders) drawHeaders(ctx, input, L);
+  if (L.headerHeight) drawHeaders(ctx, input, L);
 
   // Cuerpo: el mismo dibujo de la pantalla, recortado a su caja.
   ctx.save();

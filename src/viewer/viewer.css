@@ -111,6 +111,21 @@
 .wv-head__categories { margin-top: auto; text-align: center; }
 .wv-head__category-axis { position: relative; height: calc(18px * var(--ui-scale)); margin-inline: calc(-6px * var(--ui-scale)); font-size: calc(9px * var(--ui-scale)); color: var(--color-text-subtle); }
 .wv-head__category-axis span { position: absolute; transform: translateX(-50%); }
+.wv-head__color-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: calc(10px * var(--ui-scale));
+  line-height: var(--leading-tight);
+}
+.wv-head__color-title { color: var(--color-text); font-weight: var(--weight-medium); }
+.wv-head__color-bar { display: flex; height: calc(5px * var(--ui-scale)); }
+.wv-head__color-bar > span { flex: 1; }
+.wv-head__color-limits { display: flex; justify-content: space-between; gap: var(--space-1); }
+.wv-head__color-missing { display: inline-flex; align-items: center; gap: var(--space-1); }
+.wv-head__color-missing > i { width: calc(6px * var(--ui-scale)); height: calc(6px * var(--ui-scale)); border-radius: var(--radius-full); }
 .wv-head--flags .ui-curve-legend__scale { display: none; }
 
 /*

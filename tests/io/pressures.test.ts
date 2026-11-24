@@ -175,3 +175,25 @@ describe('io/pressures: unidad pegada al nombre y token de unidad que no es nomb
     expect(byNameOf('Prueba MD,Presion psi\nT1,3500\n')['Prueba MD']).toMatchObject({ field: 'test' });
   });
 });
+
+describe('io/pressures: drawdown opcional', () => {
+  it.each(['Drawdown', 'Caída de presión', 'Pressure drop'])('reconoce «%s» antes que presión y conserva cero y ausencia', (header) => {
+    const table = parseTable(`Prueba,MD,${header} bar,Presión de formación (psi)\nP3,7748.0831,4.591217,19149.09\nP1,7729,0,19131\nP2,7735,,19137\n`, 'mdt.csv', { requireDepth: false });
+    const mapping = suggestPressureMapping(table);
+    expect(mapping[2]).toMatchObject({ field: 'drawdown', unit: 'bar' });
+    expect(mapping[3]).toMatchObject({ field: 'pressure', unit: 'psi' });
+    const { set } = buildPressureSet(table, mapping, { id: 'mdt' });
+    expect(set.pointIds).toEqual(['P1', 'P2', 'P3']);
+    expect(set.columns['drawdown']).toMatchObject({ unit: 'psi' });
+    const dd = pointNumbersOf(set, 'drawdown');
+    expect(dd[0]).toBe(0);
+    expect(dd[1]).toBeNaN();
+    expect(dd[2]).toBeCloseTo(66.59, 2);
+    expect(pointNumbersOf(set, 'pressure')[2]).toBe(19149.09);
+  });
+
+  it('preserva la movilidad en una columna «Drawdown Mobility»', () => {
+    const table = parseTable('MD,Pressure (psi),Drawdown Mobility (mD/cP)\n7800,19100,22\n', 'mdt.csv', { requireDepth: false });
+    expect(suggestPressureMapping(table)[2]).toMatchObject({ field: 'mobility', unit: 'mD/cP' });
+  });
+});

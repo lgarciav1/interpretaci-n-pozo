@@ -8,7 +8,7 @@
  *   buildPressureSet(tabla, mapeo, opciones)               → { set, warnings }
  *
  * Reconocimiento de columnas por nombre (sin tildes, mayúsculas) y, si el nombre no alcanza, por unidad: profundidad
- * MD y TVD, presión de formación, movilidad (mD/cP), presión hidrostática del lodo antes y después de la prueba,
+ * MD y TVD, presión de formación, drawdown, movilidad (mD/cP), presión hidrostática del lodo antes y después de la prueba,
  * calidad o resultado de la prueba, tipo de prueba, comentario e identificador de la prueba.
  *
  * Unidades canónicas del conjunto: profundidad en m, presiones en psi, movilidad en mD/cP. Las filas sin
@@ -25,6 +25,7 @@ export type PressureField =
   | 'depth'
   | 'tvd'
   | 'pressure'
+  | 'drawdown'
   | 'mobility'
   | 'mudBefore'
   | 'mudAfter'
@@ -38,6 +39,7 @@ export type PressureField =
 export const PRESSURE_COLUMNS = {
   tvd: 'tvd',
   pressure: 'pressure',
+  drawdown: 'drawdown',
   mobility: 'mobility',
   mudBefore: 'mudBefore',
   mudAfter: 'mudAfter',
@@ -55,6 +57,7 @@ export const PRESSURE_FIELD_LABEL: Readonly<Record<PressureField, string>> = {
   depth: 'Profundidad MD',
   tvd: 'Profundidad TVD',
   pressure: 'Presión de formación',
+  drawdown: 'Caída de presión (drawdown)',
   mobility: 'Movilidad',
   mudBefore: 'Presión hidrostática (antes)',
   mudAfter: 'Presión hidrostática (después)',
@@ -70,6 +73,7 @@ export const PRESSURE_FIELD_DIMENSION: Partial<Record<PressureField, DimensionId
   depth: 'length',
   tvd: 'length',
   pressure: 'pressure',
+  drawdown: 'pressure',
   mobility: 'mobility',
   mudBefore: 'pressure',
   mudAfter: 'pressure',
@@ -138,6 +142,9 @@ function fieldByName(name: string): { field: PressureField; confidence: Confiden
   if (has('QUALITY', 'CALIDAD', 'QC', 'STATUS', 'ESTADO', 'RESULT', 'RESULTADO', 'VALIDEZ', 'VALID', 'CLASIFICACION')) return { field: 'quality', confidence: 'high' };
   if (has('COMMENT', 'COMMENTS', 'COMENTARIO', 'COMENTARIOS', 'OBS', 'OBSERVACION', 'OBSERVACIONES', 'REMARK', 'REMARKS', 'NOTE', 'NOTES', 'NOTA', 'NOTAS')) return { field: 'comment', confidence: 'high' };
   if (has('TYPE', 'TIPO')) return { field: 'testType', confidence: 'high' };
+  if (has('DRAWDOWN', 'DRAWDN') || /(?:^|_)(DRAW_DOWN|CAIDA_(?:DE_)?PRESION|PRESSURE_(?:DROP|DRAWDOWN))(?:_|$)/.test(n)) {
+    return { field: 'drawdown', confidence: 'high' };
+  }
   if (
     has('FORMATION', 'FORMACION', 'PFORM', 'PF', 'FP', 'FPRES', 'PRES', 'PRESSURE', 'PRESION', 'PORE', 'PORAL', 'PP', 'PSTAB', 'PSTABLE', 'BUILDUP') ||
     starts('FORM_PRES', 'PRESION', 'PRESSURE', 'P_FORM', 'PFORM', 'FORMATION_P')
@@ -167,7 +174,7 @@ function unitFor(field: PressureField, rawUnit: string): UnitId | null {
 export function suggestPressureMapping(table: RawTable): PressureColumnMapping[] {
   const taken = new Set<PressureField>();
   const out: PressureColumnMapping[] = table.columns.map((col, i) => {
-    const base = { column: i, name: col.name, rawUnit: col.unit, kind: col.kind };
+    const base = { column: i, name: col.name, rawUnit: unitTextOf(col), kind: col.kind };
     // Por el nombre y, si no dice nada, por la descripción (LAS: «PFORM.PSIA : Presión de formación»).
     const byName = fieldByName(col.name) ?? (col.description ? fieldByName(col.description) : null);
     let field: PressureField = 'ignore';
@@ -182,7 +189,7 @@ export function suggestPressureMapping(table: RawTable): PressureColumnMapping[]
     }
     if (field === 'ignore' && col.kind === 'numeric') {
       // Por unidad: una presión o una movilidad sin nombre reconocible.
-      const u = parseUnit(unitTextOf(col));
+      const u = parseUnit(base.rawUnit);
       const dim = u ? getUnit(u)?.dimension : undefined;
       if (dim === 'pressure') {
         field = 'pressure';
@@ -197,7 +204,7 @@ export function suggestPressureMapping(table: RawTable): PressureColumnMapping[]
       confidence = 'none';
     }
     if (field !== 'ignore') taken.add(field);
-    return { ...base, field, unit: unitFor(field, unitTextOf(col)), confidence };
+    return { ...base, field, unit: unitFor(field, base.rawUnit), confidence };
   });
   // Sin columna de profundidad reconocida: la que el lector marcó como tal (o la primera numérica).
   if (!taken.has('depth')) {
@@ -269,6 +276,7 @@ export function buildPressureSet(table: RawTable, mapping: readonly PressureColu
   columns[PRESSURE_COLUMNS.pressure] = { label: 'Presión de formación', unit: PRESSURE_UNIT, values: pressure };
   const numericFields: [PressureField, string, UnitId, string][] = [
     ['tvd', PRESSURE_COLUMNS.tvd, 'm', 'Profundidad TVD'],
+    ['drawdown', PRESSURE_COLUMNS.drawdown, PRESSURE_UNIT, PRESSURE_FIELD_LABEL.drawdown],
     ['mobility', PRESSURE_COLUMNS.mobility, MOBILITY_UNIT, 'Movilidad'],
     ['mudBefore', PRESSURE_COLUMNS.mudBefore, PRESSURE_UNIT, 'Presión hidrostática (antes)'],
     ['mudAfter', PRESSURE_COLUMNS.mudAfter, PRESSURE_UNIT, 'Presión hidrostática (después)'],

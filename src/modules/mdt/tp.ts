@@ -13,6 +13,7 @@
  *   no trae movilidad ni calidad, así que las reglas automáticas no proponen descartes).
  */
 import { createPointSet, type PointSet } from '../../core/pointSets';
+import { PRESSURE_COLUMNS, PRESSURE_FIELD_LABEL, PRESSURE_UNIT } from '../../io/pressures';
 import { PRESSURE_KIND } from './model';
 import { TP_MDT_POINTS } from './tpData';
 
@@ -34,8 +35,8 @@ export function tpMdtSet(id: string): PointSet {
     pointIds: p.map((_, i) => `MDT-${String(i + 1).padStart(2, '0')}`),
     columns: {
       pressure: { label: 'Presión de formación', unit: 'psi', values: Float64Array.from(p, (q) => q.pressurePsi) },
-      drawdown: { label: 'Caída de presión (drawdown)', unit: 'psi', values: Float64Array.from(p, (q) => q.drawdown) },
-      [TP_MDT_ZONE_COLUMN]: { label: 'Zona', values: p.map((q) => q.zone) },
+      [PRESSURE_COLUMNS.drawdown]: { label: PRESSURE_FIELD_LABEL.drawdown, unit: PRESSURE_UNIT, values: Float64Array.from(p, (q) => q.drawdown) },
+      [TP_MDT_ZONE_COLUMN]: { label: 'Zona de origen', values: p.map((q) => q.zone) },
     },
   });
 }

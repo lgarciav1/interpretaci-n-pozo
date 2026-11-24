@@ -9,7 +9,7 @@ import { pointNumbers, pointTexts } from '../src/core/pointSets';
 import { emptyHistory, recordChange, undo } from '../src/core/state/history';
 import { enableProjectInputRevisions } from '../src/core/state/inputRevisions';
 import { addPointSet, setPointDecision } from '../src/core/state/pointSets';
-import { addWell, createProject, getWellEntry, setParam, type Project } from '../src/core/state/project';
+import { addWell, createProject, getWellEntry, setOverlaySetting, setParam, type Project } from '../src/core/state/project';
 import { deserializeProject, serializeProject } from '../src/core/state/serialize';
 import { createSnapshot, restoreSnapshot } from '../src/core/state/snapshots';
 import { addTrend } from '../src/core/state/trends';
@@ -88,6 +88,16 @@ describe('presiones MDT del TP (tpMdtSet)', () => {
       expect(z?.id, `${set.pointIds[i]} a ${d} m`).toBe(zones[i]);
     });
     expect([...pointNumbers(set, 'pressure')!]).toEqual(TP_MDT_POINTS.map((q) => q.pressurePsi));
+  });
+
+  it('rango de drawdown y prueba de control de B', () => {
+    const drawdown = pointNumbers(set, 'drawdown')!;
+    const control = set.depth.findIndex((md) => md === 7748.0831);
+    expect([Math.min(...drawdown), Math.max(...drawdown)]).toEqual([0.18, 66.59]);
+    expect(control).toBeGreaterThanOrEqual(0);
+    expect(pointNumbers(set, 'pressure')?.[control]).toBe(19149.09);
+    expect(drawdown[control]).toBe(66.59);
+    expect(pointTexts(set, TP_MDT_ZONE_COLUMN)?.[control]).toBe('B');
   });
 
   it('sin movilidad ni calidad en la hoja: las reglas no proponen descartar ninguna prueba', () => {
@@ -215,10 +225,13 @@ describe('persistencia de las presiones del TP', () => {
   it('guardar y abrir (v7): conjunto, zona, gradientes y descartes se conservan exactos', async () => {
     let p = loaded();
     p = setPointDecision(p, W, 'mdt', 'MDT-03', { status: 'exclude' });
+    p = setOverlaySetting(p, 'mdt', 'pointColor', 'drawdown');
+    p = setOverlaySetting(p, 'mdt', 'unit', 'bar');
     p = enableProjectInputRevisions(p);
     const text = await serializeProject(p);
     expect(JSON.parse(text).version).toBe(7);
     const back = await deserializeProject(text);
+    expect(back.display.overlays?.mdt).toEqual({ pointColor: 'drawdown', unit: 'bar' });
     const e0 = getWellEntry(p, W);
     const e1 = getWellEntry(back, W);
     const s0 = pressureSets(e0.well.pointSets)[0]!;
