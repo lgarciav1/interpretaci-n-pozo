@@ -129,6 +129,8 @@ export interface DistributionInput {
   washout?: ArrayLike<number>;
   /** Porosidad v/v. Obligatoria si mean = 'poreVolume'. */
   phi?: ArrayLike<number>;
+  /** Máscara adicional de filtros por curva/bandera (1 = incluida, 0 = excluida). */
+  mask?: ArrayLike<number>;
 }
 
 export interface DistributionOptions {
@@ -171,7 +173,7 @@ export function intervalDistribution(
   options: DistributionOptions,
   ranges: readonly { start: number; end: number }[],
 ): DistributionStats {
-  const { values, thickness, netRes, netPay, washout, phi } = input;
+  const { values, thickness, netRes, netPay, washout, phi, mask } = input;
   const { filter, excludeWashout, mean } = options;
   if (filter === 'netRes' && !netRes) throw new Error("El filtro 'netRes' requiere la bandera netRes.");
   if (filter === 'netPay' && !netPay) throw new Error("El filtro 'netPay' requiere la bandera netPay.");
@@ -194,6 +196,7 @@ export function intervalDistribution(
 
   for (const { start, end } of ranges) {
     for (let i = start; i < end; i++) {
+      if (mask && mask[i] !== 1) continue;
       if (flag && flag[i] !== 1) continue;
       // Pay = reservorio y pay, como en summarizeRanges (si viene netRes).
       if (filter === 'netPay' && netRes && netRes[i] !== 1) continue;

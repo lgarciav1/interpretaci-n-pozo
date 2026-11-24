@@ -276,6 +276,54 @@ describe('petro/distribution: derrumbe, NaN y sin datos', () => {
   });
 });
 
+describe('petro/distribution: máscara de filtros por curva o bandera (mask)', () => {
+  // 7 muestras. La 5 tiene máscara NaN (no es 1: queda afuera); la 1 es derrumbe pero está enmascarada.
+  const values = [0.1, 0.2, 0.3, 0.4, NaN, 0.6, 0.7];
+  const hh = [1, 1, 2, 1, 1, 1, 1];
+  const wo = [0, 1, 0, 1, 0, 0, 0];
+  const netRes = [1, 1, 1, 1, 1, 1, 0];
+  const mask = [1, 0, 1, 1, 1, NaN, 1];
+  const one = [{ start: 0, end: 7 }];
+  const all = { filter: 'all' as const, excludeWashout: false, mean: 'thickness' as const };
+
+  it('solo entran las muestras con mask = 1: media (0,1 + 0,3·2 + 0,4 + 0,7)/5 = 0,36, la 4 va a noData', () => {
+    const d = intervalDistribution({ values, thickness: hh, washout: wo, mask }, all, one);
+    expect(d.n).toBe(4);
+    expect(d.thickness).toBe(5);
+    expect(d.noData).toBe(1);
+    expect(d.min).toBe(0.1);
+    expect(d.max).toBe(0.7);
+    expect(d.mean).toBeCloseTo(1.8 / 5, 12);
+    expect(d.washoutThickness).toBe(1); // solo la 3: la 1 está enmascarada
+  });
+
+  it('equivale a calcular sin máscara sobre los rangos de las muestras que pasan', () => {
+    const masked = intervalDistribution({ values, thickness: hh, washout: wo, mask }, all, one);
+    const byRanges = intervalDistribution({ values, thickness: hh, washout: wo }, all, [
+      { start: 0, end: 1 },
+      { start: 2, end: 5 },
+      { start: 6, end: 7 },
+    ]);
+    expect(masked).toEqual(byRanges);
+  });
+
+  it('se combina por intersección con netRes y el derrumbe: excluido 1 m (la 3), media (0,1 + 0,3·2)/3', () => {
+    const d = intervalDistribution({ values, thickness: hh, washout: wo, netRes, mask }, { filter: 'netRes', excludeWashout: true, mean: 'thickness' }, one);
+    expect(d.excludedWashout).toBe(1);
+    expect(d.noData).toBe(1);
+    expect(d.thickness).toBe(3);
+    expect(d.n).toBe(2);
+    expect(d.mean).toBeCloseTo(0.7 / 3, 12);
+  });
+
+  it('una máscara toda en 1 da lo mismo que no pasar máscara', () => {
+    const ones = values.map(() => 1);
+    expect(intervalDistribution({ values, thickness: hh, washout: wo, mask: ones }, all, one)).toEqual(
+      intervalDistribution({ values, thickness: hh, washout: wo }, all, one),
+    );
+  });
+});
+
 describe('petro/distribution: media geométrica de k', () => {
   const o = { filter: 'all', excludeWashout: false, mean: 'geometric' } as const;
 

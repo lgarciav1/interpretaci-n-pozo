@@ -59,6 +59,23 @@ describe('muestras usadas (mismas reglas que la caja)', () => {
   });
 });
 
+describe('muestras usadas con máscara de filtros (mask)', () => {
+  it('la máscara se suma al filtro y al derrumbe, y el peso coincide con el motor', () => {
+    const mask = Uint8Array.from([1, 1, 1, 1, 1, 0, 1, 1, 1, 0]);
+    const masked: DistributionInput = { ...input, mask };
+    const o = opts({ filter: 'netRes', excludeWashout: true });
+    const seen: number[] = [];
+    let total = 0;
+    forEachUsed(masked, o, ALL, (i, _, w) => {
+      seen.push(i);
+      total += w;
+    });
+    // Sin máscara serían 2,5,6,7,9; la máscara saca la 5 y la 9.
+    expect(seen).toEqual([2, 6, 7]);
+    expect(total).toBeCloseTo(intervalDistribution(masked, o, ALL).thickness, 12);
+  });
+});
+
 describe('fracción que pasa el cutoff', () => {
   it('por espesor, inclusiva en el corte (φ ≥ mínimo; Vsh/Sw ≤ máximo)', () => {
     // Usadas (toda la zona): 0,1,2,4,5,6,7,8 (h 1) y 9 (h 2) → total 10 m.

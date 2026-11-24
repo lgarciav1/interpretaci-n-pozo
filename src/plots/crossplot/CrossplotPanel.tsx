@@ -26,6 +26,8 @@ import { Badge, Button, Chip, EmptyState, IconButton, Menu, SEQUENTIAL_PALETTE, 
 import type { ThemeTokens } from '../../ui/tokens';
 import type { Zone } from '../../core/well';
 import { ControlGroup, CurveSelect, DriverCallout, HiddenCurveNote, HiddenCurveState, ScaleControl, SelectionSummary, ZoneFilterChips } from '../controls';
+import { PlotFilterBar, PlotFilterControls } from '../FilterControls';
+import { evaluatePlotFilters } from '../filters';
 import { CUTOFF_PASSES, cutoffParamFor, cutoffScope, guideStep, normalizeCutoff, resolveCutoffLine, type CutoffLine, type CutoffParamKey } from '../cutoffs';
 import { effectiveScale, engineInputData, hiddenCurveOfKey, keyForRole, plotCurveOptions, resolvePlotCurve, zoneFilter, type PlotCurve, type ZoneFilter } from '../data';
 import { clayEndpointWrite, clayEstimateWrites, formatParam, grGuides, grWrite, inactiveDriver, normalizeParam, nudgeParam, paramChangeLabel, paramOfGuide, paramWrite, plotParamValue, plotScope, PLOT_PARAMS, RW_CORRECT_STORAGE, storedParamValue, type ParamWrite, type PlotScope } from '../params';
@@ -697,17 +699,18 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
   const xScale = effectiveScale(config.xScale, cx);
   const yScale = effectiveScale(config.yScale, cy);
   const filter = useMemo(() => zoneFilter(depth, zones, config.zones), [depth, zones, config.zones]);
+  const sampleFilter = useMemo(() => evaluatePlotFilters(ctx, config.filters, filter.include, fmt), [ctx, config.filters, filter]);
   const scope = cutoffScope(config.zones, zones);
   const pscope = plotScope(config.zones, zones);
 
   // Muestras graficables y su posición en la nube (para el cursor del visor).
   const cloud = useMemo(() => {
     if (!cx || !cy) return null;
-    const idx = plottableIndices(cx.data, cy.data, filter.include, xScale === 'log', yScale === 'log');
+    const idx = plottableIndices(cx.data, cy.data, sampleFilter.include, xScale === 'log', yScale === 'log');
     const pos = new Int32Array(depth.length).fill(-1);
     idx.forEach((s, k) => (pos[s] = k));
     return { idx, pos, x: gather(cx.data, idx), y: gather(cy.data, idx), d: gather(depth, idx) };
-  }, [cx, cy, filter, xScale, yScale, depth]);
+  }, [cx, cy, sampleFilter, xScale, yScale, depth]);
 
   // Al cerrarse el panel, el visor deja de marcar el punto bajo el puntero. La selección queda: es de todos los gráficos.
   useEffect(() => () => setPlotLink({ hoverDepth: null }), []);
@@ -1018,10 +1021,11 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
   };
   const addTrend = (model: TrendModel) => {
     if (!cx || !cy) return;
-    const key = crossplotSeriesKey({ x: cx.key, y: cy.key, zones: filter.selected });
+    const key = crossplotSeriesKey({ x: cx.key, y: cy.key, zones: filter.selected, ...(config.filters?.length ? { filters: config.filters } : {}) });
     const names = filter.selected.map((id) => zones.find((z) => z.id === id)?.name).filter(Boolean);
+    const qual = [names.length ? names.join(', ') : '', sampleFilter.summary].filter(Boolean).join(' · ');
     props.onAddTrend({
-      name: `${cy.short} vs. ${cx.short}${names.length ? ` (${names.join(', ')})` : ''}`,
+      name: `${cy.short} vs. ${cx.short}${qual ? ` (${qual})` : ''}`,
       visible: true,
       series: { provider: CROSSPLOT_PROVIDER_ID, key },
       model,
@@ -1110,6 +1114,7 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
             <ControlGroup title="Zonas">
               <ZoneFilterChips zones={filter.zones} selected={filter.selected} onChange={(ids) => onChange({ zones: ids }, 'Filtrar el crossplot por zona')} />
             </ControlGroup>
+            <PlotFilterControls ctx={ctx} rules={config.filters} evaluated={sampleFilter} onChange={(filters, label) => onChange({ filters }, label)} />
             <ControlGroup title="Plantilla" aside={tplDef && <Button size="sm" variant="ghost" onClick={() => onChange({ template: null }, 'Quitar la plantilla del crossplot')}>Quitar</Button>}>
               <Menu
                 aria-label="Plantillas de crossplot"
@@ -1272,12 +1277,13 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
           </aside>
         </div>
         <div className="plot-panel__main">
+          <PlotFilterBar evaluated={sampleFilter} onClear={() => onChange({ filters: undefined }, 'Limpiar filtros del crossplot')} />
           {hiddenX || hiddenY ? (
             <HiddenCurveState hidden={(hiddenX ?? hiddenY)!} icon="scatter" {...(props.onShowTool ? { onShowTool: props.onShowTool } : {})} />
           ) : !cx || !cy ? (
             <EmptyState size="sm" icon="scatter" title="Elegí las curvas" description="Una de las curvas elegidas ya no está en el pozo o todavía se está calculando." />
           ) : !xAxis || !yAxis || n === 0 ? (
-            <EmptyState size="sm" icon="scatter" title="Sin puntos" description="Las dos curvas no tienen valores juntos en las zonas elegidas." />
+            <EmptyState size="sm" icon="scatter" title="Sin puntos" description={sampleFilter.activeCount > 0 ? 'Ninguna muestra cumple los filtros activos.' : 'Las dos curvas no tienen valores juntos en las zonas elegidas.'} />
           ) : (
             <CloudPlot
               x={xAxis}
@@ -1290,7 +1296,7 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
               handles={tpl?.handles ?? NO_HANDLES}
               onHandleChange={onHandle}
               onHandleNudge={onNudge}
-              title={tplDef ? `Crossplot ${tplDef.label}` : `Crossplot ${cy.short} vs. ${cx.short}`}
+              title={`${tplDef ? `Crossplot ${tplDef.label}` : `Crossplot ${cy.short} vs. ${cx.short}`}${sampleFilter.summary ? ` (${sampleFilter.summary})` : ''}`}
               ariaLabel={`Crossplot de ${cy.label} contra ${cx.label}, ${formatNumber(n, { digits: 0 })} puntos`}
               colorKey={coloring?.kind === 'curve' ? coloring.key : undefined}
               highlight={highlight}

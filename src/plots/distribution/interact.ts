@@ -20,13 +20,14 @@ import type { IndexRange } from './distribution';
  * valor y su peso (> 0). Si el filtro pide una bandera que no está, no visita nada (el panel ya cae a «toda la zona»).
  */
 export function forEachUsed(input: DistributionInput, options: DistributionOptions, ranges: readonly IndexRange[], visit: (i: number, x: number, w: number) => void): void {
-  const { values, thickness, netRes, netPay, washout, phi } = input;
+  const { values, thickness, netRes, netPay, washout, phi, mask } = input;
   const { filter, excludeWashout, mean } = options;
   if ((filter === 'netRes' && !netRes) || (filter === 'netPay' && !netPay) || (mean === 'poreVolume' && !phi)) return;
   const flag = filter === 'netRes' ? netRes : filter === 'netPay' ? netPay : undefined;
   const dropWashout = excludeWashout && washout !== undefined;
   for (const { start, end } of ranges) {
     for (let i = start; i < end; i++) {
+      if (mask && mask[i] !== 1) continue;
       if (flag && flag[i] !== 1) continue;
       if (filter === 'netPay' && netRes && netRes[i] !== 1) continue;
       if (dropWashout && washout![i] === 1) continue;
