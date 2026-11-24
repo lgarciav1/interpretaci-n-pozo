@@ -80,9 +80,33 @@ estándar de la app (480 dyn/cm, 140°: 367,7); la app usa el estándar para que
   contra Winland.
 - Panel «SCAL»: los niveles muestran su presión y una sección compara los (A, B) de la cátedra con los reconstruidos.
 
+## Usos de las curvas (motor `src/petro/micp.ts`)
+
+Funciones puras con tests contra scipy (`scripts/qa/micp-usos-reference.py`), revisadas por un segundo analista:
+ajustes de Thomeer (Pd, G, Bv∞) y de Brooks–Corey, k de Swanson y de Thomeer, conversión de laboratorio a reservorio
+y altura sobre el FWL, altura de entrada, kr de Brooks–Corey–Burdine, flujo fraccional y cutoff de Sw, y comparación
+con el CMR. Lo que salió de los datos del TP:
+
+- **La «k de gas» de la tabla SCAL no es una medición.** Swanson (399·(Sb/Pc)^1,691) la reproduce dentro del 0,7 % en
+  6 de 8 muestras (1-2L +4,7 %, 1-32 −13 %). Contra una k medida eso es imposible: Swanson dispersa un factor 2. Casi
+  seguro el laboratorio la calculó con Swanson sobre estas mismas curvas. La k medida del TP es la de los plugs de la
+  hoja PB, que difiere de la de SCAL entre ×0,33 y ×4,4 (son otros tapones, a ±1 m). Thomeer da 0,48–0,88 veces esa k.
+- **El Swirr de Brooks–Corey no es identificable** con estas curvas (entrada abrupta y cola larga hasta 700 kg/cm²):
+  el ajuste libre da Swirr = 0 en 7 de 8. Para kr y cutoff se toma el Swirr de la curva a la altura del tope de la
+  columna (`fitBrooksCorey` con `swirr` fijo).
+- **El cutoff de Sw a fw = 0,5 depende sobre todo de μw/μo**, no de Swirr ni de λ: 0,63–0,73 con μw/μo = 0,5, y
+  0,61–0,79 con μw/μo entre 0,25 y 2. Se muestra como banda.
+- **El FWL no se puede fijar con las presiones MDT del TP.** Zona B: 0,412 psi/ft (0,95 g/cm³: crudo pesado de unos
+  17 °API o agua dulce, no salmuera). Zona D: 0,731 psi/ft (1,69 g/cm³, no es un fluido). Las presiones están
+  sobrepresionadas (≈ 0,75 psi/ft absoluto) y los gradientes cambian según el tramo. El FWL y Δρ son supuestos del
+  usuario y así se rotulan.
+- **CMR.** A la profundidad de las muestras (±1 m), BVI/PHIE da 0,68–0,82. La Sw de las curvas a la presión estándar
+  de calibración del corte de T2 (100 psi aire–salmuera ≈ 511 psi mercurio) es 0,21–0,36 (la 2-15 no llega). El CMR
+  marca entre 2 y 3,5 veces más agua ligada: con el corte de 33 ms sobreestima el BVI en estas rocas. Esta comparación
+  no necesita FWL.
+
 ## Qué NO cubre
 
 - Lector genérico de Pc–Sw (CSV o Excel de otros pozos): sigue abierto (0024).
-- Conversión de la presión de laboratorio (mercurio–aire) a condiciones de reservorio y a altura sobre el agua libre:
-  necesita σ y θ del sistema del reservorio y el contraste de densidades de las presiones MDT. Es el paso siguiente
-  natural (módulo «Saturación por altura», 0079) y no se hace acá.
+- El módulo «Saturación por altura» (0079) sigue con su escenario propio; el panel «Análisis MICP» hace la versión
+  directa con las curvas medidas y un FWL supuesto.
