@@ -2,6 +2,7 @@
 import type { CommandSource } from '../../ui';
 import { contextEquationId, openEquations } from './open';
 import { registry } from '../../modules';
+import { parameterCommands } from './parameterCommands';
 
 export const commands: CommandSource = () => {
   const id = contextEquationId();
@@ -16,5 +17,6 @@ export const commands: CommandSource = () => {
       ...(name ? { detail: name } : {}),
       run: () => openEquations(),
     },
+    ...parameterCommands,
   ];
 };

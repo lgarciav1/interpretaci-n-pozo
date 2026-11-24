@@ -35,6 +35,8 @@ export interface Command {
   group: string;
   /** Otras palabras con las que se la busca (se comparan sin acentos). */
   keywords?: readonly string[];
+  /** Entrada de catálogo visible al buscar, para reservar la lista inicial a acciones de uso frecuente. */
+  searchOnly?: boolean;
   icon?: IconName;
   /** Detalle corto a la derecha del título («activo», «sin cambios»). */
   detail?: string;
@@ -219,11 +221,12 @@ export interface CommandMatch {
  */
 export function searchCommands(commands: readonly Command[], query: string): CommandMatch[] {
   const runnable = commands.filter((c) => typeof c.run === 'function');
-  if (!query.trim()) return runnable.map((command) => ({ command, score: 0 }));
+  if (!query.trim()) return runnable.filter((command) => !command.searchOnly).map((command) => ({ command, score: 0 }));
   const out: (CommandMatch & { i: number })[] = [];
   runnable.forEach((command, i) => {
     const score = commandScore(query, command);
-    if (score !== null) out.push({ command, score, i });
+    // Una coincidencia con una acción directa tiene prioridad sobre una mención equivalente en el catálogo.
+    if (score !== null) out.push({ command, score: command.searchOnly ? score * 0.65 : score, i });
   });
   return out.sort((a, b) => b.score - a.score || a.i - b.i).map(({ command, score }) => ({ command, score }));
 }

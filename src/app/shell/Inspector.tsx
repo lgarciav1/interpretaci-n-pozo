@@ -9,8 +9,8 @@ import { registry } from '../../modules';
 import { Badge, Button, Callout, DataTable, EmptyState, Icon, IconButton, Menu, Spinner, StatusDot, formatNumber, type IconName, type MenuEntry, type Tone } from '../../ui';
 import { BoreholeSummary, QcCounts, QcDot, QC_STATUS_LABEL } from '../components/Qc';
 import { ModulePanelView } from '../components/ModulePanelView';
-import { STEP_STATUS_LABEL, stepsOfModule, FLOWS, type StepState, type StepStatus } from '../flow/flow';
-import { markStep, openStep, toFlowModule, useFlow, workspaceModules } from '../flow/useFlow';
+import { STEP_STATUS_LABEL, type StepState, type StepStatus } from '../flow/flow';
+import { markStep, openStep, useFlow, workspaceModules } from '../flow/useFlow';
 import { selectActiveEntry, useProject } from '../store/project';
 import { useWellQc } from '../store/qc';
 import { useResults } from '../store/results';
@@ -19,6 +19,7 @@ import { showSwModels } from '../tracks/swModels';
 import { AVAILABILITY_LABEL, useToolStringView } from '../toolString/select';
 import { openPreparation } from '../preparation/open';
 import { FREE_MODULE_VIEW } from './freeModuleView';
+import { openModuleInspector } from './moduleNavigation';
 
 export { FREE_MODULE_VIEW };
 
@@ -41,7 +42,6 @@ const fmt = (v: number, d = 2) => formatNumber(v, { digits: d });
 
 function ModulePicker() {
   const workspace = useUi((s) => s.workspace);
-  const setUi = useUi((s) => s.set);
   const modules = workspaceModules(workspace);
   const toolString = useToolStringView();
   const items: MenuEntry[] = [];
@@ -56,10 +56,7 @@ function ModulePicker() {
         label: m.name,
         // Sarta (0032): se puede abrir igual (el panel dice qué falta), pero se marca.
         ...(av && av.status !== 'available' ? { hint: AVAILABILITY_LABEL[av.status] } : {}),
-        onSelect: () => {
-          const steps = stepsOfModule(FLOWS[workspace], toFlowModule(m));
-          setUi({ activeModuleId: m.id, activeStepId: steps[0]?.id ?? FREE_MODULE_VIEW });
-        },
+        onSelect: () => openModuleInspector(m),
       });
     }
   }

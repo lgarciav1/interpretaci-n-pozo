@@ -96,11 +96,11 @@ export function ModulePanelView({ module }: { module: AnyModule }) {
     ) : null;
 
   return (
-    <div className="module-panel">
+    <div className="module-panel" data-module-panel={module.id}>
       {sartaNotice}
       <header className="module-panel__head">
         <div className="module-panel__titles">
-          <h3 className="module-panel__name">
+          <h3 className="module-panel__name" tabIndex={-1}>
             {module.name}
             {module.description && (
               <Tooltip content={module.description} placement="bottom">

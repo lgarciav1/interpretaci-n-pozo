@@ -80,14 +80,15 @@ export function buildEquationEntries(registry: Registry, extras: readonly ExtraD
   const out: EquationEntry[] = [];
   for (const m of registry.modules) {
     const categoryLabel = registry.categoryLabel(m.category);
+    const params = Object.entries(m.params).map(([key, spec]) => paramRow(key, spec));
     out.push({
       id: m.id,
       name: m.name,
       categoryId: m.category,
       categoryLabel,
       docs: m.docs,
-      params: Object.entries(m.params).map(([k, s]) => paramRow(k, s)),
-      haystack: haystackOf(m.name, categoryLabel, m.docs),
+      params,
+      haystack: [haystackOf(m.name, categoryLabel, m.docs), ...params.map((p) => fold(`${p.key} ${p.label}`))].join('\n'),
     });
   }
   for (const x of registry.panels) {
