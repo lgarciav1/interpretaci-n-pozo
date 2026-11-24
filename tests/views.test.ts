@@ -13,6 +13,7 @@ import { useUi, type ShellLayout } from '../src/app/store/ui';
 import { defenseExitNeeded } from '../src/app/store/uiSync';
 import { useViewer } from '../src/app/store/viewer';
 import { useTrendsUi } from '../src/app/trends/store';
+import { setLoupeOpen } from '../src/viewer/loupe';
 import { sanitizeDisplay, type SavedView, type TrackSpec } from '../src/core/display';
 import { sameEngineInputs } from '../src/core/interpretation';
 import { addWell, createProject, setTrackLayout, setZones, type Project } from '../src/core/state/project';
@@ -349,6 +350,21 @@ describe('modo defensa: recorrido con los stores', () => {
     vi.advanceTimersByTime(300);
     expect(write).toHaveBeenCalledTimes(1);
     expect(JSON.parse(write.mock.calls[0]![1])).toEqual(layout);
+  });
+
+  it('con la lupa del visor abierta, el primer Esc es de la lupa y la defensa sigue (F17)', () => {
+    const owner = {};
+    enterDefense(0);
+    setLoupeOpen(owner, true);
+    const e = key('Escape');
+    expect(e.preventDefault).not.toHaveBeenCalled();
+    expect(useViewsUi.getState().defense).not.toBeNull();
+    // Un Esc que ya usó otro (la lupa registrada antes lo marca) tampoco sale.
+    setLoupeOpen(owner, false);
+    key('Escape', { defaultPrevented: true });
+    expect(useViewsUi.getState().defense).not.toBeNull();
+    key('Escape');
+    expect(useViewsUi.getState().defense).toBeNull();
   });
 
   it('una lista fija en el panel de la vista (sin foco) no se come → ←; un diálogo abierto sí', () => {

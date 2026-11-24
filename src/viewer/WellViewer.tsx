@@ -23,7 +23,7 @@ import { matchingPrintScale, printScaleOptions, scaleButtonLabel } from './print
 import { THEMES } from '../ui/tokens';
 import { LOAD_ANIMATION_MS, revealAt } from './animation';
 import { layoutTracks, MIN_TRACK_WIDTH, trackAt } from './layout';
-import { DEFAULT_LOUPE_SCALE, loupeMark, loupeSize, placeLoupe, stepLoupeScale } from './loupe';
+import { DEFAULT_LOUPE_SCALE, loupeMark, loupeSize, placeLoupe, setLoupeOpen as markLoupeOpen, stepLoupeScale } from './loupe';
 import { LoupePainter } from './loupeView';
 import { DropLayer, ResizeEdge, type ViewerLayoutEditing } from './layoutEdit';
 import { PointerGestures, type HitResult } from './interaction';
@@ -917,6 +917,7 @@ export function WellViewer(props: WellViewerProps) {
   const toggleLoupe = useCallback(() => {
     if (loupe.current) {
       loupe.current = null;
+      markLoupeOpen(loupe, false);
       setLoupeOpen(false);
       announceRef.current('Lupa cerrada.');
       return;
@@ -926,11 +927,14 @@ export function WellViewer(props: WellViewerProps) {
     loupe.current = { scale: DEFAULT_LOUPE_SCALE, wheel: 0, x: pointer.current?.x ?? null, painter: new LoupePainter(), w: 0, h: 0, headScale: 0 };
     // Sin cursor (puntero fuera del visor, abierta desde la paleta): cursor de teclado en el medio de la vista.
     if (cursor.current.depth === null) setCursor(depthOf(vp, vp.height / 2), 'keyboard');
+    markLoupeOpen(loupe, true);
     setLoupeOpen(true);
     announceRef.current(`Lupa abierta a 1:${DEFAULT_LOUPE_SCALE}: sigue al cursor. La rueda cambia el aumento; Escape la cierra.`);
   }, [setCursor]);
   const toggleLoupeRef = useRef(toggleLoupe);
   toggleLoupeRef.current = toggleLoupe;
+  // Al desmontar el visor, la lupa deja de contar como abierta (el modo defensa vuelve a tomar Esc).
+  useEffect(() => () => markLoupeOpen(loupe, false), []);
   useEffect(() => {
     const sc = scrollRef.current;
     if (!sc) return;
@@ -958,6 +962,8 @@ export function WellViewer(props: WellViewerProps) {
         keywords: ['lupa', 'detalle', 'aumento', 'ampliar', 'escala', '1:200', 'zoom'],
         icon: 'zoom-in',
         shortcut: { key: 'l' },
+        // Un menú abierto o una lista con foco usan las letras para saltar a una opción: ahí la L no es de la lupa.
+        enabled: () => typeof document === 'undefined' || !(document.querySelector('[role="menu"]') || document.activeElement?.closest('[role="listbox"], [role="menu"], [role="menubar"]')),
         run: () => toggleLoupeRef.current(),
       },
       { id: 'doc:viewer-loupe-wheel', title: 'Cambiar el aumento de la lupa (1:50 a 1:1.000)', group: 'Visor', keys: 'Rueda con la lupa abierta' },
@@ -965,15 +971,17 @@ export function WellViewer(props: WellViewerProps) {
     ],
     [],
   );
-  // Esc la cierra antes que cualquier otro uso de Esc en el visor (cursor, modos); un diálogo o menú abierto se queda
+  // Esc la cierra antes que cualquier otro uso de Esc en el visor (cursor, modos) y que el modo defensa (que consulta
+  // `isLoupeOpen` y le cede este Esc); un diálogo o menú abierto, un campo de texto o un arrastre en curso se quedan
   // con su Esc.
   useEffect(() => {
     if (!loupeOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing) return;
+      if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing || draggingRef.current) return;
       if (isTypingTarget(e.target as HTMLElement | null) || document.querySelector('[role="dialog"], [role="menu"]')) return;
       e.preventDefault();
-      e.stopPropagation();
+      // Inmediata: otros oyentes en captura sobre `window` registrados antes (modo defensa) no deben verlo.
+      e.stopImmediatePropagation();
       toggleLoupeRef.current();
     };
     window.addEventListener('keydown', onKey, true);

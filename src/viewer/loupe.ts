@@ -205,3 +205,15 @@ export function loupeMark(main: Viewport, top: number, base: number, from: numbe
   const height = Math.max(MARK_MIN_PX, b - a);
   return { x: from, y: b - a < MARK_MIN_PX ? (a + b) / 2 - MARK_MIN_PX / 2 : a, width: Math.max(1, to - from), height };
 }
+
+/**
+ * Lupas abiertas en la página. Otras capas con su propio Esc en captura (modo defensa) lo consultan para cederle el
+ * primer Esc a la lupa: los oyentes en captura sobre `window` corren en orden de registro, así que sin esto ganaría
+ * el que se registró antes.
+ */
+const openLoupes = new Set<object>();
+export function setLoupeOpen(owner: object, open: boolean): void {
+  if (open) openLoupes.add(owner);
+  else openLoupes.delete(owner);
+}
+export const isLoupeOpen = (): boolean => openLoupes.size > 0;

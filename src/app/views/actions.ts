@@ -15,6 +15,7 @@ import { activeWellViews, allViews, deleteView, findView, moveView, renameView, 
 import { WORKSPACES, type WorkspaceId } from '../../core/workspaces';
 import { formatNumber, toast } from '../../ui';
 import { ESSENTIAL_NAME } from '../../viewer/essential';
+import { isLoupeOpen } from '../../viewer/loupe';
 import { DOCK_PANELS } from '../shell/dockPanels';
 import { hasNativeUndo, historyShortcut } from '../shell/historyActions';
 import { OVERLAYS } from '../shell/viewerOverlayList';
@@ -227,7 +228,8 @@ export function onDefenseKey(e: KeyboardEvent): void {
   // fija, como las curvas del digitalizador, y no por eso dejar de pasar de vista).
   if (doc?.querySelector('[role="dialog"], [role="menu"]') || asElement(e.target)?.closest('[role="listbox"]')) return;
   if (e.key === 'Escape') {
-    if (useViewer.getState().dragging || inText(e.target)) return;
+    // Con la lupa del visor abierta, el primer Esc es de la lupa (ADR 0085): la defensa sale con el siguiente.
+    if (e.defaultPrevented || isLoupeOpen() || useViewer.getState().dragging || inText(e.target)) return;
     e.preventDefault();
     e.stopPropagation();
     exitDefense();
