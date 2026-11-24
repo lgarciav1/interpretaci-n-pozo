@@ -1,0 +1,11 @@
+/* «Pegar topes» (F09). */
+.paste-tops { display: flex; flex-direction: column; gap: var(--space-3); }
+.paste-tops__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.paste-tops__problems { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.paste-tops__problem { font-size: var(--text-sm); overflow-wrap: anywhere; }
+.paste-tops__problem.is-error { color: var(--color-error-text); }
+.paste-tops__problem.is-warning { color: var(--color-warn-text); }
+.paste-tops__derived { color: var(--color-text-muted); }
+.paste-tops__note { margin: 0; color: var(--color-text-muted); font-size: var(--text-xs); }
+.paste-tops .ui-table tbody tr[data-state='error'] { background: var(--color-error-soft); }
+.paste-tops .ui-table tbody tr[data-state='warning'] { background: var(--color-warn-soft); }

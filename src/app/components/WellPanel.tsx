@@ -39,6 +39,7 @@ import { useWellQc } from '../store/qc';
 import { useResults } from '../store/results';
 import { useUi } from '../store/ui';
 import { QcCounts, QcDot } from './Qc';
+import { PasteTopsDialog } from './PasteTopsDialog';
 import './well-panel.css';
 
 const fmt = (v: number, d = 2) => formatNumber(v, { digits: d });
@@ -68,6 +69,7 @@ export function WellPanel() {
   const marking = useUi((s) => s.zoneMarking);
   const setUi = useUi((s) => s.set);
   const { states, suggested } = useFlow();
+  const [pasteTops, setPasteTops] = useState(false);
 
   if (!entry) {
     return (
@@ -279,9 +281,14 @@ export function WellPanel() {
         title="Zonas"
         meta={interpretation.zones.length || undefined}
         actions={
-          <Button size="sm" variant={marking ? 'primary' : 'ghost'} icon="zone-add" aria-pressed={marking} onClick={() => setUi({ zoneMarking: !marking })} title="Arrastrá sobre el perfil para marcar una zona nueva">
-            Marcar
-          </Button>
+          <>
+            <Button size="sm" variant="ghost" icon="table" onClick={() => setPasteTops(true)} title="Pegar o cargar una tabla con el nombre y el tope de cada zona" data-testid="zones-paste-tops">
+              Pegar topes
+            </Button>
+            <Button size="sm" variant={marking ? 'primary' : 'ghost'} icon="zone-add" aria-pressed={marking} onClick={() => setUi({ zoneMarking: !marking })} title="Arrastrá sobre el perfil para marcar una zona nueva">
+              Marcar
+            </Button>
+          </>
         }
       >
         {interpretation.zones.length === 0 ? (
@@ -333,6 +340,7 @@ export function WellPanel() {
           </>
         )}
       </Section>
+      {pasteTops && <PasteTopsDialog wellId={well.id} depth={d} zones={interpretation.zones} onClose={() => setPasteTops(false)} />}
     </div>
   );
 }
