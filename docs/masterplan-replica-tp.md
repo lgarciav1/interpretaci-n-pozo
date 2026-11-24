@@ -15,6 +15,8 @@ El núcleo del ejercicio ya corre en la app. La comprobación con la grabación 
 
 La línea de corte para la entrega funcional es cerrar las dos funciones y pasar el recorrido de integración. Las decisiones de interpretación, como los puntos de un gradiente o el ajuste de cada corona, quedan a cargo de quien ejecuta el TP.
 
+El recorrido integrado reprodujo los controles de B608 y A8 y exportó las figuras MDT y el Excel desde el HTML autocontenido. El recorrido completo pasó por `file://` en Firefox sin red desde el inicio. En Chromium administrado se comprobó el mismo HTML servido localmente y sin red tras la carga. [Evidencia del recorrido](validacion/2026-11-24-replica-tp.md) · [MDT, PR #107](https://github.com/lgarciav1/interpretaci-n-pozo/pull/107) · [Corona, PR #108](https://github.com/lgarciav1/interpretaci-n-pozo/pull/108)
+
 ## Fase 0 · Fijar las referencias
 
 1. Registrar el commit y la versión de los datos embebidos. Reusar el CSV de perfiles, los 58 puntos MDT, los plugs PB y los datos SCAL que ya trae la app. Comparar por profundidad MD y zona. Los números de fila de Excel sirven como referencia de la grabación.

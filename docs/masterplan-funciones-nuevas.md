@@ -64,6 +64,8 @@ Tamaño: **C** chico (una sesión corta), **M** mediano (una sesión), **G** gra
 | F26 | Asistente sin modelo | 5 | M | desarrollador-ui | [0083](decisiones/0083-asistente-sin-modelo.md) | implementada en borrador. Pendiente abrir el HTML por doble clic sin internet. |
 | F23 | Perfilaje en vivo | 5 | G | arquitecto | — | pendiente |
 | F24 | Pozo 3D con calibre e invasión calculados | 5 | M | arquitecto | — | implementada en rama · pendiente apertura por doble clic ([verificación](capturas/f24/README.md)) |
+| F27 | Presiones MDT coloreadas por drawdown | TP | M | desarrollador-ui | Referencias del TP | implementada en [PR #107](https://github.com/lgarciav1/interpretaci-n-pozo/pull/107), validada por file:// en Firefox |
+| F28 | Ley potencial de corona como fuente de PERM | TP | G | analista-numerico | Referencias del TP | implementada en [PR #108](https://github.com/lgarciav1/interpretaci-n-pozo/pull/108), validada por file:// en Firefox |
 | F12 | Gráfico de Hingle | cond. | C | desarrollador-ui | — | solo si la materia lo pide |
 | F13 | Saturación de Waxman–Smits | cond. | M | analista-numerico | — | solo si la materia lo pide |
 
