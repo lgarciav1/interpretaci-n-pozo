@@ -81,8 +81,8 @@ describe('swi-pc: registro y esquema', () => {
     const level = m.params['level'] as unknown as { type: string; options: { value: string; label: string }[]; default: string; scope: string };
     expect(level.type).toBe('enum');
     expect(level.options.map((o) => o.value)).toEqual(['level1', 'level2', 'level3', 'level4', 'level5', 'level6', 'manual']);
-    expect(level.options[0]!.label).toBe('Nivel 1 (menor presión capilar)');
-    expect(level.options[5]!.label).toBe('Nivel 6 (mayor presión capilar)');
+    expect(level.options[0]!.label).toBe('Nivel 1 · Pc ≈ 28 kg/cm² (menor)');
+    expect(level.options[5]!.label).toBe('Nivel 6 · Pc ≈ 700 kg/cm² (mayor)');
     expect(level.options[6]!.label).toBe('Manual');
     for (const k of ['level', 'manualA', 'manualB', 'tolerance']) expect((m.params[k] as { scope?: string }).scope, k).toBe('zone');
     for (const k of ['manualA', 'manualB', 'tolerance']) expect((m.params[k] as { tooltip?: string }).tooltip, k).toBeTruthy();
@@ -188,7 +188,7 @@ describe('swi-pc: tabla por zona', () => {
   it('nivel 1: Swi medio, Sw medio y % con Sw < Swi por zona (cuentas de mano)', () => {
     const r = run(base(), params({ level: 'level1' }));
     const [za, zb] = rows(r);
-    expect(za).toMatchObject({ zoneId: 'za', zone: 'ZA', level: 'Nivel 1 (menor presión capilar)', a: 28.93, b: -0.333, nSwi: 2, nBoth: 2, pctBelow: 100 });
+    expect(za).toMatchObject({ zoneId: 'za', zone: 'ZA', level: 'Nivel 1 · Pc ≈ 28 kg/cm² (menor)', a: 28.93, b: -0.333, nSwi: 2, nBoth: 2, pctBelow: 100 });
     expect(za!['swiMean']).toBeCloseTo((L1.a + L1.b) / 2, 12);
     expect(za!['swMean']).toBeCloseTo((0.1 + 0.4) / 2, 12);
     // Zona B: muestras 6,7,8,9 con Swi; 10 (Sw NaN) y 11 (φ=0) no entran en la comparación
@@ -217,8 +217,8 @@ describe('swi-pc: tabla por zona', () => {
     expect(swi[0]).toBeCloseTo(L6.a, 12);
     expect(swi[6]).toBeCloseTo(L1.a, 12);
     const [za, zb] = rows(r);
-    expect(za!['level']).toBe('Nivel 6 (mayor presión capilar)');
-    expect(zb!['level']).toBe('Nivel 1 (menor presión capilar)');
+    expect(za!['level']).toBe('Nivel 6 · Pc ≈ 700 kg/cm² (mayor)');
+    expect(zb!['level']).toBe('Nivel 1 · Pc ≈ 28 kg/cm² (menor)');
     expect(za!['a']).toBe(2.7807);
     expect(zb!['b']).toBe(-0.333);
   });

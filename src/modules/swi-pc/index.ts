@@ -79,7 +79,7 @@ export default defineModule({
     level: param.enum({
       label: 'Nivel de presión capilar',
       tooltip:
-        'Cada nivel es una presión capilar de la hoja SCAL de la cátedra, del 1 (menor presión capilar, mayor Swi) al 6 (mayor presión capilar, menor Swi). La planilla no trae las presiones ni las alturas de cada nivel. «Manual» usa los coeficientes A y B de abajo.',
+        'Cada nivel es una presión capilar de la hoja SCAL de la cátedra, del 1 (menor presión capilar, mayor Swi) al 6 (mayor presión capilar, menor Swi). La presión mercurio–aire de cada nivel sale de las curvas de inyección de mercurio de las muestras. «Manual» usa los coeficientes A y B de abajo.',
       options: [...SWI_CATEDRA_LEVELS.map((p) => ({ value: p.id, label: p.label })), { value: SWI_MANUAL_LEVEL, label: 'Manual' }],
       default: 'level6',
       scope: 'zone',
@@ -227,6 +227,6 @@ export default defineModule({
       'Asquith, G. y Krygowski, D. (2004). Basic Well Log Analysis, 2.ª ed. AAPG Methods in Exploration 16, cap. 4.',
     ],
     notes:
-      'Los coeficientes (A, B) son dato de la cátedra: provienen de las curvas de presión capilar de sus muestras (√(k/φ) de 0,37 a 2,00) y valen en ese rango; fuera de él la ley de potencia es una extrapolación (la tabla informa el porcentaje de muestras fuera de rango). Este módulo no ajusta coeficientes desde curvas de presión capilar propias y la planilla no indica a qué presión ni altura corresponde cada nivel. Se recorta a 1 la Swi de roca muy cerrada. Con φ en fracción de la tabla de presión de desplazamiento, la «raíz» es 10 veces la de esta planilla.',
+      'Los coeficientes (A, B) son dato de la cátedra: provienen de las curvas de presión capilar de sus muestras (√(k/φ) de 0,37 a 2,00) y valen en ese rango; fuera de él la ley de potencia es una extrapolación (la tabla informa el porcentaje de muestras fuera de rango). Este módulo no ajusta coeficientes desde curvas de presión capilar propias. La planilla no escribe la presión de cada nivel, pero sí guarda las curvas de inyección de mercurio de las muestras: ajustando la Swi contra √(k/φ) en cada escalón de esos ensayos, cada nivel coincide con una presión mercurio–aire (del nivel 1 al 6: unos 28, 70, 123, 246, 352 y 700 kg/cm²; panel SCAL). Se recorta a 1 la Swi de roca muy cerrada. Con φ en fracción de la tabla de presión de desplazamiento, la «raíz» es 10 veces la de esta planilla.',
   },
 });
