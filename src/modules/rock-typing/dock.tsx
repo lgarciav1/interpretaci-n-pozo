@@ -144,12 +144,13 @@ function showRockTab(t: TabId) {
  * «Cargar curvas MICP del TP» (8 muestras de la hoja SCAL): un `commit`, un Ctrl+Z. Si ya están, avisa y no las
  * duplica. Muestra la pestaña «Presión capilar». También lo usa el panel «SCAL».
  */
-export function loadTpMicp(): void {
+export function loadTpMicp(opts: { show?: boolean } = {}): void {
+  const show = opts.show !== false;
   const entry = activeWellEntry(useProject.getState().project);
   if (!entry) return;
   if (hasTpMicp(useProject.getState().project, entry.well.id)) {
     toast({ tone: 'info', title: 'Las curvas MICP del TP ya están cargadas', description: 'Están en Tipos de roca › Presión capilar. Para cargarlas de nuevo, deshacé la carga anterior con Ctrl+Z.' });
-    showRockTab('pc');
+    if (show) showRockTab('pc');
     return;
   }
   const id = entry.well.id;
@@ -159,7 +160,7 @@ export function loadTpMicp(): void {
     title: 'Curvas MICP del TP cargadas (datos reales de laboratorio)',
     description: `${TP_MICP_SAMPLES_COUNT} curvas de inyección de mercurio de la hoja SCAL, con k y φ de cada muestra. Ctrl+Z deshace la carga.`,
   });
-  showRockTab('pc');
+  if (show) showRockTab('pc');
 }
 
 /** Curva activa del pozo (rol) alineada con la profundidad, o null. */
@@ -751,7 +752,7 @@ function CapillaryTab({ set, well, interp }: { set: PointSet; well: Well; interp
           tone="warn"
           title="Ejemplo de libro: no son datos del pozo"
           actions={
-            <Button size="sm" variant="primary" icon="download" onClick={loadTpMicp} data-testid="rtyp-load-micp" title="Curvas de inyección de mercurio de 8 muestras, guardadas en los gráficos de la hoja SCAL del Excel de la cátedra">
+            <Button size="sm" variant="primary" icon="download" onClick={() => loadTpMicp()} data-testid="rtyp-load-micp" title="Curvas de inyección de mercurio de 8 muestras, guardadas en los gráficos de la hoja SCAL del Excel de la cátedra">
               Cargar curvas MICP del TP
             </Button>
           }

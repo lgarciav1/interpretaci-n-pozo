@@ -61,6 +61,7 @@ import preparation from './preparation';
 import digitizer from './digitizer';
 import modelTournament from './model-tournament';
 import saturationHeight from './saturation-height';
+import micp from './micp';
 import trainer from './trainer';
 import { SHARED_PARAMS } from './sharedParams';
 
@@ -121,7 +122,7 @@ export const MODULES = [
  * Módulos de panel (docs/decisiones/0058): herramientas de la interfaz sin puertos ni cálculo en el motor, con su
  * documentación para el módulo Ecuaciones. También una línea por módulo.
  */
-export const PANEL_MODULES = [preparation, digitizer, modelTournament, saturationHeight, trainer];
+export const PANEL_MODULES = [preparation, digitizer, modelTournament, saturationHeight, micp, trainer];
 
 /** Parámetros compartidos: ver sharedParams.ts (el registro exige que coincidan con ese catálogo). */
 export const registry = createRegistry(MODULES, { sharedParams: SHARED_PARAMS, panels: PANEL_MODULES });

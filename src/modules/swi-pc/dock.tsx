@@ -263,7 +263,7 @@ export function ScalPanel() {
           title="Niveles desde las curvas MICP"
           meta={<span className="num">8 curvas de inyección de mercurio · {MICP_ROWS.length} niveles</span>}
           actions={
-            <Button size="sm" icon={micpLoaded ? 'arrow-right' : 'download'} disabled={!entry} data-testid="scal-micp" onClick={micpLoaded ? showCapillaryTab : loadTpMicp} title="Curvas Pc–Sw, J de Leverett y gargantas de las 8 muestras, en el panel Tipos de roca">
+            <Button size="sm" icon={micpLoaded ? 'arrow-right' : 'download'} disabled={!entry} data-testid="scal-micp" onClick={micpLoaded ? showCapillaryTab : () => loadTpMicp()} title="Curvas Pc–Sw, J de Leverett y gargantas de las 8 muestras, en el panel Tipos de roca">
               {micpLoaded ? 'Ver curvas MICP en Tipos de roca' : 'Cargar curvas MICP del TP'}
             </Button>
           }

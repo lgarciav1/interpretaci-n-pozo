@@ -100,10 +100,19 @@ con el CMR. Lo que salió de los datos del TP:
   17 °API o agua dulce, no salmuera). Zona D: 0,731 psi/ft (1,69 g/cm³, no es un fluido). Las presiones están
   sobrepresionadas (≈ 0,75 psi/ft absoluto) y los gradientes cambian según el tramo. El FWL y Δρ son supuestos del
   usuario y así se rotulan.
-- **CMR.** A la profundidad de las muestras (±1 m), BVI/PHIE da 0,68–0,82. La Sw de las curvas a la presión estándar
-  de calibración del corte de T2 (100 psi aire–salmuera ≈ 511 psi mercurio) es 0,21–0,36 (la 2-15 no llega). El CMR
-  marca entre 2 y 3,5 veces más agua ligada: con el corte de 33 ms sobreestima el BVI en estas rocas. Esta comparación
-  no necesita FWL.
+- **CMR.** A la profundidad de las muestras, promediando ±1 m (la incertidumbre de su cota), BVI/PHIE da 0,65–0,77
+  (con ±0,5 m, 0,68–0,82). La Sw de las curvas a la presión estándar de calibración del corte de T2 (100 psi
+  aire–salmuera ≈ 511 psi mercurio) es 0,21–0,36 (la 2-15 no llega). El CMR marca entre 1,9 y 3,6 veces más agua
+  ligada: con el corte de 33 ms sobreestima el BVI en estas rocas. Esta comparación no necesita FWL.
+
+## Panel «Análisis MICP» (`src/modules/micp/`)
+
+Módulo de panel con cuatro pestañas: ajustes y permeabilidad (Thomeer, Brooks–Corey, k de Swanson y de Thomeer contra
+la k de la tabla y la del plug), altura sobre el agua libre (Sw contra altura por muestra, altura de entrada, Sw del
+perfil con un FWL supuesto), permeabilidad relativa y cutoff de Sw (Swirr de la curva a la altura de la columna, kr,
+flujo fraccional, banda por μw/μo y «Usar Sw cutoff» con deshacer) y CMR. Los ajustes viven en
+`moduleState['micp']`. Con los valores de fábrica (petróleo–agua, Δρ 0,25 g/cm³, columna de 100 m, μw 0,5 y μo 1 cP)
+el cutoff de Sw del TP da mediana 0,66 (0,63–0,68 en 7 muestras; la 2-15 no llega a esa presión).
 
 ## Qué NO cubre
 
