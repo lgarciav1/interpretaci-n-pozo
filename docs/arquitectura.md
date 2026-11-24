@@ -577,6 +577,7 @@ Decisión: [`docs/decisiones/0009-presiones-mdt-y-conjuntos-de-puntos.md`](decis
   con `splitZoneAt`, que reutiliza `addTopAt` del menú del visor y conserva la base original. El nuevo tope se
   ajusta a la muestra MD más cercana y la zona inferior hereda los parámetros de la original. Un solo `commit`
   guarda la división y su herencia. Los sectores con solapes y los contactos en bordes o huecos se rechazan.
+- **Pegar topes (F09).** `parseZoneTops` (`src/io/zoneTops.ts`, puro) lee la planilla y devuelve filas, zonas y problemas (error bloquea, aviso no); `zonesFromTops` (`zones.ts`) arma la lista nueva y el diálogo la guarda con un solo `commit(applyZoneEdit)`: un paso de deshacer.
 - Contratos nuevos que heredan las fases siguientes: pista propia dinámica (`track.resolve`, ajustes en
   `display.overlays`), `ViewerData.commit` (escritura de superposiciones de módulos sin stores), `OverlayTrack.unit`,
   `TrendTool.series` (herramienta sobre una serie dada), `ResolvedSeries.canvasLabel` y `pickSamples`, superposición

@@ -175,6 +175,27 @@ function readSheetRows(xml: string, shared: string[]): { rows: string[][]; rowNu
   return { rows, rowNumbers };
 }
 
+/**
+ * Celdas de una hoja como texto, sin interpretar (para tablas chicas que no son perfiles, p. ej. topes de zona).
+ * Sin `sheet` usa la primera hoja con contenido.
+ */
+export function readXlsxGrid(bytes: Uint8Array, sheet?: string | number): { rows: string[][]; rowNumbers: number[]; sheets: string[]; sheet: string } {
+  if (bytes.length === 0) throw new Error('El archivo está vacío.');
+  const files = unzipWorkbook(bytes);
+  const sheets = listSheets(files);
+  const sharedRaw = files['xl/sharedStrings.xml'];
+  const shared = readSharedStrings(sharedRaw ? strFromU8(sharedRaw) : undefined);
+  const candidates = sheet === undefined ? sheets : [typeof sheet === 'number' ? sheets[sheet] : sheets.find((x) => x.name === sheet)];
+  for (const s of candidates) {
+    if (!s) throw new Error(`No existe la hoja '${String(sheet)}'. Hojas del libro: ${sheets.map((x) => x.name).join(', ')}.`);
+    const data = files[s.path];
+    if (!data) continue;
+    const grid = readSheetRows(strFromU8(data), shared);
+    if (grid.rows.some((r) => r.some((c) => c.trim() !== ''))) return { ...grid, sheets: sheets.map((x) => x.name), sheet: s.name };
+  }
+  throw new Error('El libro no tiene celdas con contenido.');
+}
+
 /** Lee un libro .xlsx a una RawTable. */
 export function parseXlsx(bytes: Uint8Array, sourceName: string, options: XlsxOptions = {}): RawTable {
   if (bytes.length === 0) throw new Error('El archivo está vacío.');
