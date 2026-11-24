@@ -62,7 +62,7 @@ export function translateKey(from: Pick<SeriesContext, 'well'>, key: string, to:
 }
 
 /** Serie lista para el motor de distribuciones a partir de un contexto y la clave de la propiedad. */
-export function seriesFromContext(ctx: SeriesContext, key: string | null, meta: { id: string; label: string; kind: SeriesKind }): SeriesData {
+export function seriesFromContext(ctx: SeriesContext, key: string | null, meta: { id: string; label: string; kind: SeriesKind }, mask?: Uint8Array | null): SeriesData {
   const values = key ? (resolvePlotCurve(ctx, key)?.data ?? null) : null;
   const phi = resolvePlotCurve(ctx, 'r:PHIE')?.data;
   const netRes = activeData(ctx, 'NET_RES');
@@ -78,6 +78,7 @@ export function seriesFromContext(ctx: SeriesContext, key: string | null, meta: 
     ...(netPay ? { netPay } : {}),
     ...(washout ? { washout } : {}),
     ...(phi ? { phi } : {}),
+    ...(mask ? { mask } : {}),
   };
 }
 

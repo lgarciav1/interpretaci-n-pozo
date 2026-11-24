@@ -16,6 +16,8 @@ import { Button, Callout, Checkbox, Chip, EmptyState, IconButton, SegmentedContr
 import { scalePx } from '../../ui/tokens';
 import { withAlpha } from '../../ui/color';
 import { ControlGroup, CurveSelect } from '../controls';
+import { PlotFilterBar, PlotFilterControls } from '../FilterControls';
+import { evaluatePlotFilters, translatePlotFilters } from '../filters';
 import { cutoffParamFor, type CutoffParamKey } from '../cutoffs';
 import { resolvePlotCurve } from '../data';
 import { clearPlotSelection, makeSelection, selectionTitle, setPlotLink, setPlotSelection } from '../link';
@@ -153,6 +155,7 @@ function inputOf(s: SeriesData): DistributionInput | null {
     ...(s.netPay ? { netPay: s.netPay } : {}),
     ...(s.washout ? { washout: s.washout } : {}),
     ...(s.phi ? { phi: s.phi } : {}),
+    ...(s.mask ? { mask: s.mask } : {}),
   };
 }
 
@@ -162,7 +165,8 @@ export function DistributionPanel({ ctx, wellName, config, onChange, series, onG
   const options = useMemo(() => propertyOptions(ctx), [ctx]);
   const key = config.curve && options.some((o) => o.value === config.curve) ? config.curve : defaultProperty(options);
   const curve = useMemo(() => resolvePlotCurve(ctx, key), [ctx, key]);
-  const current = useMemo(() => seriesFromContext(ctx, key, { id: CURRENT_SERIES, label: 'Actual', kind: 'current' }), [ctx, key]);
+  const sampleFilter = useMemo(() => evaluatePlotFilters(ctx, config.filters, undefined, fmt3), [ctx, config.filters]);
+  const current = useMemo(() => seriesFromContext(ctx, key, { id: CURRENT_SERIES, label: 'Actual', kind: 'current' }, sampleFilter.mask), [ctx, key, sampleFilter.mask]);
   const avail = availabilityOf(current);
   const stat = propertyStat(curve?.role ?? curve?.short ?? '', avail.phi, curve?.scale);
   const unit = curve?.unitText || undefined;
@@ -193,11 +197,13 @@ export function DistributionPanel({ ctx, wellName, config, onChange, series, onG
     for (const s of series) {
       if (!chosen.includes(s.id)) continue;
       const k2 = s.ctx && key ? (s.kind === 'well' ? translateKey(ctx, key, s.ctx) : key) : null;
-      out.push({ id: s.id, label: s.label, kind: s.kind, status: s.status, data: s.status === 'ready' && s.ctx ? seriesFromContext(s.ctx, k2, { id: s.id, label: s.label, kind: s.kind }) : null });
+      const rules2 = s.ctx && config.filters?.length ? (s.kind === 'well' ? translatePlotFilters(ctx, config.filters, s.ctx) : config.filters) : undefined;
+      const mask2 = s.ctx && rules2?.length ? evaluatePlotFilters(s.ctx, rules2).mask : null;
+      out.push({ id: s.id, label: s.label, kind: s.kind, status: s.status, data: s.status === 'ready' && s.ctx ? seriesFromContext(s.ctx, k2, { id: s.id, label: s.label, kind: s.kind }, mask2) : null });
     }
     if (out.length === 0) out.push({ id: CURRENT_SERIES, label: 'Actual', kind: 'current', status: 'ready', data: current });
     return out;
-  }, [chosen, series, current, ctx, key, coreCol]);
+  }, [chosen, series, current, ctx, key, coreCol, config.filters]);
   const styles = useMemo(() => seriesStyles(lanes, theme, coreColor), [lanes, theme, coreColor]);
 
   const allRows = useMemo(() => zoneRows(ctx.well.depth.values, ctx.interpretation.zones), [ctx]);
@@ -593,6 +599,14 @@ export function DistributionPanel({ ctx, wellName, config, onChange, series, onG
               description={avail.washout ? 'Muestras con el indicador de derrumbe. Activado, las medias dejan de coincidir con el sumario por zona.' : 'No hay indicador de derrumbe calculado'}
             />
           </ControlGroup>
+          <PlotFilterControls
+            ctx={ctx}
+            rules={config.filters}
+            evaluated={sampleFilter}
+            showPresets={false}
+            title="Filtros por curva"
+            onChange={(filters, label) => onChange({ filters }, label)}
+          />
           <ControlGroup title="Series">
             <div className="plot-chips" role="group" aria-label="Series a comparar" data-testid="zdist-series">
               {allSeries.map((s) => {
@@ -682,6 +696,7 @@ export function DistributionPanel({ ctx, wellName, config, onChange, series, onG
         </div>
 
         <div className="zdist__main">
+          <PlotFilterBar evaluated={sampleFilter} onClear={() => onChange({ filters: undefined }, 'Limpiar filtros de las distribuciones')} />
           {usesOnlyDefaults(ctx.interpretation.params) && (
             <Callout tone="info" className="zdist-note">
               La interpretación usa todos los parámetros por defecto.

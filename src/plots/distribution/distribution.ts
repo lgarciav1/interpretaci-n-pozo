@@ -75,6 +75,7 @@ export interface SeriesData {
   netPay?: ArrayLike<number>;
   washout?: ArrayLike<number>;
   phi?: ArrayLike<number>;
+  mask?: ArrayLike<number>;
 }
 
 /** Qué opciones admite una serie (o el conjunto): el panel deshabilita las otras en vez de dejar que el motor tire. */
@@ -152,6 +153,7 @@ export function buildCells(rows: readonly ZoneRow[], series: readonly SeriesData
         ...(s.netPay ? { netPay: s.netPay } : {}),
         ...(s.washout ? { washout: s.washout } : {}),
         ...(s.phi ? { phi: s.phi } : {}),
+        ...(s.mask ? { mask: s.mask } : {}),
       };
       const stats = intervalDistribution(input, settings, zone.ranges);
       return { stats, filtered: stats.thickness + stats.excludedWashout + stats.noData };

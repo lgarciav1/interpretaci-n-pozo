@@ -21,6 +21,26 @@ export type AxisScaleChoice = 'auto' | 'linear' | 'log';
  */
 export type PlotCutoffs = Record<PlotCurveKey, number | true>;
 
+/** Operadores de una regla de filtro de muestras sobre una curva o bandera. */
+export const PLOT_FILTER_OPS = ['le', 'lt', 'ge', 'gt', 'between', 'eq', 'neq'] as const;
+export type PlotFilterOp = (typeof PLOT_FILTER_OPS)[number];
+
+/**
+ * Regla de filtro de muestras para cualquier gráfico del dock (histograma, crossplot, distribuciones).
+ * Permite filtrar por cualquier curva medida (`m:<id>`), calculada (`r:<ROL>`) o bandera (`r:NET_PAY`, `r:NET_RES`,
+ * `r:IND_WASHOUT`, etc.). Varias reglas activas se combinan por intersección (AND). JSON puro.
+ */
+export interface PlotFilterRule {
+  id: string;
+  curve: PlotCurveKey;
+  op: PlotFilterOp;
+  /** Umbral de comparación (o extremo inferior en `between`). Para banderas: `1` (Sí) o `0` (No). */
+  value: number;
+  /** Extremo superior solo cuando `op === 'between'`. */
+  max?: number;
+  enabled: boolean;
+}
+
 export interface HistogramConfig {
   /** null = la curva por defecto del pozo (GR si hay). */
   curve: PlotCurveKey | null;
@@ -36,6 +56,8 @@ export interface HistogramConfig {
   /** Curva acumulada (0–100 %, eje derecho). */
   cumulative: boolean;
   cutoffs: PlotCutoffs;
+  /** Reglas de filtro por curva o bandera; ausente o vacío = sin filtros adicionales. */
+  filters?: PlotFilterRule[];
 }
 
 export const CROSSPLOT_TEMPLATES = ['density-neutron', 'pickett', 'phi-sw', 'gr-rt', 'nmr-dn', 'th-k', 'pe-density', 'sonic-neutron', 'density-sonic', 'm-n', 'rhomaa-umaa', 'pe-k', 'pe-thk', 'thomas-stieber'] as const;
@@ -65,6 +87,8 @@ export interface CrossplotConfig {
    * gráfico, no un tipo de zona del núcleo (`ZoneKind` no cambia).
    */
   pickettWaterZones?: string[];
+  /** Reglas de filtro por curva o bandera; ausente o vacío = sin filtros adicionales. */
+  filters?: PlotFilterRule[];
 }
 
 /** Qué muestras entran en las distribuciones por zona: toda la zona, solo reservorio neto o solo pay neto. */
@@ -96,6 +120,8 @@ export interface DistributionConfig {
   view: DistributionView;
   /** Franja del volumen in situ por zona (determinista y P90–P10 de la incertidumbre). */
   volume: boolean;
+  /** Reglas de filtro por curva o bandera; ausente o vacío = sin filtros adicionales. */
+  filters?: PlotFilterRule[];
 }
 
 /** Vista de las distribuciones por zona. */
@@ -153,10 +179,39 @@ function sanitizeRange(v: unknown): [number, number] | undefined {
   return Array.isArray(v) && v.length === 2 && isNum(v[0]) && isNum(v[1]) && v[1] > v[0] ? [v[0], v[1]] : undefined;
 }
 
+function sanitizeFilters(v: unknown): PlotFilterRule[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const out: PlotFilterRule[] = [];
+  const seen = new Set<string>();
+  for (const item of v) {
+    if (!isObj(item)) continue;
+    const id = item['id'];
+    const curve = item['curve'];
+    const op = item['op'];
+    const value = item['value'];
+    if (typeof id !== 'string' || id.length === 0 || seen.has(id)) continue;
+    if (!isKey(curve) || !PLOT_FILTER_OPS.includes(op as PlotFilterOp) || !isNum(value)) continue;
+    const enabled = bool(item['enabled'], true);
+    if (op === 'between') {
+      const max = item['max'];
+      if (!isNum(max)) continue;
+      seen.add(id);
+      const lo = Math.min(value, max);
+      const hi = Math.max(value, max);
+      out.push({ id, curve, op, value: lo, max: hi, enabled });
+    } else {
+      seen.add(id);
+      out.push({ id, curve, op: op as PlotFilterOp, value, enabled });
+    }
+  }
+  return out.length ? out : undefined;
+}
+
 export function sanitizeHistogram(raw: unknown): HistogramConfig {
   const d = defaultHistogram();
   if (!isObj(raw)) return d;
   const bins = raw['bins'];
+  const filters = sanitizeFilters(raw['filters']);
   return {
     curve: isKey(raw['curve']) ? raw['curve'] : null,
     scale: scaleOf(raw['scale']),
@@ -166,6 +221,7 @@ export function sanitizeHistogram(raw: unknown): HistogramConfig {
     normalize: bool(raw['normalize'], d.normalize),
     cumulative: bool(raw['cumulative'], d.cumulative),
     cutoffs: sanitizeCutoffs(raw['cutoffs']),
+    ...(filters ? { filters } : {}),
   };
 }
 
@@ -177,6 +233,7 @@ export function sanitizeCrossplot(raw: unknown): CrossplotConfig {
   const xRange = sanitizeRange(raw['xRange']);
   const yRange = sanitizeRange(raw['yRange']);
   const t = raw['template'];
+  const filters = sanitizeFilters(raw['filters']);
   return {
     x: isKey(raw['x']) ? raw['x'] : null,
     y: isKey(raw['y']) ? raw['y'] : null,
@@ -191,6 +248,7 @@ export function sanitizeCrossplot(raw: unknown): CrossplotConfig {
     template: CROSSPLOT_TEMPLATES.includes(t as CrossplotTemplateId) ? (t as CrossplotTemplateId) : null,
     cutoffs: sanitizeCutoffs(raw['cutoffs']),
     ...(strings(raw['pickettWaterZones']).length ? { pickettWaterZones: [...new Set(strings(raw['pickettWaterZones']))] } : {}),
+    ...(filters ? { filters } : {}),
   };
 }
 
@@ -205,6 +263,7 @@ export function sanitizeDistribution(raw: unknown): DistributionConfig {
   if (!isObj(raw)) return d;
   const f = raw['filter'];
   const series = [...new Set(strings(raw['series']).filter((s) => SERIES_ID.test(s)))];
+  const filters = sanitizeFilters(raw['filters']);
   return {
     curve: isKey(raw['curve']) ? raw['curve'] : null,
     filter: f === 'netRes' || f === 'netPay' ? f : 'all',
@@ -215,6 +274,7 @@ export function sanitizeDistribution(raw: unknown): DistributionConfig {
     cutoffs: freeLines(raw['cutoffs']),
     view: raw['view'] === 'hist' ? 'hist' : 'box',
     volume: bool(raw['volume'], d.volume),
+    ...(filters ? { filters } : {}),
   };
 }
 

@@ -8,9 +8,11 @@
  * No se dibuja en el visor (sin `placement`): la dibuja el panel «Crossplot». Puro; lo registra
  * `src/modules/crossplot/series.ts` (la app descubre los proveedores de los módulos).
  */
+import type { PlotFilterRule } from '../../core/plots';
 import type { Zone } from '../../core/well';
 import { gather, plottableIndices } from './crossplot';
 import { resolvePlotCurve, zoneFilter } from '../data';
+import { decodePlotFilters, encodePlotFilters, evaluatePlotFilters } from '../filters';
 import { depthPointKey, type ResolvedSeries, type SeriesContext, type TrendSeriesProvider } from '../trend/series';
 
 export const CROSSPLOT_PROVIDER_ID = 'crossplot';
@@ -19,27 +21,40 @@ export interface CrossplotSeriesKey {
   x: string;
   y: string;
   zones: string[];
+  filters?: PlotFilterRule[];
 }
 
 export function crossplotSeriesKey(k: CrossplotSeriesKey): string {
-  return `${k.x}|${k.y}|${[...k.zones].sort().join(',')}`;
+  const base = `${k.x}|${k.y}|${[...k.zones].sort().join(',')}`;
+  const encoded = encodePlotFilters(k.filters);
+  return encoded ? `${base}|${encoded}` : base;
 }
 
 export function parseCrossplotSeriesKey(key: string): CrossplotSeriesKey | null {
   const parts = key.split('|');
-  if (parts.length !== 3 || !parts[0] || !parts[1]) return null;
-  return { x: parts[0], y: parts[1], zones: parts[2] ? parts[2].split(',').filter(Boolean) : [] };
+  if ((parts.length !== 3 && parts.length !== 4) || !parts[0] || !parts[1]) return null;
+  const filters = parts.length === 4 ? decodePlotFilters(parts[3]) : [];
+  return {
+    x: parts[0],
+    y: parts[1],
+    zones: parts[2] ? parts[2].split(',').filter(Boolean) : [],
+    ...(filters.length ? { filters } : {}),
+  };
 }
 
 interface CacheEntry {
   x: Float64Array;
   y: Float64Array;
   zones: readonly Zone[];
+  filterData: readonly (Float64Array | null)[];
   series: ResolvedSeries;
 }
 const cache = new Map<string, CacheEntry>();
 
-/** Serie de la nube (misma identidad mientras no cambien los datos ni las zonas: cachés de ajuste estables). */
+const sameFilterData = (a: readonly (Float64Array | null)[], b: readonly (Float64Array | null)[]) =>
+  a.length === b.length && a.every((v, i) => v === b[i]);
+
+/** Serie de la nube (misma identidad mientras no cambien los datos ni las zonas ni los filtros: cachés de ajuste estables). */
 export function crossplotSeries(ctx: SeriesContext, key: string): ResolvedSeries | null {
   const k = parseCrossplotSeriesKey(key);
   if (!k) return null;
@@ -47,11 +62,13 @@ export function crossplotSeries(ctx: SeriesContext, key: string): ResolvedSeries
   const cy = resolvePlotCurve(ctx, k.y);
   if (!cx || !cy) return null;
   const zones = ctx.interpretation.zones;
+  const filterData = k.filters ? k.filters.map((r) => resolvePlotCurve(ctx, r.curve)?.data ?? null) : [];
   const hit = cache.get(`${ctx.well.id}#${key}`);
-  if (hit && hit.x === cx.data && hit.y === cy.data && hit.zones === zones) return hit.series;
+  if (hit && hit.x === cx.data && hit.y === cy.data && hit.zones === zones && sameFilterData(hit.filterData, filterData)) return hit.series;
   const depth = ctx.well.depth.values;
   const f = zoneFilter(depth, zones, k.zones);
-  const idx = plottableIndices(cx.data, cy.data, f.include, cx.scale === 'log', cy.scale === 'log');
+  const sf = k.filters?.length ? evaluatePlotFilters(ctx, k.filters, f.include) : null;
+  const idx = plottableIndices(cx.data, cy.data, sf ? sf.include : f.include, cx.scale === 'log', cy.scale === 'log');
   const d = gather(depth, idx);
   const keys = Array.from(d, depthPointKey);
   const at = new Map(keys.map((s, j) => [s, j]));
@@ -70,7 +87,7 @@ export function crossplotSeries(ctx: SeriesContext, key: string): ResolvedSeries
     pointKey: (j) => keys[j]!,
     indexOfKey: (s) => at.get(s) ?? -1,
   };
-  cache.set(`${ctx.well.id}#${key}`, { x: cx.data, y: cy.data, zones, series });
+  cache.set(`${ctx.well.id}#${key}`, { x: cx.data, y: cy.data, zones, filterData, series });
   return series;
 }
 

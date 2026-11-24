@@ -13,6 +13,8 @@ import type { HiddenCurve } from '../../core/toolString';
 import { HISTOGRAM_BINS, type HistogramConfig } from '../../core/plots';
 import { Button, Checkbox, DataTable, EmptyState, IconButton, NumberField, curveStyle, ensureContrast, fillColor, formatNumber, useThemeTokens } from '../../ui';
 import { ControlGroup, CurveSelect, DriverCallout, HiddenCurveState, ScaleControl, SelectionSummary, ZoneFilterChips } from '../controls';
+import { PlotFilterBar, PlotFilterControls } from '../FilterControls';
+import { evaluatePlotFilters } from '../filters';
 import { CUTOFF_PASSES, cutoffParamFor, cutoffScope, guideStep, normalizeCutoff, resolveCutoffLine, type CutoffParamKey } from '../cutoffs';
 import { formatParam, grGuides, grWrite, inactiveDriver, paramChangeLabel, paramOfGuide, plotParamValue, plotScope, PLOT_PARAMS, type ParamWrite } from '../params';
 import { depthRuns, effectiveScale, hiddenCurveOfKey, keyForRole, plotCurveOptions, resolvePlotCurve, zoneFilter } from '../data';
@@ -67,6 +69,7 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams,
   const depth = ctx.well.depth.values;
   const zones = ctx.interpretation.zones;
   const filter = useMemo(() => zoneFilter(depth, zones, config.zones), [depth, zones, config.zones]);
+  const sampleFilter = useMemo(() => evaluatePlotFilters(ctx, config.filters, filter.include, fmt), [ctx, config.filters, filter]);
 
   // Al desmontarse o cambiar de curva, el visor deja de marcar la clase.
   useEffect(() => () => setPlotLink({ hoverRuns: null }), []);
@@ -76,7 +79,7 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams,
   const model = useMemo(() => {
     if (!curve) return null;
     const data = curve.data;
-    const range = autoRange(data, scale, filter.include, config.bins);
+    const range = autoRange(data, scale, sampleFilter.include, config.bins);
     if (!range) return { curve, empty: true as const };
     const edges = binEdges(range.lo, range.hi, range.bins, scale);
     const curveColor = curveStyle(curve.role, theme.name, ctx.catalog).color;
@@ -85,17 +88,17 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams,
     if (config.byZone && filter.shown.length > 0) {
       filter.zones.forEach((z, j) => {
         if (!filter.shown.includes(z)) return;
-        const include = (i: number) => zoneIdx[i] === j;
+        const include = (i: number) => zoneIdx[i] === j && sampleFilter.include(i);
         const stats = sampleStats(data, scale, include);
         if (stats.n > 0) series.push({ id: z.id, name: `Zona ${z.name}`, color: z.color, include, stats });
       });
     } else {
-      series.push({ id: 'all', name: filter.selected.length ? 'Zonas filtradas' : 'Todo el pozo', color: curveColor, include: filter.include, stats: sampleStats(data, scale, filter.include) });
+      series.push({ id: 'all', name: filter.selected.length ? 'Zonas filtradas' : 'Todo el pozo', color: curveColor, include: sampleFilter.include, stats: sampleStats(data, scale, sampleFilter.include) });
     }
-    // La selección (de cualquier fuente) dentro del filtro de zonas: una serie más, superpuesta, con el acento.
+    // La selección (de cualquier fuente) dentro del filtro de zonas y curvas: una serie más, superpuesta, con el acento.
     const selMask = selection?.mask;
     if (selMask) {
-      const include = (i: number) => selMask[i] === 1 && filter.include(i);
+      const include = (i: number) => selMask[i] === 1 && sampleFilter.include(i);
       const stats = sampleStats(data, scale, include);
       series.push({ id: SEL_ID, name: 'Selección', color: theme.color.accent, include, stats });
     }
@@ -109,10 +112,10 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams,
     const lines: XYLineLayer[] = config.cumulative
       ? series.map((s, k) => ({ id: `cum-${s.id}`, name: overlay ? undefined : 'Acumulada', x: Float64Array.from(edges.slice(1)), y: cumulativePercent(counts[k]!), color: s.color, width: 1.75, dash: [5, 3], y2: true }))
       : [];
-    const total = series.filter((s) => s.id !== SEL_ID).length > 1 ? sampleStats(data, scale, filter.include) : null;
+    const total = series.filter((s) => s.id !== SEL_ID).length > 1 ? sampleStats(data, scale, sampleFilter.include) : null;
     const outside = counts.reduce((a, c) => a + c.below + c.above, 0);
     return { curve, empty: false as const, edges, bins: range.bins, series, counts, values, bars, lines, yMax: yr.max, total, outside };
-  }, [curve, scale, filter, config.bins, config.byZone, config.normalize, config.cumulative, theme.name, theme.color.accent, ctx.catalog, selection]);
+  }, [curve, scale, filter, sampleFilter, config.bins, config.byZone, config.normalize, config.cumulative, theme.name, theme.color.accent, ctx.catalog, selection]);
 
   if (options.length === 0) return <EmptyState size="sm" icon="histogram" title="Sin curvas" description={ctx.hidden?.size ? 'La sarta oculta todas las curvas del pozo: prendé herramientas en la sarta.' : 'El pozo no tiene curvas para graficar.'} />;
 
@@ -138,7 +141,7 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams,
   const yAxis: XYAxis = { kind: 'linear', min: 0, max: model && !model.empty ? model.yMax : 1, label: config.normalize ? 'Frecuencia' : 'Muestras', ...(config.normalize ? { unit: '%' } : {}) };
 
   const passSide = line?.param ? CUTOFF_PASSES[line.param] : null;
-  const split = line && curve ? cutoffSplit(curve.data, line.value, filter.include, passSide === 'above' ? 'above' : 'below') : null;
+  const split = line && curve ? cutoffSplit(curve.data, line.value, sampleFilter.include, passSide === 'above' ? 'above' : 'below') : null;
   const bg = theme.viewer.trackBg;
   const grLines = isGr && xAxis ? grGuides(params, grScope, { clean: ensureContrast(fillColor('sand', theme.name).color, bg, 3), shale: ensureContrast(fillColor('shale', theme.name).color, bg, 3) }, !grIdle) : [];
   const guides: XYGuide[] = [
@@ -213,11 +216,11 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams,
     const hi = model.edges[j + 1]!;
     const last = j === model.edges.length - 2;
     const d = curve.data;
-    setPlotLink({ hoverRuns: depthRuns(depth, (i) => filter.include(i) && d[i]! >= lo && (last ? d[i]! <= hi : d[i]! < hi)) });
+    setPlotLink({ hoverRuns: depthRuns(depth, (i) => sampleFilter.include(i) && d[i]! >= lo && (last ? d[i]! <= hi : d[i]! < hi)) });
   };
 
   /**
-   * Clic en una clase: sus muestras (dentro del filtro de zonas) pasan a ser LA selección. Mayús + clic suma la clase o la
+   * Clic en una clase: sus muestras (dentro del filtro de zonas y curvas) pasan a ser LA selección. Mayús + clic suma la clase o la
    * quita si ya estaba (mientras la selección sea de este histograma, con las mismas clases).
    */
   const onBarClick = (j: number, additive: boolean) => {
@@ -228,7 +231,7 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams,
       clearPlotSelection();
       return;
     }
-    const mask = binsMask(curve.data, model.edges, bins, filter.include);
+    const mask = binsMask(curve.data, model.edges, bins, sampleFilter.include);
     setPlotSelection(makeSelection('histogram', depth, mask, { kind: 'bins', curve: curve.key, curveLabel: curve.short, edges: Array.from(model.edges), bins }));
   };
   const markedBins = model && !model.empty && curve && selection?.detail.kind === 'bins' && selection.detail.curve === curve.key && sameEdges(selection.detail.edges, model.edges) ? selection.detail.bins : null;
@@ -299,6 +302,7 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams,
               <Checkbox checked={config.normalize} onChange={(on) => onChange({ normalize: on }, on ? 'Normalizar a %' : 'Mostrar muestras')} label="Normalizar a %" description="Compara zonas de distinto espesor" />
               <Checkbox checked={config.cumulative} onChange={(on) => onChange({ cumulative: on }, on ? 'Mostrar acumulada' : 'Ocultar acumulada')} label="Curva acumulada" />
             </ControlGroup>
+            <PlotFilterControls ctx={ctx} rules={config.filters} evaluated={sampleFilter} onChange={(filters, label) => onChange({ filters }, label)} />
             <ControlGroup title="Cutoff">
               {line ? (
                 <div className="plot-row">
@@ -357,19 +361,20 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams,
           </aside>
         </div>
         <div className="plot-panel__main">
+          <PlotFilterBar evaluated={sampleFilter} onClear={() => onChange({ filters: undefined }, 'Limpiar filtros del histograma')} />
           {hidden ? (
             <HiddenCurveState hidden={hidden} icon="histogram" {...(onShowTool ? { onShowTool } : {})} />
           ) : !curve ? (
             <EmptyState size="sm" icon="histogram" title="Elegí una curva" description="La curva elegida ya no está en el pozo o todavía se está calculando." />
           ) : !xAxis || !model || model.empty ? (
-            <EmptyState size="sm" icon="histogram" title="Sin datos para graficar" description="La curva no tiene valores en las zonas elegidas." />
+            <EmptyState size="sm" icon="histogram" title="Sin datos para graficar" description={sampleFilter.activeCount > 0 ? 'Ninguna muestra cumple los filtros activos.' : 'La curva no tiene valores en las zonas elegidas.'} />
           ) : (
             <XYPlot
               height="fill"
               className="plot-panel__plot"
               data-testid="histogram-plot"
               figureId="histograma"
-              figureTitle={`Histograma de ${curve.short}`}
+              figureTitle={sampleFilter.summary ? `Histograma de ${curve.short} (${sampleFilter.summary})` : `Histograma de ${curve.short}`}
               ariaLabel={`Histograma de ${curve.label}${model.series.length > 1 ? ', una serie por zona' : ''}`}
               x={xAxis}
               y={yAxis}
