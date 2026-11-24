@@ -39,6 +39,7 @@ import { useTrendsUi } from '../../app/trends/store';
 import { loadExample } from '../core/dock';
 import { addTpCore, isTpCoreSet, TP_CORE_VIEW, tpCoreSet } from '../core/tp';
 import { COL, CORE_DOCK_ID, coreSets, runColor, runLabel } from '../core/model';
+import { FORMATION_FACTOR_HEADING_ID } from './commands';
 import { CORE_CALIBRATION_ID, RHOMAA_ZONES, WHOLE_WELL_ROW } from './index';
 import {
   applyCementation,
@@ -735,7 +736,7 @@ function CementationSection({ set, well, interp, ctx, zoneId, scope }: { set: Po
       </header>
       <div className="ccal-mgrid">
         <div className="ccal-mcard">
-          <div className="ccal-mcard__title">Desde los plugs (F)</div>
+          <h4 id={FORMATION_FACTOR_HEADING_ID} tabIndex={-1} className="ccal-mcard__title">Factor de formación (F) de los plugs</h4>
           {!hasPlugF && plugs && plugs.idx.length === 0 && zoneId ? (
             <p className="ccal-empty is-tight">Ningún plug en {target}: elegí otra zona o todo el pozo en «Aplicar en».</p>
           ) : !hasPlugF ? (
