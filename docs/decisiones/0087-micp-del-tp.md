@@ -115,6 +115,6 @@ el cutoff de Sw del TP da mediana 0,66 en las 8 muestras.
 
 ## Qué NO cubre
 
-- Lector genérico de Pc–Sw (CSV o Excel de otros pozos): sigue abierto (0024).
+- Lector directo de `.xlsx` para otros pozos (sí hay importador genérico CSV/TSV en `src/modules/rock-typing/micpCsv.ts`).
 - El módulo «Saturación por altura» (0079) sigue con su escenario propio; el panel «Análisis MICP» hace la versión
   directa con las curvas medidas y un FWL supuesto.
