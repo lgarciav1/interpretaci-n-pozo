@@ -8,8 +8,9 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  DEFAULT_U_FLUID, LITHOLOGY_MATRICES, LITH1_BOXES, UMAA_TRIANGLE, boxVertices, lithologyMatrix, mIndex, mnPoint, nIndex, photoelectricU, porosityLine, rhomaa,
-  ternaryGrid, ternaryPoint, thkRatio, umaa,
+  DEFAULT_DT_FLUID, DEFAULT_RHO_FLUID, DEFAULT_U_FLUID, LITHOLOGY_MATRICES, LITH1_BOXES, MID_CHART_RANGE, MID_TRIANGLE, MID_VERTICES, UMAA_TRIANGLE,
+  apparentMatrixTransitTime, apparentMatrixTransitTimeInto, boxVertices, lithologyMatrix, mIndex, midTernaryGrid, midTernaryPoint, mnPoint, nIndex,
+  photoelectricU, porosityLine, rhomaa, ternaryGrid, ternaryPoint, thkRatio, umaa,
 } from '../src/petro/lithologyIndices';
 import { MINERALS } from '../src/petro/mineralogy';
 
@@ -119,5 +120,101 @@ describe('matrices y líneas guía', () => {
       expect(v).toHaveLength(5);
       expect(v[0]).toEqual(v[4]);
     }
+  });
+});
+
+describe('carta MID: Δtmaa y geometría ρmaa–Δtmaa (Clavier y Rust, 1976; G04)', () => {
+  const porosities = [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35];
+
+  it.each(MID_VERTICES.map((v) => [v.label, v.dt, v.rho] as const))(
+    '%s puro con agua dulce: (Δtmaa, ρmaa) cae exacto sobre el vértice para φ ∈ [0; 0,35]',
+    (_label, dtMa, rhoMa) => {
+      for (const phi of porosities) {
+        const dt = dtMa + phi * (DEFAULT_DT_FLUID - dtMa);
+        const rhob = rhoMa * (1 - phi) + DEFAULT_RHO_FLUID * phi;
+        expect(apparentMatrixTransitTime(dt, phi)).toBeCloseTo(dtMa, 10);
+        expect(rhomaa(rhob, phi)).toBeCloseTo(rhoMa, 10);
+      }
+    },
+  );
+
+  it('mezclas ternarias sintéticas cuarzo–calcita–dolomita: invariantes a la porosidad (agua dulce y salada)', () => {
+    const mixes: readonly [number, number, number][] = [
+      [0.5, 0.5, 0],
+      [0.4, 0.3, 0.3],
+      [0.2, 0.5, 0.3],
+      [0.1, 0.2, 0.7],
+    ];
+    for (const [q, c, d] of mixes) {
+      const target = midTernaryPoint(q, c, d);
+      for (const [dtFl, rhoFl] of [[189, 1.0], [185, 1.1]] as const) {
+        for (const phi of porosities) {
+          const dt = target.dt + phi * (dtFl - target.dt);
+          const rhob = target.rho * (1 - phi) + rhoFl * phi;
+          expect(apparentMatrixTransitTime(dt, phi, dtFl)).toBeCloseTo(target.dt, 10);
+          expect(rhomaa(rhob, phi, rhoFl)).toBeCloseTo(target.rho, 10);
+        }
+      }
+    }
+  });
+
+  it('apparentMatrixTransitTimeInto escribe solo en [start, end), respeta entradas y trata largos distintos en forma simétrica', () => {
+    const dt = new Float64Array([55.5, 82.2, 75.8, 99.9]);
+    const phi = new Float64Array([0, 0.2, 0.2, 0.3]);
+    const dtSnap = Array.from(dt);
+    const phiSnap = Array.from(phi);
+    const out = new Float64Array(4).fill(-1);
+    apparentMatrixTransitTimeInto(dt, phi, out, 189, 1, 3);
+    expect(out[0]).toBe(-1);
+    expect(out[1]).toBeCloseTo(55.5, 10);
+    expect(out[2]).toBeCloseTo(47.5, 10);
+    expect(out[3]).toBe(-1);
+    expect(Array.from(dt)).toEqual(dtSnap);
+    expect(Array.from(phi)).toEqual(phiSnap);
+
+    const outShortPhi = new Float64Array(4).fill(99);
+    apparentMatrixTransitTimeInto(new Float64Array([55.5, 82.2, 75.8, 99.9]), new Float64Array([0, 0.2]), outShortPhi);
+    expect(outShortPhi[0]).toBeCloseTo(55.5, 10);
+    expect(outShortPhi[1]).toBeCloseTo(55.5, 10);
+    expect(outShortPhi[2]).toBeNaN();
+    expect(outShortPhi[3]).toBeNaN();
+
+    const outShortDt = new Float64Array(4).fill(99);
+    apparentMatrixTransitTimeInto(new Float64Array([55.5, 82.2]), new Float64Array([0, 0.2, 0.2, 0.3]), outShortDt);
+    expect(outShortDt[0]).toBeCloseTo(55.5, 10);
+    expect(outShortDt[1]).toBeCloseTo(55.5, 10);
+    expect(outShortDt[2]).toBeNaN();
+    expect(outShortDt[3]).toBeNaN();
+  });
+
+  it('dominio de Δtmaa: NaN sin excepciones fuera de rango físico', () => {
+    expect(apparentMatrixTransitTime(0, 0.1)).toBeNaN();
+    expect(apparentMatrixTransitTime(-50, 0.1)).toBeNaN();
+    expect(apparentMatrixTransitTime(80, 0.1, 0)).toBeNaN();
+    expect(apparentMatrixTransitTime(80, 0.1, -189)).toBeNaN();
+    expect(apparentMatrixTransitTime(80, -0.01)).toBeNaN();
+    expect(apparentMatrixTransitTime(80, 1)).toBeNaN();
+    expect(apparentMatrixTransitTime(80, 1.2)).toBeNaN();
+    expect(apparentMatrixTransitTime(NaN, 0.2)).toBeNaN();
+    expect(apparentMatrixTransitTime(80, Infinity)).toBeNaN();
+    // Δt ≤ φ·Δtf → Δtmaa ≤ 0 (no físico, incluyendo cancelación IEEE-754) → NaN.
+    expect(apparentMatrixTransitTime(94.5, 0.5, 189)).toBeNaN();
+    expect(apparentMatrixTransitTime(56.7, 0.3, 189)).toBeNaN();
+    expect(apparentMatrixTransitTime(50, 0.3, 189)).toBeNaN();
+  });
+
+  it('geometría MID: 5 vértices, triángulo cuarzo–calcita–dolomita y grilla de 12 líneas internas cada 20 %', () => {
+    expect(MID_VERTICES.map((v) => v.id)).toEqual(['quartz', 'calcite', 'dolomite', 'anhydrite', 'gypsum']);
+    expect(MID_TRIANGLE.map((v) => v.id)).toEqual(['quartz', 'calcite', 'dolomite']);
+    expect(MID_CHART_RANGE).toEqual({ dt: [35, 70], rho: [2.2, 3.1] });
+    const g = midTernaryGrid(0.2);
+    expect(g).toHaveLength(12);
+    expect(midTernaryGrid(0)).toEqual([]);
+    expect(midTernaryGrid(-0.2)).toEqual([]);
+    expect(midTernaryGrid(1)).toEqual([]);
+    expect(midTernaryGrid(NaN)).toEqual([]);
+    expect(midTernaryPoint(Infinity, 0, 0)).toEqual({ dt: NaN, rho: NaN });
+    expect(midTernaryPoint(-Infinity, 1, 0)).toEqual({ dt: NaN, rho: NaN });
+    expect(midTernaryPoint(NaN, 0, 1)).toEqual({ dt: NaN, rho: NaN });
   });
 });
