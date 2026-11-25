@@ -3,7 +3,9 @@
 Leé `CLAUDE.md`: sus prioridades, alcance, stack, convenciones, contratos, datos y reglas de Git también se
 aplican a Codex. Este archivo adapta la orquestación y las herramientas; no reemplaza los requisitos del producto.
 Para nuevas funciones, leé además la sección 2 y la ficha correspondiente de
-`docs/masterplan-funciones-nuevas.md`. Si se está ejecutando la cadena, leé `docs/cadena-de-funciones.md`.
+`docs/masterplan-funciones-nuevas.md` (o, para la ola final G01–G08 en Antigravity con Orchestrator Neon,
+`docs/masterplan-ola-final.md` y `docs/cadena-ola-final.md`). Si se está ejecutando la cadena, leé el archivo de
+cadena correspondiente.
 Las instrucciones explícitas del usuario y del entorno prevalecen sobre los archivos del repositorio.
 
 ## Orquestación en Codex
