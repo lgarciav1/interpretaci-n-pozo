@@ -51,7 +51,7 @@ import { AxisRangeEditor } from './AxisRangeEditor';
 import { crossplotTemplatePatch } from './applyTemplate';
 import { thomasStieberLayers } from './templates';
 import { BVW_LINES, CROSSPLOT_TEMPLATE_DEFS, DN_LITHOLOGIES, PICKETT_SW, TEMPLATE_GROUPS, bvwLine, densityNeutronLine, isLithologyTemplate, lithologyTemplateLayers, nmrDnLines, pickettLine, mineralogyTemplateLayers, mineralogyFullRange, templateDef, type ArchieParams, type MatrixColors } from './templates';
-import { UMAA_CHART_RANGE } from '../../petro/lithologyIndices';
+import { MID_CHART_RANGE, UMAA_CHART_RANGE } from '../../petro/lithologyIndices';
 import { clayDistributionSummary, countClayDistribution, estimateClayEndpoints, type EndpointEstimate } from '../../petro/clayDistribution';
 import '../plots.css';
 
@@ -1126,8 +1126,8 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
                 minWidth={300}
                 items={templateItems}
                 trigger={(t) => (
-                  <Button size="sm" block icon="scatter" iconRight="chevron-down" {...t}>
-                    {tplDef ? tplDef.label : 'Elegir plantilla'}
+                  <Button size="sm" block icon="scatter" iconRight="chevron-down" title={tplDef?.label} {...t}>
+                    {tplDef ? (tplDef.shortLabel ?? tplDef.label) : 'Elegir plantilla'}
                   </Button>
                 )}
               />
@@ -1232,11 +1232,13 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
             {tplDef && tpl?.info && (
               <div className="plot-aside-block" data-testid="crossplot-template-info">
                 <div className="plot-group__title">
-                  <Badge tone="accent">{tplDef.label}</Badge>
+                  <Badge tone="accent">{tplDef.shortLabel ?? tplDef.label}</Badge>
                   {config.template === 'pe-density' && <Button size="sm" variant="ghost" onClick={() => onChange(mineralogyFullRange(), 'Ver todos los minerales de PE–densidad')}>Ver todos los minerales</Button>}
                   {config.template === 'pe-density' && <Button size="sm" variant="ghost" onClick={() => onChange({ xRange: [0, 8], yRange: [1.3, 3.2] }, 'Ver minerales principales de PE–densidad')}>Rango principal</Button>}
                   {config.template === 'rhomaa-umaa' && <Button size="sm" variant="ghost" onClick={() => onChange({ xRange: undefined }, 'Ver toda la nube de ρmaa–Umaa')}>Ver toda la nube</Button>}
                   {config.template === 'rhomaa-umaa' && <Button size="sm" variant="ghost" onClick={() => onChange({ xRange: [...UMAA_CHART_RANGE.u], yRange: [...UMAA_CHART_RANGE.rho] }, 'Volver al rango de la carta ρmaa–Umaa')}>Rango de la carta</Button>}
+                  {config.template === 'mid' && <Button size="sm" variant="ghost" onClick={() => onChange({ xRange: undefined, yRange: undefined }, 'Ver toda la nube de MID ρmaa–Δtmaa')}>Ver toda la nube</Button>}
+                  {config.template === 'mid' && <Button size="sm" variant="ghost" onClick={() => onChange({ xRange: [...MID_CHART_RANGE.dt], yRange: [...MID_CHART_RANGE.rho] }, 'Volver al rango de la carta MID')}>Rango de la carta</Button>}
                   {tpl.readouts.length > 0 && <span className="plot-muted"> {tpl.pickett.length > 1 || tpl.pickett[0]?.key ? 'una recta por zona' : pscope.zoneId ? pscope.text : 'global'}</span>}
                 </div>
                 {config.template === 'thomas-stieber' && tpl.clay?.summary && (

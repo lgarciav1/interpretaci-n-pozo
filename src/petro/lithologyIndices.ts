@@ -3,12 +3,14 @@
  * M y N (sónico–densidad y neutrón–densidad), U volumétrico, Umaa (matriz aparente) y el cociente Th/K. Además, las
  * líneas guía de las cartas: rectas de Wyllie para sónico–neutrón y densidad–sónico, puntos minerales de M–N, el
  * triángulo cuarzo–calcita–dolomita con su grilla de porcentajes en ρmaa–Umaa y las cajas de minerales de Lith-1
- * (PEF contra K y PEF contra Th/K).
+ * (PEF contra K y PEF contra Th/K). Desde G04, Δtmaa (tiempo de tránsito de matriz aparente) y la geometría de la carta
+ * MID ρmaa–Δtmaa (Clavier y Rust, 1976), que identifica la matriz sin el PEF.
  *
  * Puro (sin UI ni estado). Dominio explícito: toda entrada fuera de dominio devuelve NaN, nunca una excepción.
  *
  * Referencias:
  * - Burke, Campbell y Schmidt (1969), The litho-porosity cross plot, SPWLA 10th Symposium (M y N).
+ * - Clavier, C. y Rust, D.H. (1976), MID-plot: a new lithology technique, The Log Analyst 17(6) (ρmaa–Δtmaa).
  * - Schlumberger (1989), Log Interpretation Principles/Applications, cap. 5 y 7 (M–N, ρmaa–Umaa, cartas CP-8 y CP-21).
  * - Schlumberger (2013), Log Interpretation Charts, Appendix B, pp. 279–280 (respuestas minerales: ρlog, φCNL, Δtc,
  *   Pe, U). Son las tablas de las slides 20–21 de la Clase 8.
@@ -72,6 +74,33 @@ export function umaa(pe: number, rhob: number, phi: number, uFluid = DEFAULT_U_F
 export function rhomaa(rhob: number, phi: number, rhoFluid = DEFAULT_RHO_FLUID): number {
   if (!finite(rhob, phi, rhoFluid) || phi < 0 || phi >= 1) return NaN;
   return (rhob - phi * rhoFluid) / (1 - phi);
+}
+
+/**
+ * Δtmaa = (Δt − φ·Δtf)/(1 − φ): tiempo de tránsito de la matriz aparente (µs/ft), con φ la porosidad total de
+ * densidad–neutrón (Clavier y Rust, 1976). Para una mezcla matriz–fluido de Wyllie devuelve el Δt de la matriz sea
+ * cual sea la porosidad. No usa el PEF: es inmune a la baritina del lodo. NaN fuera de dominio: entradas no finitas,
+ * Δt ≤ 0, Δtf ≤ 0, φ < 0, φ ≥ 1, o un resultado ≤ 0 (no físico: porosidad sobreestimada para ese Δt).
+ */
+export function apparentMatrixTransitTime(dt: number, phi: number, dtFluid = DEFAULT_DT_FLUID): number {
+  if (!finite(dt, phi, dtFluid) || dt <= 0 || dtFluid <= 0 || phi < 0 || phi >= 1) return NaN;
+  const v = (dt - phi * dtFluid) / (1 - phi);
+  return Number.isFinite(v) && v > 1e-9 ? v : NaN;
+}
+
+/** Variante por tramo [start, end) de `apparentMatrixTransitTime`, escrita en `out` (mismo índice). Δtf único del tramo. */
+export function apparentMatrixTransitTimeInto(
+  dt: ArrayLike<number>,
+  phi: ArrayLike<number>,
+  out: Float64Array,
+  dtFluid = DEFAULT_DT_FLUID,
+  start = 0,
+  end = Math.max(dt.length, phi.length),
+): Float64Array {
+  const lo = Math.max(0, start);
+  const hi = Math.min(end, out.length);
+  for (let i = lo; i < hi; i++) out[i] = apparentMatrixTransitTime(dt[i]!, phi[i]!, dtFluid);
+  return out;
 }
 
 /** Cociente Th/K (ppm / %). NaN si K ≤ 0 (división por cero o potasio no físico) o si Th < 0. */
@@ -244,6 +273,67 @@ export const UMAA_CHART_POINTS: readonly { id: string; label: string; u: number;
 
 /** Rango de la carta ρmaa–Umaa de la cátedra. */
 export const UMAA_CHART_RANGE = { u: [2, 17] as [number, number], rho: [2.2, 3.1] as [number, number] };
+
+// ── MID: ρmaa–Δtmaa (Clavier y Rust, 1976; Schlumberger CP-15) ────────────────────────────────────────────────
+
+export interface MidVertex {
+  id: 'quartz' | 'calcite' | 'dolomite' | 'anhydrite' | 'gypsum';
+  label: string;
+  /** Δt de la matriz (µs/ft). */
+  dt: number;
+  /** Densidad de la matriz (g/cm³). */
+  rho: number;
+}
+
+/**
+ * Puntos de matriz de la carta MID (Clavier y Rust, 1976; Schlumberger CP-15): cuarzo (55,5; 2,65), calcita
+ * (47,5; 2,71), dolomita (43,5; 2,87), anhidrita (50; 2,98) y yeso (52; 2,35). Los Δt son los Δtma por defecto del
+ * proyecto (`sharedParams.dtMa`) y las densidades las del triángulo ρmaa–Umaa (mismo eje y): la carta comparte el eje
+ * de ρmaa con la de Umaa. Difieren de los Δtc del Appendix B (56; 49; 44) que usan M–N y las rectas de Wyllie.
+ */
+export const MID_VERTICES: readonly MidVertex[] = [
+  { id: 'quartz', label: 'Cuarzo', dt: 55.5, rho: 2.65 },
+  { id: 'calcite', label: 'Calcita', dt: 47.5, rho: 2.71 },
+  { id: 'dolomite', label: 'Dolomita', dt: 43.5, rho: 2.87 },
+  { id: 'anhydrite', label: 'Anhidrita', dt: 50.0, rho: 2.98 },
+  { id: 'gypsum', label: 'Yeso', dt: 52.0, rho: 2.35 },
+];
+
+/** Vértices del triángulo ternario de la carta MID (cuarzo, calcita, dolomita). */
+export const MID_TRIANGLE: readonly MidVertex[] = MID_VERTICES.slice(0, 3);
+
+/** Rango de la carta MID: Δtmaa (µs/ft) y ρmaa (g/cm³, el mismo de la carta ρmaa–Umaa). */
+export const MID_CHART_RANGE = { dt: [35, 70] as [number, number], rho: [2.2, 3.1] as [number, number] };
+
+/** Punto (Δtmaa, ρmaa) de una mezcla de matrices cuarzo–calcita–dolomita (fracciones que suman 1), mezcla por volumen. */
+export function midTernaryPoint(q: number, c: number, d: number): { dt: number; rho: number } {
+  if (!finite(q, c, d)) return { dt: NaN, rho: NaN };
+  const [Q, C, D] = MID_TRIANGLE as [MidVertex, MidVertex, MidVertex];
+  return { dt: q * Q.dt + c * C.dt + d * D.dt, rho: q * Q.rho + c * C.rho + d * D.rho };
+}
+
+export interface MidGridLine {
+  component: 'quartz' | 'calcite' | 'dolomite';
+  fraction: number;
+  dt: [number, number];
+  rho: [number, number];
+}
+
+/** Grilla de porcentajes del triángulo MID: líneas de fracción constante de cada componente cada `step` (sin bordes). */
+export function midTernaryGrid(step = 0.2): MidGridLine[] {
+  if (!Number.isFinite(step) || step <= 0 || step >= 1) return [];
+  const lines: MidGridLine[] = [];
+  for (let k = 1; k * step < 1 - 1e-9; k++) {
+    const f = +(k * step).toFixed(6);
+    const r = 1 - f;
+    const add = (component: MidGridLine['component'], a: { dt: number; rho: number }, b: { dt: number; rho: number }) =>
+      lines.push({ component, fraction: f, dt: [a.dt, b.dt], rho: [a.rho, b.rho] });
+    add('quartz', midTernaryPoint(f, r, 0), midTernaryPoint(f, 0, r));
+    add('calcite', midTernaryPoint(r, f, 0), midTernaryPoint(0, f, r));
+    add('dolomite', midTernaryPoint(r, 0, f), midTernaryPoint(0, r, f));
+  }
+  return lines;
+}
 
 // ── cajas de minerales de Lith-1 (PEF contra K y contra Th/K) ─────────────────────────────────────────────────
 

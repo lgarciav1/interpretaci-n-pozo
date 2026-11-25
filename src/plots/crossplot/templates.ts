@@ -8,7 +8,7 @@
  */
 import type { CrossplotTemplateId } from '../../core/plots';
 import { CLAY_REGIONS, MINERALS, mineralMixLine } from '../../petro/mineralogy';
-import { LITH1_BOXES, LITHOLOGY_MATRICES, MAIN_MATRICES, UMAA_CHART_POINTS, UMAA_CHART_RANGE, UMAA_TRIANGLE, boxVertices, mnPoint, porosityLine, ternaryGrid, type LithologyMatrix, type MatrixId, type MineralBox } from '../../petro/lithologyIndices';
+import { LITH1_BOXES, LITHOLOGY_MATRICES, MAIN_MATRICES, MID_CHART_RANGE, MID_TRIANGLE, MID_VERTICES, UMAA_CHART_POINTS, UMAA_CHART_RANGE, UMAA_TRIANGLE, boxVertices, midTernaryGrid, mnPoint, porosityLine, ternaryGrid, type LithologyMatrix, type MatrixId, type MineralBox } from '../../petro/lithologyIndices';
 import type { XYLineLayer, XYPointLayer, XYPolygonLayer } from '../xy/layers';
 import { thomasStieberGeometry } from '../../petro/clayDistribution';
 
@@ -150,6 +150,8 @@ export interface TemplateAxis {
 export interface CrossplotTemplate {
   id: CrossplotTemplateId;
   label: string;
+  /** Etiqueta compacta para el botón selector y la insignia lateral cuando `label` es larga. */
+  shortLabel?: string;
   /** Una línea para el menú. */
   description: string;
   x: TemplateAxis;
@@ -271,6 +273,17 @@ export const CROSSPLOT_TEMPLATE_DEFS: readonly CrossplotTemplate[] = [
     needs: 'Umaa la calcula «Índices de litología» con RHOB, PEF y PHIT; ρmaa, «Densidad de matriz aparente» con RHOB y PHIT.',
   },
   {
+    id: 'mid',
+    group: 'lithology',
+    label: 'Identificación de matriz sin PE (MID: ρmaa–Δtmaa)',
+    shortLabel: 'MID: ρmaa–Δtmaa (sin PE)',
+    description: 'ρmaa contra Δtmaa con cuarzo, calcita, dolomía, anhidrita y yeso: no usa el PEF, no la afecta la baritina del lodo',
+    x: { role: 'DTMAA', scale: 'linear', range: [MID_CHART_RANGE.dt[0], MID_CHART_RANGE.dt[1]] },
+    y: { role: 'RHOMAA', scale: 'linear', reversed: true, range: [MID_CHART_RANGE.rho[0], MID_CHART_RANGE.rho[1]] },
+    colorRole: 'GR',
+    needs: 'Δtmaa la calcula «Índices de litología» con DT y PHIT; ρmaa, «Densidad de matriz aparente» con RHOB y PHIT.',
+  },
+  {
     id: 'pe-k',
     group: 'lithology',
     label: 'PEF–potasio',
@@ -353,8 +366,8 @@ export function mineralogyFullRange(): { xRange: [number, number]; yRange: [numb
 
 // ── plantillas de determinación de litologías (Clase 8; docs/decisiones/0059) ──────────────────────────────────
 
-export type LithologyTemplateId = 'sonic-neutron' | 'density-sonic' | 'm-n' | 'rhomaa-umaa' | 'pe-k' | 'pe-thk';
-export const LITHOLOGY_TEMPLATE_IDS: readonly LithologyTemplateId[] = ['sonic-neutron', 'density-sonic', 'm-n', 'rhomaa-umaa', 'pe-k', 'pe-thk'];
+export type LithologyTemplateId = 'sonic-neutron' | 'density-sonic' | 'm-n' | 'rhomaa-umaa' | 'mid' | 'pe-k' | 'pe-thk';
+export const LITHOLOGY_TEMPLATE_IDS: readonly LithologyTemplateId[] = ['sonic-neutron', 'density-sonic', 'm-n', 'rhomaa-umaa', 'mid', 'pe-k', 'pe-thk'];
 export const isLithologyTemplate = (id: CrossplotTemplateId | null): id is LithologyTemplateId => !!id && (LITHOLOGY_TEMPLATE_IDS as readonly string[]).includes(id);
 
 /** Colores de las matrices (el panel pasa los rellenos de litología del tema; por defecto, los de `MINERALS`). */
@@ -508,6 +521,31 @@ export function lithologyTemplateLayers(
     return {
       polygons, lines, points,
       info: 'Triángulo cuarzo–calcita–dolomita con grilla cada 20 %; feldespato, arcillas y anhidrita leídos de la carta (orientativos). Umaa y ρmaa usan la porosidad total: el gas sube los puntos y la baritina del lodo los lleva a la derecha.',
+    };
+  }
+
+  if (id === 'mid') {
+    const span: [number, number] = [MID_CHART_RANGE.dt[1] - MID_CHART_RANGE.dt[0], MID_CHART_RANGE.rho[1] - MID_CHART_RANGE.rho[0]];
+    for (const g of midTernaryGrid(0.2)) {
+      lines.push({ id: `mid-grid-${g.component}-${g.fraction}`, x: g.dt, y: g.rho, color: colors[g.component], width: 0.75, dash: [3, 3] });
+    }
+    const tri = MID_TRIANGLE;
+    lines.push({ id: 'mid-triangle', name: 'Cuarzo–calcita–dolomita', x: [...tri.map((p) => p.dt), tri[0]!.dt], y: [...tri.map((p) => p.rho), tri[0]!.rho], color: colors.guide, width: 1.5 });
+    for (const p of MID_VERTICES) {
+      const color = colors[p.id];
+      points.push({ id: `mid-${p.id}`, name: p.label, x: [p.dt], y: [p.rho], color, radius: 4.5, interactive: true, label: () => `${p.label} · Δtmaa ${p.dt} µs/ft · ρmaa ${p.rho} g/cm³` });
+      lines.push(pointLabel(`mid-${p.id}`, p.dt, p.rho, p.label, color));
+    }
+    const arrow = (key: string, from: [number, number], to: [number, number], label: string) =>
+      lines.push({ id: `arrow-${key}`, ...arrowPath(from, to, span), color: colors.guide, width: 1.25, label, labelAt: 'start' });
+    // Flechas orientativas de la carta CP-15: el gas baja ρmaa; la porosidad secundaria (que el sónico no ve) baja
+    // Δtmaa; la arcilla sube los dos (Δt alto y porosidad total sobreestimada por el neutrón).
+    arrow('mid-gas', [60, 2.52], [60.8, 2.36], 'Gas');
+    arrow('mid-secondary', [43.5, 2.55], [37.5, 2.55], 'Porosidad secundaria');
+    arrow('mid-clay', [58.5, 2.78], [65.5, 2.93], 'Arcilla');
+    return {
+      polygons, lines, points,
+      info: 'Triángulo cuarzo–calcita–dolomita con grilla cada 20 %, anhidrita y yeso (Clavier y Rust; Schlumberger CP-15). Δtmaa y ρmaa salen del sónico y la densidad con la porosidad total: no usan el PEF, así que la baritina del lodo no corre los puntos. Flechas orientativas: el gas sube los puntos, la porosidad secundaria los corre a la izquierda y la arcilla abajo a la derecha.',
     };
   }
 
