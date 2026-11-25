@@ -8,6 +8,7 @@
 import { useState, type RefObject } from 'react';
 import type { CurveDisplayOverride, LineStyleId, ScaleKind } from '../../core/display';
 import { setCurveDisplay, setRoleDisplay } from '../../core/state/project';
+import { isUserFlagRole } from '../../core/userFlags';
 import { registry } from '../../modules';
 import { Button, Callout, ColorPicker, Field, IconButton, NumberField, Popover, SegmentedControl, Select, Switch, useResolvedTheme } from '../../ui';
 import { defaultScope, patchOverride, scopeOptions, scaleEditStep, shadowedFields, validateScale, validateWidth, WIDTH_RANGE, type EditScope, type ScaleDraft } from '../../viewer/curveEdit';
@@ -52,13 +53,15 @@ export function CurveEditor({ wellId, curve, anchorRef, onClose }: CurveEditorPr
   const curveOv = curve.curveId ? display.curves[wellId]?.[curve.curveId] : undefined;
   const current = scope === 'curve' ? curveOv : roleOv;
   const scopes = scopeOptions(curve);
-  const roleLabel = curve.role ? (registry.roles.get(curve.role)?.label ?? curve.role) : null;
+  const userFlag = isUserFlagRole(curve.role);
+  const roleLabel = userFlag ? 'Bandera de usuario' : curve.role ? (registry.roles.get(curve.role)?.label ?? curve.role) : null;
   const style = curve.styles[theme];
+  const subjectFor = (sc: EditScope) => (sc === 'curve' ? curve.name : userFlag ? `la bandera «${curve.name}»` : `las ${curve.role}`);
 
   const write = (patch: Partial<Record<keyof CurveDisplayOverride, unknown>>, what: 'escala' | 'sentido' | 'color' | 'trazo' | 'grosor' | 'respaldo' | 'ocultar') => {
     const next = patchOverride(current, patch);
     // Se lee en «Deshacer: Cambiar escala de GR» / «Se deshizo: Ocultar las RT».
-    const subject = scope === 'curve' ? curve.name : `las ${curve.role}`;
+    const subject = subjectFor(scope);
     const label = what === 'ocultar' ? `Ocultar ${subject}` : `Cambiar ${what} de ${subject}`;
     commit(label, (p) => (scope === 'curve' && curve.curveId ? setCurveDisplay(p, wellId, curve.curveId, next) : curve.role ? setRoleDisplay(p, curve.role, next) : p));
   };
@@ -84,7 +87,7 @@ export function CurveEditor({ wellId, curve, anchorRef, onClose }: CurveEditorPr
   const reset = () => {
     setDraft(null);
     setWidthDraft(null);
-    commit(`Restablecer ${scope === 'curve' ? curve.name : `las ${curve.role}`}`, (p) =>
+    commit(`Restablecer ${subjectFor(scope)}`, (p) =>
       scope === 'curve' && curve.curveId ? setCurveDisplay(p, wellId, curve.curveId, null) : curve.role ? setRoleDisplay(p, curve.role, null) : p,
     );
   };
@@ -103,7 +106,7 @@ export function CurveEditor({ wellId, curve, anchorRef, onClose }: CurveEditorPr
             {curve.name}
           </span>
           <span className="ce__sub">
-            {curve.alternative ? 'Alternativa · ' : curve.origin === 'computed' ? 'Calculada · ' : curve.origin === 'prepared' ? 'Preparada · ' : ''}
+            {userFlag ? '' : curve.alternative ? 'Alternativa · ' : curve.origin === 'computed' ? 'Calculada · ' : curve.origin === 'prepared' ? 'Preparada · ' : ''}
             {roleLabel ?? 'sin rol'}
             {unit ? ` · ${unit}` : ''}
           </span>
@@ -236,7 +239,7 @@ export function CurveEditor({ wellId, curve, anchorRef, onClose }: CurveEditorPr
             onClose();
           }}
         >
-          {scope === 'curve' ? 'Ocultar curva' : `Ocultar las ${curve.role}`}
+          {scope === 'curve' ? 'Ocultar curva' : userFlag ? 'Ocultar bandera' : `Ocultar las ${curve.role}`}
         </Button>
         <Button size="sm" variant="ghost" icon="refresh" onClick={reset} disabled={!current}>
           Restablecer

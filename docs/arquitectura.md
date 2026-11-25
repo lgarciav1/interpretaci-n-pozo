@@ -1060,3 +1060,9 @@ El estado de la pregunta vive en el panel y se reinicia al cambiar de pozo. La r
 del motor y permanece sin cifras si el cálculo todavía está pendiente. El pedido de localizar una curva vive en
 el store del visor y se resuelve con la fuente activa y las pistas visibles. Abrir el asistente o consultar una
 respuesta conserva el proyecto y su historial.
+
+## Del Lazo a la Acción (G02)
+
+El [ADR 0088](decisiones/0088-del-lazo-a-la-accion.md) agrega dos contratos opcionales y retrocompatibles sobre v6/v7:
+- `Interpretation.userFlags?: readonly UserFlagDef[]` (`src/core/userFlags.ts`, `src/core/state/userFlags.ts`): banderas discretas 0/1 en JSON puro (tramos MD cerrados exactos con `gap = 0`), fuera de `Well.curves` y fuera de `sameEngineInputs`. Se proyectan cacheadas por identidad (`src/plots/userFlags.ts`) como roles de familia `flag` (`UFLAG_<id>`) en filtros de gráficos, pista «Banderas», exportación de figuras y «Armar pistas».
+- `MaskInterval.reason?: string` (`src/core/preparation/state.ts`) y `addMaskIntervals(..., { activateSource })` (`src/core/state/preparation.ts`): permiten enviar los tramos MD exactos de una `PlotSelection` a Preparación con motivo obligatorio y activación explícita de la curva preparada (I01–I08, I12), preservando la selección ante el clonado de profundidad en migraciones v6↔v7 (`src/app/store/uiSync.ts`).

@@ -11,6 +11,7 @@
 import type { CurveDisplayOverride, CurveSelector, FillSpec, TrackSpec } from '../core/display';
 import type { RoleCatalog, RoleDef } from '../core/roles';
 import { defaultToolCatalog, type ToolCatalog, type ToolFamily } from '../core/tools';
+import { isUserFlagRole } from '../core/userFlags';
 import { getUnit } from '../core/units';
 import type { Curve } from '../core/well';
 import { SW_MODELS_TRACK } from './swModels';
@@ -265,12 +266,13 @@ export function buildTrackCatalog(input: CatalogInput): CatalogGroup[] {
     const status: CatalogCurve['status'] = present.length ? 'present' : computed.has(def.id) ? 'computed' : canCompute ? 'computable' : 'missing';
     const style = OWN_STYLE[def.id];
     const fills = OWN_FILLS[def.id];
+    const userFlag = isUserFlagRole(def.id);
     groups.get(groupOf(def, grouped))!.curves.push({
       type: 'curve',
       id: `r:${def.id}`,
       select: { role: def.id },
-      name: def.id,
-      label: def.label,
+      name: userFlag ? def.label : def.id,
+      label: userFlag ? (def.description ?? 'Bandera de usuario') : def.label,
       role: def.id,
       mnemonics: present.map((c) => c.mnemonic),
       origin: present.length || !isComputed ? 'measured' : 'computed',

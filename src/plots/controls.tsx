@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import type { AxisScaleChoice } from '../core/plots';
 import type { Zone } from '../core/well';
 import { hiddenCurveReason, showToolLabel, type HiddenCurve } from '../core/toolString';
+import { isUserFlagRole } from '../core/userFlags';
 import { Button, Callout, Chip, EmptyState, SegmentedControl, Select, formatNumber, type IconName } from '../ui';
 import { selectionTitle, type PlotSelection } from './link';
 import type { CurveOption } from './data';
@@ -29,7 +30,22 @@ export function CurveSelect({ value, options, onChange, label, placeholder, extr
       aria-label={label}
       value={value ?? ''}
       {...(placeholder !== undefined ? { placeholder } : {})}
-      options={[...(extra ?? []), ...(known ? [] : [{ value: value!, label: hidden ? `${hidden.mnemonic} (oculta por la sarta)` : `${value} (sin datos)`, disabled: true }])]}
+      options={[
+        ...(extra ?? []),
+        ...(known
+          ? []
+          : [
+              {
+                value: value!,
+                label: hidden
+                  ? `${hidden.mnemonic} (oculta por la sarta)`
+                  : value?.startsWith('r:') && isUserFlagRole(value.slice(2))
+                    ? 'Bandera de usuario (sin datos)'
+                    : `${value} (sin datos)`,
+                disabled: true,
+              },
+            ]),
+      ]}
       groups={[...groups.entries()].map(([g, opts]) => ({ label: g, options: opts }))}
       onChange={onChange}
     />
@@ -108,20 +124,68 @@ export function DriverCallout({ title, children, action, onAction }: { title: Re
 }
 
 /**
- * Resumen de la selección compartida (fase 8b, 0021) en el panel aparte de un gráfico: de dónde viene («Lazo en el
- * crossplot», «Tramo 7 800,0–7 850,0 m»), cuántas muestras y tramos marca en el visor, y «Limpiar» (también Escape).
+ * Resumen de la selección compartida (fase 8b, 0021; acciones G02, 0088) en el panel aparte de un gráfico: de dónde
+ * viene («Lazo en el crossplot», «Tramo 7 800,0–7 850,0 m»), cuántas muestras y tramos marca en el visor, acciones
+ * explícitas (guardar como bandera o excluir en Preparación) y «Limpiar» (también Escape).
  */
-export function SelectionSummary({ selection, onClear }: { selection: PlotSelection; onClear(): void }) {
+export function SelectionSummary({
+  selection,
+  onClear,
+  onSaveFlag,
+  onExcludePreparation,
+  extraNote,
+  clearLabel = 'Limpiar',
+  className,
+  testId = 'plot-selection',
+}: {
+  selection: PlotSelection;
+  onClear(): void;
+  onSaveFlag?: () => void;
+  onExcludePreparation?: () => void;
+  extraNote?: string;
+  clearLabel?: string;
+  className?: string;
+  testId?: string;
+}) {
   const runs = selection.runs.length;
   return (
-    <div className="plot-selection" data-testid="plot-selection">
+    <div className={className ? `plot-selection ${className}` : 'plot-selection'} data-testid={testId}>
       <span className="plot-selection__title">{selectionTitle(selection, (d) => formatNumber(d, { digits: 1 }))}</span>
       <span className="plot-muted num">
         {formatNumber(selection.count, { digits: 0 })} muestras · {runs} {runs === 1 ? 'tramo' : 'tramos'} en el visor
+        {extraNote ?? ''}
       </span>
       <Button size="sm" variant="ghost" icon="x" onClick={onClear} title="Limpiar la selección (Esc)">
-        Limpiar
+        {clearLabel}
       </Button>
+      {(onSaveFlag || onExcludePreparation) && (
+        <div className="plot-selection__actions">
+          {onSaveFlag && (
+            <Button
+              size="sm"
+              variant="secondary"
+              icon="bookmark"
+              onClick={onSaveFlag}
+              data-testid="selection-save-flag"
+              title="Guardar las muestras seleccionadas como bandera 0/1 (disponible en Filtros y Armar pistas)"
+            >
+              Guardar como bandera…
+            </Button>
+          )}
+          {onExcludePreparation && (
+            <Button
+              size="sm"
+              variant="secondary"
+              icon="eye-off"
+              onClick={onExcludePreparation}
+              data-testid="selection-exclude-prep"
+              title="Enviar los tramos seleccionados como exclusión QC en Preparación (original intacto)"
+            >
+              Excluir en Preparación…
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -41,6 +41,10 @@ export interface HistogramPanelProps {
   onUseModule(port: string, moduleId: string, label: string): void;
   /** Vuelve a mostrar la herramienta de una curva oculta por la sarta (atajo del estado vacío). */
   onShowTool?(hidden: HiddenCurve): void;
+  /** Guardar la selección compartida como bandera 0/1 de usuario (G02). */
+  onSaveSelectionFlag?(): void;
+  /** Enviar la selección compartida como exclusión QC en Preparación (sugiere la curva graficada). */
+  onExcludeSelection?(preferredKeys: readonly (string | null)[]): void;
 }
 
 const fmt = (v: number) => formatNumber(v, { significant: 3 });
@@ -55,7 +59,7 @@ interface Series {
   stats: SampleStats;
 }
 
-export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams, sources, onUseModule, onShowTool }: HistogramPanelProps) {
+export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams, sources, onUseModule, onShowTool, onSaveSelectionFlag, onExcludeSelection }: HistogramPanelProps) {
   const theme = useThemeTokens();
   const [preview, setPreview] = useState<{ id: string; value: number } | null>(null);
   // Rango del eje congelado mientras se arrastra una línea de GR (si no, el eje que la incluye crecería con ella).
@@ -328,7 +332,12 @@ export function HistogramPanel({ ctx, config, onChange, onParamCutoff, onParams,
           </div>
           <aside className="plot-panel__aside" aria-label="Estadísticos">
             {selection ? (
-              <SelectionSummary selection={selection} onClear={clearPlotSelection} />
+              <SelectionSummary
+                selection={selection}
+                onClear={clearPlotSelection}
+                {...(onSaveSelectionFlag ? { onSaveFlag: onSaveSelectionFlag } : {})}
+                {...(onExcludeSelection ? { onExcludePreparation: () => onExcludeSelection([key]) } : {})}
+              />
             ) : (
               <p className="plot-hint">Clic en una clase marca sus tramos en el visor y sus puntos en el crossplot (Mayús suma o quita). En el visor, Mayús + arrastre marca un tramo.</p>
             )}

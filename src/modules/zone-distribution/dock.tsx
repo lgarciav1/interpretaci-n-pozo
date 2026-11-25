@@ -11,6 +11,7 @@ import { selectActiveEntry, useProject } from '../../app/store/project';
 import { useResults } from '../../app/store/results';
 import { useUi } from '../../app/store/ui';
 import { useTrendsUi } from '../../app/trends/store';
+import { useSelectionActionsUi } from '../../app/selectionActions/store';
 import { safeFileName } from '../../io/export';
 import { CURRENT_SERIES, DistributionPanel, type DistributionSeriesItem } from '../../plots/distribution/DistributionPanel';
 import type { SummaryRow } from '../../plots/distribution/interact';
@@ -150,6 +151,8 @@ function Connected({ ctx: liveCtx, config, candidates, chosen, wellName }: { ctx
       core={core}
       volume={volume}
       onOpenUncertainty={openUncertainty}
+      onSaveSelectionFlag={() => useSelectionActionsUi.getState().openFlag()}
+      onExcludeSelection={(keys) => useSelectionActionsUi.getState().openExclude(keys)}
     />
   );
 }

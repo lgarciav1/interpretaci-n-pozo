@@ -33,6 +33,7 @@ import { HomeRoot } from './home/HomeScreen';
 import { useHome } from './home/store';
 import { VisibleRangeProbe } from './views/DefenseHud';
 import { ViewsDialogs } from './views/ViewsPanel';
+import { SelectionActionDialogs } from './selectionActions/SelectionActionDialogs';
 import { LAYOUT_LIMITS, shellSize, shellSizeCss, useUi, type ShellLayout, type ShellPart } from './store/ui';
 import './shell/shell.css';
 
@@ -221,6 +222,7 @@ export function App() {
       <QcReportDialog />
       <EquationsDialog />
       <ViewsDialogs />
+      <SelectionActionDialogs />
       <VisibleRangeProbe />
       <CommandLayer />
       <Toaster />

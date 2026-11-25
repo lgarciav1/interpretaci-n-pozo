@@ -5,7 +5,7 @@
  */
 import { activeWellEntry, type Project } from '../../core/state/project';
 import type { History } from '../../core/state/history';
-import { clearPlotSelection, getPlotLink } from '../../plots/link';
+import { clearPlotSelection, getPlotLink, setPlotSelection } from '../../plots/link';
 import { exitDefense } from '../views/actions';
 import { useProject } from './project';
 import { useUi, type UiStore } from './ui';
@@ -40,6 +40,33 @@ export function defenseExitNeeded(prev: { project: Project; history: History }, 
   return next.history !== prev.history && next.history.past.length === 0 && next.history.future.length === 0;
 }
 
+function sameDepthValues(a: Float64Array, b: Float64Array): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+/**
+ * Sincroniza la selección compartida con el pozo activo tras un cambio de proyecto:
+ * - Si el mismo pozo conservó exactamente la misma grilla MD (p. ej. clonado inmutable al migrar v6 ↔ v7 en
+ *   Preparación o deshacer/rehacer), re-vincula `PlotSelection.depth` a la nueva referencia sin perder la selección.
+ * - Si cambió el pozo activo o la grilla MD, limpia la selección.
+ */
+export function syncPlotSelectionWithProject(prevProject: Project, nextProject: Project): void {
+  const sel = getPlotLink().selection;
+  if (!sel) return;
+  const nextEntry = activeWellEntry(nextProject);
+  const nextDepth = nextEntry?.well.depth.values;
+  if (nextDepth === sel.depth) return;
+  const prevEntry = activeWellEntry(prevProject);
+  if (prevEntry && nextEntry && prevEntry.well.id === nextEntry.well.id && nextDepth && sameDepthValues(sel.depth, nextDepth)) {
+    setPlotSelection({ ...sel, depth: nextDepth });
+  } else {
+    clearPlotSelection();
+  }
+}
+
 let installed = false;
 export function installUiSync(moduleExists?: (id: string) => boolean): void {
   if (installed) return;
@@ -51,9 +78,8 @@ export function installUiSync(moduleExists?: (id: string) => boolean): void {
     if (useUi.getState().presenting && defenseExitNeeded(prev, s)) exitDefense({ restoreRange: false });
     const patch = staleUiPatch(useUi.getState(), s.project, moduleExists);
     if (Object.keys(patch).length > 0) useUi.getState().set(patch);
-    // La selección de los gráficos (0021) es de un pozo: otro pozo activo (u otra importación) la limpia.
-    const sel = getPlotLink().selection;
-    if (sel && activeWellEntry(s.project)?.well.depth.values !== sel.depth) clearPlotSelection();
+    // La selección de los gráficos (0021): re-vincula en clones idénticos (v6↔v7), limpia si cambió pozo o grilla MD.
+    syncPlotSelectionWithProject(prev.project, s.project);
   });
 }
 
