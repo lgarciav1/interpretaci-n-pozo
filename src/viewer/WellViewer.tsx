@@ -15,7 +15,8 @@ import { NotesDialog } from './NotesDialog';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ContextMenu, CurveLegend, copyText, formatNumber, getResolvedTheme, getUiScaleFactor, Icon, IconButton, isTypingTarget, Menu, Popover, prefersReducedMotion, toast, useCommandSource, useResolvedTheme, useUiScaleFactor, type MenuEntry } from '../ui';
 import { pxPerMeterForScale } from '../io/export/figures/sizing';
-import { nearestCurveAt, outputKeyOfViewerCurve, readingsText } from './contextMenu';
+import type { DepthIntervalInput } from '../petro/summary';
+import { clampMeasurementForNote, measureLabel, measurementNoteText, measurementSheetText, nearestCurveAt, outputKeyOfViewerCurve, readingsText } from './contextMenu';
 import { VIEWER_LOOKS, type ViewerLook } from './look';
 import { createGhostTool, ghostOffset, GHOST_OVERLAY_ID, type GhostStatus } from './overlays/ghost';
 import { createMeasureTool } from './overlays/measure';
@@ -117,6 +118,8 @@ export interface WellViewerProps {
   onTraceSample?(target: { outputKey: string; depth: number }): void;
   /** Menú contextual: exportar lo visible como PNG (tramo, escala 1:N y ancho de las pistas en px CSS). */
   onExportVisible?(request: { top: number; base: number; scale: number; widthPx: number }): void;
+  /** Curvas activas del pozo para calcular la regla viva de Pay al medir un intervalo (G01). */
+  measureInput?: DepthIntervalInput | null;
 }
 
 export interface ViewerCurtain {
@@ -262,6 +265,7 @@ export function WellViewer(props: WellViewerProps) {
   const measure = useRef<ReturnType<typeof createMeasureTool>>(null as unknown as ReturnType<typeof createMeasureTool>);
   measure.current ??= createMeasureTool({
     tvdss: () => propsRef.current.tracks.find((t) => t.kind === 'depth')?.tvdss ?? null,
+    intervalInput: () => propsRef.current.measureInput,
     measured: (text) => announceRef.current(text),
     changed: (armed) => setMeasuring(armed),
   });
@@ -599,15 +603,18 @@ export function WellViewer(props: WellViewerProps) {
       loupe.current?.painter.reset();
       vpRef.current = fitAll(lim, size.height);
       cursor.current = { depth: null, source: null };
-      if (isNew) startReveal();
+      if (isNew) {
+        measure.current.clear();
+        startReveal();
+      }
     } else {
       vpRef.current = resizeViewport(vpRef.current, prevLim, lim, size.height);
     }
     invalidate('base');
   }, [wellKey, size.height, invalidate, startReveal]);
 
-  // Cambios de pistas, datos, tema, tamaño de interfaz, ancho o cortina → redibujar.
-  useEffect(() => invalidate('base'), [tracks, props.data, overlays, theme, ui, layout, props.curtain, props.look, invalidate]);
+  // Cambios de pistas, datos, tema, tamaño de interfaz, ancho, cortina o curvas de la regla viva → redibujar.
+  useEffect(() => invalidate('base'), [tracks, props.data, overlays, theme, ui, layout, props.curtain, props.look, props.measureInput, invalidate]);
 
   // ── cortina ─────────────────────────────────────────────────────────────────────────────────────────────────
   /** Ubica la manija y pide un cuadro: el único trabajo al arrastrar es redibujar (nada se recalcula). */
@@ -1249,7 +1256,7 @@ export function WellViewer(props: WellViewerProps) {
     const scrollLeft = scrollRef.current?.scrollLeft ?? 0;
     setCtxMenu({ x: rect.left + localX - scrollLeft, y: rect.top + Math.min(vp.height - 4, Math.max(4, yOf(vp, depth))), depth, track: ti, localX });
   };
-  const [notesDepth, setNotesDepth] = useState<number | null>(null);
+  const [notesDraft, setNotesDraft] = useState<{ top: number; base?: number; text?: string } | null>(null);
   const contextItems = (): { header: ReactNode; items: MenuEntry[] } => {
     const m = ctxMenu!;
     const p = propsRef.current;
@@ -1261,6 +1268,7 @@ export function WellViewer(props: WellViewerProps) {
     const box = m.track >= 0 ? layoutRef.current.boxes[m.track] : undefined;
     const curve = track && box && track.kind === 'curves' && idx >= 0 ? nearestCurveAt(track, box, idx, m.localX) : null;
     const traceKey = curve ? outputKeyOfViewerCurve(curve) : null;
+    const activeMeasurement = measure.current.measurement;
     const vp = vpRef.current;
     const header = (
       <>
@@ -1270,7 +1278,7 @@ export function WellViewer(props: WellViewerProps) {
       </>
     );
     const items: MenuEntry[] = [
-      { id: 'notes', label: 'Notas de profundidad…', disabled: !p.data.commit, onSelect: () => setNotesDepth(d) },
+      { id: 'notes', label: 'Notas de profundidad…', disabled: !p.data.commit, onSelect: () => setNotesDraft({ top: d }) },
       {
         id: 'copy',
         label: 'Copiar profundidad y lecturas',
@@ -1308,6 +1316,42 @@ export function WellViewer(props: WellViewerProps) {
         ghost.current!.cancelSelection();
         measure.current.arm();
       } },
+      ...(activeMeasurement
+        ? ([
+            {
+              id: 'measure-copy',
+              label: 'Copiar ficha del intervalo medido',
+              icon: 'copy',
+              description: measureLabel(activeMeasurement),
+              onSelect: () => {
+                const text = measurementSheetText(activeMeasurement, measure.current.summary);
+                void copyText(text).then((ok) => {
+                  toast(
+                    ok
+                      ? { tone: 'ok', title: 'Ficha del intervalo copiada', description: `${measureLabel(activeMeasurement)} · se pega en una planilla como dos columnas.` }
+                      : { tone: 'warn', title: 'No se pudo copiar', description: 'El navegador no dio acceso al portapapeles.' },
+                  );
+                });
+              },
+            },
+            {
+              id: 'measure-note',
+              label: 'Crear nota en el intervalo medido',
+              icon: 'pen',
+              disabled: !p.data.commit || p.depth.length === 0,
+              description: measureLabel(activeMeasurement),
+              onSelect: () => {
+                const range = clampMeasurementForNote(activeMeasurement, p.depth);
+                if (!range) return;
+                setNotesDraft({
+                  top: range.top,
+                  base: range.base,
+                  text: measurementNoteText(activeMeasurement, measure.current.summary),
+                });
+              },
+            },
+          ] satisfies MenuEntry[])
+        : []),
       {
         id: 'ghost',
         label: curve?.kind === 'line' ? `Calcar un tramo de ${curve.name}` : 'Calcar un tramo',
@@ -1918,7 +1962,16 @@ export function WellViewer(props: WellViewerProps) {
           </div>
         </Popover>
       )}
-      {notesDepth !== null && <NotesDialog key={props.data.wellId} data={props.data} depth={notesDepth} onClose={() => setNotesDepth(null)} />}
+      {notesDraft !== null && (
+        <NotesDialog
+          key={`${props.data.wellId}:${notesDraft.top}:${notesDraft.base ?? ''}`}
+          data={props.data}
+          depth={notesDraft.top}
+          {...(notesDraft.base !== undefined ? { base: notesDraft.base } : {})}
+          {...(notesDraft.text !== undefined ? { initialText: notesDraft.text } : {})}
+          onClose={() => setNotesDraft(null)}
+        />
+      )}
       {ctxMenu && (() => {
         const { header, items } = contextItems();
         return <ContextMenu at={{ x: ctxMenu.x, y: ctxMenu.y }} items={items} header={header} onClose={() => setCtxMenu(null)} returnFocus={bodyRef} aria-label={`Perfil a ${formatDepth(ctxMenu.depth)} m`} minWidth={260} />;
