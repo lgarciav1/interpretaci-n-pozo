@@ -201,7 +201,8 @@ export default defineModule({
     equations: [
       { latex: '(\\phi h)_i = \\phi_i\\,h_i \\qquad (kh)_i = k_i\\,h_i', description: 'Capacidad de almacenaje (m) y de flujo (mD·m) del tramo i.' },
       { latex: 'F_{\\phi h,i} = \\frac{\\sum_{j\\le i}(\\phi h)_j}{\\sum_j (\\phi h)_j} \\qquad F_{kh,i} = \\frac{\\sum_{j\\le i}(kh)_j}{\\sum_j (kh)_j}', description: 'Acumulados normalizados desde el tope.' },
-      { latex: 'L_{estrat} = \\{(0,0),(F_{\\phi h,1},F_{kh,1}),\\dots,(1,1)\\}', description: 'Lorenz estratigráfico: tramos en orden de profundidad.' },
+      { latex: 'L_{estrat} = \\{(0,0),(F_{\\phi h,1},F_{kh,1}),\\dots,(1,1)\\}', description: 'Lorenz estratigráfico (SMLP): tramos en orden de profundidad.' },
+      { latex: 'm_u = \\frac{(\\%\\,kh)_u}{(\\%\\,\\phi h)_u} = \\frac{\\Delta F_{kh,u}}{\\Delta F_{\\phi h,u}}', description: 'Índice de flujo relativo (pendiente SMLP) de cada sub-unidad hidráulica u = S1, S2…' },
       { latex: 'L_{ord}:\\ \\text{tramos ordenados por } k_i/\\phi_i \\text{ decreciente}', description: 'Lorenz ordenado (clásico): el más productivo primero.' },
       { latex: 'L_c = 2\\,(A - \\tfrac{1}{2})', description: 'A es el área bajo la curva ordenada; 0 = homogéneo, hacia 1 = muy heterogéneo.' },
     ],
@@ -210,7 +211,7 @@ export default defineModule({
       'Lake, L. W. y Jensen, J. L. (1991). A review of heterogeneity measures used in reservoir characterization. In Situ 15(4).',
     ],
     notes:
-      'k ≤ 0 aporta cero al flujo pero su porosidad cuenta en el almacenaje; las muestras sin φ, k o espesor válidos se descartan. El coeficiente de Lorenz depende de la cantidad de tramos (con N tramos de igual φ·h el máximo es 1 − 1/N). Los sellos no se calculan; el total concatena los tramos de las zonas calculadas.',
+      'k ≤ 0 aporta cero al flujo pero su porosidad cuenta en el almacenaje; las muestras sin φ, k o espesor válidos se descartan. El coeficiente de Lorenz depende de la cantidad de tramos (con N tramos de igual φ·h el máximo es 1 − 1/N). Los sellos no se calculan; el total concatena los tramos de las zonas calculadas. En la zonación hidráulica SMLP, los rótulos por pendiente m_u (Conducto > 1,3; Homogéneo 0,7–1,3; Subordinado 0,3–0,7; Barrera / Sello parcial < 0,3) son umbrales operativos de lectura sobre el diagrama de Gunter et al. (1997), no constantes petrofísicas universales.',
   },
 });
 
