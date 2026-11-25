@@ -18,9 +18,13 @@ import { effectiveWell } from '../preparation/data';
  *   `commit`, la barra del visor queda sin herramientas de edición y abajo al centro va el indicador del recorrido.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { contextMatchesWell } from '../../core/engine/context';
 import { setCurveDisplay, setRoleDisplay } from '../../core/state/project';
 import type { Well } from '../../core/well';
 import { registry } from '../../modules';
+import type { DepthIntervalInput } from '../../petro/summary';
+import { engineInputData } from '../../plots/data';
+import { thicknessOf } from '../../plots/distribution/series';
 import { Button, Chip, EmptyState, getResolvedTheme, Icon, Spinner } from '../../ui';
 import { patchOverride } from '../../viewer/curveEdit';
 import type { ViewerData, ViewerZone } from '../../viewer/overlay';
@@ -46,7 +50,7 @@ import { useUi } from '../store/ui';
 import { useViewer } from '../store/viewer';
 import { computedCurves, computedTables } from '../computed';
 import { visibleCurves } from '../toolString/select';
-import { visibleQc } from '../plots/context';
+import { plotContextOf, visibleQc } from '../plots/context';
 import { startTrendTool, stopTrendTool } from '../trends/actions';
 import { useTrendsUi } from '../trends/store';
 import { CurveEditor } from './CurveEditor';
@@ -294,6 +298,25 @@ export function ViewerSlot() {
       commit,
     };
   }, [well, interpretation, editingZoneId, qc, computed, result, display.overlays, commit]);
+
+  // Curvas activas vigentes para la regla viva de Pay (G01): misma resolución de fuentes que ZONE_SUMMARY.
+  const measureInput = useMemo<DepthIntervalInput | null>(() => {
+    if (!well || !interpretation) return null;
+    const ctx = plotContextOf(well, interpretation, computed);
+    const sources = result && contextMatchesWell(result.context, { id: well.id, depth: well.depth.values, curves: well.curves }) ? result.sources : null;
+    const get = (port: string) => engineInputData(ctx, sources, port);
+    return {
+      depth: well.depth.values,
+      thickness: thicknessOf(well),
+      netRes: get('NET_RES'),
+      netPay: get('NET_PAY'),
+      netSand: get('NET_SAND'),
+      phi: get('PHIE'),
+      sw: get('SW'),
+      vsh: get('VSH'),
+      perm: get('PERM'),
+    };
+  }, [well, interpretation, computed, result]);
 
   // Editor de escala: qué curva y dónde anclarlo (la curva se vuelve a buscar en cada render: llega al día).
   const [editing, setEditing] = useState<{ trackId: string; key: string } | null>(null);
@@ -653,6 +676,7 @@ export function ViewerSlot() {
         onCreateTop={createTop}
         onTraceSample={openProvenance}
         onExportVisible={exportVisible}
+        measureInput={measureInput}
       />
       {editing && editingCurve && <CurveEditor key={`${editing.trackId}|${editing.key}`} wellId={well.id} curve={editingCurve} anchorRef={anchorRef} onClose={() => setEditing(null)} />}
       <SaveTemplateDialog workspace={workspace} overlays={OVERLAYS} />

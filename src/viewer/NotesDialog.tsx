@@ -6,14 +6,32 @@ import { Button, Callout, Dialog, Field, TextArea, TextField, parseDecimal } fro
 import type { ViewerData } from './overlay';
 import './notes.css';
 
-export function NotesDialog({ data, depth, onClose }: { data: ViewerData; depth: number; onClose(): void }) {
+export function NotesDialog({
+  data,
+  depth,
+  base: initialBase,
+  initialText = '',
+  onClose,
+}: {
+  data: ViewerData;
+  depth: number;
+  base?: number;
+  initialText?: string;
+  onClose(): void;
+}) {
   const textId = useId();
   const topId = useId();
   const baseId = useId();
   const fresh = (): DepthNote => ({ id: makeId('nota'), text: '', top: depth });
-  const [draft, setDraft] = useState(fresh);
+  const initial = (): DepthNote => ({
+    id: makeId('nota'),
+    text: initialText.slice(0, NOTE_MAX_LENGTH),
+    top: depth,
+    ...(initialBase !== undefined ? { base: initialBase } : {}),
+  });
+  const [draft, setDraft] = useState(initial);
   const [top, setTop] = useState(String(depth));
-  const [base, setBase] = useState('');
+  const [base, setBase] = useState(initialBase === undefined ? '' : String(initialBase));
   const [error, setError] = useState('');
   const edit = (n: DepthNote) => { setDraft(n); setTop(String(n.top)); setBase(n.base === undefined ? '' : String(n.base)); setError(''); };
   const save = () => {

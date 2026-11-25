@@ -50,6 +50,7 @@
  * "Enhanced Oil Recovery", cap. 2 (promedios de k); Hyndman y Fan (1996), The American Statistician 50(4) (cuantiles).
  */
 
+import { sampleThickness } from '../core/well';
 import { weightedQuantiles } from './distribution';
 import { positiveMeans, type PositiveMeans } from './stats';
 
@@ -232,26 +233,26 @@ export function summarizeRanges(
     if (!dist) return;
     pushCol(c.phi!, p, h);
     // Conjunto y peso de S̄w: con φ y Sw, ponderada por volumen poral h·φ (como Distribución por zona).
-    pushCol(c.sw!, Number.isNaN(p) ? NaN : w, h, h * p);
+    pushCol(c.sw!, Number.isFinite(p) ? w : NaN, h, h * p);
     if (c.vsh) pushCol(c.vsh, v, h);
   };
 
   const add = (s: NetSums, h: number, p: number, w: number, v: number, k: number): void => {
     s.h += h;
-    if (!Number.isNaN(p)) {
+    if (Number.isFinite(p)) {
       s.hPhi += h * p;
       s.hPhiForAvg += h;
-      if (!Number.isNaN(w)) {
+      if (Number.isFinite(w)) {
         s.hPhiSw += h * p * w;
         s.hPhiWithSw += h * p;
         s.hPhiSh += h * p * (1 - w);
       }
     }
-    if (!Number.isNaN(v)) {
+    if (Number.isFinite(v)) {
       s.hVsh += h * v;
       s.hWithVsh += h;
     }
-    if (!Number.isNaN(k)) {
+    if (Number.isFinite(k)) {
       s.hK += h * k;
       s.hWithK += h;
     }
@@ -260,14 +261,15 @@ export function summarizeRanges(
   for (const { start, end } of ranges) {
     for (let i = start; i < end; i++) {
       const h = thickness[i]!;
+      if (!Number.isFinite(h) || h < 0) continue;
       gross += h;
       if (netSand) {
         const a = netSand[i]!;
         if (a === 1) sandH += h;
-        else if (Number.isNaN(a)) noDataSand += h;
+        else if (!Number.isFinite(a)) noDataSand += h;
       }
       const r = netRes[i]!;
-      if (Number.isNaN(r)) {
+      if (!Number.isFinite(r)) {
         noData += h;
         continue;
       }
@@ -280,7 +282,7 @@ export function summarizeRanges(
       collect(colsRes, h, p, w, v);
       if (colsRes.rt) pushCol(colsRes.rt, rt![i]!, h);
       nRes++;
-      if (!Number.isNaN(p) && !Number.isNaN(w)) nResWithSw++;
+      if (Number.isFinite(p) && Number.isFinite(w)) nResWithSw++;
       const pf = netPay[i]!;
       if (pf === 1) {
         add(pay, h, p, w, v, k);
@@ -328,5 +330,313 @@ export function summarizeRanges(
     },
     kMeansPay: meansOf(colsPay.k),
     rtMeansPay: meansOf(colsPay.rt),
+  };
+}
+
+/** Rango de muestras [start, end) que cumplen top ≤ depth[i] ≤ base (profundidad creciente; coincide con layoutZones). */
+export function depthIndexRange(depth: ArrayLike<number>, top: number, base: number): { start: number; end: number } {
+  const n = depth.length;
+  if (n === 0 || !Number.isFinite(top) || !Number.isFinite(base)) return { start: 0, end: 0 };
+  const lo = Math.min(top, base);
+  const hi = Math.max(top, base);
+  if (!(hi > lo)) return { start: 0, end: 0 };
+  let l = 0;
+  let r = n;
+  while (l < r) {
+    const m = (l + r) >>> 1;
+    if (depth[m]! < lo) l = m + 1;
+    else r = m;
+  }
+  const start = l;
+  l = start;
+  r = n;
+  while (l < r) {
+    const m = (l + r) >>> 1;
+    if (depth[m]! <= hi) l = m + 1;
+    else r = m;
+  }
+  return { start, end: l };
+}
+
+/** Curvas disponibles para resumir un tramo de profundidad (todas opcionales salvo `depth`). */
+export interface DepthIntervalInput {
+  depth: ArrayLike<number>;
+  /** Espesor por muestra (m). Si se omite, se calcula con `sampleThickness(depth)`. */
+  thickness?: ArrayLike<number> | null;
+  netRes?: ArrayLike<number> | null;
+  netPay?: ArrayLike<number> | null;
+  netSand?: ArrayLike<number> | null;
+  phi?: ArrayLike<number> | null;
+  sw?: ArrayLike<number> | null;
+  vsh?: ArrayLike<number> | null;
+  perm?: ArrayLike<number> | null;
+}
+
+/** Métricas brutas sobre el tramo completo (sin filtrar por cutoffs), para pozos sin `NET_RES`/`NET_PAY`. */
+export interface GrossIntervalMetrics {
+  /** Porosidad efectiva media ponderada por espesor (v/v). */
+  phi: number;
+  /** Saturación de agua media ponderada por volumen poral h·φ (v/v). */
+  sw: number;
+  /** Permeabilidad media geométrica ponderada por espesor para k > 0 (mD). */
+  kGeo: number;
+  /** Capacidad de flujo Σ hᵢ·kᵢ (mD·m); NaN si no hay muestras con k finito. */
+  kh: number;
+  /** Espesor equivalente de hidrocarburo Σ hᵢ·φᵢ·(1 − Swᵢ) (m); NaN si no hay muestras con φ y Sw finitos. */
+  hphiSh: number;
+}
+
+/** Sumario petrofísico de un intervalo arbitrario [top, base] (regla viva del visor). */
+export interface DepthIntervalSummary {
+  start: number;
+  end: number;
+  sampleCount: number;
+  /** Espesor bruto muestral Σ hᵢ en [start, end) (m). */
+  gross: number;
+  /** true si existe curva NET_RES y al menos una muestra del tramo fue clasificada (0 o 1). */
+  hasNetRes: boolean;
+  /** true si existe curva NET_PAY y el pay es conocido (no faltan todos los Sw del reservorio). */
+  hasNetPay: boolean;
+  netRes: number;
+  ntgRes: number;
+  netPay: number;
+  ntgPay: number;
+  noData: number;
+  noDataPay: number;
+  phiRes: number;
+  phiPay: number;
+  swRes: number;
+  swPay: number;
+  vshRes: number;
+  vshPay: number;
+  kPay: number;
+  /** Permeabilidad media geométrica ponderada por espesor en el pay (k > 0, mD); coincide con `kMeansPay.geo`. */
+  kGeoPay: number;
+  khPay: number;
+  hphiPay: number;
+  hphiShPay: number;
+  /** Promedios brutos del tramo completo (sin filtrar por cutoffs). NaN cuando falta la curva correspondiente. */
+  grossMetrics: GrossIntervalMetrics;
+}
+
+function emptyGrossMetrics(): GrossIntervalMetrics {
+  return { phi: NaN, sw: NaN, kGeo: NaN, kh: NaN, hphiSh: NaN };
+}
+
+function emptyDepthIntervalSummary(start = 0, end = 0): DepthIntervalSummary {
+  return {
+    start,
+    end,
+    sampleCount: 0,
+    gross: 0,
+    hasNetRes: false,
+    hasNetPay: false,
+    netRes: NaN,
+    ntgRes: NaN,
+    netPay: NaN,
+    ntgPay: NaN,
+    noData: NaN,
+    noDataPay: NaN,
+    phiRes: NaN,
+    phiPay: NaN,
+    swRes: NaN,
+    swPay: NaN,
+    vshRes: NaN,
+    vshPay: NaN,
+    kPay: NaN,
+    kGeoPay: NaN,
+    khPay: NaN,
+    hphiPay: NaN,
+    hphiShPay: NaN,
+    grossMetrics: emptyGrossMetrics(),
+  };
+}
+
+function validCurve(c: ArrayLike<number> | null | undefined, expectedLength: number): ArrayLike<number> | undefined {
+  return c && c.length === expectedLength ? c : undefined;
+}
+
+/** Buffer compartido de solo lectura lleno de NaN para evitar asignaciones en el arrastre cuando falta una curva. */
+let sharedNanCurve = new Float64Array(0);
+function nanCurve(minLength: number): Float64Array {
+  if (sharedNanCurve.length < minLength) {
+    sharedNanCurve = new Float64Array(minLength);
+    sharedNanCurve.fill(NaN);
+  }
+  return sharedNanCurve;
+}
+
+/**
+ * Sumario petrofísico de un tramo de profundidad [top, base] (en cualquier orden) usando las mismas convenciones de
+ * `summarizeRanges` y `ZONE_SUMMARY` (ponderación por `thickness`, `Sw` por volumen poral `φ·h`, `k` geométrica para
+ * `k > 0`). Si faltan curvas calculadas (p. ej. pozo sin cutoffs), devuelve NaN en las magnitudes no disponibles sin
+ * inventar ceros y completa `grossMetrics` con las curvas presentes.
+ */
+export function summarizeDepthInterval(input: DepthIntervalInput, top: number, base: number): DepthIntervalSummary {
+  const { start, end } = depthIndexRange(input.depth, top, base);
+  if (start >= end) return emptyDepthIntervalSummary(start, end);
+
+  const n = input.depth.length;
+  const thickness = validCurve(input.thickness, n) ?? sampleThickness(input.depth);
+  const netRes = validCurve(input.netRes, n);
+  const netPay = validCurve(input.netPay, n);
+  const netSand = validCurve(input.netSand, n);
+  const phi = validCurve(input.phi, n);
+  const sw = validCurve(input.sw, n);
+  const vsh = validCurve(input.vsh, n);
+  const perm = validCurve(input.perm, n);
+
+  // Métricas brutas sobre el tramo completo (una pasada, sin asignaciones).
+  let grossRaw = 0;
+  let gHPhi = 0;
+  let gHWithPhi = 0;
+  let gHPhiSw = 0;
+  let gHPhiWithSw = 0;
+  let gHPhiSh = 0;
+  let gNPhiSw = 0;
+  let gHK = 0;
+  let gNK = 0;
+  let gWPosK = 0;
+  let gSLnK = 0;
+  let gNPosK = 0;
+
+  for (let i = start; i < end; i++) {
+    const h = thickness[i]!;
+    if (!Number.isFinite(h) || h < 0) continue;
+    grossRaw += h;
+    if (!(h > 0)) continue;
+    if (phi) {
+      const p = phi[i]!;
+      if (Number.isFinite(p)) {
+        gHPhi += h * p;
+        gHWithPhi += h;
+        if (sw) {
+          const w = sw[i]!;
+          if (Number.isFinite(w)) {
+            gHPhiSw += h * p * w;
+            gHPhiWithSw += h * p;
+            gHPhiSh += h * p * (1 - w);
+            gNPhiSw++;
+          }
+        }
+      }
+    }
+    if (perm) {
+      const k = perm[i]!;
+      if (Number.isFinite(k)) {
+        gHK += h * k;
+        gNK++;
+        if (k > 0) {
+          gWPosK += h;
+          gSLnK += h * Math.log(k);
+          gNPosK++;
+        }
+      }
+    }
+  }
+
+  const grossMetrics: GrossIntervalMetrics = {
+    phi: gHWithPhi > 0 ? gHPhi / gHWithPhi : NaN,
+    sw: gHPhiWithSw > 0 ? gHPhiSw / gHPhiWithSw : NaN,
+    kGeo: gNPosK > 0 ? Math.exp(gSLnK / gWPosK) : NaN,
+    kh: gNK > 0 ? gHK : NaN,
+    hphiSh: gNPhiSw > 0 ? gHPhiSh : NaN,
+  };
+
+  if (!netRes) {
+    return {
+      ...emptyDepthIntervalSummary(start, end),
+      sampleCount: end - start,
+      gross: grossRaw,
+      grossMetrics,
+    };
+  }
+
+  const s = summarizeRanges(
+    {
+      thickness,
+      netRes,
+      netPay: netPay ?? nanCurve(end),
+      ...(netSand ? { netSand } : {}),
+      phi: phi ?? nanCurve(end),
+      sw: sw ?? nanCurve(end),
+      ...(vsh ? { vsh } : {}),
+      ...(perm ? { perm } : {}),
+    },
+    [{ start, end }],
+    { distributions: false },
+  );
+
+  // Misma regla que ZONE_SUMMARY (D6): sin ninguna muestra clasificada (netRes 0 o 1), no inventar ceros.
+  const hasClassified = s.gross > 0 && s.noData < s.gross;
+  if (!hasClassified) {
+    return {
+      ...emptyDepthIntervalSummary(start, end),
+      sampleCount: end - start,
+      gross: s.gross,
+      noData: s.noData,
+      grossMetrics,
+    };
+  }
+
+  const hasNetPay = Boolean(netPay) && Number.isFinite(s.netPay);
+
+  // Media geométrica de k en el pay (idéntica a positiveMeans / kMeansPay.geo) y verificación de datos reales en pay.
+  let payKGeo = NaN;
+  let payKFinite = 0;
+  let payPhiSwCount = 0;
+  if (hasNetPay && netPay) {
+    let wPos = 0;
+    let sLn = 0;
+    let nPos = 0;
+    for (let i = start; i < end; i++) {
+      if (netRes[i] !== 1 || netPay[i] !== 1) continue;
+      const h = thickness[i]!;
+      if (!Number.isFinite(h) || h < 0) continue;
+      if (perm) {
+        const k = perm[i]!;
+        if (h > 0 && Number.isFinite(k)) {
+          payKFinite++;
+          if (k > 0) {
+            wPos += h;
+            sLn += h * Math.log(k);
+            nPos++;
+          }
+        }
+      }
+      if (phi && sw && Number.isFinite(phi[i]!) && Number.isFinite(sw[i]!)) payPhiSwCount++;
+    }
+    if (nPos > 0) payKGeo = Math.exp(sLn / wPos);
+  }
+
+  const hasPayPhi = hasNetPay && Boolean(phi) && (s.netPay === 0 || Number.isFinite(s.phiPay));
+  const hasPayPhiSw = hasNetPay && Boolean(phi) && Boolean(sw) && (s.netPay === 0 || payPhiSwCount > 0);
+  const hasPayKh = hasNetPay && Boolean(perm) && (s.netPay === 0 || payKFinite > 0);
+
+  return {
+    start,
+    end,
+    sampleCount: end - start,
+    gross: s.gross,
+    hasNetRes: true,
+    hasNetPay,
+    netRes: s.netRes,
+    ntgRes: s.ntgRes,
+    netPay: hasNetPay ? s.netPay : NaN,
+    ntgPay: hasNetPay ? s.ntgPay : NaN,
+    noData: s.noData,
+    noDataPay: netPay ? s.noDataPay : NaN,
+    phiRes: phi ? s.phiRes : NaN,
+    phiPay: hasNetPay && phi ? s.phiPay : NaN,
+    swRes: phi && sw ? s.swRes : NaN,
+    swPay: hasNetPay && phi && sw ? s.swPay : NaN,
+    vshRes: vsh ? s.vshRes : NaN,
+    vshPay: hasNetPay && vsh ? s.vshPay : NaN,
+    kPay: hasNetPay && perm ? s.kPay : NaN,
+    kGeoPay: payKGeo,
+    khPay: hasPayKh ? s.khPay : NaN,
+    hphiPay: hasPayPhi ? s.hphiPay : NaN,
+    hphiShPay: hasPayPhiSw ? s.hphiShPay : NaN,
+    grossMetrics,
   };
 }
