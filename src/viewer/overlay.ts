@@ -211,9 +211,11 @@ export interface OverlayTarget {
   hit: OverlayHit & { key: string };
 }
 
-/** Lo que una pista propia puede leer para elegir su escala: el pozo activo y los ajustes guardados de la pista. */
+/** Lo que una pista propia puede leer para elegir su escala: el pozo activo, la interpretación (si aplica) y los ajustes guardados de la pista. */
 export interface OverlayTrackContext {
   well: Readonly<Well>;
+  /** Interpretación activa (opcional; p. ej. para respetar descartes, puesta en profundidad y gradiente de agua en MDT). */
+  interpretation?: Readonly<Interpretation>;
   /** Ajustes de la pista que eligió el usuario (p. ej. `{ unit: 'bar' }`), guardados en `project.display.overlays[id]`. */
   settings: Readonly<Record<string, string | number | boolean>>;
 }

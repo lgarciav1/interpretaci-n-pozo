@@ -146,8 +146,15 @@ export function ViewerSlot() {
   const defenseTracks = defense ? defense.tracks : undefined;
   const layouts = useMemo(() => (defenseTracks === undefined ? display.layouts : defenseTracks ? { [workspace]: defenseTracks } : {}), [defenseTracks, display.layouts, workspace]);
   const layoutSpec = useMemo(
-    () => (well ? withOverlayTracks(layoutFor(workspace, layouts, lookId), OVERLAYS, workspace, { well, ...(display.overlays ? { settings: display.overlays } : {}) }) : []),
-    [well, workspace, layouts, display.overlays, lookId],
+    () =>
+      well
+        ? withOverlayTracks(layoutFor(workspace, layouts, lookId), OVERLAYS, workspace, {
+            well,
+            ...(interpretation ? { interpretation } : {}),
+            ...(display.overlays ? { settings: display.overlays } : {}),
+          })
+        : [],
+    [well, interpretation?.pointSets, interpretation?.trends, interpretation?.zones, workspace, layouts, display.overlays, lookId],
   );
   // TVDSS para la segunda columna de profundidad: solo si el pozo tiene elevación de referencia (en caché por pozo).
   const tvdss = useMemo(() => (well ? wellTvdss(well) : null), [well]);

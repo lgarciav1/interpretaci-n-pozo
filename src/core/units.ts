@@ -41,6 +41,7 @@ export type KnownUnitId =
   | 'mm'
   | 'g/cm3'
   | 'kg/m3'
+  | 'lb/gal'
   | 'us/ft'
   | 'us/m'
   | 'v/v'
@@ -107,9 +108,10 @@ const BUILTIN_UNITS: UnitDef[] = [
   { id: 'mm', label: 'mm', dimension: 'length', factor: 0.001 },
   // Radios de garganta poral y FZI (rock typing, fase 8 P)
   { id: 'um', label: 'µm', dimension: 'length', factor: 1e-6 },
-  // Densidad (base: g/cm³)
+  // Densidad (base: g/cm³). 1 lb/gal US (ppg) = 453,59237 g / (231 · 2,54³ cm³) ≈ 0,1198264273 g/cm³.
   { id: 'g/cm3', label: 'g/cm³', dimension: 'density', factor: 1 },
   { id: 'kg/m3', label: 'kg/m³', dimension: 'density', factor: 0.001 },
+  { id: 'lb/gal', label: 'lb/gal', dimension: 'density', factor: 453.59237 / (231 * 2.54 ** 3) },
   // Lentitud (base: µs/ft)
   { id: 'us/ft', label: 'µs/ft', dimension: 'slowness', factor: 1 },
   { id: 'us/m', label: 'µs/m', dimension: 'slowness', factor: 0.3048 },
@@ -178,6 +180,7 @@ const BUILTIN_ALIASES: Record<string, UnitId> = {
   CM: 'cm', MM: 'mm', UM: 'um', 'µM': 'um', MICRON: 'um', MICRONS: 'um',
   'G/CM3': 'g/cm3', 'G/CC': 'g/cm3', 'G/C3': 'g/cm3', 'GR/CC': 'g/cm3', 'GM/CC': 'g/cm3', 'G/CM³': 'g/cm3',
   'KG/M3': 'kg/m3', 'K/M3': 'kg/m3', 'KG/M³': 'kg/m3',
+  'LB/GAL': 'lb/gal', PPG: 'lb/gal', 'LBM/GAL': 'lb/gal',
   'US/FT': 'us/ft', 'US/F': 'us/ft', 'USEC/FT': 'us/ft', 'µS/FT': 'us/ft', 'MICROS/FT': 'us/ft',
   'US/M': 'us/m', 'USEC/M': 'us/m', 'µS/M': 'us/m',
   'V/V': 'v/v', DEC: 'v/v', FRAC: 'v/v', FRACTION: 'v/v', 'M3/M3': 'v/v', CFCF: 'v/v',

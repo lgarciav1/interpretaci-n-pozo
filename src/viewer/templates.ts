@@ -255,9 +255,10 @@ export function layoutFor(workspace: WorkspaceId, custom: Readonly<Record<string
 /** Id de la pista propia de una superposición. */
 export const overlayTrackId = (overlayId: string): string => `ov:${overlayId}`;
 
-/** Contexto para resolver las pistas propias dinámicas: pozo activo y ajustes por superposición. */
+/** Contexto para resolver las pistas propias dinámicas: pozo activo, interpretación opcional y ajustes por superposición. */
 export interface OverlayTracksContext {
   well: OverlayTrackContext['well'] | null;
+  interpretation?: OverlayTrackContext['interpretation'];
   settings?: Readonly<Record<string, Readonly<Record<string, string | number | boolean>>>>;
 }
 
@@ -288,7 +289,15 @@ export function withOverlayTracks(layout: readonly TrackSpec[], overlays: readon
     const r = o.track?.resolve;
     if (!r || !ctx) continue;
     const well = ctx.well;
-    const st = well ? guard(o.id, 'track.resolve', () => r({ well, settings: ctx.settings?.[o.id] ?? {} })) : null;
+    const st = well
+      ? guard(o.id, 'track.resolve', () =>
+          r({
+            well,
+            ...(ctx.interpretation ? { interpretation: ctx.interpretation } : {}),
+            settings: ctx.settings?.[o.id] ?? {},
+          }),
+        )
+      : null;
     const ok = st === null || (st !== undefined && st.scale && st.scale.max > st.scale.min && (st.scale.kind !== 'log' || st.scale.min > 0));
     states.set(o.id, ok ? st : undefined);
   }

@@ -31,7 +31,7 @@ Tamaño: **C** chico, **M** mediano, **G** grande. El orden maximiza valor tempr
 | 2 | G02 | Del Lazo a la Acción (exclusión QC y bandera de usuario) | 1 · Interacción rápida | M | desarrollador-ui | [0088](decisiones/0088-del-lazo-a-la-accion.md) | hecha |
 | 3 | G03 | Unidades hidráulicas interactivas en Lorenz Estratigráfico (SMLP) | 1 · Interacción rápida | M | analista-numerico | no | hecha |
 | 4 | G04 | Carta MID (`ρ_maa` vs. `Δt_maa`) inmune a la baritina del lodo | 2 · Diagnóstico TP | C | analista-numerico | no | hecha |
-| 5 | G05 | Exceso de presión (`P − ρ_ref·g·z`) y EMW en MDT | 2 · Diagnóstico TP | M | analista-numerico | sí | pendiente |
+| 5 | G05 | Exceso de presión (`P − ρ_ref·g·z`) y EMW en MDT | 2 · Diagnóstico TP | M | analista-numerico | [0089](decisiones/0089-exceso-de-presion-y-emw-en-mdt.md) | hecha |
 | 6 | G06 | Rayos Gamma sin Uranio (`CGR`) conectado a `IGR` / `Vsh` | 3 · Petrofísica y cierre | M | analista-numerico | sí | pendiente |
 | 7 | G07 | Hidrocarburo Móvil vs. Residual (`Sxo`, `MOS`, `Rt–Rxo` y pila) | 3 · Petrofísica y cierre | G | analista-numerico | sí | pendiente |
 | 8 | G08 | Panel de «Coherencia Cruzada entre Herramientas» (defensa TP) | 3 · Petrofísica y cierre | M | analista-numerico | sí | pendiente |

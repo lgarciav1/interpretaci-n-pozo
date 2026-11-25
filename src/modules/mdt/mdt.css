@@ -16,6 +16,18 @@
 .mdt-bar__set { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .mdt-bar__name { font-weight: var(--weight-semibold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: calc(260px * var(--ui-scale)); }
 .mdt-bar__field { display: inline-flex; align-items: center; gap: var(--space-1-5); color: var(--color-text-muted); font-size: var(--text-xs); white-space: nowrap; }
+.mdt-subbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1-5) var(--space-2-5);
+  padding: var(--space-1-5) var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-surface);
+  font-size: var(--text-xs);
+}
+.mdt-subbar__presets { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); }
+.mdt-subbar__meta { color: var(--color-text-muted); font-size: var(--text-xs); margin-left: auto; }
 .mdt-callout { margin: var(--space-2) var(--space-4) 0; }
 
 .mdt-body {
@@ -167,6 +179,65 @@
 .mdt-contact__note--error { color: var(--color-text-muted); }
 .mdt-contact__top { align-self: flex-start; margin-top: var(--space-1); }
 
+.mdt-zone__overall { display: inline-flex; align-items: center; gap: var(--space-1-5); font-size: var(--text-xs); color: var(--color-text); font-weight: var(--weight-medium); }
+.mdt-zones { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-1-5); }
+.mdt-zone {
+  padding: var(--space-1-5) var(--space-2-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.mdt-zone.is-alert { border-color: var(--color-error-border, var(--color-error)); }
+.mdt-zone__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1-5); }
+.mdt-zone__go {
+  padding: 1px var(--space-1);
+  margin-left: calc(-1 * var(--space-1));
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+.mdt-zone__go:hover { color: var(--color-accent-text); background: var(--color-surface-hover); }
+.mdt-zone__go:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 0; }
+.mdt-zone__count { color: var(--color-text-muted); font-size: var(--text-xs); }
+.mdt-zone__metrics {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2-5);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+.mdt-zone__metrics strong { color: var(--color-text); font-weight: var(--weight-semibold); }
+.mdt-zone__dens.is-alert,
+.mdt-zone__dens.is-alert strong { color: var(--color-error-text, var(--color-error)); }
+.mdt-zone__jump {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-warn-text);
+}
+.mdt-zone__jump-go {
+  padding: 0 var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-subtle);
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+.mdt-zone__jump-go:hover { border-color: var(--color-accent); color: var(--color-accent-text); }
+.mdt-zone__jump-go:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+
 @media (max-width: 1100px) {
   .shell-dock__panel:has(> .mdt) { height: auto; }
   .mdt { height: auto; }
@@ -178,7 +249,10 @@
    su propio desplazamiento; el nombre del conjunto no se corta. */
 .mdt { container: mdt / inline-size; }
 @container mdt (max-width: 40em) {
-  .mdt-bar { padding: var(--space-2) var(--space-3); }
+  .mdt-bar { padding: var(--space-1-5) var(--space-3); gap: var(--space-1-5) var(--space-2); }
+  .mdt-subbar { padding: var(--space-1-5) var(--space-3); gap: var(--space-1) var(--space-2); }
+  .mdt-subbar__meta { margin-left: 0; }
+  .mdt-callout { margin: var(--space-1-5) var(--space-3) 0; padding: var(--space-1-5) var(--space-2-5); font-size: var(--text-xs); }
   .mdt-bar__name { white-space: normal; max-width: none; overflow: visible; }
   .mdt-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: max-content max-content; overflow: auto; }
   .mdt-side { order: -1; min-height: auto; overflow: visible; border-bottom: 1px solid var(--color-border-subtle); }

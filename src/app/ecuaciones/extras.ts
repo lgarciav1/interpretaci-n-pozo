@@ -3,6 +3,10 @@
  * que `docs` de un módulo y se agrupa en una categoría conocida del registro.
  */
 import { FORMATION_WATER_DOCS } from '../../modules/formation-water/docs';
+import { MDT_DOCS } from '../../modules/mdt/docs';
 import type { ExtraDocs } from './model';
 
-export const EQUATION_EXTRAS: readonly ExtraDocs[] = [{ id: 'formation-water', name: 'Calculadora de agua de formación', category: 'water', docs: FORMATION_WATER_DOCS }];
+export const EQUATION_EXTRAS: readonly ExtraDocs[] = [
+  { id: 'formation-water', name: 'Calculadora de agua de formación', category: 'water', docs: FORMATION_WATER_DOCS },
+  { id: 'mdt', name: 'Presiones MDT (gradientes, exceso y EMW)', category: 'saturation', docs: MDT_DOCS },
+];

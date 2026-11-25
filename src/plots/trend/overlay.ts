@@ -22,7 +22,7 @@ import type { OverlayFrame, OverlayHit, OverlayHitFrame, OverlayPointer, Overlay
 import { evaluateTrend, excludedIndices, type TrendPreview, type TrendResult } from './compute';
 import { distanceToPolylines, drawTrend, drawTrendLabel, trendGeometry, type TrendGeometry, type TrendMapping } from './draw';
 import { trendCanvasLabel, trendGradientLabel, trendTooltip } from './format';
-import { CURVE_PROVIDER_ID, curveSeriesKey, lowerBound, upperBound, type ResolvedSeries } from './series';
+import { CURVE_PROVIDER_ID, curveSeriesKey, lowerBound, upperBound, type ResolvedSeries, type SeriesDisplayTransform } from './series';
 
 export const TRENDS_OVERLAY_ID = 'trends';
 export const TRENDS_BANDS_ID = 'trends-bands';
@@ -120,6 +120,7 @@ interface Placed {
   series: ResolvedSeries;
   track: OverlayTrack;
   key: string | null;
+  transform: SeriesDisplayTransform | null;
   result: TrendResult;
   mapping: TrendMapping;
   geom: TrendGeometry | null;
@@ -175,26 +176,34 @@ function inSeriesUnit(t: OverlayTrack, seriesUnit: string): OverlayTrack {
 }
 
 /** Pista de una serie según su `placement`. */
-function findTrack(tracks: readonly OverlayTrack[], s: ResolvedSeries): { track: OverlayTrack; key: string | null } | null {
+function findTrack(
+  tracks: readonly OverlayTrack[],
+  s: ResolvedSeries,
+  data: ViewerData,
+): { track: OverlayTrack; key: string | null; transform: SeriesDisplayTransform | null } | null {
   const pl = s.placement;
   if (!pl) return null;
   if ('overlayId' in pl) {
     const t = tracks.find((tr) => tr.overlayId === pl.overlayId);
-    return t ? { track: inSeriesUnit(t, s.yUnit), key: null } : null;
+    if (!t) return null;
+    const transform = s.displayTransform ? s.displayTransform(data, t) : null;
+    return { track: transform ? t : inSeriesUnit(t, s.yUnit), key: null, transform };
   }
   const k = pl.roleOrKey;
   const t =
     tracks.find((tr) => tr.kind === 'curves' && tr.curves.some((c) => c.key === k)) ??
     tracks.find((tr) => tr.kind === 'curves' && tr.curves.some((c) => c.role === k && !c.alternative && c.origin === 'computed')) ??
     tracks.find((tr) => tr.kind === 'curves' && tr.curves.some((c) => c.role === k && !c.alternative));
-  return t ? { track: t, key: k } : null;
+  return t ? { track: t, key: k, transform: null } : null;
 }
 
-function trackMapping(frame: OverlayHitFrame, t: OverlayTrack, key: string | null): TrendMapping {
+function trackMapping(frame: OverlayHitFrame, t: OverlayTrack, key: string | null, transform: SeriesDisplayTransform | null): TrendMapping {
   return {
     x: (d) => frame.viewport.yOf(d),
-    y: (v) => {
-      const r = t.xOf(key, v);
+    y: (v, d) => {
+      const tv = transform ? transform.toTrack(v, d ?? NaN) : v;
+      if (!Number.isFinite(tv)) return NaN;
+      const r = t.xOf(key, tv);
       return r === null ? NaN : t.x + r;
     },
     transpose: true,
@@ -239,10 +248,10 @@ export function createTrendsOverlays(opts: TrendsOverlayOptions): ViewerOverlay[
   /** Ubica una tendencia (con su vista previa si corresponde). */
   const place = (frame: OverlayHitFrame, spec: TrendSpec, index: number, series: ResolvedSeries, change?: TrendPreview): Placed | null => {
     if (!series.xIsDepth) return null;
-    const where = findTrack(frame.tracks, series);
+    const where = findTrack(frame.tracks, series, frame.data);
     if (!where) return null;
     const result = evaluateTrend(spec, series, zonesOf(frame.data), change);
-    const mapping = trackMapping(frame, where.track, where.key);
+    const mapping = trackMapping(frame, where.track, where.key, where.transform);
     const vp = frame.viewport;
     const pad = 24 / Math.max(vp.pxPerM, 1e-9);
     const handles: Placed['handles'] = [];
@@ -267,7 +276,7 @@ export function createTrendsOverlays(opts: TrendsOverlayOptions): ViewerOverlay[
       // Manijas siempre agarrables: dentro de la caja de la pista aunque el valor quede fuera de escala.
       geom.handles = geom.handles.map((h) => (h ? [Math.max(where.track.x + 4, Math.min(where.track.x + where.track.width - 4, h[0])), h[1]] : h));
     }
-    return { spec, index, series, track: where.track, key: where.key, result, mapping, geom, handles, color: trendColor(spec, index, frame.theme) };
+    return { spec, index, series, track: where.track, key: where.key, transform: where.transform, result, mapping, geom, handles, color: trendColor(spec, index, frame.theme) };
   };
 
   /**
@@ -338,10 +347,16 @@ export function createTrendsOverlays(opts: TrendsOverlayOptions): ViewerOverlay[
       };
     }
     const s = series;
-    const where = findTrack(frame.tracks, s);
+    const where = findTrack(frame.tracks, s, frame.data);
     if (!where) return null;
     const t = where.track;
-    const valueAt = (q: OverlayPointer) => t.valueOf(where.key, q.x - t.x);
+    const valueAt = (q: OverlayPointer) => {
+      const raw = t.valueOf(where.key, q.x - t.x);
+      if (raw === null) return null;
+      if (!where.transform) return raw;
+      const v = where.transform.fromTrack(raw, q.depth);
+      return Number.isFinite(v) ? v : null;
+    };
     const manualMode = tool.kind === 'manual';
     const what = manualMode ? `Arrastrá de un punto a otro para dibujar la tendencia sobre ${seriesLabel}` : `Arrastrá para elegir el tramo del ajuste sobre ${seriesLabel}`;
     let pending: { change: TrendPreview; spec: TrendSpec } | null = null;
@@ -449,8 +464,9 @@ export function createTrendsOverlays(opts: TrendsOverlayOptions): ViewerOverlay[
         cursor: isManual ? 'grabbing' : 'ns-resize',
         move(q) {
           const spec = specById(frameRef!, id) ?? pl.spec;
-          const y = isManual ? t.valueOf(pl.key, q.x - t.x) : null;
-          const c = changeFor(spec, q.depth, y);
+          const raw = isManual ? t.valueOf(pl.key, q.x - t.x) : null;
+          const y = raw === null ? null : pl.transform ? pl.transform.fromTrack(raw, q.depth) : raw;
+          const c = changeFor(spec, q.depth, y !== null && Number.isFinite(y) ? y : null);
           if (!c) return;
           setPreview({ id, spec, series: pl.series, change: c });
           invalidate();
@@ -516,7 +532,9 @@ export function createTrendsOverlays(opts: TrendsOverlayOptions): ViewerOverlay[
     for (let i = a; i < b; i += step) {
       const v = s.y[i]!;
       if (!Number.isFinite(v)) continue;
-      const xr = pl.track.xOf(pl.key, v);
+      const tv = pl.transform ? pl.transform.toTrack(v, s.x[i]!) : v;
+      if (!Number.isFinite(tv)) continue;
+      const xr = pl.track.xOf(pl.key, tv);
       if (xr === null) continue;
       const d = Math.hypot(pl.track.x + xr - p.x, vp.yOf(s.x[i]!) - p.y);
       if (d < bestD) {
@@ -721,7 +739,9 @@ function drawSamples(ctx: CanvasRenderingContext2D, frame: OverlayFrame, pl: Pla
   const px = (i: number): [number, number] | null => {
     const v = s.y[i]!;
     if (!Number.isFinite(v)) return null;
-    const xr = t.xOf(pl.key, v);
+    const tv = pl.transform ? pl.transform.toTrack(v, s.x[i]!) : v;
+    if (!Number.isFinite(tv)) return null;
+    const xr = t.xOf(pl.key, tv);
     return xr === null ? null : [t.x + xr, vp.yOf(s.x[i]!)];
   };
   const a = lowerBound(s.x, Math.max(vp.top, span ? span[0] : vp.top));

@@ -10,10 +10,24 @@
  *
  * Sin React ni stores ni `src/plots`: lo importan el proveedor de series, la superposición y el panel.
  */
-import { pointNumbers, pointTexts, type PointSet, type PointSetDecisions } from '../../core/pointSets';
-import { convert } from '../../core/units';
-import { evalTrend, intersectTrends, trendSlopeAt, type TrendCoefficients } from '../../petro/regression';
-import type { FluidKind } from '../../petro/pressure';
+import { pointNumbers, pointTexts, shiftedDepth, type PointSet, type PointSetDecisions } from '../../core/pointSets';
+import { conversionCoefficients, convert } from '../../core/units';
+import { evalTrend, fitTrend, intersectTrends, trendSlopeAt, type TrendCoefficients } from '../../petro/regression';
+import {
+  EMW_UNITS,
+  HYDROSTATIC_NORMAL_DENSITY,
+  densityFromPsiPerM,
+  densityToLbPerGal,
+  equivalentMudWeight,
+  excessPressure,
+  isCompartmentalizedDensity,
+  pressureFromEmw,
+  pressureFromExcess,
+  psiPerMFromDensity,
+  type EmwUnit,
+  type ExcessPressureRef,
+  type FluidKind,
+} from '../../petro/pressure';
 
 export const MDT_PROVIDER_ID = 'mdt';
 export const MDT_OVERLAY_ID = 'mdt';
@@ -24,6 +38,56 @@ export const PRESSURE_KIND = 'pressure';
 export const DISPLAY_UNITS = ['psi', 'bar', 'kPa', 'kgf/cm2'] as const;
 export type DisplayUnit = (typeof DISPLAY_UNITS)[number];
 export const DEFAULT_DISPLAY_UNIT: DisplayUnit = 'psi';
+
+/** Modos del eje X de la pista y panel MDT (docs/decisiones/0089). */
+export const MDT_AXIS_MODES = ['pressure', 'excess', 'emw'] as const;
+export type MdtAxisMode = (typeof MDT_AXIS_MODES)[number];
+export const DEFAULT_AXIS_MODE: MdtAxisMode = 'pressure';
+export const DEFAULT_EMW_UNIT: EmwUnit = 'lb/gal';
+export const EXCESS_RHO_MIN = 0;
+export const EXCESS_RHO_MAX = 3;
+export type ExcessRhoSource = 'manual' | 'water';
+export type ExcessAnchor = 'first' | 'zero';
+
+export interface MdtAxisSettings {
+  axisMode: MdtAxisMode;
+  unit: DisplayUnit;
+  emwUnit: EmwUnit;
+  /** Densidad de referencia manual ρ_ref (g/cm³). */
+  excessRhoRef: number;
+  /** 'manual' = usa `excessRhoRef`; 'water' = sigue el gradiente de agua activo (respaldo: `excessRhoRef`). */
+  excessRhoSource: ExcessRhoSource;
+  /** Profundidad de referencia z₀ (m), o null para tomar el tope automático de las pruebas incluidas. */
+  excessZ0: number | null;
+  /** 'first' = ancla P₀ a la presión de la primera prueba incluida (centra en 0); 'zero' = P₀ = 0. */
+  excessAnchor: ExcessAnchor;
+}
+
+export function asDisplayUnit(unit: unknown): DisplayUnit {
+  return (DISPLAY_UNITS as readonly unknown[]).includes(unit) ? (unit as DisplayUnit) : DEFAULT_DISPLAY_UNIT;
+}
+
+export function asEmwUnit(unit: unknown): EmwUnit {
+  return (EMW_UNITS as readonly unknown[]).includes(unit) ? (unit as EmwUnit) : DEFAULT_EMW_UNIT;
+}
+
+/** Lee y sanea los ajustes de visualización del eje X MDT guardados en `project.display.overlays.mdt`. */
+export function parseMdtAxisSettings(settings: Readonly<Record<string, unknown>> | undefined): MdtAxisSettings {
+  const modeRaw = settings?.['axisMode'];
+  const axisMode: MdtAxisMode = (MDT_AXIS_MODES as readonly unknown[]).includes(modeRaw) ? (modeRaw as MdtAxisMode) : DEFAULT_AXIS_MODE;
+  const unit = asDisplayUnit(settings?.['unit']);
+  const emwUnit = asEmwUnit(settings?.['emwUnit']);
+  const rhoRaw = settings?.['excessRhoRef'];
+  const excessRhoRef =
+    typeof rhoRaw === 'number' && Number.isFinite(rhoRaw) && rhoRaw >= EXCESS_RHO_MIN && rhoRaw <= EXCESS_RHO_MAX
+      ? rhoRaw
+      : HYDROSTATIC_NORMAL_DENSITY;
+  const excessRhoSource: ExcessRhoSource = settings?.['excessRhoSource'] === 'water' ? 'water' : 'manual';
+  const z0Raw = settings?.['excessZ0'];
+  const excessZ0 = typeof z0Raw === 'number' && Number.isFinite(z0Raw) ? z0Raw : null;
+  const excessAnchor: ExcessAnchor = settings?.['excessAnchor'] === 'zero' ? 'zero' : 'first';
+  return { axisMode, unit, emwUnit, excessRhoRef, excessRhoSource, excessZ0, excessAnchor };
+}
 
 export type Fluid = FluidKind;
 export const FLUIDS: readonly Fluid[] = ['gas', 'oil', 'water'];
@@ -199,6 +263,8 @@ export interface GradientLine {
   coeffs: TrendCoefficients;
   /** Tramo de profundidad ajustado (m): del primer al último punto usado. */
   span: [number, number];
+  /** Unidad de presión de los coeficientes (por defecto 'psi'). */
+  pressureUnit?: string;
 }
 
 export type ContactKind = 'GOC' | 'OWC' | 'GWC';
@@ -217,10 +283,18 @@ export interface FluidContact {
   /** Profundidad (m) y presión (unidad de la serie) del corte; null si no se cortan dentro del rango razonable. */
   depth: number | null;
   pressure: number | null;
+  /** Unidad de `pressure` (por defecto 'psi'). */
+  pressureUnit?: string;
   /** Por qué no hay contacto (null si lo hay). */
   problem: string | null;
   /** Hay contacto pero conviene revisarlo (cae entre los puntos de uno de los fluidos). */
   warning: string | null;
+}
+
+/** Presión de un contacto convertida a psi (NaN si el contacto no tiene presión válida). */
+export function contactPressurePsi(contact: Pick<FluidContact, 'pressure' | 'pressureUnit'>): number {
+  if (contact.pressure === null || !Number.isFinite(contact.pressure)) return NaN;
+  return toUnit(contact.pressure, contact.pressureUnit ?? 'psi', 'psi');
 }
 
 const ORDER: Record<Fluid, number> = { gas: 0, oil: 1, water: 2 };
@@ -318,7 +392,361 @@ export function findContacts(gradients: readonly GradientLine[]): FluidContact[]
     else if (z > lo.span[1]) warning = `El contacto cae por debajo de todos los puntos de ${FLUID_LABEL[fb].toLowerCase()} (su base está a ${m1(lo.span[1])} m): ${pair}.`;
     else if (z < up.span[1]) warning = `El contacto cae dentro de los puntos de ${FLUID_LABEL[fa].toLowerCase()} (su base está a ${m1(up.span[1])} m): ${pair}.`;
     else if (z > lo.span[0]) warning = `El contacto cae dentro de los puntos de ${FLUID_LABEL[fb].toLowerCase()} (su tope está a ${m1(lo.span[0])} m): ${pair}.`;
-    out.push({ kind, upper: up, lower: lo, depth: z, pressure: evalTrend(up.coeffs, z), problem: null, warning });
+    const pressureUnit = up.pressureUnit ?? lo.pressureUnit;
+    out.push({
+      kind,
+      upper: up,
+      lower: lo,
+      depth: z,
+      pressure: evalTrend(up.coeffs, z),
+      ...(pressureUnit ? { pressureUnit } : {}),
+      problem: null,
+      warning,
+    });
   }
   return out;
+}
+
+// ── exceso de presión, EMW y diagnóstico zonal (docs/decisiones/0089) ────────────────────────────────────────
+
+export interface ResolvedExcessReference {
+  /** Parámetros exactos usados en `excessPressure` (presión siempre en psi, profundidad en m, ρ_ref en g/cm³). */
+  ref: ExcessPressureRef;
+  /** Profundidad de la prueba incluida más somera (m), o null si no hay pruebas válidas. */
+  z0Auto: number | null;
+  /** Presión de la prueba incluida más somera (psi), o null si no hay pruebas válidas. */
+  p0First: number | null;
+  /** Fuente efectiva de ρ_ref ('water' si siguió un gradiente de agua activo válido; 'manual' en otro caso). */
+  rhoSource: ExcessRhoSource;
+  /** Densidad del gradiente de agua activo (g/cm³), si existe y es positiva. */
+  waterDensity: number | null;
+  /** true si el usuario pidió seguir el gradiente de agua pero actualmente no hay ninguno válido activo. */
+  hasActiveWaterFallback: boolean;
+}
+
+function pressureInPsi(set: PointSet, rawValue: number): number {
+  return toUnit(rawValue, unitOf(set, 'pressure'), 'psi');
+}
+
+/**
+ * Resuelve la referencia efectiva (ρ_ref, z₀, P₀) para exceso de presión a partir de las pruebas MDT, decisiones del
+ * usuario, ajustes de visualización y densidad opcional del gradiente de agua activo. Puro.
+ */
+export function resolveExcessRef(
+  sets: readonly PointSet[],
+  pointDecisions: Readonly<Record<string, PointSetDecisions>> | undefined,
+  settings: MdtAxisSettings,
+  activeWaterDensity?: number | null,
+): ResolvedExcessReference {
+  let zInc = Infinity;
+  let pInc = NaN;
+  let zFallback = Infinity;
+  let pFallback = NaN;
+  let zAny = Infinity;
+  let pAny = NaN;
+  for (const set of sets) {
+    const p = pointNumbers(set, 'pressure');
+    if (!p) continue;
+    const dec = pointDecisions?.[set.id];
+    const st = pointStatuses(set, dec);
+    const z = shiftedDepth(set, dec);
+    for (let i = 0; i < p.length; i++) {
+      const zi = z[i]!;
+      const pi = pressureInPsi(set, p[i]!);
+      if (!Number.isFinite(zi) || !Number.isFinite(pi)) continue;
+      if (zi < zAny) {
+        zAny = zi;
+        pAny = pi;
+      }
+      const bad = st[i]!.quality.reasons.some((r) => r === 'dry' || r === 'lostSeal' || r === 'unstable');
+      if (!bad && zi < zFallback) {
+        zFallback = zi;
+        pFallback = pi;
+      }
+      if (st[i]!.included && zi < zInc) {
+        zInc = zi;
+        pInc = pi;
+      }
+    }
+  }
+  const hasInc = Number.isFinite(zInc) && Number.isFinite(pInc);
+  const hasFallback = Number.isFinite(zFallback) && Number.isFinite(pFallback);
+  const hasAny = Number.isFinite(zAny) && Number.isFinite(pAny);
+  const z0Auto = hasInc ? zInc : hasFallback ? zFallback : hasAny ? zAny : null;
+  const p0First = hasInc ? pInc : hasFallback ? pFallback : hasAny ? pAny : null;
+
+  const validWater = typeof activeWaterDensity === 'number' && Number.isFinite(activeWaterDensity) && activeWaterDensity > 0;
+  const useWater = settings.excessRhoSource === 'water' && validWater;
+  const rhoRef = useWater ? activeWaterDensity : settings.excessRhoRef;
+  // Con anclaje 'first', la referencia siempre pasa por (z0Auto, p0First) para garantizar P_ex(z0Auto) = 0;
+  // si además llega un excessZ0 distinto en settings, se proyecta P₀ sobre esa columna en z₀.
+  const z0 = settings.excessAnchor === 'first' && settings.excessZ0 === null ? (z0Auto ?? 0) : (settings.excessZ0 ?? z0Auto ?? 0);
+  const p0 =
+    settings.excessAnchor === 'first'
+      ? p0First !== null && z0Auto !== null
+        ? p0First + psiPerMFromDensity(rhoRef) * (z0 - z0Auto)
+        : 0
+      : 0;
+
+  return {
+    ref: { rhoRef, z0, p0, pressureUnit: 'psi' },
+    z0Auto,
+    p0First,
+    rhoSource: useWater ? 'water' : 'manual',
+    waterDensity: validWater ? activeWaterDensity : null,
+    hasActiveWaterFallback: settings.excessRhoSource === 'water' && !validWater,
+  };
+}
+
+/** Proyecta una presión absoluta (psi) a la profundidad z (m) al eje X activo de la pista MDT. */
+export function mdtAxisValue(pressurePsi: number, depthM: number, settings: MdtAxisSettings, excessRef: ExcessPressureRef): number {
+  if (!Number.isFinite(pressurePsi)) return NaN;
+  if (settings.axisMode === 'pressure') {
+    const [a, b] = conversionCoefficients('psi', settings.unit);
+    return pressurePsi * a + b;
+  }
+  if (settings.axisMode === 'excess') {
+    const exPsi = excessPressure(pressurePsi, depthM, excessRef);
+    if (!Number.isFinite(exPsi)) return NaN;
+    const [a, b] = conversionCoefficients('psi', settings.unit);
+    return exPsi * a + b;
+  }
+  return equivalentMudWeight(pressurePsi, depthM, { pressureUnit: 'psi', densityUnit: settings.emwUnit });
+}
+
+/** Inversa de `mdtAxisValue`: recupera la presión absoluta (psi) a partir de un valor del eje X activo y z (m). */
+export function mdtPressureFromAxisValue(axisValue: number, depthM: number, settings: MdtAxisSettings, excessRef: ExcessPressureRef): number {
+  if (!Number.isFinite(axisValue)) return NaN;
+  if (settings.axisMode === 'pressure') {
+    const [a, b] = conversionCoefficients('psi', settings.unit);
+    return (axisValue - b) / a;
+  }
+  if (settings.axisMode === 'excess') {
+    const [a, b] = conversionCoefficients('psi', settings.unit);
+    const exPsi = (axisValue - b) / a;
+    return pressureFromExcess(exPsi, depthM, excessRef);
+  }
+  return pressureFromEmw(axisValue, depthM, { pressureUnit: 'psi', densityUnit: settings.emwUnit });
+}
+
+export interface MdtExcessJump {
+  topDepth: number;
+  baseDepth: number;
+  topId: string;
+  baseId: string;
+  /** Salto ΔP_ex en psi entre pruebas consecutivas respecto de ρ_ref. */
+  deltaExcessPsi: number;
+  /** Densidad aparente local entre ambas pruebas (g/cm³); NaN si están a la misma profundidad. */
+  localDensityGCm3: number;
+}
+
+export interface MdtZoneSummary {
+  key: string;
+  name: string;
+  source: 'interpreted' | 'origin' | 'all';
+  top: number;
+  base: number;
+  n: number;
+  emwMeanGCm3: number;
+  emwMinGCm3: number;
+  emwMaxGCm3: number;
+  emwMeanLbGal: number;
+  emwMinLbGal: number;
+  emwMaxLbGal: number;
+  /** Densidad aparente (g/cm³) de la regresión lineal zonal (NaN si n < 2 o profundidad constante). */
+  apparentDensityGCm3: number;
+  /** Gradiente zonal (psi/ft); NaN si n < 2. */
+  gradientPsiPerFt: number;
+  /** R² de la regresión lineal zonal; NaN si n < 2. */
+  r2: number;
+  /** true si ρ_ap > 1,25 g/cm³ (sugiere compartimentalización o sobrepresión escalonada). */
+  compartmentAlert: boolean;
+  /** true si ρ_ap ≤ 0 g/cm³ (gradiente nulo o invertido). */
+  invertedAlert: boolean;
+  /** Mayor salto consecutivo |ΔP_ex| dentro de la zona; null si n < 2. */
+  maxJump: MdtExcessJump | null;
+}
+
+export interface MdtZonesReport {
+  overall: {
+    n: number;
+    emwMeanGCm3: number;
+    emwMinGCm3: number;
+    emwMaxGCm3: number;
+    emwMeanLbGal: number;
+    emwMinLbGal: number;
+    emwMaxLbGal: number;
+    overpressured: boolean;
+  };
+  zones: MdtZoneSummary[];
+  hasCompartmentAlert: boolean;
+}
+
+interface MdtPointSample {
+  id: string;
+  z: number;
+  pPsi: number;
+  originZone: string | null;
+}
+
+const FT_M = 0.3048;
+
+function summarizeSampleGroup(
+  key: string,
+  name: string,
+  source: MdtZoneSummary['source'],
+  samples: readonly MdtPointSample[],
+  rhoRef: number,
+  bounds?: { top: number; base: number },
+): MdtZoneSummary {
+  const sorted = [...samples].sort((a, b) => a.z - b.z);
+  const n = sorted.length;
+  let emwSum = 0;
+  let emwCount = 0;
+  let emwMin = Infinity;
+  let emwMax = -Infinity;
+  for (const s of sorted) {
+    const e = equivalentMudWeight(s.pPsi, s.z, { pressureUnit: 'psi', densityUnit: 'g/cm3' });
+    if (Number.isFinite(e)) {
+      emwSum += e;
+      emwCount++;
+      if (e < emwMin) emwMin = e;
+      if (e > emwMax) emwMax = e;
+    }
+  }
+  const emwMeanGCm3 = emwCount > 0 ? emwSum / emwCount : NaN;
+  const emwMinGCm3 = emwCount > 0 ? emwMin : NaN;
+  const emwMaxGCm3 = emwCount > 0 ? emwMax : NaN;
+
+  let apparentDensityGCm3 = NaN;
+  let gradientPsiPerFt = NaN;
+  let r2 = NaN;
+  if (n >= 2) {
+    const zs = Float64Array.from(sorted, (s) => s.z);
+    const ps = Float64Array.from(sorted, (s) => s.pPsi);
+    const fit = fitTrend(zs, ps, 'linear');
+    if (fit) {
+      apparentDensityGCm3 = densityFromPsiPerM(fit.b);
+      gradientPsiPerFt = fit.b * FT_M;
+      r2 = fit.r2;
+    }
+  }
+
+  let maxJump: MdtExcessJump | null = null;
+  const refGradPsiM = psiPerMFromDensity(Number.isFinite(rhoRef) && rhoRef >= 0 ? rhoRef : HYDROSTATIC_NORMAL_DENSITY);
+  for (let i = 1; i < sorted.length; i++) {
+    const a = sorted[i - 1]!;
+    const b = sorted[i]!;
+    const dz = b.z - a.z;
+    const dp = b.pPsi - a.pPsi;
+    const deltaExcessPsi = dp - refGradPsiM * dz;
+    const localDensityGCm3 = dz > 1e-6 ? densityFromPsiPerM(dp / dz) : NaN;
+    if (!maxJump || Math.abs(deltaExcessPsi) > Math.abs(maxJump.deltaExcessPsi)) {
+      maxJump = {
+        topDepth: a.z,
+        baseDepth: b.z,
+        topId: a.id,
+        baseId: b.id,
+        deltaExcessPsi,
+        localDensityGCm3,
+      };
+    }
+  }
+
+  return {
+    key,
+    name,
+    source,
+    top: bounds?.top ?? (n > 0 ? sorted[0]!.z : NaN),
+    base: bounds?.base ?? (n > 0 ? sorted[n - 1]!.z : NaN),
+    n,
+    emwMeanGCm3,
+    emwMinGCm3,
+    emwMaxGCm3,
+    emwMeanLbGal: densityToLbPerGal(emwMeanGCm3),
+    emwMinLbGal: densityToLbPerGal(emwMinGCm3),
+    emwMaxLbGal: densityToLbPerGal(emwMaxGCm3),
+    apparentDensityGCm3,
+    gradientPsiPerFt,
+    r2,
+    compartmentAlert: isCompartmentalizedDensity(apparentDensityGCm3),
+    invertedAlert: Number.isFinite(apparentDensityGCm3) && apparentDensityGCm3 <= 0,
+    maxJump,
+  };
+}
+
+/**
+ * Resume EMW medio, regresión lineal aparente y mayor salto consecutivo en exceso de presión por zona sobre las
+ * pruebas incluidas de un conjunto MDT. Señala compartimentalización cuando ρ_ap > 1,25 g/cm³. Puro.
+ */
+export function summarizeMdtZones(
+  set: PointSet,
+  decisions: PointSetDecisions | undefined,
+  zones: readonly { id: string; name: string; top: number; base: number }[],
+  opts: { rhoRef?: number; originZoneColumn?: string } = {},
+): MdtZonesReport {
+  const rhoRef = opts.rhoRef ?? HYDROSTATIC_NORMAL_DENSITY;
+  const originCol = pointTexts(set, opts.originZoneColumn ?? 'zone');
+  const p = pointNumbers(set, 'pressure');
+  const samples: MdtPointSample[] = [];
+  if (p) {
+    const st = pointStatuses(set, decisions);
+    const z = shiftedDepth(set, decisions);
+    for (let i = 0; i < p.length; i++) {
+      if (!st[i]!.included) continue;
+      const zi = z[i]!;
+      const pi = pressureInPsi(set, p[i]!);
+      if (!Number.isFinite(zi) || !Number.isFinite(pi)) continue;
+      samples.push({ id: set.pointIds[i]!, z: zi, pPsi: pi, originZone: originCol?.[i]?.trim() || null });
+    }
+  }
+
+  const allSummary = summarizeSampleGroup('all', 'Conjunto', 'all', samples, rhoRef);
+  const overall = {
+    n: allSummary.n,
+    emwMeanGCm3: allSummary.emwMeanGCm3,
+    emwMinGCm3: allSummary.emwMinGCm3,
+    emwMaxGCm3: allSummary.emwMaxGCm3,
+    emwMeanLbGal: allSummary.emwMeanLbGal,
+    emwMinLbGal: allSummary.emwMinLbGal,
+    emwMaxLbGal: allSummary.emwMaxLbGal,
+    overpressured: Number.isFinite(allSummary.emwMeanGCm3) && allSummary.emwMeanGCm3 > 1.2,
+  };
+
+  const out: MdtZoneSummary[] = [];
+  if (samples.length > 0) {
+    if (zones.length > 0) {
+      const matched = new Set<MdtPointSample>();
+      const sortedZones = [...zones].sort((a, b) => a.top - b.top);
+      for (const zDef of sortedZones) {
+        const group = samples.filter((s) => s.z >= zDef.top && s.z <= zDef.base);
+        if (group.length === 0) continue;
+        for (const s of group) matched.add(s);
+        out.push(summarizeSampleGroup(`interpreted:${zDef.id}`, zDef.name, 'interpreted', group, rhoRef, { top: zDef.top, base: zDef.base }));
+      }
+      const rest = samples.filter((s) => !matched.has(s));
+      if (out.length > 0 && rest.length > 0) {
+        out.push(summarizeSampleGroup('unassigned', 'Fuera de zonas', 'all', rest, rhoRef));
+      }
+    }
+    if (out.length === 0) {
+      const byOrigin = new Map<string, MdtPointSample[]>();
+      for (const s of samples) {
+        if (!s.originZone) continue;
+        const list = byOrigin.get(s.originZone) ?? [];
+        list.push(s);
+        byOrigin.set(s.originZone, list);
+      }
+      if (byOrigin.size > 0) {
+        const entries = [...byOrigin.entries()].sort((a, b) => Math.min(...a[1].map((s) => s.z)) - Math.min(...b[1].map((s) => s.z)));
+        for (const [zName, group] of entries) {
+          out.push(summarizeSampleGroup(`origin:${zName}`, zName, 'origin', group, rhoRef));
+        }
+      } else {
+        out.push(allSummary);
+      }
+    }
+  }
+
+  return { overall, zones: out, hasCompartmentAlert: out.some((z) => z.compartmentAlert) };
 }
