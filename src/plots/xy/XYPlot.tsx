@@ -25,7 +25,7 @@ import { drawDensePoints, drawXYScene } from './draw';
 import type { XYColorKey } from './figure';
 import { registerXYFigure } from './figures';
 import type { XYBarLayer, XYGuide, XYHandle, XYLineLayer, XYPointLayer, XYPolygonLayer, XYTrendLayer } from './layers';
-import { buildPointGrid, gridNearest, type PointGrid } from './pick';
+import { buildPointGrid, pickInteractivePoint, type PointGrid } from './pick';
 import { simplifyPath, type DataPolygon, type SelectionShape } from '../selection';
 import './xy.css';
 
@@ -453,20 +453,7 @@ export function XYPlot(props: XYPlotProps) {
     return g;
   };
 
-  const pick = (px: number, py: number): Hover | null => {
-    const gs = grids();
-    let best: Hover | null = null;
-    let bestD = 8 * getUiScaleFactor();
-    gs.forEach((g, k) => {
-      if (!g) return;
-      const hit = gridNearest(g, px, py, bestD);
-      if (hit && hit.d <= bestD) {
-        bestD = hit.d;
-        best = { layer: k, i: hit.i };
-      }
-    });
-    return best;
-  };
+  const pick = (px: number, py: number): Hover | null => pickInteractivePoint(points, grids(), px, py, getUiScaleFactor());
 
   const pickGuide = (px: number, py: number): XYGuide | null => {
     const m = mapRef.current;

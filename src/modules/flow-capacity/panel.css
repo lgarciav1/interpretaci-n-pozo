@@ -1,4 +1,4 @@
-/* Panel de capacidad de flujo y Lorenz (prefijo fcap-). Solo tokens del sistema de diseño. */
+/* Panel de capacidad de flujo y Lorenz SMLP (prefijo fcap-). Solo tokens del sistema de diseño. */
 .fcap { display: flex; flex-direction: column; gap: var(--space-4); }
 .fcap-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
 .fcap-kpi { padding: var(--space-2) var(--space-2-5); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface-subtle); min-width: 0; }
@@ -18,4 +18,32 @@
 .fcap-lc { font-weight: var(--weight-semibold); }
 .fcap-more { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .fcap-note { color: var(--color-text-muted); font-size: var(--text-xs); }
+.fcap-note--warn { color: var(--color-warn-text); }
 .fcap-depth { white-space: nowrap; }
+
+.fcap-smlp { padding-top: var(--space-2); border-top: 1px solid var(--color-border-subtle); }
+.fcap-smlp__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.fcap-smlp__head .ui-switch { flex-shrink: 0; white-space: nowrap; }
+.fcap-smlp__controls { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-1-5); }
+.fcap-smlp__clear { margin-left: auto; }
+.fcap-smlp__totals { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); color: var(--color-text-muted); font-size: var(--text-xs); }
+
+.fcap-smlp-table .ui-table { font-size: var(--text-xs); }
+.fcap-smlp-table .ui-table th, .fcap-smlp-table .ui-table td { padding-left: var(--space-0-5); padding-right: var(--space-0-5); white-space: nowrap; }
+.fcap-smlp-table .ui-table th:first-child, .fcap-smlp-table .ui-table td:first-child { padding-left: var(--space-1); }
+.fcap-smlp-table .ui-table th:last-child, .fcap-smlp-table .ui-table td:last-child { padding-right: var(--space-1); }
+.fcap-smlp-table .ui-badge { padding: 1px var(--space-1); font-size: 10px; }
+.fcap-smlp-id { display: inline-flex; align-items: center; gap: var(--space-0-5); font-weight: var(--weight-semibold); white-space: nowrap; }
+.fcap-smlp-dot { width: 6px; height: 6px; border-radius: var(--radius-full); flex-shrink: 0; }
+.fcap-stack { display: inline-flex; flex-direction: column; align-items: flex-end; line-height: var(--leading-tight); white-space: nowrap; }
+.fcap-sub { color: var(--color-text-muted); font-size: var(--text-xs); }
+
+.fcap-breaks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.fcap-break { display: flex; align-items: center; gap: var(--space-1-5); padding: var(--space-1) var(--space-1-5); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-sm); background: var(--color-surface-subtle); }
+.fcap-break__jump { flex: 1; min-width: 0; display: inline-flex; align-items: center; gap: var(--space-1-5); padding: 0; border: 0; background: none; color: var(--color-text); font-size: var(--text-xs); text-align: left; cursor: pointer; }
+.fcap-break__jump:hover { color: var(--color-accent-text); }
+.fcap-break__jump:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-xs); }
+.fcap-break__tag { font-weight: var(--weight-semibold); color: var(--color-text-muted); }
+
+.fcap-link { padding: 0; border: 0; background: none; color: var(--color-accent-text); font: inherit; text-decoration: underline; cursor: pointer; }
+.fcap-link:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-xs); }

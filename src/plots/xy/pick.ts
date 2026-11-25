@@ -76,3 +76,45 @@ export function gridNearest(g: PointGrid, x: number, y: number, maxDist: number)
   }
   return best >= 0 ? { i: best, d: bestD } : null;
 }
+
+/**
+ * Elige el punto interactivo bajo `(px, py)` entre varias capas. Los marcadores discretos (`!dense`, p. ej. quiebres
+ * SMLP o plugs de corona) tienen prioridad dentro de su radio visual para que una nube/curva densa subyacente no robe
+ * el clic sobre un marcador visible.
+ */
+export function pickInteractivePoint(
+  layers: readonly { dense?: boolean; radius?: number }[],
+  grids: readonly (PointGrid | null)[],
+  px: number,
+  py: number,
+  uiScale = 1,
+): { layer: number; i: number } | null {
+  let bestMarker: { layer: number; i: number } | null = null;
+  let bestMarkerD = Infinity;
+  for (let k = 0; k < grids.length; k++) {
+    const g = grids[k];
+    const l = layers[k];
+    if (!g || !l || l.dense) continue;
+    const maxD = Math.max(8, (l.radius ?? 4) + 3) * uiScale;
+    const hit = gridNearest(g, px, py, Math.min(maxD, bestMarkerD));
+    if (hit && hit.d <= bestMarkerD) {
+      bestMarkerD = hit.d;
+      bestMarker = { layer: k, i: hit.i };
+    }
+  }
+  if (bestMarker) return bestMarker;
+
+  let best: { layer: number; i: number } | null = null;
+  let bestD = 8 * uiScale;
+  for (let k = 0; k < grids.length; k++) {
+    const g = grids[k];
+    const l = layers[k];
+    if (!g || !l || !l.dense) continue;
+    const hit = gridNearest(g, px, py, bestD);
+    if (hit && hit.d <= bestD) {
+      bestD = hit.d;
+      best = { layer: k, i: hit.i };
+    }
+  }
+  return best;
+}
