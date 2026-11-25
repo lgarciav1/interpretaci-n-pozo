@@ -20,7 +20,7 @@
  */
 
 import type { TrendCoefficients } from './regression';
-import { conversionCoefficients, getUnit, unitLabel } from '../core/units';
+import { conversionCoefficients, getUnit, unitLabel, type UnitId } from '../core/units';
 
 /** Aceleración estándar de la gravedad (m/s²), CGPM 1901. */
 export const G_STANDARD = 9.80665;
@@ -33,6 +33,24 @@ export function pressureGradientToDensity(kPaPerM: number): number {
 /** Densidad del fluido en g/cm³ → gradiente de presión en kPa/m (grad = ρ · g). */
 export function densityToPressureGradient(gPerCm3: number): number {
   return gPerCm3 * G_STANDARD;
+}
+
+/**
+ * Densidad del fluido en g/cm³ → gradiente de presión dP/dz en `pressureUnit / m`.
+ * Devuelve NaN si `gPerCm3` no es finito o `pressureUnit` no tiene dimensión de presión.
+ */
+export function densityToPressureGradientInUnit(gPerCm3: number, pressureUnit: UnitId): number {
+  if (!Number.isFinite(gPerCm3) || gradientKindOf(pressureUnit) !== 'pressure') return NaN;
+  return densityToPressureGradient(gPerCm3) * scaleTo('kPa', pressureUnit);
+}
+
+/**
+ * Gradiente de presión dP/dz en `pressureUnit / m` → densidad equivalente del fluido en g/cm³.
+ * Devuelve NaN si `slopePerM` no es finito o `pressureUnit` no tiene dimensión de presión.
+ */
+export function pressureGradientToDensityFromUnit(slopePerM: number, pressureUnit: UnitId): number {
+  if (!Number.isFinite(slopePerM) || gradientKindOf(pressureUnit) !== 'pressure') return NaN;
+  return pressureGradientToDensity(slopePerM * scaleTo(pressureUnit, 'kPa'));
 }
 
 export type GradientKind = 'pressure' | 'temperature' | 'slowness' | 'density' | 'resistivity' | 'generic';

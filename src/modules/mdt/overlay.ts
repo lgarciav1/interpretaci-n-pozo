@@ -15,44 +15,61 @@
  * triángulo en el borde de la pista.
  * Escribe solo por `frame.data.commit` (recetas de `src/core/state/pointSets.ts`): no importa stores.
  */
+import type { Interpretation } from '../../core/interpretation';
 import { setPointDecision } from '../../core/state/pointSets';
 import { pointNumbers, pointTexts, shiftedDepth, type PointSet } from '../../core/pointSets';
-import { conversionCoefficients, unitLabel } from '../../core/units';
+import { conversionCoefficients, convert, unitLabel } from '../../core/units';
 import { PRESSURE_COLUMNS } from '../../io/pressures';
+import { HYDROSTATIC_NORMAL_DENSITY, densityToLbPerGal, equivalentMudWeight, type ExcessPressureRef } from '../../petro/pressure';
 import { contrastRatio, ensureContrast, withAlpha } from '../../ui/color';
 import { formatNumber } from '../../ui/format';
 import { BASE_TOKENS, scalePx, type ThemeTokens } from '../../ui/tokens';
 import type { OverlayFrame, OverlayHit, OverlayHitFrame, OverlayTarget, OverlayTrack, OverlayTrackState, ViewerOverlay } from '../../viewer/overlay';
 import {
+  asDisplayUnit,
   CONTACT_LABEL,
+  contactPressurePsi,
   decisionFor,
-  DEFAULT_DISPLAY_UNIT,
   DISPLAY_UNITS,
   FLUID_COLOR,
   FLUID_LABEL,
   MDT_OVERLAY_ID,
   MDT_POINTS_OVERLAY_ID,
+  mdtAxisValue,
+  parseMdtAxisSettings,
   pointStatuses,
   pressureSets,
   QUALITY_REASON_LABEL,
+  resolveExcessRef,
   type DisplayUnit,
   type Fluid,
   type FluidContact,
+  type MdtAxisSettings,
 } from './model';
 import { drawdownScale, formatDrawdown, pointColorOf } from './draw';
 import { TP_MDT_ZONE_COLUMN } from './tp';
-import { mdtAnalysis, pointRef, type MdtAnalysis } from './series';
+import { activeWaterDensity, mdtAnalysis, pointRef, type MdtAnalysis } from './series';
 
 export const POINT_RADIUS = 4;
 export const POINT_HIT_PX = 8;
 
-function asDisplayUnit(unit: unknown): DisplayUnit {
-  return (DISPLAY_UNITS as readonly unknown[]).includes(unit) ? (unit as DisplayUnit) : DEFAULT_DISPLAY_UNIT;
-}
-
 /** Unidad elegida para la pista (ajuste guardado) o psi. */
 export function displayUnitOf(settings: Readonly<Record<string, unknown>> | undefined): DisplayUnit {
   return asDisplayUnit(settings?.['unit']);
+}
+
+function pressureUnitOf(set: PointSet): string {
+  const c = set.columns['pressure'];
+  return c && 'unit' in c && typeof c.unit === 'string' ? c.unit : 'psi';
+}
+
+function toPsi(v: number, fromUnit: string): number {
+  if (fromUnit === 'psi' || !Number.isFinite(v)) return v;
+  try {
+    return convert(v, fromUnit, 'psi');
+  } catch {
+    return v;
+  }
 }
 
 /** Paso «lindo» (1, 2, 2,5 o 5 × 10ⁿ) para unas `divisions` divisiones de `span`. */
@@ -63,10 +80,20 @@ function niceStep(span: number, divisions: number): number {
   return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
 }
 
+function roundedLinearScale(lo: number, hi: number, minSpan: number): OverlayTrackState['scale'] {
+  let span = hi - lo;
+  if (span < Math.max(1e-9, Math.abs(hi) * 1e-4)) span = Math.max(Math.abs(hi) * 0.02, minSpan);
+  const pad = span * 0.1;
+  const step = niceStep(span + 2 * pad, 4);
+  const min = Math.floor((lo - pad) / step) * step;
+  const max = Math.ceil((hi + pad) / step) * step;
+  return { kind: 'linear', min, max: max > min ? max : min + step };
+}
+
 /**
- * Escala automática de la pista: rango de las presiones que tienen sentido (sin pruebas secas, sin sello o
- * inestables, que no se estabilizaron y estirarían la escala), con margen y extremos redondeados. Depende solo de
- * los datos, no de lo que se descarte (la escala no salta al hacer clic en un punto).
+ * Escala automática de la pista en presión absoluta: rango de las presiones que tienen sentido (sin pruebas secas,
+ * sin sello o inestables, que no se estabilizaron y estirarían la escala), con margen y extremos redondeados. Depende
+ * solo de los datos, no de lo que se descarte (la escala no salta al hacer clic en un punto).
  */
 export function pressureTrackScale(sets: readonly PointSet[], unit: DisplayUnit): OverlayTrackState['scale'] | null {
   const [a, b] = conversionCoefficients('psi', unit);
@@ -77,9 +104,10 @@ export function pressureTrackScale(sets: readonly PointSet[], unit: DisplayUnit)
   for (const s of sets) {
     const p = pointNumbers(s, 'pressure');
     if (!p) continue;
+    const pUnit = pressureUnitOf(s);
     const q = pointStatuses(s, undefined);
     for (let i = 0; i < p.length; i++) {
-      const v = p[i]!;
+      const v = toPsi(p[i]!, pUnit);
       if (!Number.isFinite(v)) continue;
       const x = v * a + b;
       loAll = Math.min(loAll, x);
@@ -94,13 +122,65 @@ export function pressureTrackScale(sets: readonly PointSet[], unit: DisplayUnit)
     hi = hiAll;
   }
   if (!Number.isFinite(lo)) return null;
-  let span = hi - lo;
-  if (span < Math.max(1e-9, Math.abs(hi) * 1e-4)) span = Math.max(Math.abs(hi) * 0.02, 10 * a);
-  const pad = span * 0.1;
-  const step = niceStep(span + 2 * pad, 4);
-  const min = Math.floor((lo - pad) / step) * step;
-  const max = Math.ceil((hi + pad) / step) * step;
-  return { kind: 'linear', min, max: max > min ? max : min + step };
+  return roundedLinearScale(lo, hi, 10 * a);
+}
+
+/**
+ * Escala, unidad y título resueltos de la pista MDT según el modo del eje X (`pressure`, `excess` o `emw`).
+ * Comparte la misma resolución entre la pista en pantalla, la lupa y la exportación de figuras PNG/SVG/PDF.
+ */
+export function mdtTrackState(
+  sets: readonly PointSet[],
+  interpretation: Readonly<Interpretation> | undefined,
+  settings: Readonly<Record<string, unknown>> | undefined,
+  activeWaterDens?: number | null,
+): OverlayTrackState | null {
+  if (sets.length === 0) return null;
+  const axis = parseMdtAxisSettings(settings);
+  if (axis.axisMode === 'pressure') {
+    const scale = pressureTrackScale(sets, axis.unit);
+    return scale ? { scale, unit: axis.unit, title: 'Presión' } : null;
+  }
+  const resolved = resolveExcessRef(sets, interpretation?.pointSets, axis, activeWaterDens);
+  const [a] = conversionCoefficients('psi', axis.unit);
+  let lo = Infinity;
+  let hi = -Infinity;
+  let loAll = Infinity;
+  let hiAll = -Infinity;
+  for (const s of sets) {
+    const p = pointNumbers(s, 'pressure');
+    if (!p) continue;
+    const pUnit = pressureUnitOf(s);
+    const dec = interpretation?.pointSets?.[s.id];
+    const q = pointStatuses(s, undefined);
+    const z = shiftedDepth(s, dec);
+    for (let i = 0; i < p.length; i++) {
+      const pPsi = toPsi(p[i]!, pUnit);
+      const zi = z[i]!;
+      if (!Number.isFinite(pPsi) || !Number.isFinite(zi)) continue;
+      const x = mdtAxisValue(pPsi, zi, axis, resolved.ref);
+      if (!Number.isFinite(x)) continue;
+      loAll = Math.min(loAll, x);
+      hiAll = Math.max(hiAll, x);
+      if (q[i]!.quality.reasons.some((r) => r === 'dry' || r === 'lostSeal' || r === 'unstable')) continue;
+      lo = Math.min(lo, x);
+      hi = Math.max(hi, x);
+    }
+  }
+  if (!Number.isFinite(lo)) {
+    lo = loAll;
+    hi = hiAll;
+  }
+  if (axis.axisMode === 'excess') {
+    if (!Number.isFinite(lo)) return null;
+    const scale = roundedLinearScale(lo, hi, Math.max(10 * a, 1e-3));
+    const rhoText = formatNumber(resolved.ref.rhoRef, { digits: 2 });
+    return { scale, unit: axis.unit, title: `Exceso P (${rhoText})` };
+  }
+  const scale = Number.isFinite(lo)
+    ? roundedLinearScale(lo, hi, axis.emwUnit === 'lb/gal' ? 0.5 : 0.06)
+    : { kind: 'linear' as const, min: 0, max: axis.emwUnit === 'lb/gal' ? 20 : 2.4 };
+  return { scale, unit: axis.emwUnit, title: 'EMW (z = 0)' };
 }
 
 const fluidColor = (f: Fluid | null, theme: ThemeTokens) => (f ? ensureContrast(FLUID_COLOR[theme.name][f], theme.viewer.trackBg, 3) : theme.color.textMuted);
@@ -135,6 +215,24 @@ function contactPillBox(c: FluidContact, t: OverlayTrack, y: number, u = 1): { x
   return { x: t.x + 3, y: Math.round(y) - h / 2, w, h };
 }
 
+function frameAxisAndRef(frame: OverlayHitFrame, an: MdtAnalysis, t: OverlayTrack | undefined): { axis: MdtAxisSettings; excessRef: ExcessPressureRef } {
+  const parsed = parseMdtAxisSettings(frame.data.overlaySettings?.[MDT_OVERLAY_ID]);
+  const axis: MdtAxisSettings =
+    parsed.axisMode === 'emw'
+      ? t?.unit === 'lb/gal' || t?.unit === 'g/cm3'
+        ? { ...parsed, emwUnit: t.unit }
+        : parsed
+      : t?.unit && (DISPLAY_UNITS as readonly unknown[]).includes(t.unit)
+        ? { ...parsed, unit: t.unit as DisplayUnit }
+        : parsed;
+  const waterDens =
+    axis.axisMode === 'excess' && axis.excessRhoSource === 'water'
+      ? activeWaterDensity(frame.data.well, frame.data.interpretation)
+      : null;
+  const excessRef = resolveExcessRef(an.sets, frame.data.interpretation.pointSets, axis, waterDens).ref;
+  return { axis, excessRef };
+}
+
 /** Puntos ubicados en px para este cuadro (caché por pista, datos y viewport). */
 let pointsCache: { tracks: readonly OverlayTrack[]; data: OverlayHitFrame['data']; top: number; px: number; out: DrawnPoint[] } | null = null;
 function placePoints(frame: OverlayHitFrame, an: MdtAnalysis): DrawnPoint[] {
@@ -144,17 +242,21 @@ function placePoints(frame: OverlayHitFrame, an: MdtAnalysis): DrawnPoint[] {
   const t = pressureTrack(frame);
   const out: DrawnPoint[] = [];
   if (t) {
-    const [a, b] = conversionCoefficients('psi', (t.unit as DisplayUnit | undefined) ?? 'psi');
+    const { axis, excessRef } = frameAxisAndRef(frame, an, t);
     for (const set of an.sets) {
       const p = pointNumbers(set, 'pressure');
       if (!p) continue;
+      const pUnit = pressureUnitOf(set);
       const dec = frame.data.interpretation.pointSets?.[set.id];
       const st = pointStatuses(set, dec);
       const z = shiftedDepth(set, dec);
       for (let i = 0; i < p.length; i++) {
-        const v = p[i]!;
-        if (!Number.isFinite(v)) continue;
-        const xr = t.xOf(null, v * a + b);
+        const pPsi = toPsi(p[i]!, pUnit);
+        const zi = z[i]!;
+        if (!Number.isFinite(pPsi) || !Number.isFinite(zi)) continue;
+        const axisVal = mdtAxisValue(pPsi, zi, axis, excessRef);
+        if (!Number.isFinite(axisVal)) continue;
+        const xr = t.xOf(null, axisVal);
         if (xr === null) continue;
         const clamp: DrawnPoint['clamp'] = xr < 0 ? -1 : xr > t.width ? 1 : 0;
         const key = pointRef(set.id, set.pointIds[i]!);
@@ -164,8 +266,8 @@ function placePoints(frame: OverlayHitFrame, an: MdtAnalysis): DrawnPoint[] {
           i,
           key,
           x: t.x + Math.max(5, Math.min(t.width - 5, xr)),
-          y: vp.yOf(z[i]!),
-          depth: z[i]!,
+          y: vp.yOf(zi),
+          depth: zi,
           clamp,
           included: s.included,
           forced: s.included && s.quality.proposeExclude,
@@ -180,13 +282,24 @@ function placePoints(frame: OverlayHitFrame, an: MdtAnalysis): DrawnPoint[] {
 
 const analysisOf = (frame: OverlayHitFrame) => mdtAnalysis(frame.data.well, frame.data.interpretation);
 
+function formatPressure(pPsi: number, unit: DisplayUnit): string {
+  const [a, b] = conversionCoefficients('psi', unit);
+  return `${formatNumber(pPsi * a + b, { digits: unit === 'psi' || unit === 'kPa' ? 1 : 2 })} ${unitLabel(unit)}`;
+}
+
+function formatSignedExcess(exVal: number, unit: DisplayUnit): string {
+  const digits = unit === 'psi' || unit === 'kPa' ? 1 : 2;
+  const sign = exVal > 0 ? '+' : '';
+  return `${sign}${formatNumber(exVal, { digits })} ${unitLabel(unit)}`;
+}
+
 /** Texto del tooltip de un punto. */
 function pointLabel(frame: OverlayHitFrame, an: MdtAnalysis, d: DrawnPoint): string {
   const { set, i } = d;
   const t = pressureTrack(frame);
-  const unit = (t?.unit as DisplayUnit | undefined) ?? 'psi';
-  const [a, b] = conversionCoefficients('psi', unit);
-  const p = pointNumbers(set, 'pressure')![i]!;
+  const { axis, excessRef } = frameAxisAndRef(frame, an, t);
+  const unit = axis.unit;
+  const pPsi = toPsi(pointNumbers(set, 'pressure')![i]!, pressureUnitOf(set));
   const mob = pointNumbers(set, 'mobility')?.[i];
   const qText = pointTexts(set, 'quality')?.[i];
   const sourceZone = pointTexts(set, TP_MDT_ZONE_COLUMN)?.[i];
@@ -194,9 +307,22 @@ function pointLabel(frame: OverlayHitFrame, an: MdtAnalysis, d: DrawnPoint): str
   const colorMode = pointColorOf(frame.data.overlaySettings?.[MDT_OVERLAY_ID]);
   const st = pointStatuses(set, frame.data.interpretation.pointSets?.[set.id])[i]!;
   const lines = [`${set.pointIds[i]} · ${m1(d.depth)}${set.synthetic ? ' · ejemplo sintético' : ''}`];
-  const parts = [`Presión ${formatNumber(p * a + b, { digits: unit === 'psi' || unit === 'kPa' ? 1 : 2 })} ${unitLabel(unit)}`];
+  const parts = [`Presión ${formatPressure(pPsi, unit)}`];
   if (mob !== undefined && Number.isFinite(mob)) parts.push(`movilidad ${formatNumber(mob, { significant: 3 })} mD/cP`);
   lines.push(parts.join(' · '));
+  if (axis.axisMode === 'excess') {
+    const ex = mdtAxisValue(pPsi, d.depth, axis, excessRef);
+    if (Number.isFinite(ex)) {
+      lines.push(`Exceso P: ${formatSignedExcess(ex, unit)} (ρ ref ${formatNumber(excessRef.rhoRef, { digits: 2 })} g/cm³)`);
+    }
+  }
+  if (axis.axisMode === 'emw' || axis.axisMode === 'excess') {
+    const emwLb = equivalentMudWeight(pPsi, d.depth, { pressureUnit: 'psi', densityUnit: 'lb/gal' });
+    const emwG = equivalentMudWeight(pPsi, d.depth, { pressureUnit: 'psi', densityUnit: 'g/cm3' });
+    if (Number.isFinite(emwLb) && Number.isFinite(emwG)) {
+      lines.push(`EMW (z = 0): ${formatNumber(emwLb, { digits: 2 })} lb/gal (${formatNumber(emwG, { digits: 2 })} g/cm³)`);
+    }
+  }
   if (drawdown || colorMode === 'drawdown') {
     const value = drawdown?.[i];
     lines.push(`Drawdown: ${formatDrawdown(value, unit)}${Number.isFinite(value) ? ` ${unitLabel(unit)}` : ''}`);
@@ -244,9 +370,19 @@ function pointHit(frame: OverlayHitFrame, an: MdtAnalysis, d: DrawnPoint): Overl
   };
 }
 
-function contactTooltip(c: FluidContact, unit: DisplayUnit): string {
-  const [a, b] = conversionCoefficients('psi', unit);
- const lines = [`${CONTACT_LABEL[c.kind].short} · ${CONTACT_LABEL[c.kind].long}`, `${m1(c.depth!)} · ${formatNumber(c.pressure! * a + b, { digits: unit === 'psi' || unit === 'kPa' ? 1 : 2 })} ${unitLabel(unit)}`];
+function contactTooltip(c: FluidContact, axis: MdtAxisSettings, excessRef: ExcessPressureRef): string {
+  const pPsi = contactPressurePsi(c);
+  const lines = [`${CONTACT_LABEL[c.kind].short} · ${CONTACT_LABEL[c.kind].long}`, `${m1(c.depth!)} · ${formatPressure(pPsi, axis.unit)}`];
+  if (axis.axisMode === 'excess') {
+    const ex = mdtAxisValue(pPsi, c.depth!, axis, excessRef);
+    if (Number.isFinite(ex)) lines.push(`Exceso P: ${formatSignedExcess(ex, axis.unit)} (ρ ref ${formatNumber(excessRef.rhoRef, { digits: 2 })} g/cm³)`);
+  } else if (axis.axisMode === 'emw') {
+    const emwLb = equivalentMudWeight(pPsi, c.depth!, { pressureUnit: 'psi', densityUnit: 'lb/gal' });
+    const emwG = equivalentMudWeight(pPsi, c.depth!, { pressureUnit: 'psi', densityUnit: 'g/cm3' });
+    if (Number.isFinite(emwLb) && Number.isFinite(emwG)) {
+      lines.push(`EMW (z = 0): ${formatNumber(emwLb, { digits: 2 })} lb/gal (${formatNumber(emwG, { digits: 2 })} g/cm³)`);
+    }
+  }
   lines.push(`Corte de «${c.upper.name}» y «${c.lower.name}»`);
   if (c.kind !== 'GOC') lines.push('Por presiones se obtiene el nivel de agua libre (FWL); el contacto que se ve en la Sw queda algo más arriba por la zona de transición capilar.');
   if (c.warning) lines.push(c.warning);
@@ -255,7 +391,7 @@ function contactTooltip(c: FluidContact, unit: DisplayUnit): string {
 
 const visibleContacts = (an: MdtAnalysis) => an.contacts.filter((c) => c.depth !== null);
 
-/** Superposición principal: pista, contactos y puntero. */
+/** Superposición principal: pista, referencias de eje, contactos y puntero. */
 const main: ViewerOverlay = {
   id: MDT_OVERLAY_ID,
   label: 'Presiones MDT',
@@ -267,13 +403,16 @@ const main: ViewerOverlay = {
     unit: 'psi',
     width: 1.35,
     after: 'saturation',
-    colorLegend: (data, unit) => drawdownScale(data, asDisplayUnit(unit))?.legend ?? null,
-    resolve({ well, settings }) {
+    colorLegend: (data, unit) =>
+      drawdownScale(
+        data,
+        data.overlaySettings?.[MDT_OVERLAY_ID] ? displayUnitOf(data.overlaySettings[MDT_OVERLAY_ID]) : asDisplayUnit(unit),
+      )?.legend ?? null,
+    resolve({ well, interpretation, settings }) {
       const sets = pressureSets(well.pointSets);
       if (sets.length === 0) return null;
-      const unit = displayUnitOf(settings);
-      const scale = pressureTrackScale(sets, unit);
-      return scale ? { scale, unit, title: 'Presión' } : null;
+      const waterDens = interpretation ? activeWaterDensity(well, interpretation) : null;
+      return mdtTrackState(sets, interpretation, settings, waterDens);
     },
   },
   draw(frame: OverlayFrame) {
@@ -284,6 +423,33 @@ const main: ViewerOverlay = {
     const left = frame.tracks.reduce((mn, t) => Math.min(mn, t.x), Infinity);
     const pt = pressureTrack(frame);
     ctx.save();
+    // Línea vertical de referencia: P_ex = 0 en modo Exceso; hidrostática normal (1,00 g/cm³) en modo EMW.
+    if (pt) {
+      const { axis } = frameAxisAndRef(frame, an, pt);
+      const refVal =
+        axis.axisMode === 'excess'
+          ? 0
+          : axis.axisMode === 'emw'
+            ? axis.emwUnit === 'lb/gal'
+              ? densityToLbPerGal(HYDROSTATIC_NORMAL_DENSITY)
+              : HYDROSTATIC_NORMAL_DENSITY
+            : null;
+      if (refVal !== null) {
+        const xr = pt.xOf(null, refVal);
+        if (xr !== null && xr > 2 && xr < pt.width - 2) {
+          const x = Math.round(pt.x + xr) + 0.5;
+          ctx.save();
+          ctx.strokeStyle = withAlpha(theme.color.textMuted, 0.55);
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, vp.height);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+    }
     for (const c of visibleContacts(an)) {
       const y = Math.round(vp.yOf(c.depth!)) + 0.5;
       if (y < -2 || y > vp.height + 2) continue;
@@ -313,13 +479,13 @@ const main: ViewerOverlay = {
     const t = pressureTrack(frame);
     if (!t) return null;
     const an = analysisOf(frame);
-    const unitOfTrack = (t.unit as DisplayUnit | undefined) ?? 'psi';
+    const { axis, excessRef } = frameAxisAndRef(frame, an, t);
     const dt = depthTrack(frame);
     if (dt && p.track?.id === dt.id) {
       for (const c of visibleContacts(an)) {
         const b = contactPillBox(c, dt, frame.viewport.yOf(c.depth!), frame.uiScale ?? 1);
         if (p.x >= b.x - 2 && p.x <= b.x + b.w + 2 && p.y >= b.y - 2 && p.y <= b.y + b.h + 2) {
-          return { label: contactTooltip(c, unitOfTrack), cursor: 'default', range: { top: c.depth! - 25, base: c.depth! + 25 } };
+          return { label: contactTooltip(c, axis, excessRef), cursor: 'default', range: { top: c.depth! - 25, base: c.depth! + 25 } };
         }
       }
       return null;
@@ -337,7 +503,7 @@ const main: ViewerOverlay = {
     if (best) return pointHit(frame, an, best);
     // Línea de un contacto (solo en la pista de presión: en las demás manda la lectura de curvas).
     for (const c of visibleContacts(an)) {
-      if (Math.abs(p.y - frame.viewport.yOf(c.depth!)) <= 5) return { label: contactTooltip(c, unitOfTrack), cursor: 'default', range: { top: c.depth! - 25, base: c.depth! + 25 } };
+      if (Math.abs(p.y - frame.viewport.yOf(c.depth!)) <= 5) return { label: contactTooltip(c, axis, excessRef), cursor: 'default', range: { top: c.depth! - 25, base: c.depth! + 25 } };
     }
     return null;
   },
@@ -363,7 +529,11 @@ const points: ViewerOverlay = {
     const active = frame.active?.overlayId === MDT_OVERLAY_ID ? frame.active.key : null;
     const halo = theme.viewer.trackBg;
     const muted = theme.color.textMuted;
-    const drawdown = drawdownScale(frame.data, asDisplayUnit(t.unit));
+    const { axis, excessRef } = frameAxisAndRef(frame, an, t);
+    const drawdownUnit = frame.data.overlaySettings?.[MDT_OVERLAY_ID]
+      ? displayUnitOf(frame.data.overlaySettings[MDT_OVERLAY_ID])
+      : asDisplayUnit(t.unit);
+    const drawdown = drawdownScale(frame.data, drawdownUnit);
     const warn = theme.color.warn;
     ctx.save();
     ctx.beginPath();
@@ -444,12 +614,12 @@ const points: ViewerOverlay = {
     ctx.font = `${BASE_TOKENS.weight.bold} ${scalePx(BASE_TOKENS.text.xs, u)}px ${BASE_TOKENS.font.sans}`;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'center';
-    const [ua, ub] = conversionCoefficients('psi', (t.unit as DisplayUnit | undefined) ?? 'psi');
     for (const c of visibleContacts(an)) {
       const y = vp.yOf(c.depth!);
       if (y < -12 || y > vp.height + 12) continue;
       const color = fluidColor(c.lower.fluid, theme);
-      const xr = t.xOf(null, c.pressure! * ua + ub);
+      const xVal = mdtAxisValue(contactPressurePsi(c), c.depth!, axis, excessRef);
+      const xr = Number.isFinite(xVal) ? t.xOf(null, xVal) : null;
       if (xr !== null && xr >= 0 && xr <= t.width) {
         const x = t.x + xr;
         ctx.fillStyle = color;

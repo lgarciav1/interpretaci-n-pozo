@@ -7,6 +7,7 @@
  * grabador de SVG (`src/io/export/figures/svg.ts`). Siempre con el tema claro (impresión) y sin lo que es de la
  * interacción (cursor, manijas, animación de carga). No toca el canvas de la pantalla.
  */
+import { unitLabel } from '../core/units';
 import type { ExportSummary } from '../io/export/types';
 import type { FigureParts } from '../io/export/figures/templates';
 import type { TextMeasure } from '../io/export/figures/svg';
@@ -104,7 +105,7 @@ export function trackHeaderRows(t: ResolvedTrack, depthUnit = 'm', declaration?:
     }
     if (t.grid) {
       const [l, r] = edgeValues(t.grid);
-      rows.push({ kind: 'scale', left: endLabel(l), right: endLabel(r), ...(t.unit ? { center: t.unit } : {}), height: SCALE_H });
+      rows.push({ kind: 'scale', left: endLabel(l), right: endLabel(r), ...(t.unit ? { center: unitLabel(t.unit) } : {}), height: SCALE_H });
     }
     return rows;
   }

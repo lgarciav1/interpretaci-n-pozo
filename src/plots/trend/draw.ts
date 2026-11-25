@@ -16,8 +16,8 @@ import { evalTrend, type TrendCoefficients } from '../../petro/regression';
 export interface TrendMapping {
   /** Variable independiente → px a lo largo de su eje (NaN si no se puede ubicar). */
   x(v: number): number;
-  /** Variable dependiente → px a lo largo de su eje (NaN si no se puede ubicar). */
-  y(v: number): number;
+  /** Variable dependiente → px a lo largo de su eje (NaN si no se puede ubicar). Recibe `x` opcional para proyecciones dependientes de la profundidad (p. ej. exceso de presión o EMW en MDT). */
+  y(v: number, x?: number): number;
   /** true: x va vertical y y horizontal (el visor, con la profundidad hacia abajo). */
   transpose: boolean;
 }
@@ -33,7 +33,7 @@ const MAX_POINTS = 4000;
 /** Punto (dato) → px, o null si no se puede ubicar. */
 export function projectPoint(m: TrendMapping, x: number, y: number): [number, number] | null {
   const a = m.x(x);
-  const b = m.y(y);
+  const b = m.y(y, x);
   if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
   const ca = Math.max(-PX_LIMIT, Math.min(PX_LIMIT, a));
   const cb = Math.max(-PX_LIMIT, Math.min(PX_LIMIT, b));

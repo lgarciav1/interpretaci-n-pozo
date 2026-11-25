@@ -15,11 +15,32 @@ import type { Interpretation } from '../../core/interpretation';
 import type { PointSet } from '../../core/pointSets';
 import { depthOrder, pointNumbers, shiftedDepth } from '../../core/pointSets';
 import type { TrendSpec } from '../../core/trends';
+import { conversionCoefficients } from '../../core/units';
 import type { Well } from '../../core/well';
 import { classifyFluidByDensity, fluidFitsDensity, type FluidSuggestion } from '../../petro/pressure';
 import { evaluateTrend, excludedIndices, type TrendResult } from '../../plots/trend/compute';
 import type { ResolvedSeries, SeriesOption, TrendSeriesProvider } from '../../plots/trend/series';
-import { FLUID_LABEL, findContacts, MDT_OVERLAY_ID, MDT_PROVIDER_ID, mdtSeriesKey, parseMdtSeriesKey, pointStatuses, pressureSets, FLUIDS, type Fluid, type FluidContact, type GradientLine } from './model';
+import {
+  DISPLAY_UNITS,
+  FLUID_LABEL,
+  findContacts,
+  MDT_OVERLAY_ID,
+  MDT_PROVIDER_ID,
+  mdtAxisValue,
+  mdtPressureFromAxisValue,
+  mdtSeriesKey,
+  parseMdtAxisSettings,
+  parseMdtSeriesKey,
+  pointStatuses,
+  pressureSets,
+  resolveExcessRef,
+  FLUIDS,
+  type DisplayUnit,
+  type Fluid,
+  type FluidContact,
+  type GradientLine,
+  type MdtAxisSettings,
+} from './model';
 
 const seriesCache = new WeakMap<PointSet, WeakMap<object, Map<string, ResolvedSeries>>>();
 const NO_DEC = {};
@@ -45,6 +66,16 @@ export function mdtSeries(set: PointSet, interpretation: Pick<Interpretation, 'p
     const y = Float64Array.from(idx, (i) => p[i]!);
     const ids = idx.map((i) => set.pointIds[i]!);
     const at = new Map(ids.map((id, k) => [id, k]));
+    const yUnit = (set.columns['pressure'] as { unit?: string } | undefined)?.unit ?? 'psi';
+    let toPsiA = 1;
+    let toPsiB = 0;
+    if (yUnit !== 'psi') {
+      try {
+        [toPsiA, toPsiB] = conversionCoefficients(yUnit, 'psi');
+      } catch {
+        // Unidad desconocida o no convertible (p. ej. 'unitless' de un proyecto sin unidad): sin escalado.
+      }
+    }
     s = {
       ref: { provider: MDT_PROVIDER_ID, key },
       label: 'P',
@@ -52,7 +83,7 @@ export function mdtSeries(set: PointSet, interpretation: Pick<Interpretation, 'p
       y,
       depth: x,
       xUnit: 'm',
-      yUnit: (set.columns['pressure'] as { unit?: string } | undefined)?.unit ?? 'psi',
+      yUnit,
       xScale: 'linear',
       yScale: 'linear',
       xIsDepth: true,
@@ -61,6 +92,31 @@ export function mdtSeries(set: PointSet, interpretation: Pick<Interpretation, 'p
       placement: { overlayId: MDT_OVERLAY_ID },
       canvasLabel: 'gradient',
       pickSamples: false,
+      displayTransform(data, track) {
+        const parsed = parseMdtAxisSettings(data.overlaySettings?.[MDT_OVERLAY_ID]);
+        if (parsed.axisMode === 'pressure') return null;
+        const axis: MdtAxisSettings =
+          parsed.axisMode === 'excess' && (DISPLAY_UNITS as readonly unknown[]).includes(track.unit)
+            ? { ...parsed, unit: track.unit as DisplayUnit }
+            : parsed.axisMode === 'emw' && (track.unit === 'lb/gal' || track.unit === 'g/cm3')
+              ? { ...parsed, emwUnit: track.unit }
+              : parsed;
+        const waterDens =
+          axis.axisMode === 'excess' && axis.excessRhoSource === 'water'
+            ? activeWaterDensity(data.well, data.interpretation)
+            : null;
+        const excessRef =
+          axis.axisMode === 'excess'
+            ? resolveExcessRef(pressureSets(data.well.pointSets), data.interpretation.pointSets, axis, waterDens).ref
+            : { rhoRef: 1, z0: 0, p0: 0, pressureUnit: 'psi' as const };
+        return {
+          toTrack: (val, depthM) => mdtAxisValue(val * toPsiA + toPsiB, depthM, axis, excessRef),
+          fromTrack: (trackValue, depthM) => {
+            const pPsi = mdtPressureFromAxisValue(trackValue, depthM, axis, excessRef);
+            return Number.isFinite(pPsi) ? (pPsi - toPsiB) / toPsiA : NaN;
+          },
+        };
+      },
     };
     byKey.set(key, s);
   }
@@ -74,8 +130,9 @@ export const mdtSeriesProvider: TrendSeriesProvider = {
     const out: SeriesOption[] = [];
     for (const set of pressureSets(ctx.well.pointSets)) {
       const name = set.synthetic && !/sint[eé]tic/i.test(set.name) ? `${set.name} (ejemplo sintético)` : set.name;
-      out.push({ key: mdtSeriesKey(set.id), label: `${name} · todos los puntos`, group: 'Presiones MDT', unit: 'psi' });
-      for (const f of FLUIDS) out.push({ key: mdtSeriesKey(set.id, f), label: `${name} · gradiente de ${FLUID_LABEL[f].toLowerCase()}`, group: 'Presiones MDT', unit: 'psi' });
+      const pUnit = (set.columns['pressure'] as { unit?: string } | undefined)?.unit ?? 'psi';
+      out.push({ key: mdtSeriesKey(set.id), label: `${name} · todos los puntos`, group: 'Presiones MDT', unit: pUnit });
+      for (const f of FLUIDS) out.push({ key: mdtSeriesKey(set.id, f), label: `${name} · gradiente de ${FLUID_LABEL[f].toLowerCase()}`, group: 'Presiones MDT', unit: pUnit });
     }
     return out;
   },
@@ -149,7 +206,14 @@ export function mdtAnalysis(well: Well, interpretation: Interpretation): MdtAnal
   });
   const lines: GradientLine[] = gradients
     .filter((g) => g.spec.visible && g.fluid && g.result?.coeffs && g.result.span)
-    .map((g) => ({ id: g.spec.id, name: g.spec.name, fluid: g.fluid, coeffs: g.result!.coeffs!, span: g.result!.span! }));
+    .map((g) => ({
+      id: g.spec.id,
+      name: g.spec.name,
+      fluid: g.fluid,
+      coeffs: g.result!.coeffs!,
+      span: g.result!.span!,
+      ...(g.series?.yUnit ? { pressureUnit: g.series.yUnit } : {}),
+    }));
   // Contactos por conjunto (dos corridas de MDT en compartimentos distintos no se cruzan entre sí).
   const contacts: FluidContact[] = [];
   for (const set of sets) {
@@ -159,4 +223,19 @@ export function mdtAnalysis(well: Well, interpretation: Interpretation): MdtAnal
   const out: MdtAnalysis = { sets, gradients, contacts, fluidOfPoint };
   byI.set(interpretation, out);
   return out;
+}
+
+/**
+ * Densidad (g/cm³) del gradiente de agua activo (visible y ajustado con densidad finita > 0), o null si no hay ninguno.
+ * Si hubiera varios gradientes de agua visibles, elige el que usa más puntos (empate: primero en la interpretación).
+ */
+export function activeWaterDensity(well: Well, interpretation: Interpretation, setId?: string): number | null {
+  const an = mdtAnalysis(well, interpretation);
+  let best: MdtGradient | null = null;
+  for (const g of an.gradients) {
+    if (setId && g.setId !== setId) continue;
+    if (!g.spec.visible || g.fluid !== 'water' || !Number.isFinite(g.density) || g.density <= 0) continue;
+    if (!best || (g.result?.n ?? 0) > (best.result?.n ?? 0)) best = g;
+  }
+  return best ? best.density : null;
 }

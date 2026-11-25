@@ -25,7 +25,19 @@ import type { HiddenCurve } from '../../core/toolString';
 import type { SeriesRef } from '../../core/trends';
 import { unitLabel, type UnitId } from '../../core/units';
 import type { Well } from '../../core/well';
+import type { OverlayTrack, ViewerData } from '../../viewer/overlay';
 import type { ComputedCurve } from '../../viewer/resolve';
+
+/**
+ * Transformación visual entre el valor `y` de una serie (donde se ajustan tendencias y contactos) y el valor que
+ * grafica una pista propia (p. ej. presión absoluta → exceso de presión o EMW en la pista MDT).
+ */
+export interface SeriesDisplayTransform {
+  /** (valorSerie, xProfundidad) → valor en la escala actual de la pista (NaN si fuera de dominio). */
+  toTrack(y: number, x: number): number;
+  /** (valorPista, xProfundidad) → valor en la unidad de la serie (NaN si no es invertible). */
+  fromTrack(trackValue: number, x: number): number;
+}
 
 /** Lo que un proveedor puede leer (SOLO LECTURA): pozo, interpretación y curvas calculadas activos, roles. */
 export interface SeriesContext {
@@ -99,6 +111,11 @@ export interface ResolvedSeries {
    * módulo dueño de la serie (MDT: incluir o descartar una prueba vale para todos los ajustes). Por defecto, true.
    */
   pickSamples?: boolean;
+  /**
+   * Transformación visual opcional para pistas propias cuyo eje X proyecta el valor según la profundidad (p. ej.
+   * exceso de presión o EMW en MDT). Si falta o devuelve null, se usa la conversión directa por unidad.
+   */
+  displayTransform?(data: ViewerData, track: OverlayTrack): SeriesDisplayTransform | null;
 }
 
 export interface TrendSeriesProvider {

@@ -57,7 +57,11 @@ export function figureTracks(well: Well) {
   // El mismo estilo que en pantalla (docs/decisiones/0067): plantilla de fábrica, paleta y columna TVDSS.
   const look = display.look ?? DEFAULT_LOOK;
   return resolveTracks(
-    withOverlayTracks(layoutFor(workspace, display.layouts, look), FIGURE_OVERLAYS, workspace, { well, ...(display.overlays ? { settings: display.overlays } : {}) }),
+    withOverlayTracks(layoutFor(workspace, display.layouts, look), FIGURE_OVERLAYS, workspace, {
+      well,
+      ...(interpretation ? { interpretation } : {}),
+      ...(display.overlays ? { settings: display.overlays } : {}),
+    }),
     { depth: well.depth.values, curves: preparationViewCurves(visibleCurves(well, interpretation), interpretation, result, usePreparationUi.getState().compareOriginals), computed, catalog: roleCatalog, sources: interpretation?.sources, tvdss: wellTvdss(well) },
     { roles: display.roles, ...(display.curves[well.id] ? { curves: display.curves[well.id] } : {}) },
     { look },
