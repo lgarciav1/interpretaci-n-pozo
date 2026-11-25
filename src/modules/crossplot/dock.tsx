@@ -5,6 +5,7 @@
  */
 import { chooseModuleSource, commitParamCutoff, commitPlotConfig, commitPlotParams, PlotDockGate, showHiddenTool, useEngineSources, usePlotConfig } from '../../app/plots/connect';
 import { useViewer } from '../../app/store/viewer';
+import { useSelectionActionsUi } from '../../app/selectionActions/store';
 import { commitTrends } from '../../app/trends/actions';
 import { useTrendsUi } from '../../app/trends/store';
 import { makeId } from '../../core/state/project';
@@ -46,6 +47,8 @@ function CrossplotDock() {
             onExcludeFromTrend={(id, keys) =>
               keys ? commitTrends('Excluir puntos seleccionados del ajuste', (p, w) => excludeTrendPoints(p, w, id, keys)) : commitTrends('Volver a incluir los puntos del ajuste', (p, w) => includeAllTrendPoints(p, w, id))
             }
+            onSaveSelectionFlag={() => useSelectionActionsUi.getState().openFlag()}
+            onExcludeSelection={(keys) => useSelectionActionsUi.getState().openExclude(keys)}
           />
         )
       }

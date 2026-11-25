@@ -28,7 +28,7 @@ Tamaño: **C** chico, **M** mediano, **G** grande. El orden maximiza valor tempr
 | Orden | ID | Función | Tanda | Tam. | Rol autor | ADR | Estado |
 |---|---|---|---|---|---|---|---|
 | 1 | G01 | Regla viva de Pay al medir un intervalo | 1 · Interacción rápida | C | desarrollador-ui | no | hecha |
-| 2 | G02 | Del Lazo a la Acción (exclusión QC y bandera de usuario) | 1 · Interacción rápida | M | desarrollador-ui | sí | pendiente |
+| 2 | G02 | Del Lazo a la Acción (exclusión QC y bandera de usuario) | 1 · Interacción rápida | M | desarrollador-ui | [0088](decisiones/0088-del-lazo-a-la-accion.md) | hecha |
 | 3 | G03 | Unidades hidráulicas interactivas en Lorenz Estratigráfico (SMLP) | 1 · Interacción rápida | M | analista-numerico | no | pendiente |
 | 4 | G04 | Carta MID (`ρ_maa` vs. `Δt_maa`) inmune a la baritina del lodo | 2 · Diagnóstico TP | C | analista-numerico | no | pendiente |
 | 5 | G05 | Exceso de presión (`P − ρ_ref·g·z`) y EMW en MDT | 2 · Diagnóstico TP | M | analista-numerico | sí | pendiente |

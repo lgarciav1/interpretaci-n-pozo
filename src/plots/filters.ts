@@ -9,6 +9,7 @@
  */
 import type { PlotCurveKey, PlotFilterOp, PlotFilterRule } from '../core/plots';
 import type { HiddenCurve } from '../core/toolString';
+import { isUserFlagRole, normalizeUserFlagName, userFlagIdFromRole, userFlagRoleId } from '../core/userFlags';
 import { CUTOFF_PASSES, cutoffParamFor, sharedParamValue } from './cutoffs';
 import { hiddenCurveOfKey, plotCurveOptions, resolvePlotCurve, roleOfKey, type CurveOption, type PlotCurve } from './data';
 import type { SeriesContext } from './trend/series';
@@ -48,10 +49,10 @@ export const FILTER_PRESETS: readonly FilterPreset[] = [
   { id: 'noWashout', label: 'Sin derrumbe', title: 'Excluir muestras con derrumbe (IND_WASHOUT = 0)', curve: 'r:IND_WASHOUT', op: 'eq', value: 0 },
 ];
 
-/** true si la clave corresponde a una curva con rol de familia `flag` (bandera 0/1). */
+/** true si la clave corresponde a una curva con rol de familia `flag` (bandera 0/1, incluidas banderas de usuario). */
 export function isFlagCurve(ctx: Pick<SeriesContext, 'well' | 'catalog'>, key: PlotCurveKey): boolean {
   const role = roleOfKey(ctx, key);
-  return !!role && ctx.catalog.get(role)?.family === 'flag';
+  return !!role && (isUserFlagRole(role) || ctx.catalog.get(role)?.family === 'flag');
 }
 
 /**
@@ -70,7 +71,8 @@ export function filterCurveOptions(ctx: SeriesContext): CurveOption[] {
     const key = `r:${c.port}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    flags.push({ value: key, label: `${c.port} · ${FLAG_SHORT_NAMES[c.port] ?? def.label}`, group: 'Banderas' });
+    const label = isUserFlagRole(c.port) ? `${def.label} · usuario` : `${c.port} · ${FLAG_SHORT_NAMES[c.port] ?? def.label}`;
+    flags.push({ value: key, label, group: 'Banderas' });
   }
 
   for (const c of ctx.well.curves) {
@@ -211,7 +213,10 @@ const defaultFmt = (v: number) => String(Number(v.toPrecision(3)));
 /** Formatea una regla de filtro en texto corto para leyendas y resúmenes. */
 export function formatFilterRule(rule: PlotFilterRule, curve: PlotCurve | null, isFlag: boolean, fmtNum: (v: number) => string = defaultFmt): string {
   const role = curve?.role ?? (rule.curve.startsWith('r:') ? rule.curve.slice(2) : null);
-  const name = isFlag && role && FLAG_SHORT_NAMES[role] ? FLAG_SHORT_NAMES[role]! : (curve?.short ?? rule.curve.slice(2));
+  const name =
+    isFlag && role && FLAG_SHORT_NAMES[role]
+      ? FLAG_SHORT_NAMES[role]!
+      : (curve?.short ?? (role && isUserFlagRole(role) ? 'Bandera de usuario' : rule.curve.slice(2)));
   if (isFlag && (rule.op === 'eq' || rule.op === 'neq')) {
     const yes = (rule.op === 'eq' && rule.value === 1) || (rule.op === 'neq' && rule.value === 0);
     return `${name} = ${yes ? 'Sí' : 'No'}`;
@@ -316,12 +321,29 @@ export function evaluatePlotFilters(
 }
 
 /**
- * Traduce las claves medidas (`m:<id>`) de las reglas de filtro al contexto de otro pozo (por rol o mnemónico), para
- * aplicar los mismos filtros al comparar pozos en Distribuciones por zona.
+ * Traduce las claves medidas (`m:<id>`) y banderas de usuario (`r:UFLAG_<id>`) de las reglas de filtro al contexto de
+ * otro pozo (por rol/mnemónico o por nombre de bandera), evitando aplicar por azar una bandera homónima en id pero con
+ * distinto significado al comparar pozos en Distribuciones por zona.
  */
-export function translatePlotFilters(from: Pick<SeriesContext, 'well'>, rules: readonly PlotFilterRule[] | undefined, to: Pick<SeriesContext, 'well'>): PlotFilterRule[] | undefined {
+export function translatePlotFilters(
+  from: Pick<SeriesContext, 'well'> & Partial<Pick<SeriesContext, 'interpretation'>>,
+  rules: readonly PlotFilterRule[] | undefined,
+  to: Pick<SeriesContext, 'well'> & Partial<Pick<SeriesContext, 'interpretation'>>,
+): PlotFilterRule[] | undefined {
   if (!rules || rules.length === 0) return undefined;
   return rules.map((r) => {
+    if (r.curve.startsWith('r:')) {
+      const role = r.curve.slice(2);
+      if (!isUserFlagRole(role)) return r;
+      const fromId = userFlagIdFromRole(role);
+      const fromFlag = fromId ? from.interpretation?.userFlags?.find((f) => f.id === fromId) : undefined;
+      if (!fromFlag) return { ...r, curve: `r:${userFlagRoleId(`__unmatched_${fromId ?? 'deleted'}`)}` };
+      const targetName = normalizeUserFlagName(fromFlag.name);
+      const match = to.interpretation?.userFlags?.find((f) => normalizeUserFlagName(f.name) === targetName);
+      if (match) return { ...r, curve: `r:${userFlagRoleId(match.id)}` };
+      // Sin bandera homónima en el pozo destino: evitar coincidencia accidental por id distinto.
+      return { ...r, curve: `r:${userFlagRoleId(`__unmatched_${fromFlag.id}`)}` };
+    }
     if (!r.curve.startsWith('m:')) return r;
     const c = from.well.curves.find((x) => x.id === r.curve.slice(2));
     if (!c) return r;

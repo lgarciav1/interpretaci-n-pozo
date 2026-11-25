@@ -10,6 +10,7 @@ import { hiddenCurves, type HiddenCurve } from '../../core/toolString';
 import type { Well } from '../../core/well';
 import { registry } from '../../modules';
 import type { SeriesContext } from '../../plots/trend/series';
+import { withUserFlagCatalog, withUserFlagCurves } from '../../plots/userFlags';
 import type { ComputedCurve } from '../../viewer/resolve';
 import { visibleCurves } from '../toolString/select';
 
@@ -45,7 +46,14 @@ export function hiddenCurvesOf(well: Well, interpretation: Pick<Interpretation, 
 /** Contexto de series con el pozo según la sarta y las curvas ocultas (para explicar por qué no se ven). */
 export function plotContextOf(well: Well, interpretation: Interpretation, computed: readonly ComputedCurve[]): SeriesContext {
   const hidden = hiddenCurvesOf(well, interpretation);
-  return { well: visibleWell(well, interpretation), interpretation, computed, catalog: registry.roles, ...(hidden.size ? { hidden } : {}) };
+  const w = visibleWell(well, interpretation);
+  return {
+    well: w,
+    interpretation,
+    computed: withUserFlagCurves(w.depth.values, interpretation.userFlags, computed),
+    catalog: withUserFlagCatalog(registry.roles, interpretation.userFlags),
+    ...(hidden.size ? { hidden } : {}),
+  };
 }
 
 /**

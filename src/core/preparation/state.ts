@@ -1,7 +1,8 @@
 /** Recetas persistibles de P3. Intervalos MD cerrados [top, base], sin borrar filas. */
 import { validateDensityConfig, type DensityReconstructionConfig } from './density';
 import { validateMgtConfig, type MgtConfig } from './mgt';
-export interface MaskInterval { id: string; top: number; base: number }
+export const MASK_REASON_MAX = 200;
+export interface MaskInterval { id: string; top: number; base: number; reason?: string }
 export interface MaskNode {
   id: string;
   kind: 'mask';
@@ -89,8 +90,10 @@ export function validatePreparation(value: unknown): asserts value is Preparatio
     if (!Array.isArray(n.intervals) || (n.kind === 'mask' && !n.intervals.length) || n.intervals.length > 256) throw new Error('Cantidad de intervalos de exclusión no admitida.');
     const intervals = new Set<string>();
     for (const r of n.intervals) {
-      shape(r, ['id', 'top', 'base']);
+      const hasReason = object(r) && Object.hasOwn(r, 'reason');
+      shape(r, ['id', 'top', 'base', ...(hasReason ? ['reason'] : [])]);
       if (!text(r.id) || intervals.has(r.id) || typeof r.top !== 'number' || !Number.isFinite(r.top) || typeof r.base !== 'number' || !Number.isFinite(r.base) || r.base < r.top) throw new Error('Intervalo de exclusión inválido o repetido.');
+      if (hasReason && (!text(r.reason) || r.reason !== r.reason.trim() || r.reason.length > MASK_REASON_MAX)) throw new Error('El motivo de exclusión debe ser un texto breve no vacío.');
       intervals.add(r.id);
     }
     if (n.kind === 'linear-interpolation' || Object.hasOwn(n, 'gapFill')) validateGapFill(n.gapFill);

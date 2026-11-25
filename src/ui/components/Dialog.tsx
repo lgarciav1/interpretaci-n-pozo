@@ -64,6 +64,7 @@ export function Dialog({ open, onClose, title, description, headerExtra, footer,
           className={['ui-dialog', `ui-dialog--${size}`, className].filter(Boolean).join(' ')}
           onKeyDown={(e) => {
             if (e.key === 'Escape' && dismissible) {
+              e.preventDefault();
               e.stopPropagation();
               closeRef.current();
               return;

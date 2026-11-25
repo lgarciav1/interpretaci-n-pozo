@@ -4,6 +4,7 @@
  * docs/decisiones/0005-visor-multipista.md, D11. El componente está en src/app/shell/CurveEditor.tsx.
  */
 import type { CurveDisplayOverride, ScaleKind } from '../core/display';
+import { isUserFlagRole } from '../core/userFlags';
 import type { ResolvedCurve } from './resolve';
 
 export interface ScaleDraft {
@@ -68,7 +69,7 @@ export function scopeOptions(c: Pick<ResolvedCurve, 'origin' | 'role' | 'name' |
     },
     {
       scope: 'role',
-      label: c.role ? `Todas las ${c.role}` : 'Todo el rol',
+      label: c.role ? (isUserFlagRole(c.role) ? `Bandera «${c.name}»` : `Todas las ${c.role}`) : 'Todo el rol',
       ...(!c.role ? { disabled: 'La curva no tiene rol asignado.' } : {}),
     },
   ];

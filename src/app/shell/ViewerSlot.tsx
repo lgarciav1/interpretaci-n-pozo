@@ -21,11 +21,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { contextMatchesWell } from '../../core/engine/context';
 import { setCurveDisplay, setRoleDisplay } from '../../core/state/project';
 import type { Well } from '../../core/well';
-import { registry } from '../../modules';
 import type { DepthIntervalInput } from '../../petro/summary';
 import { engineInputData } from '../../plots/data';
 import { thicknessOf } from '../../plots/distribution/series';
-import { Button, Chip, EmptyState, getResolvedTheme, Icon, Spinner } from '../../ui';
+import { Button, Chip, EmptyState, getResolvedTheme, Icon, Menu, Spinner } from '../../ui';
 import { patchOverride } from '../../viewer/curveEdit';
 import type { ViewerData, ViewerZone } from '../../viewer/overlay';
 import { resolveTracks, type HiddenCurve, type ResolvedTrack } from '../../viewer/resolve';
@@ -48,9 +47,10 @@ import { useWellQc } from '../store/qc';
 import { useResults } from '../store/results';
 import { useUi } from '../store/ui';
 import { useViewer } from '../store/viewer';
-import { computedCurves, computedTables } from '../computed';
+import { computedCurves, computedRoleCatalog, computedTables } from '../computed';
 import { visibleCurves } from '../toolString/select';
 import { plotContextOf, visibleQc } from '../plots/context';
+import { withUserFlagCatalog, withUserFlagCurves } from '../../plots/userFlags';
 import { startTrendTool, stopTrendTool } from '../trends/actions';
 import { useTrendsUi } from '../trends/store';
 import { CurveEditor } from './CurveEditor';
@@ -65,6 +65,7 @@ import { clearPlotSelection, getPlotLink, selectionTitle } from '../../plots/lin
 import { usePlotSelection } from '../../plots/useLink';
 import { formatNumber } from '../../ui';
 import { openProvenance } from '../provenance/store';
+import { useSelectionActionsUi } from '../selectionActions/store';
 import { useViewsUi } from '../views/store';
 import { BAND_ROLES, type BandRole } from '../../petro/curveBands';
 import { BAND_LABELS, bandCurve, useCurveBands, withCurveBands } from '../curveBands/useCurveBands';
@@ -123,7 +124,14 @@ export function ViewerSlot() {
   const plotSelection = usePlotSelection(well?.depth.values);
   const interpretation = entry?.interpretation;
 
-  const computed = useMemo(() => (well ? computedCurves(result, well) : []), [result, well]);
+  const computed = useMemo(
+    () => (well ? withUserFlagCurves(well.depth.values, interpretation?.userFlags, computedCurves(result, well)) : []),
+    [result, well, interpretation?.userFlags],
+  );
+  const roleCatalog = useMemo(
+    () => withUserFlagCatalog(computedRoleCatalog(computed), interpretation?.userFlags),
+    [computed, interpretation?.userFlags],
+  );
   // Sarta (docs/decisiones/0032): las curvas de herramientas apagadas no se ven (filtro; las pistas no cambian).
   const toolString = interpretation?.toolString;
   const compareOriginals = usePreparationUi(s => s.compareOriginals);
@@ -148,12 +156,12 @@ export function ViewerSlot() {
     if (!well) return [];
     return resolveTracks(
       layoutSpec,
-      { depth: well.depth.values, curves, computed, catalog: registry.roles, sources: interpretation?.sources, tvdss },
+      { depth: well.depth.values, curves, computed, catalog: roleCatalog, sources: interpretation?.sources, tvdss },
       overrides,
       // Armando pistas se ven también las que se ocultan vacías (para moverlas o quitarlas).
       { keepEmpty: building, look: lookId },
     );
-  }, [well, curves, computed, layoutSpec, overrides, building, interpretation?.sources, tvdss, lookId]);
+  }, [well, curves, computed, roleCatalog, layoutSpec, overrides, building, interpretation?.sources, tvdss, lookId]);
 
   const engineError = useResults((s) => s.error);
   const locateCurve = useViewer(s => s.locateCurve);
@@ -216,7 +224,9 @@ export function ViewerSlot() {
     if (!well || !curtainSnap || !curtainResult || !curtainWell || curtainIssue) return null;
     // El lado «antes» con la sarta del snapshot (sus curvas medidas son las que veía ese cálculo).
     const beforeCurves = preparationViewCurves(visibleCurves(curtainWell, curtainSnap.interpretation), curtainSnap.interpretation, curtainResult, compareOriginals);
-    const before = resolveTracks(layoutSpec, { depth: curtainWell.depth.values, curves: beforeCurves, computed: computedCurves(curtainResult, curtainWell), catalog: registry.roles, sources: curtainSnap.interpretation.sources, tvdss }, overrides, { keepEmpty: true, look: lookId });
+    const beforeComputed = withUserFlagCurves(curtainWell.depth.values, curtainSnap.interpretation.userFlags, computedCurves(curtainResult, curtainWell));
+    const beforeCatalog = withUserFlagCatalog(computedRoleCatalog(beforeComputed), curtainSnap.interpretation.userFlags);
+    const before = resolveTracks(layoutSpec, { depth: curtainWell.depth.values, curves: beforeCurves, computed: beforeComputed, catalog: beforeCatalog, sources: curtainSnap.interpretation.sources, tvdss }, overrides, { keepEmpty: true, look: lookId });
     return { before: alignCurtainTracks(tracks, before), beforeLabel: `Antes: ${curtainSnap.name}`, afterLabel: 'Después: actual' };
   }, [well, curtainSnap, curtainResult, curtainWell, curtainIssue, layoutSpec, overrides, tracks, compareOriginals, tvdss, lookId]);
 
@@ -486,14 +496,56 @@ export function ViewerSlot() {
       {bandStatus && <span className="wv-band-status" role="status" title={bandStatus}>{bandStatus}</span>}
       {/* La selección antes que las zonas: si la barra no alcanza, se recorta lo otro. */}
       {plotSelection ? (
-        <Chip
-          selected
-          onRemove={clearPlotSelection}
-          removeLabel="Limpiar la selección (Esc)"
-          title={`${selectionTitle(plotSelection, (d) => formatNumber(d, { digits: 1 }))}: ${formatNumber(plotSelection.count, { digits: 0 })} muestras en ${plotSelection.runs.length} tramos, resaltadas en el crossplot y el histograma. Mayús + arrastre marca otro tramo.`}
-        >
-          {`Sel. ${formatNumber(plotSelection.count, { digits: 0 })}`}
-        </Chip>
+        <>
+          <Chip
+            selected
+            onRemove={clearPlotSelection}
+            removeLabel="Limpiar la selección (Esc)"
+            title={`${selectionTitle(plotSelection, (d) => formatNumber(d, { digits: 1 }))}: ${formatNumber(plotSelection.count, { digits: 0 })} muestras en ${plotSelection.runs.length} tramos, resaltadas en el crossplot y el histograma. Mayús + arrastre marca otro tramo.`}
+          >
+            {`Sel. ${formatNumber(plotSelection.count, { digits: 0 })}`}
+          </Chip>
+          {!presenting && (
+            <Menu
+              aria-label="Acciones sobre la selección"
+              align="start"
+              minWidth={230}
+              items={[
+                {
+                  id: 'save-flag',
+                  label: 'Guardar como bandera…',
+                  icon: 'bookmark',
+                  onSelect: () => useSelectionActionsUi.getState().openFlag(),
+                },
+                {
+                  id: 'exclude-prep',
+                  label: 'Excluir tramos en Preparación…',
+                  icon: 'eye-off',
+                  onSelect: () => useSelectionActionsUi.getState().openExclude(),
+                },
+                { type: 'separator', id: 's-sel' },
+                {
+                  id: 'clear-sel',
+                  label: 'Limpiar selección',
+                  icon: 'x',
+                  onSelect: clearPlotSelection,
+                },
+              ]}
+              trigger={(tp) => (
+                <Button
+                  {...tp}
+                  size="sm"
+                  variant="secondary"
+                  icon="bookmark"
+                  data-testid="viewer-selection-actions"
+                  title="Guardar como bandera o excluir tramos en Preparación"
+                >
+                  Acciones
+                </Button>
+              )}
+            />
+          )}
+        </>
       ) : null}
       {data.zones.length === 0 ? (
         <span className="wv-chip" title="Definí zonas con «Marcar zona» o cargando un archivo con columna de zona">

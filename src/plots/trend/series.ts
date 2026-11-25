@@ -19,6 +19,7 @@
 import { canonicalCurveData } from '../../core/canonical';
 import type { Interpretation } from '../../core/interpretation';
 import { isPreparedSource } from '../../core/preparation/source';
+import { isUserFlagRole } from '../../core/userFlags';
 import type { RoleCatalog } from '../../core/roles';
 import type { HiddenCurve } from '../../core/toolString';
 import type { SeriesRef } from '../../core/trends';
@@ -287,7 +288,7 @@ export const curveSeriesProvider: TrendSeriesProvider = {
         return depthSeries(ref, c.mnemonic, depth, data, unit, scale, role);
       }
       const comp = ctx.computed.find((c) => c.active && c.port === role);
-      if (comp && comp.data.length === depth.length) return depthSeries(ref, role, depth, comp.data, comp.unit ?? def?.unit ?? 'unitless', scale, role);
+      if (comp && comp.data.length === depth.length) return depthSeries(ref, isUserFlagRole(role) ? (def?.label ?? comp.label) : role, depth, comp.data, comp.unit ?? def?.unit ?? 'unitless', scale, role);
       const m = ctx.well.curves.find((c) => c.role === role);
       if (!m) return null;
       const { data, unit } = canonicalCurveData(m, ctx.catalog);

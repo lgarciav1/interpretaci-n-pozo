@@ -76,6 +76,10 @@ export interface CrossplotPanelProps {
   onExcludeFromTrend(id: string, keys: readonly string[] | null): void;
   /** Vuelve a mostrar la herramienta de una curva oculta por la sarta (atajo del estado vacío). */
   onShowTool?(hidden: HiddenCurve): void;
+  /** Guardar la selección compartida como bandera 0/1 de usuario (G02). */
+  onSaveSelectionFlag?(): void;
+  /** Enviar la selección compartida como exclusión QC en Preparación (sugiere Y luego X). */
+  onExcludeSelection?(preferredKeys: readonly (string | null)[]): void;
 }
 
 /** Herramienta de selección elegida (estado de interfaz de la sesión: sobrevive a cerrar y abrir la pestaña). */
@@ -1201,7 +1205,12 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
                 )}
               </dl>
               {selection ? (
-                <SelectionSummary selection={selection} onClear={clearPlotSelection} />
+                <SelectionSummary
+                  selection={selection}
+                  onClear={clearPlotSelection}
+                  {...(props.onSaveSelectionFlag ? { onSaveFlag: props.onSaveSelectionFlag } : {})}
+                  {...(props.onExcludeSelection ? { onExcludePreparation: () => props.onExcludeSelection!([yKey, xKey]) } : {})}
+                />
               ) : (
                 <p className="plot-hint">
                   Arrastrá un {selectTool === 'lasso' ? 'lazo' : 'rectángulo'} sobre los puntos para marcarlos en el visor y en el histograma (Mayús suma). En el visor, Mayús + arrastre marca un tramo.

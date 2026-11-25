@@ -33,6 +33,7 @@ import {
   updateTrackLayout,
 } from '../../core/state/tracks';
 import { getUnit } from '../../core/units';
+import { isUserFlagRole } from '../../core/userFlags';
 import type { Curve } from '../../core/well';
 import type { WorkspaceId } from '../../core/workspaces';
 import { toast, type MenuEntry } from '../../ui';
@@ -187,8 +188,8 @@ export function createLayoutEditor(ctx: LayoutEditorContext) {
           const item = payload.item;
           if (!item.available) return;
           if (target.kind === 'gap') {
-            // Título: el nombre del rol si es corto («Caliper»), si no el mnemónico.
-            const title = item.role && item.label.length <= 18 ? item.label : item.name;
+            // Título: el nombre del rol si es corto («Caliper»), si no el mnemónico (banderas de usuario usan siempre su nombre).
+            const title = item.role && !isUserFlagRole(item.role) && item.label.length <= 18 ? item.label : item.name;
             edit(`Crear pista ${title}`, (tracks) => addTrack(tracks, newTrackFrom(tracks, trackForCurve(item, title)), target.beforeId), `Pista ${title} creada`);
             return;
           }

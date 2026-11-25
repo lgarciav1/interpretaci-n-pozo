@@ -5,7 +5,7 @@ import { interpolationSourceProblem } from '../preparation/interpolation';
 import { preparationBindings } from '../preparation/bindings';
 import { planPreparation, type PreparationPlan } from '../preparation/plan';
 import { preparedCurveId } from '../preparation/source';
-import { preparationState, validateGapFill, validateDepthShift, nodeShift, nodeFilter, withNodeStages, type DepthShift, validateMedianFilter, nodeGapFill, type MedianFilter, validatePreparation, type GapFill, type MaskInterval, type PreparationNode, nodeNormalization, normalizationKey, validateNormalization, type CurveNormalization } from '../preparation/state';
+import { preparationState, validateGapFill, validateDepthShift, nodeShift, nodeFilter, withNodeStages, type DepthShift, validateMedianFilter, nodeGapFill, type MedianFilter, validatePreparation, type GapFill, type MaskInterval, type PreparationNode, nodeNormalization, normalizationKey, validateNormalization, type CurveNormalization, MASK_REASON_MAX } from '../preparation/state';
 import type { Registry } from '../registry';
 import { enableProjectInputRevisions } from './inputRevisions';
 import { updateInterpretation, type Project, type WellEntry } from './project';
@@ -23,13 +23,18 @@ export function entryPreparationPlan(project: Project, entry: WellEntry, registr
   plans.set(entry, { revisionsKey, registry, plan }); return plan;
 }
 
+export interface MaskIntervalOptions {
+  /** Si true (por defecto), selecciona la curva preparada como fuente del rol en el mismo paso. */
+  activateSource?: boolean;
+}
+
 /** Una sola receta: migración optativa, máscara y selección explícita se aceptan juntas. */
-export function addMaskInterval(project: Project, wellId: string, curveId: string, interval: MaskInterval, nodeId: string): Project {
-  return addMaskIntervals(project, wellId, curveId, [interval], nodeId);
+export function addMaskInterval(project: Project, wellId: string, curveId: string, interval: MaskInterval, nodeId: string, opts?: MaskIntervalOptions): Project {
+  return addMaskIntervals(project, wellId, curveId, [interval], nodeId, opts);
 }
 
 /** Acepta un lote revisado como una sola decisión, sin publicar estados intermedios. */
-export function addMaskIntervals(project: Project, wellId: string, curveId: string, intervals: MaskInterval[], nodeId: string): Project {
+export function addMaskIntervals(project: Project, wellId: string, curveId: string, intervals: MaskInterval[], nodeId: string, opts?: MaskIntervalOptions): Project {
   if (!intervals.length || intervals.length > 256) throw new Error('Elegí entre 1 y 256 muestras o intervalos.');
   const next = enableProjectInputRevisions(project);
   const entry = next.wells.find(e => e.well.id === wellId);
@@ -37,12 +42,20 @@ export function addMaskIntervals(project: Project, wellId: string, curveId: stri
   if (!entry || !curve) throw new Error('La curva original ya no existe.');
   rejectMgtAuxiliary(entry, curveId);
   const depth = entry.well.depth.values;
+  const normalizedIntervals: MaskInterval[] = [];
   for (const interval of intervals) {
     if (!Number.isFinite(interval.top) || !Number.isFinite(interval.base) || interval.base < interval.top || interval.top < depth[0]! || interval.base > depth.at(-1)!) throw new Error('Elegí un intervalo dentro del pozo, con base mayor o igual al tope.');
     // No aceptar un tramo sin ninguna muestra.
     let lo = 0, hi = depth.length;
     while (lo < hi) { const mid = (lo + hi) >>> 1; if (depth[mid]! < interval.top) lo = mid + 1; else hi = mid; }
     if (lo >= depth.length || depth[lo]! > interval.base) throw new Error('El intervalo no contiene muestras.');
+    if (interval.reason !== undefined) {
+      const trimmed = interval.reason.trim();
+      if (!trimmed || trimmed.length > MASK_REASON_MAX) throw new Error(`El motivo de exclusión debe tener entre 1 y ${MASK_REASON_MAX} caracteres.`);
+      normalizedIntervals.push({ id: interval.id, top: interval.top, base: interval.base, reason: trimmed });
+    } else {
+      normalizedIntervals.push({ id: interval.id, top: interval.top, base: interval.base });
+    }
   }
   const existing = entry.interpretation.preparation?.nodes.find(n => n.input.curveId === curveId);
   if (existing?.kind === 'density-reconstruction') throw new Error('Retirá la reconstrucción antes de excluir densidad.');
@@ -51,14 +64,20 @@ export function addMaskIntervals(project: Project, wellId: string, curveId: stri
     const binding = preparationBindings(entry.interpretation, wellId, next.inputRevisions, entry.inputRevisionId)[existing.id];
     const depthKey = `depth:${identityKey(depth)}`;
     if (!binding || binding.depthKey !== depthKey || binding.contentVersion !== curveProvenance(curve, depthKey).contentVersion || binding.unit !== curve.unit || binding.role !== curve.role || binding.mnemonic !== curve.mnemonic) throw new Error('La máscara está vinculada a otros datos. Restaurá el original antes de preparar esta revisión.');
+    if (existing.intervals.length + normalizedIntervals.length > 256) throw new Error(`La curva ya tiene ${existing.intervals.length} exclusiones; el máximo por curva es 256.`);
   }
-  const node: PreparationNode = existing ? { ...existing, enabled: true, intervals: [...existing.intervals, ...intervals] } : {
-    id: nodeId, kind: 'mask', methodVersion: 1, enabled: true, input: { kind: 'original', inputRevisionId: entry.inputRevisionId!, curveId }, intervals: [...intervals],
+  const node: PreparationNode = existing ? { ...existing, enabled: true, intervals: [...existing.intervals, ...normalizedIntervals] } : {
+    id: nodeId, kind: 'mask', methodVersion: 1, enabled: true, input: { kind: 'original', inputRevisionId: entry.inputRevisionId!, curveId }, intervals: normalizedIntervals,
   };
   const previousNodes = entry.interpretation.preparation?.nodes ?? [];
   const preparation = preparationState(existing ? previousNodes.map(n => n.id === node.id ? node : n) : [...previousNodes, node]);
   validatePreparation(preparation);
-  return updateInterpretation(next, wellId, i => ({ ...i, preparation, sources: curve.role ? { ...i.sources, [curve.role]: { kind: 'curve', curveId: preparedCurveId(node.id, 'masked') } } : i.sources }));
+  const activate = opts?.activateSource ?? true;
+  return updateInterpretation(next, wellId, i => ({
+    ...i,
+    preparation,
+    ...(activate && curve.role ? { sources: { ...i.sources, [curve.role]: { kind: 'curve', curveId: preparedCurveId(node.id, 'masked') } } } : {}),
+  }));
 }
 
 /** Restaurar la última exclusión vuelve explícitamente a su original, nunca a otra fuente por defecto. */

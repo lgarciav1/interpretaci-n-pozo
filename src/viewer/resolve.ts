@@ -17,6 +17,7 @@ import { getUnit, unitLabel, type UnitId } from '../core/units';
 import type { Curve } from '../core/well';
 import type { SourceRef } from '../core/interpretation';
 import { isPreparedSource } from '../core/preparation/source';
+import { isUserFlagRole } from '../core/userFlags';
 import { ensureContrast } from '../ui/color';
 import { CLASSIC_MAX_LINE_WIDTH, curveStyle, dashPattern, FILL_PALETTE, type CurveStyle, type FillId, type PaletteVariant } from '../ui/curves';
 import { THEMES, type ThemeName } from '../ui/tokens';
@@ -331,17 +332,20 @@ export function resolveTracks(fullLayout: readonly TrackSpec[], src: ViewerSourc
     const userWidth = overrides.roles?.[c.port]?.width;
     const def = catalog.get(c.port);
     const key = `c:${c.moduleId}:${c.port}`;
+    const userFlag = isUserFlagRole(c.port);
+    // Con módulo nombrado, el encabezado dice qué modelo es («Archie», no tres veces «SW»): lo que sigue a «Sw — ».
+    const name = userFlag ? (def?.label ?? c.label) : explicitModule ? (c.label.replace(/^.*?\s[—–-]\s+/, '') || c.port) : c.port;
     if (layers.hidden) {
-      hide(track, { key, name: c.port, role: c.port, origin: 'computed' });
+      hide(track, { key, name, role: c.port, origin: 'computed' });
       return null;
     }
-    const title = explicitModule
-      ? `${def?.label ?? c.label} · ${c.label}${c.active ? ' (alimenta la cadena)' : ' (para comparar)'}`
-      : c.active
-        ? `${def?.label ?? c.label} (calculada)`
-        : `${def?.label ?? c.label} · alternativa (${c.label}): calculada para comparar, no alimenta la cadena`;
-    // Con módulo nombrado, el encabezado dice qué modelo es («Archie», no tres veces «SW»): lo que sigue a «Sw — ».
-    const name = explicitModule ? (c.label.replace(/^.*?\s[—–-]\s+/, '') || c.port) : c.port;
+    const title = userFlag
+      ? `${def?.label ?? c.label} (bandera de usuario)`
+      : explicitModule
+        ? `${def?.label ?? c.label} · ${c.label}${c.active ? ' (alimenta la cadena)' : ' (para comparar)'}`
+        : c.active
+          ? `${def?.label ?? c.label} (calculada)`
+          : `${def?.label ?? c.label} · alternativa (${c.label}): calculada para comparar, no alimenta la cadena`;
     return makeCurve(
       { key, name, role: c.port, unit: c.unit ?? def?.unit ?? 'unitless', origin: 'computed', alternative, data: c.data, moduleId: c.moduleId, title },
       catalog,

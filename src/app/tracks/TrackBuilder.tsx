@@ -5,6 +5,7 @@ import { effectiveWell } from '../preparation/data';
  * mouse, cada elemento tiene «Agregar a pista…».
  */
 import { useMemo, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import type { RoleCatalog } from '../../core/roles';
 import type { TrackSpec } from '../../core/display';
 import type { Well } from '../../core/well';
 import type { WorkspaceId } from '../../core/workspaces';
@@ -15,6 +16,7 @@ import { guard, type ViewerOverlay } from '../../viewer/overlay';
 import type { ComputedCurve } from '../../viewer/resolve';
 import { contributedTrack } from '../../viewer/templates';
 import { computedCurves, computedRoleCatalog } from '../computed';
+import { withUserFlagCatalog, withUserFlagCurves } from '../../plots/userFlags';
 import { UNDO_SHORTCUT } from '../shell/historyActions';
 import { OVERLAYS } from '../shell/viewerOverlayList';
 import { selectActiveEntry, useProject } from '../store/project';
@@ -66,8 +68,8 @@ function scaleText(kind: 'linear' | 'log', min: number | undefined, max: number 
   return `${f(l)} – ${f(r)}${kind === 'log' ? ' · log' : ''}`;
 }
 
-function curveLook(c: CatalogCurve, theme: ThemeName) {
-  const s = curveStyle(c.role, theme, registry.roles, c.name);
+function curveLook(c: CatalogCurve, theme: ThemeName, roles: RoleCatalog) {
+  const s = curveStyle(c.role, theme, roles, c.name);
   const sc = c.trackScale ? { kind: c.trackScale.kind, min: c.trackScale.min, max: c.trackScale.max, reversed: false } : { kind: s.scale, min: s.min, max: s.max, reversed: s.reversed };
   return { color: s.color, dash: s.dash, width: c.style?.width ?? s.width, band: s.kind === 'band', scale: scaleText(sc.kind, sc.min, sc.max, sc.reversed), log: sc.kind === 'log' };
 }
@@ -124,7 +126,10 @@ export function TrackBuilderSlot() {
   const result = useResults((s) => s.result);
   const editor = useTrackUi((s) => s.editor);
   const well = entry ? effectiveWell(entry.well, result) : null;
-  const computed = useMemo(() => (well ? computedCurves(result, well) : []), [result, well]);
+  const computed = useMemo(
+    () => (well ? withUserFlagCurves(well.depth.values, entry?.interpretation.userFlags, computedCurves(result, well)) : []),
+    [result, well, entry?.interpretation.userFlags],
+  );
   if (!well || !editor) {
     return (
       <div className="tb tb--empty">
@@ -140,24 +145,26 @@ export function TrackBuilder({ workspace, well, computed, overlays, editor }: Tr
   const display = useProject((s) => s.project.display);
   // Sarta (0032): las curvas de herramientas apagadas no se ofrecen (quedan como faltantes).
   const toolString = useProject((s) => selectActiveEntry(s)?.interpretation.toolString);
+  const userFlags = useProject((s) => selectActiveEntry(s)?.interpretation.userFlags);
   const setUi = useUi((s) => s.set);
   const current = useCurrentTemplate(workspace, overlays);
   const dragging = useLayoutDrag((s) => s.payload);
   const [query, setQuery] = useState('');
   const [closed, setClosed] = useState<ReadonlySet<string>>(() => new Set(['spectral', 'nmr', 'other']));
 
+  const roles = useMemo(() => withUserFlagCatalog(computedRoleCatalog(computed), userFlags), [computed, userFlags]);
   const computedPorts = useMemo(() => new Set(computed.filter((c) => c.active).map((c) => c.port)), [computed]);
   const groups = useMemo(
     () =>
       buildTrackCatalog({
-        roles: computedRoleCatalog(computed),
+        roles,
         curves: visibleCurves(well, { toolString }),
         tools: registry.tools,
         producible: PRODUCIBLE,
         computed: computedPorts,
         overlayTracks: overlayCatalog(overlays, workspace, well, display.overlays),
       }),
-    [well, toolString, computed, computedPorts, overlays, workspace, display.overlays],
+    [well, toolString, roles, computedPorts, overlays, workspace, display.overlays],
   );
   const shown = useMemo(() => filterCatalog(groups, query), [groups, query]);
 
@@ -173,10 +180,19 @@ export function TrackBuilder({ workspace, well, computed, overlays, editor }: Tr
       }
     }
     const overlaysShown = new Set(tracks.filter((t) => t.kind === 'overlay' && !t.hidden).map((t) => t.overlayId));
+    // Banderas recolectadas por `collect: 'flags'` (p. ej. banderas de usuario y pay/reservorio en «Banderas»).
+    const flagCollector = tracks.find((t) => !t.hidden && t.collect === 'flags');
+    if (flagCollector) {
+      for (const port of computedPorts) {
+        if (roles.get(port)?.family !== 'flag') continue;
+        const k = `r:${port}`;
+        if (!curves.has(k)) curves.set(k, [flagCollector.title]);
+      }
+    }
     return { curves, overlaysShown, trackIds: new Set(tracks.filter(t => !t.hidden).map(t => t.id)) };
     // display: cambia cuando cambian las pistas guardadas.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [display, workspace, overlays]);
+  }, [display, workspace, overlays, computedPorts, roles]);
 
   const toggle = (id: string) =>
     setClosed((s) => {
@@ -244,7 +260,7 @@ export function TrackBuilder({ workspace, well, computed, overlays, editor }: Tr
   };
 
   const renderCurve = (c: CatalogCurve) => {
-    const look = curveLook(c, theme);
+    const look = curveLook(c, theme, roles);
     const where = c.available ? placed.curves.get(c.id) : undefined;
     const status = c.status === 'missing' ? 'Falta' : c.status === 'computable' ? 'Sin calcular' : c.status === 'computed' ? 'Calculada' : null;
     return (

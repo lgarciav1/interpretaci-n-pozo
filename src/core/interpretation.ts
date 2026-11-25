@@ -16,6 +16,8 @@ export interface Interpretation {
   formulas?: readonly import('./formulas').CurveFormula[];
   /** Notas de lectura en MD; opcionales en proyectos anteriores, fuera del motor. */
   notes?: import('./notes').DepthNote[];
+  /** Banderas discretas 0/1 creadas por el usuario desde una selección (0088); opcionales, fuera del motor. */
+  userFlags?: readonly import('./userFlags').UserFlagDef[];
   preparation?: PreparationState;
   zones: Zone[];
   params: ParamState;

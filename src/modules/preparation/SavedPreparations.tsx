@@ -83,7 +83,7 @@ export function SavedPreparations({ entry, result, onError, onOpenCurve }: {
                 <li key={r.id}>
                   <span className="prep-saved__stage">Exclusión</span>
                   <span className="num">
-                    {show(r.top)} – {show(r.base)} m MD
+                    {show(r.top)} – {show(r.base)} m MD{r.reason ? ` · ${r.reason}` : ''}
                   </span>
                   <Button size="sm" variant="ghost" onClick={() => run('Restaurar datos originales', (p) => restoreMaskInterval(p, wellId, node.id, r.id), 'restore')} aria-label={`Restaurar exclusión ${r.id}`}>
                     Restaurar exclusión

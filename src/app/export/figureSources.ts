@@ -12,7 +12,6 @@ import { sameContext } from '../../core/engine/context';
 import type { Well } from '../../core/well';
 import { rgbaToRgb } from '../../io/export/figures/pdf';
 import type { TextMeasure } from '../../io/export/figures/svg';
-import { registry } from '../../modules';
 import { createTrendsOverlays } from '../../plots/trend/overlay';
 import { listXYFigures } from '../../plots/xy/figures';
 import type { ViewerFigureContext } from '../../viewer/figureInput';
@@ -23,7 +22,8 @@ import { resolveTracks } from '../../viewer/resolve';
 import { layoutFor, STACK_ROLE_HINTS, withOverlayTracks } from '../../viewer/templates';
 import { wellTvdss } from '../../viewer/depthColumns';
 import { DEFAULT_LOOK, lookOf } from '../../viewer/look';
-import { computedCurves, computedTables } from '../computed';
+import { computedCurves, computedRoleCatalog, computedTables } from '../computed';
+import { withUserFlagCatalog, withUserFlagCurves } from '../../plots/userFlags';
 import { visibleCurves } from '../toolString/select';
 import { visibleQc } from '../plots/context';
 import { moduleOverlays } from '../viewerOverlays';
@@ -51,14 +51,14 @@ export function figureTracks(well: Well) {
   const candidateResult=useResults.getState().result;
   const result = entry && candidateResult && sameContext(candidateResult.context, entryContext(entry)) ? candidateResult : null;
   well = effectiveWell(well, result);
-  const computed = computedCurves(entry && result && sameContext(result.context,entryContext(entry)) ? result : null, well);
-  // Como en pantalla: sin las curvas de herramientas apagadas en la sarta (0032).
   const interpretation = entry?.interpretation;
+  const computed = withUserFlagCurves(well.depth.values, interpretation?.userFlags, computedCurves(entry && result && sameContext(result.context,entryContext(entry)) ? result : null, well));
+  const roleCatalog = withUserFlagCatalog(computedRoleCatalog(computed), interpretation?.userFlags);
   // El mismo estilo que en pantalla (docs/decisiones/0067): plantilla de fábrica, paleta y columna TVDSS.
   const look = display.look ?? DEFAULT_LOOK;
   return resolveTracks(
     withOverlayTracks(layoutFor(workspace, display.layouts, look), FIGURE_OVERLAYS, workspace, { well, ...(display.overlays ? { settings: display.overlays } : {}) }),
-    { depth: well.depth.values, curves: preparationViewCurves(visibleCurves(well, interpretation), interpretation, result, usePreparationUi.getState().compareOriginals), computed, catalog: registry.roles, sources: interpretation?.sources, tvdss: wellTvdss(well) },
+    { depth: well.depth.values, curves: preparationViewCurves(visibleCurves(well, interpretation), interpretation, result, usePreparationUi.getState().compareOriginals), computed, catalog: roleCatalog, sources: interpretation?.sources, tvdss: wellTvdss(well) },
     { roles: display.roles, ...(display.curves[well.id] ? { curves: display.curves[well.id] } : {}) },
     { look },
   );
@@ -73,7 +73,7 @@ export function viewerFigureContext(measure: TextMeasure): ViewerFigureContext |
   const candidate = useResults.getState().result;
   const result = candidate && sameContext(candidate.context,entryContext(entry)) ? candidate : null;
   const well = effectiveWell(originalWell, result);
-  const computed = computedCurves(result, well);
+  const computed = withUserFlagCurves(well.depth.values, interpretation.userFlags, computedCurves(result, well));
   const zones = interpretation.zones.map((z) => ({ id: z.id, name: z.name, top: z.top, base: z.base, color: z.color }));
   const stored = useQc.getState().entries[well.id];
   const qc = stored && stored.well.depth === originalWell.depth && stored.well.curves === originalWell.curves ? stored.report : computeQc(originalWell);

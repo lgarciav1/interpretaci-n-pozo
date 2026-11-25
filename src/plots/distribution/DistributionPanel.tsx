@@ -15,12 +15,12 @@ import { CATEGORICAL } from '../../ui/curves';
 import { Button, Callout, Checkbox, Chip, EmptyState, IconButton, SegmentedControl, Spinner, formatNumber, useThemeTokens, useUiScaleFactor, type ThemeTokens } from '../../ui';
 import { scalePx } from '../../ui/tokens';
 import { withAlpha } from '../../ui/color';
-import { ControlGroup, CurveSelect } from '../controls';
+import { ControlGroup, CurveSelect, SelectionSummary } from '../controls';
 import { PlotFilterBar, PlotFilterControls } from '../FilterControls';
 import { evaluatePlotFilters, translatePlotFilters } from '../filters';
 import { cutoffParamFor, type CutoffParamKey } from '../cutoffs';
 import { resolvePlotCurve } from '../data';
-import { clearPlotSelection, makeSelection, selectionTitle, setPlotLink, setPlotSelection } from '../link';
+import { clearPlotSelection, makeSelection, setPlotLink, setPlotSelection } from '../link';
 import { usePlotSelection } from '../useLink';
 import type { SeriesContext } from '../trend/series';
 import type { XYAxis } from '../xy/axes';
@@ -98,6 +98,10 @@ export interface DistributionPanelProps {
   volume?: VolumeData | null;
   /** Abrir el módulo de incertidumbre en el inspector (no lo calcula: lo decide el usuario). */
   onOpenUncertainty?(): void;
+  /** Guardar la selección compartida como bandera 0/1 de usuario (G02). */
+  onSaveSelectionFlag?(): void;
+  /** Enviar la selección compartida como exclusión QC en Preparación (sugiere la curva graficada). */
+  onExcludeSelection?(preferredKeys: readonly (string | null)[]): void;
 }
 
 /**
@@ -159,7 +163,7 @@ function inputOf(s: SeriesData): DistributionInput | null {
   };
 }
 
-export function DistributionPanel({ ctx, wellName, config, onChange, series, onGoTo, onDownload, onParamCutoff, summary, core = null, volume = null, onOpenUncertainty }: DistributionPanelProps) {
+export function DistributionPanel({ ctx, wellName, config, onChange, series, onGoTo, onDownload, onParamCutoff, summary, core = null, volume = null, onOpenUncertainty, onSaveSelectionFlag, onExcludeSelection }: DistributionPanelProps) {
   const theme = useThemeTokens();
   const ui = useUiScaleFactor();
   const options = useMemo(() => propertyOptions(ctx), [ctx]);
@@ -762,16 +766,16 @@ export function DistributionPanel({ ctx, wellName, config, onChange, series, onG
                 </ul>
               </div>
               {selection && (
-                <div className="plot-selection zdist-selection" data-testid="zdist-selection">
-                  <span className="plot-selection__title">{selectionTitle(selection, (d) => formatNumber(d, { digits: 1 }))}</span>
-                  <span className="plot-muted num">
-                    {formatNumber(selection.count, { digits: 0 })} muestras · {selection.runs.length} {selection.runs.length === 1 ? 'tramo' : 'tramos'} en el visor
-                    {selStats ? ' · barra fina: su distribución en cada zona' : ''}
-                  </span>
-                  <Button size="sm" variant="ghost" icon="x" onClick={clearPlotSelection} title="Quitar la selección (Esc)">
-                    Quitar selección
-                  </Button>
-                </div>
+                <SelectionSummary
+                  selection={selection}
+                  onClear={clearPlotSelection}
+                  className="zdist-selection"
+                  testId="zdist-selection"
+                  clearLabel="Quitar selección"
+                  {...(selStats ? { extraNote: ' · barra fina: su distribución en cada zona' } : {})}
+                  {...(onSaveSelectionFlag ? { onSaveFlag: onSaveSelectionFlag } : {})}
+                  {...(onExcludeSelection ? { onExcludePreparation: () => onExcludeSelection([key]) } : {})}
+                />
               )}
               {showVolume && volume && <VolumeStatus volume={volume} onOpenUncertainty={onOpenUncertainty} />}
               {rows.length === 0 ? (
