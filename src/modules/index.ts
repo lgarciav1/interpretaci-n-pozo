@@ -15,6 +15,8 @@ import electrofaciesScan from './electrofacies-scan';
 import { createRegistry } from '../core/registry';
 import igr from './igr';
 import vsh from './vsh';
+import cgr from './cgr';
+import igrCgr from './igr-cgr';
 import phiDensity from './phi-density';
 import phiNeutron from './phi-neutron';
 import phiSonicWyllie from './phi-sonic-wyllie';
@@ -68,6 +70,8 @@ import { SHARED_PARAMS } from './sharedParams';
 export const MODULES = [
   igr,
   vsh,
+  cgr,
+  igrCgr,
   phiDensity,
   phiNeutron,
   phiSonicWyllie,
