@@ -211,7 +211,8 @@ export type FillId =
   | 'netReservoir'
   | 'netPay'
   | 'pore'
-  | 'undivided';
+  | 'undivided'
+  | 'uraniumExcess';
 
 export interface FillEntry {
   label: string;
@@ -254,6 +255,8 @@ export const FILL_PALETTE: Readonly<Record<FillId, FillEntry>> = {
   pore: { label: 'Porosidad', light: '#bcdcec', dark: '#4f7f94', alpha: 0.75 },
   /** Resto de una columna que no se pudo partir (faltan entradas): neutro, para no inventar una matriz. */
   undivided: { label: 'Sin partir', light: '#c4c8ce', dark: '#5d636b', alpha: 0.55 },
+  /** Exceso de rayos gamma atribuible al uranio (área entre CGR y GR total, ADR 0090). */
+  uraniumExcess: { label: 'Aporte de uranio (GR − CGR)', light: '#a855f7', dark: '#c084fc', alpha: 0.38 },
 };
 
 /**
@@ -284,6 +287,7 @@ export const CLASSIC_FILL_PALETTE: Readonly<Partial<Record<FillId, Partial<FillE
   pore: { light: '#cddbe4', dark: '#4f6a78', alpha: 0.7 },
   freeFluid: { light: '#dcd58a', dark: '#a9a35a', alpha: 0.55 },
   capillaryWater: { light: '#8fb0cc', dark: '#4d6f8c', alpha: 0.55 },
+  uraniumExcess: { light: '#a67cc4', dark: '#9872b8', alpha: 0.34 },
 };
 
 /** Colores sugeridos para zonas nuevas (bandas sobre el perfil, chips, crossplots coloreados por capa). */

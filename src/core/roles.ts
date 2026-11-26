@@ -78,7 +78,7 @@ export const BUILTIN_ROLES: readonly RoleDef[] = [
   { id: 'URAN', label: 'Uranio', unit: 'ppm', family: 'spectral', origin: 'measured', display: { color: '#bcbd22', scale: 'linear', min: 0, max: 20 } },
   { id: 'THOR', label: 'Torio', unit: 'ppm', family: 'spectral', origin: 'measured', display: { color: '#7f7f7f', scale: 'linear', min: 0, max: 30 } },
   { id: 'POTA', label: 'Potasio', unit: 'wt%', family: 'spectral', origin: 'measured', display: { color: '#e377c2', scale: 'linear', min: 0, max: 5 } },
-  { id: 'CGR', label: 'Rayos gamma sin uranio', unit: 'gAPI', family: 'spectral', origin: 'measured', display: { color: '#556b2f', scale: 'linear', min: 0, max: 150 } },
+  { id: 'CGR', label: 'Rayos gamma sin uranio', unit: 'gAPI', family: 'spectral', origin: 'any', display: { color: '#556b2f', scale: 'linear', min: 0, max: 150 } },
   // Resonancia magnética
   { id: 'PHIT_NMR', label: 'Porosidad total RMN', unit: 'v/v', family: 'nmr', origin: 'measured', display: { color: '#4b0082', scale: 'linear', min: 0, max: 0.4 } },
   { id: 'PHIE_NMR', label: 'Porosidad efectiva RMN', unit: 'v/v', family: 'nmr', origin: 'measured', display: { color: '#6a5acd', scale: 'linear', min: 0, max: 0.4 } },

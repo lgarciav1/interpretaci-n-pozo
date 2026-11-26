@@ -14,6 +14,7 @@ import { defaultToolCatalog, type ToolCatalog, type ToolFamily } from '../core/t
 import { isUserFlagRole } from '../core/userFlags';
 import { getUnit } from '../core/units';
 import type { Curve } from '../core/well';
+import { CGR_COMPARISON_TRACK } from './cgrComparison';
 import { SW_MODELS_TRACK } from './swModels';
 import { BUILTIN_LAYOUTS, NMR_SCALE, NMR_TRACK, R0_FILL, VOLUMETRIC_STACK } from './templates';
 
@@ -221,7 +222,16 @@ const TOOLS: Readonly<Record<string, ReturnType<typeof tool>[]>> = {
   resistivity: [tool('tool:resistivity', 'Resistividades', 'Escala logarítmica 0,2–2000 ohm·m, profunda encima', factory('petrophysics', 'resistivity'), ['RT', 'RM', 'RS', 'RXO', 'RA10', 'RA20', 'RA30'])],
   'density-neutron': [tool('tool:density-neutron', 'Densidad · neutrón', 'Escalas compatibles con cruce de gas y separación de arcilla', factory('petrophysics', 'porosity'), ['RHOB', 'NPHI', 'PEF', 'DRHO'])],
   sonic: [tool('tool:sonic', 'Sónico', 'Compresional y de corte', factory('petrophysics', 'sonic'), ['DT', 'DTS'])],
-  spectral: [tool('tool:spectral', 'GR espectral', 'K, Th, U, CGR y GR', factory('geology', 'spectral'), ['POTA', 'THOR', 'URAN', 'CGR', 'GR'])],
+  spectral: [
+    tool('tool:spectral', 'GR espectral', 'K, Th, U, CGR y GR', factory('geology', 'spectral'), ['POTA', 'THOR', 'URAN', 'CGR', 'GR']),
+    tool(
+      'tool:cgr-comparison',
+      'GR · CGR',
+      'GR total y CGR sin uranio en la misma escala, sombreado donde aporta el uranio',
+      CGR_COMPARISON_TRACK,
+      ['GR', 'CGR'],
+    ),
+  ],
   nmr: [tool('tool:nmr', 'Resonancia magnética', 'Agua ligada, irreducible y fluido libre, con la PHIE de densidad–neutrón encima', NMR_TRACK, ['PHIT_NMR', 'PHIE_NMR', 'BVI_NMR'])],
   computed: [
     tool('tool:computed', 'Interpretación', 'Junta las calculadas que ninguna otra pista muestra', factory('petrophysics', 'computed'), []),
@@ -275,7 +285,7 @@ export function buildTrackCatalog(input: CatalogInput): CatalogGroup[] {
       label: userFlag ? (def.description ?? 'Bandera de usuario') : def.label,
       role: def.id,
       mnemonics: present.map((c) => c.mnemonic),
-      origin: present.length || !isComputed ? 'measured' : 'computed',
+      origin: present.length || status === 'missing' ? 'measured' : 'computed',
       status,
       available: status !== 'missing',
       flag: def.family === 'flag',
