@@ -86,7 +86,7 @@ describe('flujo guiado', () => {
     expect(byStep['shale']).toEqual(['igr', 'vsh', 'cgr', 'igr-cgr', 'clay-distribution']);
     expect(byStep['porosity']).toEqual(expect.arrayContaining(['phi-density', 'phi-neutron', 'phi-sonic-raymer', 'phit', 'phie-vsh', 'phie-shale-corrected']));
     expect(byStep['rw']).toEqual(expect.arrayContaining(['temp-gradient', 'rw-manual']));
-    expect(byStep['saturation']).toEqual(expect.arrayContaining(['sw-archie', 'r0', 'sw-simandoux', 'sw-indonesia', 'bvw-sh']));
+    expect(byStep['saturation']).toEqual(expect.arrayContaining(['sw-archie', 'r0', 'sw-simandoux', 'sw-indonesia', 'bvw-sh', 'movable-hc']));
     expect(byStep['permeability']).toEqual(expect.arrayContaining(['perm-timur', 'perm-coates']));
     expect(Object.values(byStep).flat()).not.toContain('shale-flag');
   });

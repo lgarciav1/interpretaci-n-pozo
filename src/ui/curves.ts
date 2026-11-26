@@ -78,6 +78,9 @@ export const CURVE_PALETTE: Readonly<Record<RoleId, CurvePaletteEntry>> = {
   PHIE: { light: '#0a7bc2', dark: '#4cc0ff', line: 'solid', width: 1.75 },
   SW: { light: '#1d4ed8', dark: '#6f97ff', line: 'solid', width: 1.75 },
   SXO: { light: '#0e8a99', dark: '#48d6e6', line: 'dashed' },
+  MOS: { light: '#15803d', dark: '#4ade80', line: 'solid', width: 1.5 },
+  SHR: { light: '#b45309', dark: '#fb923c', line: 'dashed', width: 1.25 },
+  MHI: { light: '#6d28d9', dark: '#c4a1ff', line: 'dashdot', width: 1.25 },
   BVW: { light: '#2f6aa3', dark: '#79aee6', line: 'solid' },
   SH: { light: '#4d7c0f', dark: '#a3d65c', line: 'solid' },
   RW: { light: '#0b5394', dark: '#6fa8f5', line: 'solid', width: 1.5 },
@@ -153,6 +156,10 @@ export const CLASSIC_CURVE_PALETTE: Readonly<Partial<Record<RoleId, Partial<Curv
   PHIE: { light: '#2b5d8a', dark: '#86b4dc', line: 'solid', width: 1.25 },
   PHIT: { light: '#3a3f46', dark: '#c3c8cf', line: 'solid' },
   SW: { light: '#1f2f5c', dark: '#a9bde6', line: 'solid' },
+  SXO: { light: '#1c6d7a', dark: '#69c2cf', line: 'dashed' },
+  MOS: { light: '#1f6f3d', dark: '#6cc48c', line: 'solid' },
+  SHR: { light: '#9a4f1f', dark: '#e09a68', line: 'dashed' },
+  MHI: { light: '#5b2a9e', dark: '#b89ae6', line: 'dashdot' },
   R0: { light: '#0b6fa8', dark: '#6cc0ee', line: 'dotted', width: 1.25 },
   BVW: { light: '#3f6f96', dark: '#8fb3d3', line: 'solid' },
   PERM: { light: '#9a4a1f', dark: '#e09a6c', line: 'solid' },
@@ -207,6 +214,8 @@ export type FillId =
   | 'oil'
   | 'gas'
   | 'hydrocarbon'
+  | 'movableHydrocarbon'
+  | 'residualHydrocarbon'
   | 'washout'
   | 'netReservoir'
   | 'netPay'
@@ -245,6 +254,8 @@ export const FILL_PALETTE: Readonly<Record<FillId, FillEntry>> = {
   oil: { label: 'Petróleo', light: '#3fa34d', dark: '#2f8a3c', alpha: 0.6 },
   gas: { label: 'Gas', light: '#e8554e', dark: '#d4473f', alpha: 0.6 },
   hydrocarbon: { label: 'Hidrocarburo', light: '#43a047', dark: '#388e3c', alpha: 0.5 },
+  movableHydrocarbon: { label: 'Hidrocarburo móvil', light: '#22c55e', dark: '#2ecc71', alpha: 0.65 },
+  residualHydrocarbon: { label: 'Hidrocarburo residual', light: '#c85a32', dark: '#cf6b42', alpha: 0.65 },
   washout: { label: 'Derrumbe', light: '#9aa1ab', dark: '#5b626b', alpha: 0.35 },
   netReservoir: { label: 'Reservorio neto', light: '#f0c43c', dark: '#c79f2c', alpha: 0.8 },
   netPay: { label: 'Pay neto', light: '#e0453f', dark: '#d0423c', alpha: 0.8 },
@@ -279,6 +290,8 @@ export const CLASSIC_FILL_PALETTE: Readonly<Partial<Record<FillId, Partial<FillE
   basement: { light: '#b98380', dark: '#835553', alpha: 0.6 },
   water: { light: '#8fb0cc', dark: '#4d6f8c', alpha: 0.55 },
   hydrocarbon: { light: '#9fba86', dark: '#5e7a4a', alpha: 0.55 },
+  movableHydrocarbon: { light: '#6eb362', dark: '#548c46', alpha: 0.65 },
+  residualHydrocarbon: { light: '#b87654', dark: '#945d42', alpha: 0.65 },
   oil: { light: '#9fba86', dark: '#5e7a4a', alpha: 0.55 },
   gas: { light: '#d39c93', dark: '#93605a', alpha: 0.55 },
   washout: { light: '#b3b8bf', dark: '#5b626b', alpha: 0.3 },

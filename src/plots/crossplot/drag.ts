@@ -147,3 +147,46 @@ export function rwAtFormation(rwRef: number, tRef: number, tC: number, correct: 
 export function rwAtReference(rwForm: number, tRef: number, tC: number, correct: boolean): number {
   return correct ? arpsResistivityC(rwForm, tC, tRef) : rwForm;
 }
+
+// ── recta de agua Rt–Rxo (G07, ADR 0091) ────────────────────────────────────────────────────────────────────────
+
+/** Punto del crossplot Rt–Rxo: x = Rt (ohm·m), y = Rxo (ohm·m). */
+export interface RtRxoPoint {
+  rt: number;
+  rxo: number;
+}
+
+/**
+ * Cociente Rmf/Rw de la recta de agua `Rxo = (Rmf/Rw)·Rt` que pasa por `pt`: `rmfOverRw = Rxo / Rt`.
+ * NaN si el punto no tiene ambas resistividades positivas y finitas.
+ */
+export function rmfOverRwFromPoint(pt: RtRxoPoint): number {
+  if (!(pt.rt > 0) || !(pt.rxo > 0) || !Number.isFinite(pt.rt) || !Number.isFinite(pt.rxo)) return NaN;
+  return pt.rxo / pt.rt;
+}
+
+/**
+ * Posición de la manija sobre la recta de agua `Rxo = (Rmf/Rw)·Rt` dentro de la ventana visible (log–log).
+ * Si la recta queda fuera del gráfico, ubica la manija en el centro (arrastrarla trae la recta adentro).
+ */
+export function rtRxoWaterHandle(
+  rmfOverRw: number,
+  rtRange: [number, number],
+  rxoRange: [number, number],
+  at = 0.5,
+): { point: RtRxoPoint; visible: boolean } {
+  const [x0, x1] = [Math.log(Math.min(...rtRange)), Math.log(Math.max(...rtRange))];
+  const [y0, y1] = [Math.log(Math.min(...rxoRange)), Math.log(Math.max(...rxoRange))];
+  const L = Math.log(rmfOverRw);
+  if (!(rmfOverRw > 0) || !Number.isFinite(L) || !Number.isFinite(x0) || !Number.isFinite(x1) || !Number.isFinite(y0) || !Number.isFinite(y1)) {
+    return { point: { rt: 1, rxo: 1 }, visible: false };
+  }
+  // Y = X + L dentro de [y0, y1]  ⇔  X ∈ [y0 − L, y1 − L].
+  const lo = Math.max(x0, y0 - L);
+  const hi = Math.min(x1, y1 - L);
+  if (!(hi > lo)) {
+    return { point: { rt: Math.exp((x0 + x1) / 2), rxo: Math.exp((y0 + y1) / 2) }, visible: false };
+  }
+  const X = lo + at * (hi - lo);
+  return { point: { rt: Math.exp(X), rxo: Math.exp(X + L) }, visible: true };
+}

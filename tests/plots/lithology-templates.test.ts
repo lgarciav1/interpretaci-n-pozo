@@ -31,8 +31,8 @@ describe('las siete plantillas de litología', () => {
       expect(templateDef(id)?.group).toBe('lithology');
       expect(sanitizeCrossplot({ template: id }).template).toBe(id);
     }
-    // 13 + Thomas–Stieber (0061) + MID (G04).
-    expect(CROSSPLOT_TEMPLATE_DEFS).toHaveLength(15);
+    // 13 + Thomas–Stieber (0061) + MID (G04) + Movilidad Rt–Rxo (G07).
+    expect(CROSSPLOT_TEMPLATE_DEFS).toHaveLength(16);
   });
 
   it('ejes por rol, Th/K en log, PEF–K lineal y MID en DTMAA–RHOMAA (invertido)', () => {

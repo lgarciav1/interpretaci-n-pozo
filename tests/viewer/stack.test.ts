@@ -9,7 +9,7 @@ import { sanitizeDisplay } from '../../src/core/display';
 import { defaultRoleCatalog } from '../../src/core/roles';
 import type { Curve } from '../../src/core/well';
 import { resolveTracks, type ComputedCurve } from '../../src/viewer/resolve';
-import { computeStack, stackHint, stackReadout } from '../../src/viewer/stack';
+import { clampChildDecimatedSpan, computeStack, stackHint, stackReadout } from '../../src/viewer/stack';
 import { BUILTIN_LAYOUTS, STACK_ROLE_HINTS, VOLUMETRIC_STACK } from '../../src/viewer/templates';
 
 const arr = (...v: number[]) => Float64Array.from(v);
@@ -117,6 +117,78 @@ describe('pila volumétrica', () => {
     const r = computeStack(mineral, 1, source({ VCALC: arr(0.5), VDOL: arr(0.2) }));
     expect(r.legend.map((l) => l.id)).toEqual(['calc', 'dol', 'qtz']);
     expect(width(r, 'qtz', 0)).toBeCloseTo(0.3, 6);
+  });
+
+  it('G07: con MOS y SHR parte hidrocarburo en móvil (PHIE·MOS) y residual (PHIE·(1−SXO)) sin afectar pozos sin RXO', () => {
+    // Muestra 0: SW=0,2, SXO=0,7 → MOS=0,5, SHR=0,3, PHIE=0,25 → móvil=0,125, residual=0,075, suma=0,20 = PHIE·(1−SW)
+    // Muestra 1: RXO = NaN → MOS=NaN, SHR=NaN → el padre hidrocarburo (0,15) queda entero sin huecos
+    // Muestra 2: SW=1, SXO=1 → MOS=0, SHR=0 → ambos nietos ancho 0 (no NaN)
+    // Muestra 3: SW=NaN → limpia agua, hidrocarburo y nietos, dejando porosidad entera
+    const r = computeStack(
+      VOLUMETRIC_STACK,
+      4,
+      source({
+        VSH: arr(0.1, 0.2, 0.1, 0.1),
+        PHIE: arr(0.25, 0.25, 0.2, 0.2),
+        SW: arr(0.2, 0.4, 1.0, NaN),
+        MOS: arr(0.5, NaN, 0.0, NaN),
+        SHR: arr(0.3, NaN, 0.0, NaN),
+      }),
+    );
+    expect(r.missing).toEqual([]);
+    // Orden de capas: nivel 0 < nivel 1 < nivel 2
+    expect(r.layers.findIndex((l) => l.id === 'hydrocarbon')).toBeLessThan(r.layers.findIndex((l) => l.id === 'movable-hc'));
+    expect(layer(r, 'movable-hc').level).toBe(2);
+    expect(layer(r, 'residual-hc').level).toBe(2);
+    // Leyenda conserva Hidrocarburo porque muestra 1 cae al padre
+    expect(r.legend.map((l) => l.id)).toEqual(['shale', 'matrix', 'water', 'hydrocarbon', 'movable-hc', 'residual-hc']);
+    // Muestra 0: partición exacta
+    expect(width(r, 'water', 0)).toBeCloseTo(0.05, 6);
+    expect(width(r, 'movable-hc', 0)).toBeCloseTo(0.125, 6);
+    expect(width(r, 'residual-hc', 0)).toBeCloseTo(0.075, 6);
+    expect(layer(r, 'movable-hc').left[0]).toBeCloseTo(layer(r, 'hydrocarbon').left[0]!, 6);
+    expect(layer(r, 'residual-hc').right[0]).toBeCloseTo(1, 6);
+    // Muestra 1: MOS/SHR NaN → nietos NaN y padre hidrocarburo entero (0,15)
+    expect(width(r, 'hydrocarbon', 1)).toBeCloseTo(0.15, 6);
+    expect(layer(r, 'movable-hc').left[1]).toBeNaN();
+    expect(layer(r, 'residual-hc').left[1]).toBeNaN();
+    // Muestra 2: SW=1 → nietos con ancho 0
+    expect(width(r, 'movable-hc', 2)).toBeCloseTo(0, 6);
+    expect(width(r, 'residual-hc', 2)).toBeCloseTo(0, 6);
+    // Muestra 3: SW=NaN → nietos también NaN y porosidad entera
+    expect(width(r, 'pore', 3)).toBeCloseTo(0.2, 6);
+    expect(layer(r, 'hydrocarbon').left[3]).toBeNaN();
+    expect(layer(r, 'movable-hc').left[3]).toBeNaN();
+    expect(layer(r, 'residual-hc').left[3]).toBeNaN();
+    // Si MOS/SHR están todos en NaN, no se activa la partición opcional (misma leyenda que sin RXO)
+    const allNan = computeStack(
+      VOLUMETRIC_STACK,
+      2,
+      source({ VSH: arr(0.2, 0.2), PHIE: arr(0.2, 0.2), SW: arr(0.3, 0.4), MOS: arr(NaN, NaN), SHR: arr(NaN, NaN) }),
+    );
+    expect(allNan.legend.map((l) => l.id)).toEqual(['shale', 'matrix', 'water', 'hydrocarbon']);
+    expect(allNan.missing).toEqual([]);
+
+    // Regresión hallazgo 5: MOS y SHR finitos en índices disjuntos (o solo donde VSH = NaN) no dejan leyenda fantasma
+    const disjoint = computeStack(
+      VOLUMETRIC_STACK,
+      2,
+      source({ VSH: arr(0.2, 0.2), PHIE: arr(0.2, 0.2), SW: arr(0.3, 0.4), MOS: arr(0.4, NaN), SHR: arr(NaN, 0.3) }),
+    );
+    expect(disjoint.legend.map((l) => l.id)).toEqual(['shale', 'matrix', 'water', 'hydrocarbon']);
+    expect(disjoint.layers.some((l) => l.id === 'movable-hc' || l.id === 'residual-hc')).toBe(false);
+
+    // Regresión hallazgo 3: acotado bajo decimación impide que movable-hc invada el tramo del padre/agua
+    const pXa = Float32Array.from([70, NaN]);
+    const pXb = Float32Array.from([100, NaN]);
+    const cXa = Float32Array.from([62, 65]);
+    const cXb = Float32Array.from([85, 90]);
+    clampChildDecimatedSpan(cXa, cXb, pXa, pXb, 2);
+    expect(cXa[0]).toBe(70);
+    expect(cXb[0]).toBe(85);
+    expect(cXa[1]).toBeNaN();
+    expect(cXb[1]).toBeNaN();
+    expect(layer(r, 'movable-hc').parentId).toBe('hydrocarbon');
   });
 });
 

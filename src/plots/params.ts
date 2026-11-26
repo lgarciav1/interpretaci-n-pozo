@@ -10,6 +10,7 @@ import type { SourceRef } from '../core/interpretation';
 import { paramScope, paramStorageKey, type NumberParamSpec, type ParamSpec, type ParamState, type ParamValue } from '../core/params';
 import type { Zone } from '../core/well';
 import clayDistribution from '../modules/clay-distribution';
+import movableHc from '../modules/movable-hc';
 import nmrFluids from '../modules/nmr-fluids';
 import phiDensity from '../modules/phi-density';
 import phiNeutron from '../modules/phi-neutron';
@@ -57,10 +58,15 @@ export const PLOT_PARAMS = {
   phiShale: plotParam('clay-distribution', 'phiShale', clayDistribution.params.phiShale, 'φ lutita'),
   /** Solo lectura (ancho de la banda laminar de Thomas–Stieber). */
   clayBand: plotParam('clay-distribution', 'bandTolerance', clayDistribution.params.bandTolerance, 'Banda laminar'),
+  /** Recta de agua del crossplot Movilidad Rt–Rxo (ADR 0091): se arrastra para calibrar Rmf / Rw. */
+  rmfOverRw: plotParam('movable-hc', 'rmfOverRw', movableHc.params.rmfOverRw, 'Rmf/Rw'),
 } as const;
 
 /** Clave de almacenamiento de «Corregir por temperatura» de `rw-manual` (booleano). */
 export const RW_CORRECT_STORAGE = paramStorageKey('rw-manual', 'correct', rwManual.params.correct);
+
+/** Clave de almacenamiento del método activo de `movable-hc` ('ratio' | 'archie'). */
+export const MOVABLE_METHOD_STORAGE = paramStorageKey('movable-hc', 'method', movableHc.params.method);
 
 // ── alcance ─────────────────────────────────────────────────────────────────────────────────────────────────────
 

@@ -22,7 +22,7 @@ import type { TrackBox } from './layout';
 import { guard, type OverlayFrame, type OverlayTrack, type OverlayViewport, type ViewerData, type ViewerOverlay } from './overlay';
 import { formatDepth, nearestIndex } from './readout';
 import { findCurve, type ResolvedCurve, type ResolvedTrack } from './resolve';
-import { stackHint } from './stack';
+import { clampChildDecimatedSpan, stackHint } from './stack';
 import { fractionArray, fractionToValue, scaleKey, valueToFraction, wrapFractionArray, type AxisScale } from './scale';
 import { depthTicks, linearGrid, logGrid } from './ticks';
 import { baseOf, depthOf, yOf, type Viewport } from './viewport';
@@ -436,9 +436,18 @@ export class ViewerRenderer {
     const look = f.look ?? VIEWER_LOOKS.modern;
     // Tramas litológicas (perfil clásico): se aclaran al alejar y desaparecen a escala de pozo completo.
     const patternAlpha = look.lithology ? patternOpacity(f.viewport.pxPerM) : 0;
+    const parentIds = s.decimated ? new Set(st.layers.map((l) => l.parentId).filter((id): id is string => !!id)) : null;
+    const parentBounds = parentIds && parentIds.size ? new Map<string, { xa: Float32Array; xb: Float32Array }>() : null;
     for (const l of st.layers) {
       this.fracProfile(`${t.id}:${l.id}:l`, l.left, box, s, this.xa);
       this.fracProfile(`${t.id}:${l.id}:r`, l.right, box, s, this.xb);
+      if (parentBounds && l.parentId) {
+        const p = parentBounds.get(l.parentId);
+        if (p) clampChildDecimatedSpan(this.xa, this.xb, p.xa, p.xb, s.n);
+      }
+      if (parentBounds && parentIds!.has(l.id)) {
+        parentBounds.set(l.id, { xa: this.xa.slice(0, s.n), xb: this.xb.slice(0, s.n) });
+      }
       const path = new Path2D();
       fillBetween(s.n, s.y, this.xa, this.xb, path, null, box.x, box.x + box.width);
       const color = stackFillColor(l.fill, f.theme, look.palette);

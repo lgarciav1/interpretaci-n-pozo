@@ -98,6 +98,17 @@ export interface StackComponentSpec {
   partialLabel?: string;
   partialShort?: string;
   partialFill?: FillRef;
+  /**
+   * Refinamiento opcional del padre: sus roles no se informan en `missing` si faltan en el pozo y solo se activan si
+   * tienen al menos una muestra finita. El padre se dibuja debajo y queda en la leyenda si alguna muestra cae en él.
+   */
+  optional?: boolean;
+  /**
+   * Cómo reparten el ancho del padre sus `children`:
+   * - 'fraction' (por defecto): cada hijo toma `factor * ancho_padre` (normalizando solo si la suma pasa de 1).
+   * - 'proportional': reparte el ancho del padre en proporción `f_j / Σf` (p. ej. MOS y SHR dentro de hidrocarburo).
+   */
+  childrenMode?: 'fraction' | 'proportional';
   children?: StackComponentSpec[];
 }
 
@@ -309,6 +320,8 @@ function sanitizeStackComponent(raw: unknown, depth = 0): StackComponentSpec | n
   if (typeof raw['partialLabel'] === 'string') c.partialLabel = raw['partialLabel'];
   if (typeof raw['partialShort'] === 'string' && raw['partialShort']) c.partialShort = raw['partialShort'];
   if (isStr(raw['partialFill'])) c.partialFill = raw['partialFill'];
+  if (raw['optional'] === true) c.optional = true;
+  if (raw['childrenMode'] === 'proportional') c.childrenMode = 'proportional';
   if (!c.rest && !c.factors?.length) return null; // sin factores ni resto no se puede calcular
   if (Array.isArray(raw['children'])) {
     const children = raw['children'].map((k) => sanitizeStackComponent(k, depth + 1)).filter((k): k is StackComponentSpec => !!k);
