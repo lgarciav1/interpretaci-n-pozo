@@ -67,8 +67,19 @@ export function buildReportModel(well: Well, interpretation: Interpretation, res
     if (!spec || spec.kind !== 'table') return null;
     return { title: spec.label, columns: spec.columns.map((c) => ({ ...c })), rows: (out.value as TableValue).rows.map((r) => ({ ...r })) };
   };
-  const warnings = current?.diagnostics.map((d) => `${d.level === 'error' ? 'Error' : d.level === 'warning' ? 'Advertencia' : 'Información'}${d.moduleId ? ` · ${catalog.get(d.moduleId)?.name ?? d.moduleId}` : ''}: ${d.message}`) ?? ['No hay resultados vigentes para este pozo.'];
   const qc = runQc(originals, { roles: catalog.roles });
+  const warnings: string[] = [
+    `Control de calidad de registros: ${qc.status === 'ok' ? 'sin alertas relevantes' : qc.status === 'bad' ? 'datos con problemas importantes' : 'hay advertencias'}.`,
+    ...qc.curves.flatMap((curve) => curve.reasons.map((reason) => `Calidad · ${curve.mnemonic}: ${reason.message}`)),
+    ...(!qc.borehole
+      ? ['Sin caliper asignado: no se puede evaluar el estado del pozo ni los posibles errores de contacto de las herramientas de patín.']
+      : qc.borehole.washoutSamples || qc.borehole.invalidCaliperSamples
+        ? [
+            `Estado del pozo: ${number(qc.borehole.washoutThicknessM)} m con derrumbe y ${number(qc.borehole.invalidCaliperThicknessM)} m con caliper inválido. Revisar las curvas de patín: ${qc.borehole.affectedCurveIds.join(', ') || 'sin curvas asignadas'}.`,
+          ]
+        : []),
+    ...(current?.diagnostics.map((d) => `${d.level === 'error' ? 'Error' : d.level === 'warning' ? 'Advertencia' : 'Información'}${d.moduleId ? ` · ${catalog.get(d.moduleId)?.name ?? d.moduleId}` : ''}: ${d.message}`) ?? ['No hay resultados vigentes para este pozo.']),
+  ];
   for (const p of current?.preparation?.artifacts ?? []) {
     const a = current!.preparation!.plan.artifacts.find(a => a.id === p.id)!;
     if (a.mgt) { warnings.push(`Corrección ambiental MGT: ${JSON.stringify(a.correctionLedger)}. ${p.quality.reduce((n,q) => n + (q === 64 ? 1 : 0),0)} muestras corregidas; ${p.quality.reduce((n,q) => n + (q === 128 ? 1 : 0),0)} fuera de dominio o sin caliper. No certifica resultados del TP ni equivalencia con otra herramienta.`); continue; }
@@ -91,10 +102,6 @@ export function buildReportModel(well: Well, interpretation: Interpretation, res
     const exclusions = a.ranges.length ? `Intervalos MD con extremos incluidos: ${a.ranges.map(r => `${number(r.top)}–${number(r.base)} m`).join(', ')}.` : 'Sin exclusiones por intervalo.';
     warnings.push(`Preparación · ${a.mnemonic}: ${counts.newlyExcluded} mediciones excluidas; ${counts.originallyMissing} faltantes originales. ${exclusions} Los originales se conservan; el control de calidad describe las mediciones originales.`);
   }
-  warnings.push(`Control de calidad de registros: ${qc.status === 'ok' ? 'sin alertas relevantes' : qc.status === 'bad' ? 'datos con problemas importantes' : 'hay advertencias'}.`);
-  for (const curve of qc.curves) for (const reason of curve.reasons) warnings.push(`Calidad · ${curve.mnemonic}: ${reason.message}`);
-  if (!qc.borehole) warnings.push('Sin caliper asignado: no se puede evaluar el estado del pozo ni los posibles errores de contacto de las herramientas de patín.');
-  else if (qc.borehole.washoutSamples || qc.borehole.invalidCaliperSamples) warnings.push(`Estado del pozo: ${number(qc.borehole.washoutThicknessM)} m con derrumbe y ${number(qc.borehole.invalidCaliperThicknessM)} m con caliper inválido. Revisar las curvas de patín: ${qc.borehole.affectedCurveIds.join(', ') || 'sin curvas asignadas'}.`);
   const parameters: ReportModel['parameters'] = [];
   for (const node of current?.nodes ?? []) {
     const mod = catalog.get(node.moduleId);

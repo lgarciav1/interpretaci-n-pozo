@@ -94,6 +94,21 @@ export function pickettLine(sw: number, p: ArchieParams, phiRange: [number, numb
   return { phi, rt: phi.map((f) => archieRt(f, sw, p)) };
 }
 
+// ── Movilidad Rt–Rxo (Ratio Plot, ADR 0091) ───────────────────────────────────────────────────────────────────
+
+/** Líneas de índice de movilidad (Sw/Sxo) del gráfico Rt–Rxo: 1 es la recta de agua; 0,7 y 0,5 marcan hidrocarburo móvil. */
+export const RT_RXO_MHI_LINES: readonly number[] = [1, 0.7, 0.5];
+
+/**
+ * Recta de movilidad constante `Sw/Sxo = mhi` en log Rxo vs. log Rt: `Rxo = (Rmf/Rw)·mhi^n·Rt` (pendiente +1 en log–log).
+ * Fuente: Asquith y Krygowski (2004), Basic Well Log Analysis, 2.ª ed., cap. 6 (Ratio Method e índice Sw/Sxo).
+ */
+export function rtRxoLine(mhi: number, rmfOverRw: number, n = 2, rtRange: [number, number] = [0.1, 2000]): { rt: number[]; rxo: number[] } {
+  const factor = rmfOverRw * Math.pow(mhi, n);
+  const rt = [rtRange[0], rtRange[1]];
+  return { rt, rxo: rt.map((r) => r * factor) };
+}
+
 // ── φ–Sw (Buckles) ────────────────────────────────────────────────────────────────────────────────────────────
 
 /** Valores de volumen de agua (BVW = φ·Sw) de las hipérbolas del gráfico φ–Sw. */
@@ -206,6 +221,17 @@ export const CROSSPLOT_TEMPLATE_DEFS: readonly CrossplotTemplate[] = [
     description: 'Rt contra GR con las lecturas de arena limpia y de arcilla',
     x: { role: 'GR', scale: 'linear' },
     y: { role: 'RT', scale: 'log' },
+  },
+  {
+    id: 'rt-rxo',
+    group: 'fluids',
+    label: 'Movilidad Rt–Rxo (Ratio Plot)',
+    shortLabel: 'Movilidad Rt–Rxo',
+    description: 'Rxo contra Rt en log–log con la recta de agua arrastrable (Rmf/Rw) y líneas de Sw/Sxo = 0,7 y 0,5',
+    x: { role: 'RT', scale: 'log' },
+    y: { role: 'RXO', scale: 'log' },
+    colorRole: 'SW',
+    needs: 'Rxo la calcula «Invasión escalonada» con la inducción de arreglo (o se carga como curva medida).',
   },
   {
     id: 'nmr-dn',

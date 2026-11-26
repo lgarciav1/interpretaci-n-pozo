@@ -27,7 +27,9 @@ export const R0_FILL: FillSpec = { kind: 'between', a: 'R0', b: 'RT', aLeft: 'hy
 
 /**
  * Columna volumétrica (de izquierda a derecha, como ELAN/Techlog): arcilla = VSH, matriz = 1 − VSH − PHIE y la
- * porosidad PHIE partida en agua = PHIE·SW e hidrocarburo = PHIE·(1 − SW). Nunca usa IGR como VSH.
+ * porosidad PHIE partida en agua = PHIE·SW e hidrocarburo = PHIE·(1 − SW). Cuando existen MOS y SHR (ADR 0091),
+ * hidrocarburo se parte opcionalmente en móvil (PHIE·MOS) y residual (PHIE·(1 − SXO)); en pozos sin RXO o en
+ * muestras con RXO = NaN el padre `hydrocarbon` se dibuja entero sin huecos falsos. Nunca usa IGR como VSH.
  */
 export const VOLUMETRIC_STACK: StackSpec = {
   components: [
@@ -40,7 +42,18 @@ export const VOLUMETRIC_STACK: StackSpec = {
       factors: [{ role: 'PHIE' }],
       children: [
         { id: 'water', label: 'Agua', fill: 'water', factors: [{ role: 'SW' }] },
-        { id: 'hydrocarbon', label: 'Hidrocarburo', short: 'Hidroc.', fill: 'hydrocarbon', factors: [{ role: 'SW', complement: true }] },
+        {
+          id: 'hydrocarbon',
+          label: 'Hidrocarburo',
+          short: 'Hidroc.',
+          fill: 'hydrocarbon',
+          factors: [{ role: 'SW', complement: true }],
+          childrenMode: 'proportional',
+          children: [
+            { id: 'movable-hc', label: 'Hidrocarburo móvil', short: 'HC móvil', fill: 'movableHydrocarbon', factors: [{ role: 'MOS' }], optional: true },
+            { id: 'residual-hc', label: 'Hidrocarburo residual', short: 'HC resid.', fill: 'residualHydrocarbon', factors: [{ role: 'SHR' }], optional: true },
+          ],
+        },
       ],
     },
   ],

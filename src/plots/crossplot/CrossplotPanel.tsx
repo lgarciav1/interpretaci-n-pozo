@@ -20,8 +20,10 @@ import type { TrendSpec } from '../../core/trends';
 import type { TrendModel } from '../../petro/regression';
 import { arpsResistivityC } from '../../petro/temperature';
 import { registry } from '../../modules';
+import movableHc from '../../modules/movable-hc';
 import rwManual from '../../modules/rw-manual';
 import { SHARED_PARAMS } from '../../modules/sharedParams';
+import { MHI_MOVABLE_SANDSTONE, ratioMhi } from '../../petro/movability';
 import { Badge, Button, Chip, EmptyState, IconButton, Menu, SEQUENTIAL_PALETTE, SegmentedControl, curveStyle, ensureContrast, fillColor, formatNumber, rampColor, toast, useThemeTokens, withAlpha, type MenuEntry } from '../../ui';
 import type { ThemeTokens } from '../../ui/tokens';
 import type { Zone } from '../../core/well';
@@ -30,7 +32,7 @@ import { PlotFilterBar, PlotFilterControls } from '../FilterControls';
 import { evaluatePlotFilters } from '../filters';
 import { CUTOFF_PASSES, cutoffParamFor, cutoffScope, guideStep, normalizeCutoff, resolveCutoffLine, type CutoffLine, type CutoffParamKey } from '../cutoffs';
 import { effectiveScale, engineInputData, hiddenCurveOfKey, keyForRole, plotCurveOptions, resolvePlotCurve, zoneFilter, type PlotCurve, type ZoneFilter } from '../data';
-import { clayEndpointWrite, clayEstimateWrites, formatParam, grGuides, grWrite, inactiveDriver, normalizeParam, nudgeParam, paramChangeLabel, paramOfGuide, paramWrite, plotParamValue, plotScope, PLOT_PARAMS, RW_CORRECT_STORAGE, storedParamValue, type ParamWrite, type PlotScope } from '../params';
+import { clayEndpointWrite, clayEstimateWrites, formatParam, grGuides, grWrite, inactiveDriver, MOVABLE_METHOD_STORAGE, normalizeParam, nudgeParam, paramChangeLabel, paramOfGuide, paramWrite, plotParamValue, plotScope, PLOT_PARAMS, RW_CORRECT_STORAGE, storedParamValue, type ParamWrite, type PlotScope } from '../params';
 import { clearPlotSelection, getPlotLink, makeSelection, setPlotLink, setPlotSelection } from '../link';
 import { cloudMask, maskFromCloud, pointsInShape, unionMask, type DataPolygon, type SelectionShape } from '../selection';
 import { usePlotSelection } from '../useLink';
@@ -46,11 +48,11 @@ import { cutoffSplit } from '../histogram/histogram';
 import { COLOR_LEVELS, colorLevel, gather, medianAt, plottableIndices, robustRange } from './crossplot';
 import { CROSSPLOT_PROVIDER_ID, crossplotSeries, crossplotSeriesKey, parseCrossplotSeriesKey } from './series';
 import { fitWaterLine, WATER_FIT_DEFAULTS, ownPickettParams, parseWaterHandle, waterLineDragWrites, waterLineNudgeWrites, ownValuesNotice, pickettByZone, zonesWithOwnPickett, type WaterFit } from './pickett';
-import { matrixParamsOf, matrixPointOf, projectMatrixLine, representativeTemperature, rwAtFormation, snapMatrixToLithology, waterLineHandles, waterLineRt } from './drag';
+import { matrixParamsOf, matrixPointOf, projectMatrixLine, representativeTemperature, rmfOverRwFromPoint, rtRxoWaterHandle, rwAtFormation, snapMatrixToLithology, waterLineHandles, waterLineRt } from './drag';
 import { AxisRangeEditor } from './AxisRangeEditor';
 import { crossplotTemplatePatch } from './applyTemplate';
 import { thomasStieberLayers } from './templates';
-import { BVW_LINES, CROSSPLOT_TEMPLATE_DEFS, DN_LITHOLOGIES, PICKETT_SW, TEMPLATE_GROUPS, bvwLine, densityNeutronLine, isLithologyTemplate, lithologyTemplateLayers, nmrDnLines, pickettLine, mineralogyTemplateLayers, mineralogyFullRange, templateDef, type ArchieParams, type MatrixColors } from './templates';
+import { BVW_LINES, CROSSPLOT_TEMPLATE_DEFS, DN_LITHOLOGIES, PICKETT_SW, RT_RXO_MHI_LINES, TEMPLATE_GROUPS, bvwLine, densityNeutronLine, isLithologyTemplate, lithologyTemplateLayers, nmrDnLines, pickettLine, rtRxoLine, mineralogyTemplateLayers, mineralogyFullRange, templateDef, type ArchieParams, type MatrixColors } from './templates';
 import { MID_CHART_RANGE, UMAA_CHART_RANGE } from '../../petro/lithologyIndices';
 import { clayDistributionSummary, countClayDistribution, estimateClayEndpoints, type EndpointEstimate } from '../../petro/clayDistribution';
 import '../plots.css';
@@ -186,6 +188,8 @@ interface TemplateDrawing {
   byZoneOffer: string[] | null;
   /** Thomas–Stieber (0061): extremos vigentes, resumen de la nube y la propuesta de «Estimar de los datos». */
   clay: ClayState | null;
+  /** Movilidad Rt–Rxo (0091): relación Rmf/Rw y exponente n vigentes para las flechas de teclado. */
+  rtRxo: { rmfOverRw: number; n: number } | null;
 }
 
 interface ClayState {
@@ -541,10 +545,118 @@ function thomasStieberDrawing(out: TemplateDrawing, t: TemplateContext, c: (hex:
     : 'Rectas de Thomas–Stieber con los extremos del proyecto. Los extremos se arrastran con VSH en X y PHIT en Y.';
 }
 
+/**
+ * Movilidad Rt–Rxo (Ratio Plot, ADR 0091): recta de agua Rxo = (Rmf/Rw)·Rt arrastrable para calibrar Rmf/Rw sobre las
+ * arenas mojadas, más líneas guía de Sw/Sxo = 0,7 (umbral móvil en areniscas) y 0,5 (movilidad alta).
+ */
+function rtRxoDrawing(out: TemplateDrawing, t: TemplateContext, c: (hex: string) => string): void {
+  const { ctx, theme, scope } = t;
+  const params = ctx.interpretation.params;
+  const rmfOverRw = plotParamValue(params, PLOT_PARAMS.rmfOverRw, scope.zoneId);
+  const nExp = plotParamValue(params, PLOT_PARAMS.n, scope.zoneId);
+  const method = storedParamValue(params, MOVABLE_METHOD_STORAGE, movableHc.params.method, scope.zoneId) as string;
+  out.rtRxo = { rmfOverRw, n: nExp };
+
+  const onAxes = t.cx.role === 'RT' && t.cy.role === 'RXO' && t.xAxis.kind === 'log' && t.yAxis.kind === 'log';
+  const rawXMin = Math.min(t.xAxis.min, t.xAxis.max);
+  const rawXMax = Math.max(t.xAxis.min, t.xAxis.max);
+  const rawYMin = Math.min(t.yAxis.min, t.yAxis.max);
+  const rawYMax = Math.max(t.yAxis.min, t.yAxis.max);
+  const xMin = Math.max(1e-4, rawXMin);
+  const xMax = rawXMax > xMin ? rawXMax : xMin * 10;
+  const yMin = Math.max(1e-4, rawYMin);
+  const yMax = rawYMax > yMin ? rawYMax : yMin * 10;
+  const waterColor = c(theme.color.info);
+  const guideColor = c(theme.color.textMuted);
+
+  let waterLine: { rt: number[]; rxo: number[] } | null = null;
+  for (const mhi of RT_RXO_MHI_LINES) {
+    const factor = rmfOverRw * Math.pow(mhi, nExp);
+    const lo = Math.max(xMin, yMin / factor);
+    const hi = Math.min(xMax, yMax / factor);
+    const rtRange: [number, number] = hi > lo ? [lo, hi] : [xMin, xMax];
+    const l = rtRxoLine(mhi, rmfOverRw, nExp, rtRange);
+    const isWater = mhi === 1;
+    if (isWater) waterLine = l;
+    const mhiLabel = formatNumber(mhi, { digits: 1 });
+    out.lines.push({
+      id: `rt-rxo-${mhi}`,
+      name: isWater ? 'Recta de agua (Sw/Sxo = 1)' : `Sw/Sxo = ${mhiLabel}`,
+      x: l.rt,
+      y: l.rxo,
+      color: isWater ? waterColor : guideColor,
+      width: isWater ? 2 : 1.25,
+      dash: isWater ? [] : [6, 4],
+      label: isWater ? 'Agua (Sw/Sxo = 1)' : `Sw/Sxo ${mhiLabel}`,
+      labelAt: 'end',
+    });
+  }
+
+  const ratioText = formatParam(PLOT_PARAMS.rmfOverRw, rmfOverRw);
+  const nText = formatParam(PLOT_PARAMS.n, nExp);
+
+  if (onAxes && waterLine) {
+    const h = rtRxoWaterHandle(rmfOverRw, [xMin, xMax], [yMin, yMax]);
+    const drag = t.dragging?.id === 'rt-rxo-water' ? t.dragging : null;
+    const clampedDragRt = drag && drag.x > 0 ? Math.min(xMax, Math.max(xMin, drag.x)) : NaN;
+    const pt = Number.isFinite(clampedDragRt) ? { rt: clampedDragRt, rxo: clampedDragRt * rmfOverRw } : h.point;
+    out.handles.push({
+      id: 'rt-rxo-water',
+      x: pt.rt,
+      y: pt.rxo,
+      color: waterColor,
+      label: `Rmf/Rw ${scope.text} · ${ratioText}`,
+      detail: method === 'archie' ? 'modo Archie activo' : 'recta de agua',
+      ariaLabel: `Recta de agua Rt–Rxo ${scope.text}: cambia la relación Rmf/Rw. Flechas para mover, Mayús para pasos largos`,
+      valueText: `Rmf/Rw ${ratioText}`,
+      grabPath: { x: waterLine.rt, y: waterLine.rxo },
+      labelAt: { x: 'right', y: 'below' },
+      labelOnActive: true,
+    });
+  }
+
+  out.readouts.push(
+    { label: 'Rmf / Rw', value: ratioText, color: waterColor, point: 'circle' },
+    { label: 'Exponente n', value: nText },
+  );
+
+  if (onAxes && t.cloudX.length > 0) {
+    let valid = 0;
+    let movable = 0;
+    let aboveWater = 0;
+    for (let k = 0; k < t.cloudX.length; k++) {
+      const mhi = ratioMhi(t.cloudY[k]!, t.cloudX[k]!, rmfOverRw, nExp);
+      if (!Number.isFinite(mhi)) continue;
+      valid++;
+      if (mhi < MHI_MOVABLE_SANDSTONE) movable++;
+      if (mhi > 1 + 1e-6) aboveWater++;
+    }
+    if (valid > 0) {
+      out.readouts.push({
+        label: 'Móviles (Sw/Sxo < 0,7)',
+        value: `${formatNumber(movable, { digits: 0 })} (${pct((100 * movable) / valid)})`,
+        color: c(fillColor('movableHydrocarbon', theme.name).color),
+      });
+      if (aboveWater > 0) {
+        out.readouts.push({
+          label: 'Sobre recta de agua',
+          value: `${formatNumber(aboveWater, { digits: 0 })} (${pct((100 * aboveWater) / valid)})`,
+        });
+      }
+    }
+  }
+
+  out.info = onAxes
+    ? method === 'archie'
+      ? 'Arrastrá la recta de agua sobre las arenas acuíferas para calibrar Rmf/Rw. El módulo «Hidrocarburo móvil y residual» está en modo Archie: cambiá el método a «Cociente Rt–Rxo» para que Sxo use esta relación. Puntos por debajo de Sw/Sxo = 0,7 indican hidrocarburo móvil en areniscas.'
+      : 'Arrastrá la recta de agua (Sw/Sxo = 1) sobre las arenas acuíferas para calibrar Rmf/Rw; Sxo, MOS, Shr, MHI y la columna volumétrica se recalculan en vivo. Los puntos debajo de Sw/Sxo = 0,7 indican hidrocarburo móvil en areniscas.'
+    : `Recta de agua con Rmf/Rw = ${ratioText} y líneas de Sw/Sxo = 0,7 y 0,5 (n = ${nText}). Poné RT en X y RXO en Y en escala log para arrastrarla.`;
+}
+
 /** Líneas guía y manijas de la plantilla, con colores del tema (la matemática está en `templates.ts` y `drag.ts`). */
 function templateDrawing(id: CrossplotTemplateId | null, t: TemplateContext): TemplateDrawing {
   const { ctx, theme, scope } = t;
-  const out: TemplateDrawing = { lines: [], polygons: [], guides: [], points: [], handles: [], info: null, readouts: [], warnings: [], dn: null, pickett: [], water: null, byZoneOffer: null, clay: null };
+  const out: TemplateDrawing = { lines: [], polygons: [], guides: [], points: [], handles: [], info: null, readouts: [], warnings: [], dn: null, pickett: [], water: null, byZoneOffer: null, clay: null, rtRxo: null };
   const bg = theme.viewer.trackBg;
   const c = (hex: string) => ensureContrast(hex, bg, 3);
   const params = ctx.interpretation.params;
@@ -612,6 +724,8 @@ function templateDrawing(id: CrossplotTemplateId | null, t: TemplateContext): Te
       out.warnings.push({ id: 'igr', title: 'El índice de arcilla no sale de este GR', text: 'Mover las líneas no cambiaría Vsh.', action: 'Usar índice de arcilla por GR', port: 'IGR', moduleId: 'igr' });
     }
     out.info = draggable ? 'GR de arena limpia y de arcilla del paso Arcilla: arrastralas para elegirlas (Vsh se recalcula en vivo).' : 'GR de arena limpia y de arcilla del paso Arcilla (de la zona si hay una sola filtrada).';
+  } else if (id === 'rt-rxo') {
+    rtRxoDrawing(out, t, c);
   } else if (id === 'th-k' || id === 'pe-density') {
     const layers = mineralogyTemplateLayers(id, c);
     out.polygons.push(...layers.polygons);
@@ -942,6 +1056,12 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
       props.onParams(paramChangeLabel(PLOT_PARAMS[which]), w ? [w] : [], phase);
       return;
     }
+    if (id === 'rt-rxo-water') {
+      const raw = rmfOverRwFromPoint({ rt: pos.x, rxo: pos.y });
+      const v = normalizeParam(PLOT_PARAMS.rmfOverRw.spec, raw);
+      props.onParams(paramChangeLabel(PLOT_PARAMS.rmfOverRw), Number.isFinite(v) ? [paramWrite(PLOT_PARAMS.rmfOverRw, v, pscope)] : [], phase);
+      return;
+    }
     const w = parseWaterHandle(id);
     const u = w ? waterUnit(w.key) : null;
     if (w && u) props.onParams(paramChangeLabel(w.which === 'move' ? PLOT_PARAMS.rwRef : PLOT_PARAMS.m), waterLineDragWrites(u, w.which, { rt: pos.x, phi: pos.y }), phase);
@@ -963,6 +1083,14 @@ export function CrossplotPanel(props: CrossplotPanelProps) {
       const cur = which === 'phiSand' ? tpl.clay.phiSand : tpl.clay.phiShale;
       const w = clayEndpointWrite(which, nudgeParam(PLOT_PARAMS[which].spec, cur, (dy * (yAxis?.reversed ? -1 : 1)) as 1 | -1, big), params, pscope);
       if (w) props.onParams(paramChangeLabel(PLOT_PARAMS[which]), [w], 'commit');
+      return;
+    }
+    // Recta de agua Rt–Rxo: subir Rxo o correr a la izquierda Rt aumenta Rmf/Rw = Rxo/Rt.
+    if (id === 'rt-rxo-water' && tpl?.rtRxo) {
+      const dir = (dy ? dy * (yAxis?.reversed ? -1 : 1) : -dx * (xAxis?.reversed ? -1 : 1)) as 1 | -1;
+      if (!dir) return;
+      const v = nudgeParam(PLOT_PARAMS.rmfOverRw.spec, tpl.rtRxo.rmfOverRw, dir, big);
+      props.onParams(paramChangeLabel(PLOT_PARAMS.rmfOverRw), [paramWrite(PLOT_PARAMS.rmfOverRw, v, pscope)], 'commit');
       return;
     }
     // Recta de agua: derecha o arriba = más Rw (trasladar) o más m (rotar).

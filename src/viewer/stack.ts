@@ -23,8 +23,10 @@ export interface StackLayer {
   fill: string;
   left: Float32Array;
   right: Float32Array;
-  /** 0 = primer nivel; 1 = hijo (se dibuja encima de su padre). */
+  /** 0 = primer nivel; 1 = hijo (se dibuja encima de su padre); 2 = nieto… */
   level: number;
+  /** Id de la capa padre cuando `level > 0` (permite acotar el dibujo bajo decimación). */
+  parentId?: string;
 }
 
 /** Entrada de la leyenda (lo que se lee en el encabezado y con el cursor). */
@@ -57,18 +59,35 @@ interface PlanEntry {
   /** Fuentes de los factores (vacío en el resto). */
   factors: { data: ArrayLike<number>; complement: boolean }[];
   rest: boolean;
+  optional: boolean;
+  childrenMode: 'fraction' | 'proportional';
   children: PlanEntry[] | null;
+  /** true si en alguna muestra con ancho > 0 faltó un hijo y se vio el padre debajo. */
+  hasFallback: boolean;
+  /** true si al menos una muestra resolvió los hijos de este padre con valores finitos. */
+  hasChildResolved: boolean;
 }
 
-const rolesOf = (c: StackComponentSpec): RoleId[] => [...(c.factors ?? []).map((f) => f.role), ...(c.children ?? []).flatMap(rolesOf)];
+const allRolesOf = (c: StackComponentSpec): RoleId[] => [...(c.factors ?? []).map((f) => f.role), ...(c.children ?? []).flatMap(allRolesOf)];
+const requiredRolesOf = (c: StackComponentSpec): RoleId[] => (c.optional ? [] : [...(c.factors ?? []).map((f) => f.role), ...(c.children ?? []).flatMap(requiredRolesOf)]);
 
-function plan(components: readonly StackComponentSpec[], source: StackSource, child: boolean): PlanEntry[] | null {
+function hasFiniteSample(data: ArrayLike<number>, n: number): boolean {
+  const limit = Math.min(data.length, n);
+  for (let i = 0; i < limit; i++) if (Number.isFinite(data[i]!)) return true;
+  return false;
+}
+
+function plan(components: readonly StackComponentSpec[], source: StackSource, child: boolean, n: number): PlanEntry[] | null {
   const entries: PlanEntry[] = [];
   let dropped = 0;
   for (const c of components) {
     if (c.rest) continue;
     const factors = (c.factors ?? []).map((f) => ({ data: source(f.role), complement: !!f.complement }));
     if (!factors.length || factors.some((f) => !f.data)) {
+      dropped++;
+      continue;
+    }
+    if (c.optional && factors.some((f) => !hasFiniteSample(f.data!, n))) {
       dropped++;
       continue;
     }
@@ -79,7 +98,11 @@ function plan(components: readonly StackComponentSpec[], source: StackSource, ch
       fill: c.fill,
       factors: factors as PlanEntry['factors'],
       rest: false,
-      children: c.children?.length ? plan(c.children, source, true) : null,
+      optional: !!c.optional,
+      childrenMode: c.childrenMode ?? 'fraction',
+      children: c.children?.length ? plan(c.children, source, true, n) : null,
+      hasFallback: false,
+      hasChildResolved: false,
     });
   }
   const rest = components.find((c) => c.rest);
@@ -97,7 +120,11 @@ function plan(components: readonly StackComponentSpec[], source: StackSource, ch
         fill: partial ? (c.partialFill ?? c.fill) : c.fill,
         factors: [],
         rest: true,
+        optional: !!c.optional,
+        childrenMode: 'fraction',
         children: null,
+        hasFallback: false,
+        hasChildResolved: false,
       });
     } else {
       const e = entries.find((x) => x.spec === c);
@@ -109,12 +136,12 @@ function plan(components: readonly StackComponentSpec[], source: StackSource, ch
 
 const clip01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
-/** Fracción de un componente en la muestra i (NaN si falta un dato). */
+/** Fracción de un componente en la muestra i (NaN si falta un dato o no es finito). */
 function fractionAt(e: PlanEntry, i: number): number {
   let f = 1;
   for (const k of e.factors) {
     const v = k.data[i]!;
-    if (v !== v) return NaN;
+    if (!Number.isFinite(v)) return NaN;
     const c = clip01(v);
     f *= k.complement ? 1 - c : c;
   }
@@ -123,32 +150,38 @@ function fractionAt(e: PlanEntry, i: number): number {
 
 /** Arma las capas de una pila para n muestras. */
 export function computeStack(spec: StackSpec, n: number, source: StackSource): StackResult {
-  const all = [...new Set(spec.components.flatMap(rolesOf))];
-  const missing = all.filter((r) => !source(r));
+  const all = [...new Set(spec.components.flatMap(allRolesOf))];
+  const required = [...new Set(spec.components.flatMap(requiredRolesOf))];
+  const missing = required.filter((r) => !source(r));
   const used = all.filter((r) => !!source(r));
-  const top = plan(spec.components, source, false) ?? [];
+  const top = plan(spec.components, source, false, n) ?? [];
   const empty = top.every((e) => e.rest);
   if (empty) return { layers: [], legend: [], missing, used, empty: true };
 
-  const layers: StackLayer[] = [];
   const legend: StackLegendItem[] = [];
   const layerOf = new Map<PlanEntry, StackLayer>();
-  const make = (e: PlanEntry, level: number) => {
-    const l: StackLayer = { id: e.spec.id, label: e.label, fill: e.fill, left: new Float32Array(n), right: new Float32Array(n), level };
+  const make = (e: PlanEntry, level: number, parentId?: string) => {
+    const l: StackLayer = {
+      id: e.spec.id,
+      label: e.label,
+      fill: e.fill,
+      left: new Float32Array(n),
+      right: new Float32Array(n),
+      level,
+      ...(parentId ? { parentId } : {}),
+    };
     layerOf.set(e, l);
     return l;
   };
-  const childLayers: StackLayer[] = [];
-  for (const e of top) {
-    layers.push(make(e, 0));
-    if (e.children) {
-      for (const k of e.children) {
-        childLayers.push(make(k, 1));
-        legend.push({ id: k.spec.id, label: k.label, short: k.short, fill: k.fill });
-      }
-    } else legend.push({ id: e.spec.id, label: e.label, short: e.short, fill: e.fill });
-  }
-  layers.push(...childLayers); // los hijos encima de sus padres
+  const byLevel: StackLayer[][] = [];
+  const collectLayers = (entries: readonly PlanEntry[], level: number, parentId?: string) => {
+    const bucket = byLevel[level] ?? (byLevel[level] = []);
+    for (const e of entries) {
+      bucket.push(make(e, level, parentId));
+      if (e.children) collectLayers(e.children, level + 1, e.spec.id);
+    }
+  };
+  collectLayers(top, 0);
 
   const fr = new Float64Array(top.length);
   for (let i = 0; i < n; i++) {
@@ -180,35 +213,122 @@ export function computeStack(spec: StackSpec, n: number, source: StackSource): S
       l.left[i] = acc;
       acc += w;
       l.right[i] = acc;
-      if (e.children) splitChildren(e.children, l.left[i]!, w, i, layerOf);
+      if (e.children) splitChildren(e, l.left[i]!, w, i, layerOf);
     }
   }
+
+  // Si un refinamiento opcional no se resolvió en ninguna muestra (p. ej. factores finitos en índices disjuntos
+  // o solo donde falla nivel 0/1), se descarta de capas y leyenda para evitar leyendas fantasma.
+  const inactive = new Set<string>();
+  const markInactive = (entries: readonly PlanEntry[]) => {
+    for (const e of entries) {
+      inactive.add(e.spec.id);
+      if (e.children) markInactive(e.children);
+    }
+  };
+  const buildLegend = (entries: readonly PlanEntry[]) => {
+    for (const e of entries) {
+      if (e.children) {
+        const isOptionalGroup = e.children.some((k) => k.optional);
+        if (isOptionalGroup && !e.hasChildResolved) {
+          markInactive(e.children);
+          legend.push({ id: e.spec.id, label: e.label, short: e.short, fill: e.fill });
+          continue;
+        }
+        if (isOptionalGroup && e.hasFallback) {
+          legend.push({ id: e.spec.id, label: e.label, short: e.short, fill: e.fill });
+        }
+        buildLegend(e.children);
+      } else {
+        legend.push({ id: e.spec.id, label: e.label, short: e.short, fill: e.fill });
+      }
+    }
+  };
+  buildLegend(top);
+  const layers: StackLayer[] = byLevel.flat().filter((l) => !inactive.has(l.id)); // nivel 0, luego nivel 1, luego nivel 2…
+
   return { layers, legend, missing, used, empty: false };
 }
 
+/** Deja en NaN toda la descendencia en la muestra i (para que el padre quede entero sin residuos de nietos). */
+function clearSubtree(children: readonly PlanEntry[], i: number, layerOf: Map<PlanEntry, StackLayer>): void {
+  for (const c of children) {
+    const l = layerOf.get(c)!;
+    l.left[i] = l.right[i] = NaN;
+    if (c.children) clearSubtree(c.children, i, layerOf);
+  }
+}
+
 /** Parte [x0, x0 + w] entre los hijos; un NaN deja al padre entero en esa muestra. */
-function splitChildren(children: readonly PlanEntry[], x0: number, w: number, i: number, layerOf: Map<PlanEntry, StackLayer>): void {
+function splitChildren(parent: PlanEntry, x0: number, w: number, i: number, layerOf: Map<PlanEntry, StackLayer>): void {
+  const children = parent.children!;
   let sum = 0;
   const fr: number[] = [];
   for (const k of children) {
     const f = k.rest ? 0 : fractionAt(k, i);
     if (f !== f) {
-      for (const c of children) layerOf.get(c)!.left[i] = layerOf.get(c)!.right[i] = NaN;
+      clearSubtree(children, i, layerOf);
+      if (w > 0) parent.hasFallback = true;
       return;
     }
     fr.push(f);
     sum += f;
   }
-  const scale = sum > 1 ? 1 / sum : 1;
-  const rest = Math.max(0, 1 - sum * scale);
+  let scale: number;
+  let rest: number;
+  if (parent.childrenMode === 'proportional') {
+    if (sum > 0) {
+      scale = 1 / sum;
+      rest = 0;
+    } else if (w > 0) {
+      clearSubtree(children, i, layerOf);
+      parent.hasFallback = true;
+      return;
+    } else {
+      scale = 0;
+      rest = 0;
+    }
+  } else {
+    scale = sum > 1 ? 1 / sum : 1;
+    rest = Math.max(0, 1 - sum * scale);
+  }
   let acc = x0;
+  parent.hasChildResolved = true;
   children.forEach((k, j) => {
     const cw = (k.rest ? rest : fr[j]! * scale) * w;
     const l = layerOf.get(k)!;
     l.left[i] = acc;
     acc += cw;
     l.right[i] = acc;
+    if (k.children) splitChildren(k, l.left[i]!, cw, i, layerOf);
   });
+}
+
+/**
+ * Acota en sitio el tramo decimado `[xa, xb]` de una capa hija (`level > 0`) dentro del tramo decimado de su padre
+ * `[parentXa, parentXb]`, evitando desbordes visuales en filas mixtas con muestras resueltas y `NaN` (ADR 0091).
+ */
+export function clampChildDecimatedSpan(
+  xa: Float32Array,
+  xb: Float32Array,
+  parentXa: Float32Array,
+  parentXb: Float32Array,
+  n: number,
+): void {
+  for (let k = 0; k < n; k++) {
+    const pa = parentXa[k]!;
+    const pb = parentXb[k]!;
+    const ca = xa[k]!;
+    const cb = xb[k]!;
+    if (pa !== pa || pb !== pb || ca !== ca || cb !== cb) {
+      xa[k] = xb[k] = NaN;
+      continue;
+    }
+    const a = ca < pa ? pa : ca > pb ? pb : ca;
+    const b = cb < a ? a : cb > pb ? pb : cb;
+    xa[k] = a;
+    xb[k] = b;
+  }
 }
 
 /** Volumen de cada entrada de la leyenda en la muestra i (NaN = sin dato). */
