@@ -34,7 +34,7 @@ Tamaño: **C** chico, **M** mediano, **G** grande. El orden maximiza valor tempr
 | 5 | G05 | Exceso de presión (`P − ρ_ref·g·z`) y EMW en MDT | 2 · Diagnóstico TP | M | analista-numerico | [0089](decisiones/0089-exceso-de-presion-y-emw-en-mdt.md) | hecha |
 | 6 | G06 | Rayos Gamma sin Uranio (`CGR`) conectado a `IGR` / `Vsh` | 3 · Petrofísica y cierre | M | analista-numerico | [0090](decisiones/0090-rayos-gamma-sin-uranio-cgr.md) | hecha |
 | 7 | G07 | Hidrocarburo Móvil vs. Residual (`Sxo`, `MOS`, `Rt–Rxo` y pila) | 3 · Petrofísica y cierre | G | analista-numerico | [0091](decisiones/0091-hidrocarburo-movil-residual-sxo.md) | hecha |
-| 8 | G08 | Panel de «Coherencia Cruzada entre Herramientas» (defensa TP) | 3 · Petrofísica y cierre | M | analista-numerico | sí | pendiente |
+| 8 | G08 | Panel de «Coherencia Cruzada entre Herramientas» (defensa TP) | 3 · Petrofísica y cierre | M | analista-numerico | [0092](decisiones/0092-coherencia-cruzada-entre-herramientas.md) | hecha |
 
 ### Reserva (solo si se habilita expresamente tras G08)
 | ID | Función | Tam. | Resumen |

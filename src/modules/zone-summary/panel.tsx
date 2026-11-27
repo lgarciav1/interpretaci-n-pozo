@@ -20,6 +20,7 @@ import { thicknessOf } from '../../plots/distribution/series';
 import { Button, DataTable, EmptyState, Tooltip, formatNumber, type Column } from '../../ui';
 import type { ModulePanel, ModulePanelProps } from '../../ui/modulePanel';
 import { openZoneDistribution } from '../zone-distribution/dock';
+import { openCrossCheck } from '../cross-check/dock';
 import { zoneSummaryStats } from './stats';
 import './panel.css';
 
@@ -315,7 +316,10 @@ function ZoneSummaryPanel({ module, result, interpretation }: ModulePanelProps) 
         <Button size="sm" variant="secondary" icon="boxplot" onClick={openZoneDistribution} data-testid="zone-summary-distributions">
           Ver distribuciones
         </Button>
-        <span className="zsum-note">P10, P50 y P90 de φ, Sw, Vsh o k en cada zona, y comparación con snapshots.</span>
+        <Button size="sm" variant="secondary" icon="check" onClick={openCrossCheck} data-testid="zone-summary-cross-check">
+          Coherencia cruzada
+        </Button>
+        <span className="zsum-note">P10, P50 y P90 por zona, comparación con snapshots y semáforo de consistencia entre herramientas.</span>
       </div>
     </div>
   );

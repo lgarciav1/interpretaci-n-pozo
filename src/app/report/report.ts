@@ -15,6 +15,12 @@ import { registry } from '../../modules';
 import { runQc } from '../../io/qc';
 import type { AcquisitionMetadata } from '../../core/inputs/acquisition';
 import { buildPreparationReport, preparationReportHtml, type PreparationReport } from './preparationReport';
+import {
+  buildCrossCheckReport,
+  crossCheckReportHtml,
+  summarizeCrossCheckForReport,
+  type CrossCheckReportSummary,
+} from '../../modules/cross-check/model';
 import { brandMarkSvg } from '../../ui/brandSvg';
 import { BASE_TOKENS } from '../../ui/tokens';
 import { formatElapsedLong, type WalkthroughReport } from '../flow/stopwatch';
@@ -23,11 +29,13 @@ export interface ReportOptions {
   title: string; author: string;
   includeParameters: boolean; includeSummary: boolean; includeVolumes: boolean; includeWarnings: boolean;
   includePreparation?: boolean;
+  /** Semáforo de coherencia cruzada entre herramientas (G08). De fábrica, sí. */
+  includeCrossCheck?: boolean;
   /** Tiempo del recorrido (F19) en el encabezado, si hay cronómetro. De fábrica, sí. */
   includeWalkthrough?: boolean;
   profile: 'none' | 'well' | 'zones'; trackIds: readonly string[] | null; xyIds: readonly string[];
 }
-export const defaultReportOptions = (): ReportOptions => ({ title: '', author: '', includeParameters: true, includeSummary: true, includeVolumes: true, includeWarnings: true, includePreparation: true, includeWalkthrough: true, profile: 'well', trackIds: null, xyIds: [] });
+export const defaultReportOptions = (): ReportOptions => ({ title: '', author: '', includeParameters: true, includeSummary: true, includeVolumes: true, includeWarnings: true, includePreparation: true, includeCrossCheck: true, includeWalkthrough: true, profile: 'well', trackIds: null, xyIds: [] });
 export interface ReportTable { title: string; columns: readonly TableColumn[]; rows: Record<string, TableCell>[] }
 export interface ReportModel {
   wellName: string; date: string; samples: number; top: number; base: number;
@@ -38,6 +46,8 @@ export interface ReportModel {
   summary: ReportTable | null; volumes: ReportTable | null; warnings: string[];
   notes?: import('../../core/notes').DepthNote[];
   preparation?: PreparationReport;
+  /** Semáforo de coherencia cruzada (G08), sin retener arreglos del motor. */
+  crossCheck?: CrossCheckReportSummary;
   /** Cronómetro del recorrido (F19): lo agrega quien genera el informe; el modelo no lee stores. */
   walkthrough?: WalkthroughReport;
 }
@@ -120,7 +130,8 @@ export function buildReportModel(well: Well, interpretation: Interpretation, res
     header: Object.entries(well.header).map(([label, h]) => ({ label, value: `${h.value}${h.unit ? ` ${unitLabel(h.unit)}` : ''}` })), zones,
     notes: interpretation.notes?.map(n => ({ ...n })),
     methods, parameters, summary: table('ZONE_SUMMARY'), volumes: table('VOLUMETRICS'), warnings: [...new Set(warnings)],
-    preparation: buildPreparationReport(originals, interpretation, current?.context.inputRevisionId ?? null, catalog, acquisition, current?.preparation ?? null) };
+    preparation: buildPreparationReport(originals, interpretation, current?.context.inputRevisionId ?? null, catalog, acquisition, current?.preparation ?? null),
+    ...(current ? { crossCheck: summarizeCrossCheckForReport(buildCrossCheckReport(well, interpretation, current, catalog)) } : {}) };
 }
 export const escapeReportText = (s: unknown): string => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 const e = escapeReportText;
@@ -148,6 +159,7 @@ export function reportHtml(model: ReportModel, figures: readonly ReportFigure[] 
   ${model.notes?.length ? `<section><h2>Notas de profundidad</h2><table><thead><tr><th>Tope (m MD)</th><th>Base (m MD)</th><th>Nota</th></tr></thead><tbody>${model.notes.map(n => `<tr><td>${number(n.top)}</td><td>${n.base === undefined ? '—' : number(n.base)}</td><td style="white-space:pre-wrap">${e(n.text)}</td></tr>`).join('')}</tbody></table></section>` : ''}
   ${options.includeParameters ? `<section><h2>Métodos y parámetros efectivos</h2><p>Fuentes que alimentan la cadena de cálculo:</p><table><thead><tr><th>Puerto</th><th>Fuente elegida</th></tr></thead><tbody>${model.methods.map((m) => `<tr><td>${e(m.port)}</td><td>${e(m.source)}</td></tr>`).join('')}</tbody></table><p>Las columnas de zona incluyen el valor global heredado cuando no existe una modificación local.</p>${model.parameters.map((p) => `<h3>${e(p.module)}</h3><p class="meta">${e(p.status)}</p>${p.rows.length ? `<table><thead><tr><th>Parámetro</th><th>Global</th>${model.zones.map((z) => `<th>${e(z.name)}</th>`).join('')}</tr></thead><tbody>${p.rows.map((r) => `<tr><td>${e(r.label)}</td><td>${e(r.global)}</td>${r.zones.map((v) => `<td>${e(v)}</td>`).join('')}</tr>`).join('')}</tbody></table>` : '<p>Sin parámetros configurables.</p>'}`).join('')}</section>` : ''}
   ${options.includeSummary ? dataTable(model.summary, 'Sumario por zona') : ''}${options.includeVolumes ? dataTable(model.volumes, 'Volumen in situ por zona') : ''}
+  ${options.includeCrossCheck !== false && model.crossCheck ? crossCheckReportHtml(model.crossCheck, e) : ''}
   ${options.includePreparation !== false && model.preparation ? preparationReportHtml(model.preparation, e) : ''}
   ${options.includeWarnings ? `<section><h2>Advertencias y limitaciones</h2><ul>${model.warnings.map((w) => `<li>${e(w)}</li>`).join('')}</ul></section>` : ''}
   ${figures.map((f) => { if (!/^data:image\/(?:png|svg\+xml);base64,[A-Za-z0-9+/=]+$/.test(f.dataUrl)) throw new Error('La figura del informe debe ser una imagen incrustada.'); return `<section class="figure"><h2>${e(f.title)}</h2><figure><img src="${f.dataUrl}" alt="${e(f.title)}"><figcaption>${e(f.caption)}</figcaption></figure></section>`; }).join('')}<footer>Interpretación de registros de pozo · FIUBA · Copia del estado al generar el informe. No se recalcula al abrirlo.</footer></main></body></html>`;
