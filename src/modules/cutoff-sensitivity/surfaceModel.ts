@@ -583,4 +583,285 @@ export function setCutoffPairRecipe(
   return next;
 }
 
+export interface CutoffScenarioResult {
+  baseline: {
+    cutoffs: Cutoffs;
+    netRes: number;
+    netPay: number;
+    hphiShPay: number;
+    noDataPay: number;
+    ooipMm3: number;
+    ogipMMm3: number;
+  };
+  proposed: {
+    cutoffs: Cutoffs;
+    netRes: number;
+    netPay: number;
+    hphiShPay: number;
+    noDataPay: number;
+    ooipMm3: number;
+    ogipMMm3: number;
+  };
+  hasOil: boolean;
+  hasGas: boolean;
+  /** Estabilidad 2D alrededor del escenario propuesto (par `phi-sw` o el par que incluye la variable movida). */
+  stability: StabilityAssessment;
+  stabilityPairId: SurfacePairId;
+  /** En ámbito Total, nombres de las zonas que ya sobrescriben cada cutoff y mantienen su valor propio. */
+  overriddenZones: { vsh: string[]; phi: string[]; sw: string[] };
+}
+
+/**
+ * Simula exactamente 1 o 2 (o hasta 3) cambios de cutoffs sin construir una grilla 2D completa, compartiendo las
+ * mismas curvas, parámetros de zona, corte opcional de k y volúmenes que `buildCutoffSurfaceView`.
+ */
+export function evaluateCutoffScenario(opts: {
+  well: Readonly<Well>;
+  interpretation: Readonly<Interpretation>;
+  result: ClientResult | null;
+  zoneId: string | null;
+  changes: Partial<Record<SweepVariable, number>>;
+}): CutoffScenarioResult | null {
+  const { well, interpretation, result, zoneId, changes } = opts;
+  const vsh = resolveInputCurve(well, result, 'VSH', 'vsh', 'v/v');
+  const phi = resolveInputCurve(well, result, 'PHIE', 'phi', 'v/v');
+  const sw = resolveInputCurve(well, result, 'SW', 'sw', 'v/v');
+  if (!vsh || !phi || !sw) return null;
+
+  const perm = resolveInputCurve(well, result, 'PERM', 'perm', 'mD') ?? undefined;
+  const depth = well.depth.values;
+  const n = depth.length;
+  const thickness = sampleThickness(depth);
+  const layout = layoutZones(depth, interpretation.zones);
+  const spans = layout.spans;
+
+  const resolved = resolveParamsForModule(
+    cutoffSensitivityModule,
+    interpretation.params,
+    spans.map((z) => z.id),
+  );
+  const globalParams = toResolvedParams(resolved.global);
+  const activeZone = zoneId ? (spans.find((z) => z.id === zoneId) ?? null) : null;
+  if (zoneId && !activeZone) return null;
+
+  const hasZoneOverride = (zId: string, paramKey: CutoffParamKey): boolean => {
+    const spec = cutoffSensitivityModule.params[paramKey]!;
+    const storage = paramStorageKey(cutoffSensitivityModule.id, paramKey, spec);
+    return interpretation.params.zones[zId]?.[storage] !== undefined;
+  };
+  const overridesOf = (paramKey: CutoffParamKey): string[] =>
+    activeZone || spans.length === 0 ? [] : spans.filter((z) => hasZoneOverride(z.id, paramKey)).map((z) => z.name);
+  const overriddenZones = {
+    vsh: overridesOf('vshCutoff'),
+    phi: overridesOf('phiCutoff'),
+    sw: overridesOf('swCutoff'),
+  };
+
+  const applyChangesFor = (zId: string | null, base: Cutoffs): Cutoffs => ({
+    ...base,
+    ...(changes.vsh !== undefined && (!zId || !hasZoneOverride(zId, 'vshCutoff')) ? { vshMax: changes.vsh } : {}),
+    ...(changes.phi !== undefined && (!zId || !hasZoneOverride(zId, 'phiCutoff')) ? { phiMin: changes.phi } : {}),
+    ...(changes.sw !== undefined && (!zId || !hasZoneOverride(zId, 'swCutoff')) ? { swMax: changes.sw } : {}),
+  });
+
+  const evalForCutoffs = (span: Pick<ZoneSpan, 'start' | 'end'>, c: Cutoffs) => {
+    const ok = isClassifiedInRange(vsh, phi, perm, c, span.start, span.end);
+    if (!ok) return { ok: false, netRes: NaN, netPay: NaN, hphiShPay: NaN, noDataPay: NaN };
+    const pt = evalCutoffPairPoint(vsh, phi, sw, thickness, c, 'phi-sw', c.phiMin, c.swMax, [span], perm);
+    return { ok: true, ...pt };
+  };
+
+  let baseNetRes = 0;
+  let baseNetPay = 0;
+  let baseHphi = 0;
+  let baseNoData = 0;
+  let propNetRes = 0;
+  let propNetPay = 0;
+  let propHphi = 0;
+  let propNoData = 0;
+  let baseOoip = NaN;
+  let baseOgip = NaN;
+  let propOoip = NaN;
+  let propOgip = NaN;
+  let hasOil = false;
+  let hasGas = false;
+
+  const refCutoffs = activeZone ? toResolvedParams(resolved.byZone.get(activeZone.id) ?? resolved.global).cutoffs : globalParams.cutoffs;
+  const proposedRefCutoffs = applyChangesFor(null, refCutoffs);
+
+  if (spans.length === 0) {
+    const b = evalForCutoffs({ start: 0, end: n }, refCutoffs);
+    const p = evalForCutoffs({ start: 0, end: n }, proposedRefCutoffs);
+    baseNetRes = b.netRes;
+    baseNetPay = b.netPay;
+    baseHphi = b.hphiShPay;
+    baseNoData = b.noDataPay;
+    propNetRes = p.netRes;
+    propNetPay = p.netPay;
+    propHphi = p.hphiShPay;
+    propNoData = p.noDataPay;
+  } else if (activeZone) {
+    const zp = toResolvedParams(resolved.byZone.get(activeZone.id) ?? resolved.global);
+    const b = evalForCutoffs(activeZone, zp.cutoffs);
+    const p = evalForCutoffs(activeZone, proposedRefCutoffs);
+    baseNetRes = b.netRes;
+    baseNetPay = b.netPay;
+    baseHphi = b.hphiShPay;
+    baseNoData = b.noDataPay;
+    propNetRes = p.netRes;
+    propNetPay = p.netPay;
+    propHphi = p.hphiShPay;
+    propNoData = p.noDataPay;
+    const vb = zoneVolumeScalar(activeZone, zp, b.ok, b.hphiShPay);
+    const vp = zoneVolumeScalar(activeZone, zp, p.ok, p.hphiShPay);
+    baseOoip = vb.ooip;
+    baseOgip = vb.ogip;
+    propOoip = vp.ooip;
+    propOgip = vp.ogip;
+    if ((Number.isFinite(vb.ooip) && vb.ooip > 0) || (Number.isFinite(vp.ooip) && vp.ooip > 0)) hasOil = true;
+    if ((Number.isFinite(vb.ogip) && vb.ogip > 0) || (Number.isFinite(vp.ogip) && vp.ogip > 0)) hasGas = true;
+  } else {
+    const agg = (useProposed: boolean) => {
+      let accRes = 0;
+      let accPay = 0;
+      let accHp = 0;
+      let accUnk = 0;
+      let accOoip = 0;
+      let accOgip = 0;
+      let ooipN = 0;
+      let ogipN = 0;
+      let anyClassified = false;
+      let anyUnknown = false;
+      let anyKnown = false;
+      for (const z of spans) {
+        const zp = toResolvedParams(resolved.byZone.get(z.id) ?? resolved.global);
+        const c = useProposed ? applyChangesFor(z.id, zp.cutoffs) : zp.cutoffs;
+        const r = evalForCutoffs(z, c);
+        const vol = zoneVolumeScalar(z, zp, r.ok, r.hphiShPay);
+        if (Number.isFinite(vol.ooip)) { accOoip += vol.ooip; ooipN++; }
+        if (Number.isFinite(vol.ogip)) { accOgip += vol.ogip; ogipN++; }
+        if (!r.ok) continue;
+        anyClassified = true;
+        accRes += r.netRes;
+        accUnk += r.noDataPay;
+        if (Number.isNaN(r.netPay)) anyUnknown = true;
+        else {
+          accPay += r.netPay;
+          accHp += r.hphiShPay;
+          if (r.netRes > 0) anyKnown = true;
+        }
+      }
+      const unknown = anyUnknown && !anyKnown;
+      return {
+        netRes: anyClassified ? accRes : NaN,
+        netPay: !anyClassified || unknown ? NaN : accPay,
+        hphiShPay: !anyClassified || unknown ? NaN : accHp,
+        noDataPay: anyClassified ? accUnk : NaN,
+        ooip: ooipN > 0 ? accOoip : NaN,
+        ogip: ogipN > 0 ? accOgip : NaN,
+      };
+    };
+    const b = agg(false);
+    const p = agg(true);
+    baseNetRes = b.netRes;
+    baseNetPay = b.netPay;
+    baseHphi = b.hphiShPay;
+    baseNoData = b.noDataPay;
+    baseOoip = b.ooip;
+    baseOgip = b.ogip;
+    propNetRes = p.netRes;
+    propNetPay = p.netPay;
+    propHphi = p.hphiShPay;
+    propNoData = p.noDataPay;
+    propOoip = p.ooip;
+    propOgip = p.ogip;
+    if ((Number.isFinite(b.ooip) && b.ooip > 0) || (Number.isFinite(p.ooip) && p.ooip > 0)) hasOil = true;
+    if ((Number.isFinite(b.ogip) && b.ogip > 0) || (Number.isFinite(p.ogip) && p.ogip > 0)) hasGas = true;
+  }
+
+  // Par de estabilidad 2D: phi-sw por defecto; si se movió vsh + sw -> vsh-sw; si vsh sin sw -> vsh-phi.
+  const hasVsh = changes.vsh !== undefined;
+  const hasSw = changes.sw !== undefined;
+  const stabilityPairId: SurfacePairId = hasVsh && hasSw ? 'vsh-sw' : hasVsh && !hasSw ? 'vsh-phi' : 'phi-sw';
+  const sPair = SURFACE_PAIRS.find((p) => p.id === stabilityPairId)!;
+  const xRange = SWEEP_GRIDS[sPair.xVar];
+  const yRange = SWEEP_GRIDS[sPair.yVar];
+  const readCut = (c: Cutoffs, v: SweepVariable) => (v === 'vsh' ? c.vshMax : v === 'phi' ? c.phiMin : c.swMax);
+  const clampAxis = (val: number, range: { min: number; max: number }) => (val < range.min ? range.min : val > range.max ? range.max : val);
+  const x0 = clampAxis(readCut(proposedRefCutoffs, sPair.xVar), xRange);
+  const y0 = clampAxis(readCut(proposedRefCutoffs, sPair.yVar), yRange);
+  const box = stabilityBox2D(sPair, x0, y0, xRange, yRange);
+  const hx = CUTOFF_STABILITY_HALF[sPair.xVar];
+  const hy = CUTOFF_STABILITY_HALF[sPair.yVar];
+
+  const evalCornerDelta = (dx: number, dy: number): number => {
+    const evalZone = (z: ZoneSpan, cBase: Cutoffs, zId: string | null) => {
+      const cChanged = applyChangesFor(zId, cBase);
+      const xVal = clampAxis(readCut(cChanged, sPair.xVar) + dx, xRange);
+      const yVal = clampAxis(readCut(cChanged, sPair.yVar) + dy, yRange);
+      const cCorner: Cutoffs = { ...cChanged };
+      if (sPair.xVar === 'vsh') cCorner.vshMax = xVal;
+      else if (sPair.xVar === 'phi') cCorner.phiMin = xVal;
+      else cCorner.swMax = xVal;
+      if (sPair.yVar === 'vsh') cCorner.vshMax = yVal;
+      else if (sPair.yVar === 'phi') cCorner.phiMin = yVal;
+      else cCorner.swMax = yVal;
+      return evalForCutoffs(z, cCorner);
+    };
+    if (spans.length === 0) return evalZone({ id: '', name: 'Pozo', kind: 'reservoir', top: depth[0]!, base: depth[n - 1]!, start: 0, end: n }, globalParams.cutoffs, null).netPay;
+    if (activeZone) {
+      const zp = toResolvedParams(resolved.byZone.get(activeZone.id) ?? resolved.global);
+      return evalZone(activeZone, zp.cutoffs, null).netPay;
+    }
+    let accPay = 0;
+    let anyClassified = false;
+    let anyUnknown = false;
+    let anyKnown = false;
+    for (const z of spans) {
+      const zp = toResolvedParams(resolved.byZone.get(z.id) ?? resolved.global);
+      const r = evalZone(z, zp.cutoffs, z.id);
+      if (!r.ok) continue;
+      anyClassified = true;
+      if (Number.isNaN(r.netPay)) anyUnknown = true;
+      else {
+        accPay += r.netPay;
+        if (r.netRes > 0) anyKnown = true;
+      }
+    }
+    return !anyClassified || (anyUnknown && !anyKnown) ? NaN : accPay;
+  };
+
+  const stability = classifyStability2D(
+    propNetPay,
+    [evalCornerDelta(-hx, -hy), evalCornerDelta(hx, -hy), evalCornerDelta(-hx, hy), evalCornerDelta(hx, hy)],
+    box,
+  );
+
+  return {
+    baseline: {
+      cutoffs: refCutoffs,
+      netRes: baseNetRes,
+      netPay: baseNetPay,
+      hphiShPay: baseHphi,
+      noDataPay: baseNoData,
+      ooipMm3: Number.isFinite(baseOoip) ? convert(baseOoip, 'm3', 'Mm3') : NaN,
+      ogipMMm3: Number.isFinite(baseOgip) ? convert(baseOgip, 'm3', 'MMm3') : NaN,
+    },
+    proposed: {
+      cutoffs: proposedRefCutoffs,
+      netRes: propNetRes,
+      netPay: propNetPay,
+      hphiShPay: propHphi,
+      noDataPay: propNoData,
+      ooipMm3: Number.isFinite(propOoip) ? convert(propOoip, 'm3', 'Mm3') : NaN,
+      ogipMMm3: Number.isFinite(propOgip) ? convert(propOgip, 'm3', 'MMm3') : NaN,
+    },
+    hasOil,
+    hasGas,
+    stability,
+    stabilityPairId,
+    overriddenZones,
+  };
+}
+
 export { isClassifiedInRange as _isClassifiedInRange };
