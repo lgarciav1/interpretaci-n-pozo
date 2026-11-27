@@ -1,0 +1,1532 @@
+<title>Manual de fiubaLog</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: el manual se lee como un pozo. A la izquierda, una pista de correlación fija: cada capítulo es una zona
+   con su tope en MD, y el scroll es la profundidad. El contenido corre en una columna de 1120 px. */
+:root {
+  /* Oscuro primero: la marca es tinta (docs/decisiones/0070-marca.md). */
+  --bg: #0b0c16;
+  --surface: #12142a;
+  --surface-2: #191c36;
+  --line: #272b4b;
+  --line-soft: #1c2040;
+  --fg: #e9eaf5;
+  --fg-2: #b9bcd6;
+  --muted: #8a8eae;
+  --accent: #8b90ff;
+  --accent-ink: #0b0c16;
+  --accent-soft: rgba(139,144,255,.14);
+  --ok: #4cd17f;
+  --warn: #f2c14e;
+  --bad: #ff6b7d;
+  --grid: rgba(149,153,255,.06);
+  --grid-strong: rgba(149,153,255,.12);
+  --shadow: 0 30px 80px -30px rgba(0,0,0,.75), 0 0 0 1px rgba(255,255,255,.04);
+  /* Gradiente térmico de la marca: frío arriba, caliente en profundidad. Solo marca, nunca datos. */
+  --t1: #9599ff; --t2: #5e64e6; --t3: #c2549a; --t4: #ff9a52;
+  --brand-ink: #20243f;
+  /* Zonas del pozo del TP (colores del visor). */
+  --zA: #e9c46a; --zB: #8ecae6; --zC: #f4a261; --zD: #a7c957; --zE: #c99cff;
+  /* Curvas (paleta oscura del visor). */
+  --c-gr: #4cd17f; --c-rt: #ff5c64; --c-rhob: #ff6b7d; --c-nphi: #5b9cff; --c-dt: #b28cff; --c-sp: #7d9cf2;
+  --c-vsh: #d6a36b; --c-phie: #4cc0ff; --c-sw: #6f97ff; --c-perm: #ff9a5c; --c-rw: #6fa8f5; --c-temp: #ff8a4c; --c-pay: #e0605b; --c-pef: #ea7bf5;
+
+  --f-display: "Archivo", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+
+  --rail: 208px;
+  --col: 1120px;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f4f5fb; --surface: #ffffff; --surface-2: #eceef8; --line: #d7daec; --line-soft: #e5e7f3;
+    --fg: #15172e; --fg-2: #353954; --muted: #5d6180; --accent: #4f55d6; --accent-ink: #ffffff; --accent-soft: rgba(79,85,214,.10);
+    --ok: #1f9d55; --warn: #a16207; --bad: #c81e3a;
+    --grid: rgba(79,85,214,.05); --grid-strong: rgba(79,85,214,.10);
+    --shadow: 0 30px 70px -34px rgba(32,36,63,.45), 0 0 0 1px rgba(32,36,63,.08);
+    --zA: #c99a1e; --zB: #3a8fb7; --zC: #d9731c; --zD: #6b9a1f; --zE: #8f5ad6;
+    --c-gr: #1f9d55; --c-rt: #d1242f; --c-rhob: #c81e3a; --c-nphi: #1f5fd1; --c-dt: #7c3aed; --c-sp: #2c4a9e;
+    --c-vsh: #8a5a2b; --c-phie: #0a7bc2; --c-sw: #1d4ed8; --c-perm: #c2410c; --c-rw: #0b5394; --c-temp: #d9480f; --c-pay: #d9534f; --c-pef: #c026d3;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f4f5fb; --surface: #ffffff; --surface-2: #eceef8; --line: #d7daec; --line-soft: #e5e7f3;
+  --fg: #15172e; --fg-2: #353954; --muted: #5d6180; --accent: #4f55d6; --accent-ink: #ffffff; --accent-soft: rgba(79,85,214,.10);
+  --ok: #1f9d55; --warn: #a16207; --bad: #c81e3a;
+  --grid: rgba(79,85,214,.05); --grid-strong: rgba(79,85,214,.10);
+  --shadow: 0 30px 70px -34px rgba(32,36,63,.45), 0 0 0 1px rgba(32,36,63,.08);
+  --zA: #c99a1e; --zB: #3a8fb7; --zC: #d9731c; --zD: #6b9a1f; --zE: #8f5ad6;
+  --c-gr: #1f9d55; --c-rt: #d1242f; --c-rhob: #c81e3a; --c-nphi: #1f5fd1; --c-dt: #7c3aed; --c-sp: #2c4a9e;
+  --c-vsh: #8a5a2b; --c-phie: #0a7bc2; --c-sw: #1d4ed8; --c-perm: #c2410c; --c-rw: #0b5394; --c-temp: #d9480f; --c-pay: #d9534f; --c-pef: #c026d3;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation: none !important; transition: none !important; } }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 16px/1.62 var(--f-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+/* Papel de perfil: grilla tenue en todo el fondo. */
+.paper {
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+    linear-gradient(var(--grid-strong) 1px, transparent 1px);
+  background-size: 24px 24px, 24px 24px, 120px 120px;
+  mask-image: linear-gradient(180deg, #000 0, rgba(0,0,0,.5) 60%, rgba(0,0,0,.25));
+}
+a { color: var(--accent); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible, figure[tabindex]:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+img { max-width: 100%; display: block; }
+code, .mono { font-family: var(--f-mono); font-size: .86em; }
+code { background: var(--surface-2); border: 1px solid var(--line-soft); padding: .08em .38em; border-radius: 5px; color: var(--fg); white-space: nowrap; }
+strong { font-weight: 600; color: var(--fg); }
+
+/* ---------- Pista de correlación (riel) ---------- */
+.rail {
+  position: fixed; z-index: 5; top: 0; bottom: 0; left: 0; width: var(--rail);
+  padding: calc(env(safe-area-inset-top, 0px) + 22px) 0 22px max(18px, env(safe-area-inset-left, 0px));
+  display: flex; flex-direction: column; gap: 14px;
+  border-right: 1px solid var(--line-soft);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(10px);
+}
+.rail__brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--fg); padding-right: 16px; }
+.rail__brand svg { width: 30px; height: 30px; flex: none; }
+.rail__brand span { font: 600 15px/1 var(--f-display); font-stretch: 105%; letter-spacing: -.01em; }
+.rail__brand b { font-weight: 700; background: linear-gradient(90deg, var(--t1), var(--t3) 60%, var(--t4)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.rail__md { font: 500 11px/1.3 var(--f-mono); color: var(--muted); letter-spacing: .02em; padding-right: 16px; display: flex; justify-content: space-between; }
+.rail__md output { color: var(--fg); font-variant-numeric: tabular-nums; }
+.rail__track { position: relative; flex: 1; display: grid; grid-template-columns: 34px 1fr; min-height: 0; }
+.rail__curve { position: relative; border-right: 1px solid var(--line); }
+.rail__curve canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.rail__cursor { position: absolute; left: 0; right: -6px; height: 0; border-top: 1px dashed var(--fg); opacity: .7; top: 0; pointer-events: none; }
+.rail__cursor::after { content: ""; position: absolute; right: -3px; top: -4px; width: 7px; height: 7px; border-radius: 50%; background: var(--fg); }
+.rail__zones { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.rail__zones li { flex: var(--h, 1); min-height: 0; display: flex; }
+.rail__zones a {
+  flex: 1; display: flex; align-items: flex-start; gap: 7px; text-decoration: none; color: var(--muted);
+  font: 500 12px/1.25 var(--f-body); padding: 5px 14px 0 9px; border-top: 1px solid var(--line-soft); position: relative; min-height: 0; overflow: hidden;
+}
+.rail__zones a::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--z); opacity: .45; }
+.rail__zones a i { font: 600 10px/1.5 var(--f-mono); font-style: normal; color: var(--z); min-width: 16px; }
+.rail__zones a:hover { color: var(--fg); background: var(--accent-soft); }
+.rail__zones a.is-on { color: var(--fg); background: linear-gradient(90deg, color-mix(in srgb, var(--z) 18%, transparent), transparent); }
+.rail__zones a.is-on::before { opacity: 1; }
+.rail__theme { display: flex; gap: 4px; padding-right: 16px; }
+.rail__theme button { flex: 1; font: 500 11px/1 var(--f-body); color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 7px; padding: 7px 0; cursor: pointer; }
+.rail__theme button[aria-pressed="true"] { color: var(--fg); background: var(--surface-2); border-color: var(--accent); }
+
+.mbar { display: none; }
+@media (max-width: 1179px) {
+  .rail { display: none; }
+  .mbar {
+    display: flex; position: sticky; top: env(safe-area-inset-top, 0px); z-index: 6; align-items: center; gap: 10px;
+    padding: 10px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px));
+    background: color-mix(in srgb, var(--bg) 90%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line-soft);
+    font: 500 12px/1.2 var(--f-mono); color: var(--muted);
+  }
+  .mbar b { color: var(--fg); font-family: var(--f-body); font-weight: 600; font-size: 13px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mbar__bar { position: absolute; left: 0; bottom: -1px; height: 2px; width: 0; background: linear-gradient(90deg, var(--t1), var(--t2), var(--t3), var(--t4)); }
+}
+
+/* ---------- Página ---------- */
+.page { position: relative; z-index: 1; }
+@media (min-width: 1180px) { .page { margin-left: var(--rail); } }
+.wrap { max-width: var(--col); margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+@media (min-width: 760px) { .wrap { padding-left: max(40px, env(safe-area-inset-left, 0px)); padding-right: max(40px, env(safe-area-inset-right, 0px)); } }
+
+/* Tipografía */
+.eyebrow { font: 600 11.5px/1 var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.eyebrow .tope { color: var(--z, var(--accent)); }
+h1, h2, h3, h4 { font-family: var(--f-display); text-wrap: balance; margin: 0; color: var(--fg); }
+h2 { font-size: clamp(34px, 5vw, 56px); font-weight: 750; font-stretch: 112%; letter-spacing: -.025em; line-height: 1.02; }
+h3 { font-size: clamp(22px, 2.4vw, 28px); font-weight: 700; font-stretch: 104%; letter-spacing: -.015em; line-height: 1.15; }
+h4 { font-size: 17px; font-weight: 650; font-stretch: 100%; letter-spacing: -.005em; line-height: 1.3; }
+p { margin: 0; }
+.lede { font-size: clamp(17px, 1.6vw, 19.5px); line-height: 1.6; color: var(--fg-2); max-width: 64ch; }
+.prose { max-width: 66ch; color: var(--fg-2); display: grid; gap: 14px; }
+.small { font-size: 14px; color: var(--muted); line-height: 1.55; }
+
+/* ---------- Portada ---------- */
+.hero { position: relative; overflow: hidden; margin-top: calc(-1 * env(safe-area-inset-top, 0px)); padding-top: calc(env(safe-area-inset-top, 0px) + 56px); padding-bottom: 72px; }
+.hero::before {
+  content: ""; position: absolute; inset: -20% -10% auto 30%; height: 640px; pointer-events: none;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--t2) 34%, transparent), transparent 70%),
+              radial-gradient(closest-side at 70% 80%, color-mix(in srgb, var(--t3) 22%, transparent), transparent 70%);
+  filter: blur(20px); opacity: .9;
+}
+.hero__top { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; position: relative; }
+.pill { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font: 600 11px/1 var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--fg-2); background: color-mix(in srgb, var(--surface) 70%, transparent); }
+.pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--t3); box-shadow: 0 0 10px var(--t3); }
+.hero__grid { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); gap: 40px; margin-top: 56px; }
+.hero__mark { display: flex; align-items: center; gap: 22px; }
+.hero__mark svg { width: clamp(72px, 9vw, 104px); height: auto; flex: none; filter: drop-shadow(0 18px 40px rgba(94,100,230,.35)); }
+.hero h1 { font-size: clamp(54px, 9.5vw, 128px); font-weight: 400; font-stretch: 100%; letter-spacing: -.045em; line-height: .9; }
+.hero h1 b { font-weight: 800; background: linear-gradient(95deg, var(--t1) 0%, var(--t2) 35%, var(--t3) 70%, var(--t4) 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.hero__kicker { font: 700 clamp(15px, 1.6vw, 19px)/1.2 var(--f-display); font-stretch: 125%; text-transform: uppercase; letter-spacing: .06em; color: var(--fg-2); margin-top: 14px; }
+.hero__lede { font-size: clamp(18px, 1.9vw, 22px); line-height: 1.55; color: var(--fg-2); max-width: 46ch; }
+.hero__lede strong { color: var(--fg); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: color-mix(in srgb, var(--surface) 82%, transparent); }
+.stats div { padding: 18px 20px; border-right: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft); }
+.stats b { display: block; font: 750 clamp(28px, 3vw, 38px)/1 var(--f-display); font-stretch: 110%; letter-spacing: -.02em; color: var(--fg); font-variant-numeric: tabular-nums; }
+.stats span { display: block; margin-top: 8px; font-size: 13px; line-height: 1.35; color: var(--muted); }
+.hero__shot { position: relative; margin-top: 8px; }
+.hero__shot .frame { transform: perspective(2400px) rotateX(9deg); transform-origin: 50% 0; }
+@media (prefers-reduced-motion: no-preference) {
+  .hero__shot .frame { animation: rise 1.1s cubic-bezier(.2,0,0,1) both .1s; }
+  @keyframes rise { from { transform: perspective(2400px) rotateX(22deg) translateY(24px); opacity: .55; } to { transform: perspective(2400px) rotateX(9deg); opacity: 1; } }
+}
+
+/* ---------- Capturas ---------- */
+.frame { border-radius: 14px; overflow: hidden; background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--line); position: relative; }
+.frame img { width: 100%; height: auto; }
+.frame--chrome::before { content: ""; display: block; height: 26px; background: var(--surface-2); border-bottom: 1px solid var(--line); background-image: radial-gradient(circle at 16px 13px, #ff6b6b 4px, transparent 4.5px), radial-gradient(circle at 32px 13px, #f2c14e 4px, transparent 4.5px), radial-gradient(circle at 48px 13px, #4cd17f 4px, transparent 4.5px); }
+figure { margin: 0; display: grid; gap: 10px; min-width: 0; }
+figcaption { font-size: 13.5px; color: var(--muted); line-height: 1.5; display: flex; flex-wrap: wrap; gap: 2px 10px; min-width: 0; }
+.two > *, .three > *, .split > * { min-width: 0; }
+@media (max-width: 600px) { code { white-space: normal; overflow-wrap: anywhere; } }
+figcaption b { font: 600 11px/1.6 var(--f-mono); color: var(--fg-2); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+figure[tabindex] { cursor: zoom-in; }
+figure[tabindex] .frame { transition: transform .25s cubic-bezier(.2,0,0,1), box-shadow .25s; }
+figure[tabindex]:hover .frame { transform: translateY(-3px); }
+.panel-shot .frame { max-width: 380px; }
+.panel-shot img { width: 100%; }
+
+/* ---------- Capítulos ---------- */
+.chapter { position: relative; padding-block: 120px 40px; border-top: 1px solid var(--line-soft); }
+.chapter__head { display: grid; gap: 18px; margin-bottom: 48px; }
+.chapter__head .bar { width: 64px; height: 4px; border-radius: 2px; background: var(--z); }
+.block { display: grid; gap: 22px; margin-top: 72px; }
+.block:first-of-type { margin-top: 0; }
+.split { display: grid; gap: 36px; align-items: start; }
+@media (min-width: 960px) {
+  .split { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 56px; }
+  .split--rev { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
+  .split--panel { grid-template-columns: minmax(0, 1fr) 380px; }
+  .split--panel-l { grid-template-columns: 380px minmax(0, 1fr); }
+}
+
+/* Pasos numerados (secuencias reales) */
+.steps { list-style: none; margin: 0; padding: 0; counter-reset: s; display: grid; gap: 2px; }
+.steps li { counter-increment: s; display: grid; grid-template-columns: 34px 1fr; gap: 12px; padding: 11px 0; border-top: 1px solid var(--line-soft); color: var(--fg-2); font-size: 15.5px; }
+.steps li:first-child { border-top: 0; }
+.steps li::before { content: counter(s); font: 600 12px/22px var(--f-mono); text-align: center; color: var(--z, var(--accent)); border: 1px solid color-mix(in srgb, var(--z, var(--accent)) 50%, transparent); border-radius: 7px; height: 24px; }
+
+/* Chips y kbd */
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface-2); font: 500 12px/1.4 var(--f-body); color: var(--fg-2); white-space: nowrap; }
+.chip--curve { font-family: var(--f-mono); font-weight: 600; font-size: 11.5px; color: var(--c, var(--fg)); border-color: color-mix(in srgb, var(--c, var(--line)) 45%, transparent); background: color-mix(in srgb, var(--c, var(--surface-2)) 10%, var(--surface)); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+kbd { font: 600 12px/1 var(--f-mono); padding: 5px 8px 6px; min-width: 26px; text-align: center; display: inline-block; color: var(--fg); background: linear-gradient(var(--surface-2), var(--surface)); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 7px; white-space: nowrap; }
+
+/* Nota */
+.note { border: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 80%, transparent); border-radius: 12px; padding: 16px 18px; display: grid; grid-template-columns: 22px 1fr; gap: 12px; font-size: 14.5px; color: var(--fg-2); line-height: 1.55; }
+.note svg { width: 18px; height: 18px; margin-top: 2px; color: var(--accent); }
+.note--warn svg { color: var(--warn); }
+.note b { color: var(--fg); }
+
+/* Tarjetas de función */
+.cards { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.card { border: 1px solid var(--line); background: var(--surface); border-radius: 14px; padding: 18px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.card h4 { display: flex; align-items: center; gap: 9px; }
+.card h4 svg { width: 18px; height: 18px; color: var(--accent); flex: none; }
+.card p { font-size: 14px; color: var(--muted); line-height: 1.5; }
+.card .how { font: 500 12px/1.4 var(--f-mono); color: var(--fg-2); margin-top: 4px; }
+
+/* Anotaciones sobre captura */
+.annot { position: relative; }
+.hs { position: absolute; transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font: 700 12px/1 var(--f-mono); color: #0b0c16; background: #fff; box-shadow: 0 0 0 3px var(--accent), 0 6px 16px rgba(0,0,0,.45); border: 0; padding: 0; cursor: pointer; z-index: 2; }
+.hs::after { content: ""; position: absolute; inset: -9px; border-radius: 50%; border: 2px solid var(--accent); opacity: .0; }
+@media (prefers-reduced-motion: no-preference) { .hs::after { animation: ping 2.6s infinite; } @keyframes ping { 0% { transform: scale(.6); opacity: .8; } 80%,100% { transform: scale(1.5); opacity: 0; } } }
+.hs.is-on { background: var(--accent); color: var(--accent-ink); box-shadow: 0 0 0 3px #fff, 0 6px 16px rgba(0,0,0,.45); }
+@media (max-width: 640px) { .hs { width: 20px; height: 20px; font-size: 10px; } }
+.legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); column-gap: 28px; }
+.legend li { display: grid; grid-template-columns: 28px 1fr; gap: 10px; padding: 10px 6px; border-top: 1px solid var(--line-soft); font-size: 14.5px; color: var(--fg-2); border-radius: 8px; cursor: default; transition: background .15s; }
+.legend li.is-on { background: var(--accent-soft); }
+.legend li > span:first-child { font: 700 11px/22px var(--f-mono); width: 22px; height: 22px; text-align: center; border-radius: 50%; background: var(--surface-2); color: var(--fg); border: 1px solid var(--line); }
+.legend b { display: block; color: var(--fg); font-weight: 600; }
+
+/* Diagrama de flujo de cálculo */
+.scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.scroll-x svg { display: block; min-width: 1040px; width: 100%; height: auto; }
+.dg-txt { fill: var(--fg); font: 600 13px var(--f-body); }
+.dg-sub { fill: var(--muted); font: 500 10.5px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; }
+.dg-box { fill: var(--surface-2); stroke: var(--line); }
+.dg-step { fill: var(--bg); stroke: var(--line); }
+.dg-edge { fill: none; stroke: var(--muted); stroke-width: 1.3; opacity: .55; }
+.dg-mono { font: 600 11px var(--f-mono); }
+
+/* Recorrido en pasos: tira horizontal */
+.flowbar { display: grid; grid-template-columns: repeat(11, minmax(0, 1fr)); gap: 0; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--surface); }
+.flowbar a { padding: 14px 10px 12px; display: grid; gap: 6px; text-decoration: none; color: var(--fg-2); border-right: 1px solid var(--line-soft); font-size: 13px; position: relative; min-width: 0; }
+.flowbar a:last-child { border-right: 0; }
+.flowbar a span { font: 600 10.5px/1 var(--f-mono); color: var(--muted); }
+.flowbar a::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: linear-gradient(90deg, var(--t1), var(--t2)); opacity: calc(var(--i) / 11); }
+.flowbar a:hover { background: var(--accent-soft); color: var(--fg); }
+@media (max-width: 900px) { .flowbar { grid-template-columns: repeat(4, minmax(0, 1fr)); } .flowbar a { border-bottom: 1px solid var(--line-soft); } }
+
+.stepcard { display: grid; gap: 28px; padding-block: 44px; border-top: 1px solid var(--line-soft); }
+@media (min-width: 960px) { .stepcard { grid-template-columns: minmax(0, 1fr) 360px; gap: 56px; } }
+.stepcard__n { font: 800 64px/0.85 var(--f-display); font-stretch: 62%; color: transparent; -webkit-text-stroke: 1px var(--line); }
+.stepcard__head { display: flex; gap: 18px; align-items: flex-end; }
+.stepcard__body { display: grid; gap: 16px; align-content: start; min-width: 0; }
+.kv { display: grid; grid-template-columns: 130px 1fr; gap: 8px 16px; font-size: 14.5px; }
+.kv dt { font: 600 11px/1.9 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.kv dd { margin: 0; color: var(--fg-2); min-width: 0; }
+@media (max-width: 520px) { .kv { grid-template-columns: 1fr; gap: 2px; } .kv dd { margin-bottom: 8px; } }
+
+/* Tablas */
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+th { font: 600 11px/1.4 var(--f-mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); background: var(--surface-2); white-space: nowrap; }
+td { color: var(--fg-2); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--f-mono); font-size: 13px; }
+tr:last-child td { border-bottom: 0; }
+tr.total td { color: var(--fg); font-weight: 600; background: var(--surface-2); }
+.zdot { display: inline-block; width: 9px; height: 9px; border-radius: 3px; background: var(--z); margin-right: 8px; vertical-align: 1px; }
+
+/* Catálogo de métodos */
+.cat { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+.cat section { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); overflow: hidden; min-width: 0; }
+.cat header { padding: 14px 16px 12px; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; border-bottom: 1px solid var(--line-soft); background: linear-gradient(90deg, color-mix(in srgb, var(--c) 14%, transparent), transparent 70%); }
+.cat header h4 { font-size: 16px; }
+.cat header .chip--curve { flex: none; }
+.cat ul { list-style: none; margin: 0; padding: 6px 0; }
+.cat li { padding: 8px 16px; display: grid; gap: 2px; font-size: 14px; color: var(--fg); }
+.cat li small { color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+.cat li + li { border-top: 1px dashed var(--line-soft); }
+
+/* Galería */
+.gallery { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+.gallery figure .frame { border-radius: 12px; }
+.gallery figcaption { font-size: 13px; }
+
+/* Módulos obligatorios: índice */
+.mand { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+.mand a { border: 1px solid var(--line); border-radius: 14px; padding: 16px; text-decoration: none; color: var(--fg); background: var(--surface); display: grid; gap: 10px; transition: border-color .2s, transform .2s; }
+.mand a:hover { border-color: var(--accent); transform: translateY(-2px); }
+.mand a span { font: 600 11px/1 var(--f-mono); color: var(--muted); letter-spacing: .08em; }
+.mand a b { font: 700 17px/1.2 var(--f-display); font-stretch: 105%; }
+.mand svg { width: 100%; height: 46px; }
+
+/* Atajos */
+.keys { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+.keys section { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); padding: 6px 16px 10px; min-width: 0; }
+.keys h4 { font: 600 11px/1 var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding: 12px 0 8px; }
+.keys dl { margin: 0; display: grid; }
+.keys dl > div { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line-soft); font-size: 14px; color: var(--fg-2); }
+.keys dd { margin: 0; display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; align-items: center; color: var(--muted); font-size: 12px; }
+
+/* Glosario de curvas */
+.curves { display: grid; gap: 0; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--surface); }
+.curves div { display: grid; grid-template-columns: 74px 1fr; gap: 12px; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); border-right: 1px solid var(--line-soft); min-width: 0; }
+.curves svg { width: 74px; height: 14px; }
+.curves b { font: 600 13px var(--f-mono); color: var(--c); }
+.curves small { display: block; color: var(--muted); font-size: 12.5px; line-height: 1.35; }
+
+/* FAQ */
+details { border-top: 1px solid var(--line-soft); padding: 16px 0; }
+details:last-child { border-bottom: 1px solid var(--line-soft); }
+summary { cursor: pointer; font: 600 17px/1.35 var(--f-display); list-style: none; display: flex; justify-content: space-between; gap: 16px; color: var(--fg); }
+summary::-webkit-details-marker { display: none; }
+summary::after { content: "+"; font: 400 22px/1 var(--f-mono); color: var(--muted); transition: transform .2s; }
+details[open] summary::after { transform: rotate(45deg); }
+details p { margin-top: 10px; color: var(--fg-2); max-width: 70ch; }
+
+/* Pie */
+.foot { padding-block: 90px 70px; border-top: 1px solid var(--line-soft); margin-top: 60px; }
+.foot__inner { display: grid; gap: 16px; }
+
+/* Lightbox */
+dialog.lb { border: 0; padding: 0; background: transparent; max-width: min(96vw, 1800px); max-height: 94vh; color: var(--fg); }
+dialog.lb::backdrop { background: rgba(5,6,12,.86); backdrop-filter: blur(6px); }
+dialog.lb img { max-height: 84vh; width: auto; max-width: 100%; border-radius: 12px; box-shadow: var(--shadow); margin: 0 auto; }
+dialog.lb p { text-align: center; color: #d0d2e6; font-size: 14px; margin-top: 12px; padding-inline: 16px; }
+dialog.lb button { position: absolute; top: 8px; right: 8px; width: 36px; height: 36px; border-radius: 50%; border: 1px solid rgba(255,255,255,.2); background: rgba(10,11,20,.7); color: #fff; font-size: 18px; cursor: pointer; }
+
+.two { display: grid; gap: 18px; }
+@media (min-width: 760px) { .two { grid-template-columns: 1fr 1fr; } }
+.three { display: grid; gap: 18px; }
+@media (min-width: 900px) { .three { grid-template-columns: repeat(3, 1fr); } }
+
+/* Pipeline de preparación */
+.pipe { display: flex; flex-wrap: wrap; gap: 0; align-items: stretch; }
+.pipe div { flex: 1 1 120px; padding: 14px 14px 12px; border: 1px solid var(--line); margin: -1px 0 0 -1px; background: var(--surface); display: grid; gap: 4px; position: relative; min-width: 0; }
+.pipe div:first-child { border-radius: 12px 0 0 12px; }
+.pipe div:last-child { border-radius: 0 12px 12px 0; background: var(--accent-soft); }
+.pipe b { font: 650 14px/1.2 var(--f-display); }
+.pipe small { font-size: 12px; color: var(--muted); line-height: 1.35; }
+.pipe span { font: 600 10px/1 var(--f-mono); color: var(--muted); letter-spacing: .08em; }
+@media (max-width: 700px) { .pipe div, .pipe div:first-child, .pipe div:last-child { border-radius: 0; flex-basis: 50%; } }
+
+/* Impresión / PDF */
+@page { size: A4 portrait; margin: 0; }
+@media print {
+  html { background: var(--bg); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .rail, .mbar, dialog.lb, .paper { display: none !important; }
+  .page { margin-left: 0 !important; }
+  .hero { padding-top: 48px; }
+  .hero::before { filter: none; }
+  .chapter { break-before: page; padding-block: 56px 24px; border-top: 0; }
+  .block { margin-top: 48px; }
+  .split, figure, .card, .note, .cat section, .keys section, .stepcard, .tbl-wrap, .pipe, .steps li, .legend li, details, .curves div, .stats, .annot { break-inside: avoid; }
+  h2, h3, h4, .eyebrow, .chapter__head { break-after: avoid; }
+  .hs::after { display: none; }
+  figure[tabindex]:hover .frame { transform: none; }
+  details > *:not(summary) { display: block; }
+  summary::after { content: ""; }
+  .foot { break-before: avoid; }
+  .stepcard { padding-block: 28px; }
+  .stepcard img { max-height: 470px !important; }
+  .hero { padding-bottom: 40px; }
+}
+.big-num { font: 800 clamp(40px, 6vw, 72px)/0.9 var(--f-display); font-stretch: 90%; letter-spacing: -.03em; }
+</style>
+
+<div class="paper" aria-hidden="true"></div>
+
+<!-- Pista de correlación -->
+<nav class="rail" aria-label="Capítulos del manual">
+  <a class="rail__brand" href="#portada">
+    <svg viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="rb-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9599ff"/><stop offset=".42" stop-color="#5e64e6"/><stop offset=".75" stop-color="#c2549a"/><stop offset="1" stop-color="#ff9a52"/></linearGradient><clipPath id="rb-c"><rect width="64" height="64" rx="14"/></clipPath></defs><g clip-path="url(#rb-c)"><rect width="64" height="64" fill="#20243f"/><path d="M37 0 L37.4 10.4 Q37.5 13 34.97 13.61 L25.53 15.89 Q23 16.5 22.85 19.1 L22.65 22.4 Q22.5 25 25.05 25.51 L37.45 27.99 Q40 28.5 40 31.1 L40 33.4 Q40 36 37.48 36.66 L31.02 38.34 Q28.5 39 31 39.73 L38 41.77 Q40.5 42.5 38.46 44.11 L23.54 55.89 Q21.5 57.5 21.7 60.09 L22 64 L64 64 L64 0 Z" fill="url(#rb-g)"/><path d="M37 0 L37.4 10.4 Q37.5 13 34.97 13.61 L25.53 15.89 Q23 16.5 22.85 19.1 L22.65 22.4 Q22.5 25 25.05 25.51 L37.45 27.99 Q40 28.5 40 31.1 L40 33.4 Q40 36 37.48 36.66 L31.02 38.34 Q28.5 39 31 39.73 L38 41.77 Q40.5 42.5 38.46 44.11 L23.54 55.89 Q21.5 57.5 21.7 60.09 L22 64" fill="none" stroke="#fff" stroke-width="3.4" stroke-linejoin="round"/></g></svg>
+    <span>fiuba<b>Log</b> · manual</span>
+  </a>
+  <div class="rail__md"><span>MD</span><output id="md-out">7.633,3 m</output></div>
+  <div class="rail__track">
+    <div class="rail__curve"><canvas id="rail-gr" aria-hidden="true"></canvas><div class="rail__cursor" id="rail-cursor"></div></div>
+    <ol class="rail__zones" id="rail-zones"></ol>
+  </div>
+  <div class="rail__theme" role="group" aria-label="Tema del manual">
+    <button type="button" data-t="system" aria-pressed="true">Sistema</button>
+    <button type="button" data-t="light" aria-pressed="false">Claro</button>
+    <button type="button" data-t="dark" aria-pressed="false">Oscuro</button>
+  </div>
+</nav>
+
+<div class="page">
+  <div class="mbar" aria-hidden="true"><b id="mbar-title">fiubaLog · manual</b><span id="mbar-md">7.633,3 m</span><i class="mbar__bar" id="mbar-bar"></i></div>
+
+  <!-- ============ PORTADA ============ -->
+  <header class="hero" id="portada" data-zone="Portada">
+    <div class="wrap">
+      <div class="hero__top">
+        <span class="pill">Interpretación de perfiles · FIUBA · 2C 2026</span>
+        <span class="small mono">Manual de uso · versión 2026-11-27</span>
+      </div>
+      <div class="hero__grid">
+        <div class="hero__mark">
+          <svg viewBox="0 0 64 64" role="img" aria-label="Marca de fiubaLog"><defs><linearGradient id="hb-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9599ff"/><stop offset=".42" stop-color="#5e64e6"/><stop offset=".75" stop-color="#c2549a"/><stop offset="1" stop-color="#ff9a52"/></linearGradient><clipPath id="hb-c"><rect width="64" height="64" rx="14"/></clipPath></defs><g clip-path="url(#hb-c)"><rect width="64" height="64" fill="#20243f"/><g stroke="rgba(255,255,255,.07)" stroke-width=".4"><path d="M5 0V64M10 0V64M15 0V64M20 0V64M25 0V64M30 0V64"/><path d="M0 6H64M0 14H64M0 22H64M0 30H64M0 38H64M0 46H64M0 54H64M0 62H64"/></g><path d="M37 0 L37.37 4.41 Q37.5 6 37 7.5 Q36.5 9 37.52 10.23 L37.98 10.77 Q39 12 38.25 13.25 Q37.5 14.5 35.92 14.73 L25.58 16.27 Q24 16.5 23 17.75 Q22 19 22.72 20.43 L22.78 20.57 Q23.5 22 22.61 23.33 L22.39 23.67 Q21.5 25 22.96 25.65 L24.54 26.35 Q26 27 27.59 27.17 L38.41 28.33 Q40 28.5 40.5 30 Q41 31.5 39.87 32.63 L39.63 32.87 Q38.5 34 39.5 35.25 Q40.5 36.5 38.92 36.75 L29.58 38.25 Q28 38.5 28.75 39.5 Q29.5 40.5 31.09 40.71 L39.41 41.79 Q41 42 40.11 43.33 L39.89 43.67 Q39 45 37.63 45.82 L22.87 55.13 Q21 57 21.23 58.58 L22 64 L64 64 L64 0 Z" fill="url(#hb-g)"/><path d="M37 0 L37.37 4.41 Q37.5 6 37 7.5 Q36.5 9 37.52 10.23 L37.98 10.77 Q39 12 38.25 13.25 Q37.5 14.5 35.92 14.73 L25.58 16.27 Q24 16.5 23 17.75 Q22 19 22.72 20.43 L22.78 20.57 Q23.5 22 22.61 23.33 L22.39 23.67 Q21.5 25 22.96 25.65 L24.54 26.35 Q26 27 27.59 27.17 L38.41 28.33 Q40 28.5 40.5 30 Q41 31.5 39.87 32.63 L39.63 32.87 Q38.5 34 39.5 35.25 Q40.5 36.5 38.92 36.75 L29.58 38.25 Q28 38.5 28.75 39.5 Q29.5 40.5 31.09 40.71 L39.41 41.79 Q41 42 40.11 43.33 L39.89 43.67 Q39 45 37.63 45.82 L22.87 55.13 Q21 57 21.23 58.58 L22 64" fill="none" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></g></svg>
+          <div>
+            <h1>fiuba<b>Log</b></h1>
+            <div class="hero__kicker">Manual completo de uso</div>
+          </div>
+        </div>
+        <p class="hero__lede">Del perfil medido a la interpretación petrofísica en un solo archivo HTML. <strong>Visor multipista, once pasos de cálculo, los seis módulos obligatorios de la cátedra, geología, validación y defensa</strong>: todo en el navegador y sin conexión. Este manual recorre cada función con capturas reales del pozo del TP.</p>
+        <div class="stats" role="list">
+          <div role="listitem"><b>11</b><span>pasos del flujo petrofísico, de la carga al volumen in situ</span></div>
+          <div role="listitem"><b>62</b><span>métodos y fichas documentados con ecuaciones y referencias</span></div>
+          <div role="listitem"><b>16</b><span>plantillas de crossplot de libro, más el crossplot libre</span></div>
+          <div role="listitem"><b>6</b><span>módulos obligatorios: visor, MDT, crossplot, corona, histograma, tendencias</span></div>
+          <div role="listitem"><b>0</b><span>servidores: abre con doble clic y calcula sin internet</span></div>
+        </div>
+        <figure class="hero__shot" tabindex="0" data-full="img/05-espacio.webp" data-cap="Espacio de trabajo Petrofísica con el pozo del TP cargado: 5.810 muestras, zonas A–E.">
+          <div class="frame"><img src="img/05-espacio.webp" width="1800" height="1125" alt="Espacio de trabajo de fiubaLog con el pozo del TP: barra del flujo, visor multipista y panel del paso"></div>
+        </figure>
+      </div>
+    </div>
+  </header>
+
+  <main>
+  <!-- ============ 01 EMPEZAR ============ -->
+  <section class="chapter" id="empezar" data-zone="Empezar" style="--z: var(--zA)">
+    <div class="wrap">
+      <div class="chapter__head">
+        <div class="bar"></div>
+        <div class="eyebrow"><span class="tope">Capítulo 01</span><span>Antes de empezar</span></div>
+        <h2>Abrir, cargar, interpretar.</h2>
+        <p class="lede">fiubaLog es una sola página web autocontenida. No se instala ni necesita cuenta: abrís el archivo, cargás un pozo y el motor calcula en segundo plano mientras movés los parámetros.</p>
+      </div>
+
+      <div class="split">
+        <div class="block" style="margin-top:0">
+          <h3>Cómo se abre</h3>
+          <ol class="steps">
+            <li><span>Extraé el ZIP de entrega y hacé <strong>doble clic en <code>Interpretacion.html</code></strong>. Funciona en Chrome, Edge y Firefox actuales.</span></li>
+            <li><span>En <strong>Inicio</strong> elegí <strong>Cargar pozo</strong> (Excel, LAS o CSV), <strong>Abrir proyecto</strong> (un <code>.pozo.json</code> guardado), <strong>Ver demostración</strong> (pozo sintético) o el <strong>Entrenador</strong>.</span></li>
+            <li><span>Si ya trabajaste antes en ese navegador, Inicio ofrece <strong>Seguir donde quedaste</strong>: el autoguardado recupera zonas, parámetros, presiones, corona y snapshots.</span></li>
+            <li><span>Esperá el estado <strong>Motor listo</strong> en la barra superior antes de exportar resultados.</span></li>
+          </ol>
+          <div class="note"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="8"/><path d="M10 9v5M10 6.2v.1" stroke-linecap="round"/></svg><p>La sarta 3D de Inicio es interactiva: <b>arrastrá para girarla</b> y hacé clic en una herramienta para ver qué mide. Es una demostración armada con el catálogo; no corresponde a ningún pozo cargado.</p></div>
+        </div>
+        <figure tabindex="0" data-full="img/01-inicio.webp" data-cap="Pantalla de Inicio: cargar pozo, entrenador, abrir proyecto o ver la demostración.">
+          <div class="frame"><img src="img/01-inicio.webp" width="1800" height="1125" alt="Pantalla de Inicio de fiubaLog con la sarta triple combo en 3D" loading="lazy"></div>
+          <figcaption><b>Inicio</b>Las cuatro entradas a la app y la sarta triple combo en 3D.</figcaption>
+        </figure>
+      </div>
+
+      <div class="block">
+        <h3>La ruta de cinco minutos</h3>
+        <p class="prose">La prioridad de diseño es interpretar un pozo de punta a punta en menos de cinco minutos. Esta es la secuencia mínima; el cronómetro de la barra del flujo la mide por vos.</p>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Momento</th><th>Qué hacés</th><th>Qué obtenés</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">Carga</td><td>Cargar pozo → <em>Cargar datos del TP</em> → Siguiente → Cargar</td><td>18 curvas, 5 zonas y el semáforo de calidad</td></tr>
+              <tr><td class="mono">Calidad</td><td>Leer derrumbes, caliper inválido y curvas a revisar</td><td>Qué tramos no son confiables para densidad y PE</td></tr>
+              <tr><td class="mono">Arcilla → Rw</td><td>Fijar GR limpio y GR arcilla, matriz y fluido, temperatura</td><td>VSH, PHIE, TEMP y RW por zona</td></tr>
+              <tr><td class="mono">Saturación → Perm.</td><td>Elegir modelo de Sw y exponentes, método de k</td><td>SW, BVW, R0 y PERM sobre el visor</td></tr>
+              <tr><td class="mono">Cutoffs → Volumen</td><td>Mover Vsh, φ y Sw de corte; cargar área y factor de volumen</td><td>Neto pay, N/G, sumario por zona y OOIP/OGIP</td></tr>
+              <tr><td class="mono">Guardar</td><td><kbd>Ctrl</kbd> <kbd>S</kbd> y <kbd>Ctrl</kbd> <kbd>E</kbd> para exportar</td><td>Proyecto <code>.pozo.json</code>, LAS/CSV/Excel, figuras e informe</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 PANTALLA ============ -->
+  <section class="chapter" id="pantalla" data-zone="La pantalla" style="--z: var(--zB)">
+    <div class="wrap">
+      <div class="chapter__head">
+        <div class="bar"></div>
+        <div class="eyebrow"><span class="tope">Capítulo 02</span><span>Mapa de la interfaz</span></div>
+        <h2>Todo en una pantalla.</h2>
+        <p class="lede">El visor ocupa el centro. Arriba, el proyecto y el flujo; a la derecha, el panel del paso y un riel de pestañas con los gráficos y herramientas. Pasá el puntero por los números.</p>
+      </div>
+
+      <div class="annot" id="annot">
+        <div class="frame"><img src="img/05-espacio.webp" width="1800" height="1125" alt="Espacio de trabajo con once zonas numeradas" loading="lazy"></div>
+        <button class="hs" style="left:12%;top:3.1%" data-k="1" aria-label="1: Ruta y pozo activo">1</button>
+        <button class="hs" style="left:37.5%;top:3.1%" data-k="2" aria-label="2: Espacios de trabajo">2</button>
+        <button class="hs" style="left:53.4%;top:3.1%" data-k="3" aria-label="3: Motor y deshacer">3</button>
+        <button class="hs" style="left:73.5%;top:3.1%" data-k="4" aria-label="4: Acciones del proyecto">4</button>
+        <button class="hs" style="left:34%;top:9.3%" data-k="5" aria-label="5: Barra del flujo">5</button>
+        <button class="hs" style="left:88%;top:9.3%" data-k="6" aria-label="6: Revisados y cronómetro">6</button>
+        <button class="hs" style="left:47%;top:16.1%" data-k="7" aria-label="7: Barra del visor">7</button>
+        <button class="hs" style="left:20.8%;top:36%" data-k="8" aria-label="8: Encabezados de pista">8</button>
+        <button class="hs" style="left:4.7%;top:67.5%" data-k="9" aria-label="9: Zonas">9</button>
+        <button class="hs" style="left:42%;top:78%" data-k="10" aria-label="10: Pistas">10</button>
+        <button class="hs" style="left:82%;top:28%" data-k="11" aria-label="11: Panel del paso">11</button>
+        <button class="hs" style="left:97.9%;top:36%" data-k="12" aria-label="12: Riel de pestañas">12</button>
+      </div>
+      <ul class="legend" id="legend" style="margin-top:22px">
+        <li data-k="1"><span>1</span><span><b>Ruta y pozo activo</b>Inicio › proyecto › pozo. Con varios pozos, el menú cambia de pozo.</span></li>
+        <li data-k="2"><span>2</span><span><b>Espacios de trabajo</b>Petrofísica (11 pasos) y Geología (5 pasos). Comparten pozo y zonas.</span></li>
+        <li data-k="3"><span>3</span><span><b>Motor, deshacer y rehacer</b>El punto verde indica el Web Worker listo; el ícono de guardado muestra el autoguardado.</span></li>
+        <li data-k="4"><span>4</span><span><b>Proyecto</b>Cargar pozo, guardar vista, exportar, menú Proyecto, pantalla completa, modo defensa, ecuaciones, buscar y preferencias.</span></li>
+        <li data-k="5"><span>5</span><span><b>Barra del flujo</b>Cada paso con su estado. Un clic abre sus parámetros en el panel.</span></li>
+        <li data-k="6"><span>6</span><span><b>Calculados · revisados y cronómetro</b>«11 · 2 rev.» distingue lo que tocaste de los valores de fábrica.</span></li>
+        <li data-k="7"><span>7</span><span><b>Barra del visor</b>Plantilla de pistas, armar pistas, intervalo, escala (1:8.100…), zoom y ver todo.</span></li>
+        <li data-k="8"><span>8</span><span><b>Encabezados</b>Escala, unidad y trazo de cada curva. Con el cursor muestran la lectura a esa profundidad.</span></li>
+        <li data-k="9"><span>9</span><span><b>Zonas</b>Bandas A–E con sus topes. Arrastrá un tope para moverlo.</span></li>
+        <li data-k="10"><span>10</span><span><b>Pistas</b>Medidas y calculadas, con rellenos, escala log en resistividad y columna volumétrica.</span></li>
+        <li data-k="11"><span>11</span><span><b>Panel del paso</b>Métodos disponibles, parámetros (global o por zona), herramientas y resultados.</span></li>
+        <li data-k="12"><span>12</span><span><b>Riel de pestañas</b>Paso, Resumen, Tablas, Avisos, Crossplot, Histograma, MDT, Corona, Tendencias y Más.</span></li>
+      </ul>
+
+      <div class="block">
+        <h3>El riel y el menú «Más»</h3>
+        <div class="split split--rev">
+          <figure tabindex="0" data-full="img/28-mas.webp" data-cap="Menú Más: agua de formación, perfil radial, tipos de roca, saturación por altura, SCAL, calibración, digitalizar, torneo, preparar datos, zonas, distribuciones, origen, vistas, asistente y motor.">
+            <div class="frame"><img src="img/28-mas.webp" width="1800" height="1125" alt="Menú Más desplegado sobre el panel lateral" loading="lazy"></div>
+            <figcaption><b>Más</b>Todas las pestañas secundarias en un menú agrupado.</figcaption>
+          </figure>
+          <div class="prose">
+            <p>Las pestañas del riel abren paneles que conviven con el visor. Lo que no entra en el riel está en <strong>Más</strong>, agrupado en tres familias:</p>
+            <div class="chips"><span class="chip">Agua de formación</span><span class="chip">Perfil radial</span><span class="chip">Tipos de roca</span><span class="chip">Saturación por altura</span><span class="chip">SCAL</span></div>
+            <div class="chips"><span class="chip">Calibración</span><span class="chip">Digitalizar</span><span class="chip">Torneo</span><span class="chip">Preparar datos</span><span class="chip">Zonas</span><span class="chip">Distribuciones</span></div>
+            <div class="chips"><span class="chip">Origen</span><span class="chip">Vistas</span><span class="chip">Asistente</span><span class="chip">Motor</span></div>
+            <p>Los paneles se pueden <strong>agrandar</strong>, <strong>mover abajo del perfil</strong> o <strong>plegar</strong> con los botones del borde. La disposición se recuerda en el navegador.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>Claro, oscuro y tamaño de interfaz</h3>
+        <div class="two">
+          <figure tabindex="0" data-full="img/05-espacio.webp" data-cap="Tema oscuro."><div class="frame"><img src="img/05-espacio.webp" width="1800" height="1125" alt="Tema oscuro" loading="lazy"></div><figcaption><b>Oscuro</b>Curvas en tonos claros sobre tinta.</figcaption></figure>
+          <figure tabindex="0" data-full="img/05-espacio-claro.webp" data-cap="Tema claro."><div class="frame"><img src="img/05-espacio-claro.webp" width="1800" height="1125" alt="Tema claro" loading="lazy"></div><figcaption><b>Claro</b>Los colores de cada curva se ajustan para mantener contraste.</figcaption></figure>
+        </div>
+        <p class="small">Preferencias (ícono de sol, arriba a la derecha): tema <strong>Sistema / Claro / Oscuro</strong> y tamaño <strong>Compacto / Normal / Grande</strong>. Se guardan en el navegador, nunca en el proyecto, y las figuras exportadas no dependen de ellos.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 CARGAR ============ -->
+  <section class="chapter" id="cargar" data-zone="Cargar un pozo" style="--z: var(--zC)">
+    <div class="wrap">
+      <div class="chapter__head">
+        <div class="bar"></div>
+        <div class="eyebrow"><span class="tope">Capítulo 03</span><span>Datos de entrada</span></div>
+        <h2>Cargar un pozo en tres pasos.</h2>
+        <p class="lede">El asistente de carga reconoce columnas por nombre y unidad, te deja corregir el mapeo y muestra el control de calidad antes de abrir el pozo. Las observaciones nunca bloquean la carga: te avisan qué revisar.</p>
+      </div>
+
+      <div class="three">
+        <figure tabindex="0" data-full="img/02-carga-archivo.webp" data-cap="Paso 1 · Archivo: arrastrá un Excel, LAS 2.0 o CSV, o usá los datos del TP.">
+          <div class="frame"><img src="img/02-carga-archivo.webp" width="1800" height="1125" alt="Paso Archivo del asistente de carga" loading="lazy"></div>
+          <figcaption><b>1 · Archivo</b>Arrastrá el archivo o hacé clic. <code>.xlsx</code>, <code>.las</code>, <code>.csv</code>, <code>.txt</code>.</figcaption>
+        </figure>
+        <figure tabindex="0" data-full="img/03-carga-columnas.webp" data-cap="Paso 2 · Columnas: tipo, rol, unidad, id en el pozo y confianza de cada columna.">
+          <div class="frame"><img src="img/03-carga-columnas.webp" width="1800" height="1125" alt="Paso Columnas con el mapeo de mnemónicos" loading="lazy"></div>
+          <figcaption><b>2 · Columnas</b>Cada columna con su rol (GR, RHOB, PEF…), unidad y confianza del reconocimiento.</figcaption>
+        </figure>
+        <figure tabindex="0" data-full="img/04-carga-qc.webp" data-cap="Paso 3 · Control de calidad: semáforo por curva, derrumbes y caliper inválido.">
+          <div class="frame"><img src="img/04-carga-qc.webp" width="1800" height="1125" alt="Paso Control de calidad con el semáforo de curvas" loading="lazy"></div>
+          <figcaption><b>3 · Calidad</b>4 bien · 13 revisar · 1 mala en el pozo del TP.</figcaption>
+        </figure>
+      </div>
+
+      <div class="block">
+        <div class="split">
+          <div class="prose">
+            <h3>Qué reconoce el asistente</h3>
+            <p><strong>Tipo de columna</strong>: profundidad, zona o curva. Una columna de zona crea los topes automáticamente.</p>
+            <p><strong>Rol</strong>: la tabla de mnemónicos traduce los nombres de cada compañía (por ejemplo <code>ZDEN</code> → densidad volumétrica, <code>AT90</code> → resistividad profunda). El rol es lo que usan los módulos, así que una curva bien mapeada entra sola en el cálculo.</p>
+            <p><strong>Unidad</strong>: se convierte a la unidad interna (m, v/v, g/cm³, Ω·m). La porosidad en % pasa a fracción.</p>
+            <p><strong>Encabezado LAS</strong>: yacimiento, compañía, KB, DF, terreno, ubicación, fecha, profundidad final y temperatura de fondo se leen al encabezado del pozo.</p>
+          </div>
+          <div class="prose">
+            <h3>El semáforo de calidad</h3>
+            <div class="tbl-wrap"><table>
+              <thead><tr><th>Estado</th><th>Qué significa</th></tr></thead>
+              <tbody>
+                <tr><td><span class="chip" style="color:var(--ok)">● Bien</span></td><td>Rango físico correcto y pocos faltantes.</td></tr>
+                <tr><td><span class="chip" style="color:var(--warn)">● Revisar</span></td><td>Picos aislados, valores constantes, fuera de rango o afectada por derrumbe.</td></tr>
+                <tr><td><span class="chip" style="color:var(--bad)">● Mala</span></td><td>Casi sin datos (en el TP, SP con 12 muestras de 5.810).</td></tr>
+              </tbody>
+            </table></div>
+            <p class="small">El estado del pozo resume los <strong>derrumbes</strong> (caliper mayor que trépano + 1 in) y el <strong>caliper inválido</strong>. En esos tramos ZDEN y PE no son confiables.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>Guardar y recuperar el trabajo</h3>
+        <div class="cards">
+          <div class="card"><h4><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 3h9l3 3v11H4z"/><path d="M7 3v5h6V3M7 17v-5h6v5"/></svg>Guardar proyecto</h4><p>Un archivo <code>.pozo.json</code> con curvas, laboratorio, zonas, parámetros, recetas de preparación y snapshots.</p><span class="how">Ctrl+S · Proyecto → Guardar</span></div>
+          <div class="card"><h4><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 6h5l2 2h7v9H3z"/></svg>Abrir proyecto</h4><p>Recupera la interpretación en otro navegador o computadora. Los proyectos viejos siguen abriendo.</p><span class="how">Ctrl+O · Inicio → Abrir proyecto</span></div>
+          <div class="card"><h4><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="7"/><path d="M10 6v4l3 2"/></svg>Autoguardado</h4><p>Guarda en el navegador a los pocos segundos de cada cambio. Recargar la pestaña no pierde nada; al cerrar con cambios sin guardar, avisa.</p><span class="how">Inicio → Seguir donde quedaste</span></div>
+          <div class="card"><h4><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7a6 6 0 1 1 0 6"/><path d="M4 3v4h4"/></svg>Deshacer</h4><p>Todo cambio de interpretación se deshace: topes, parámetros, plugs, notas, cutoffs.</p><span class="how">Ctrl+Z · Ctrl+Mayús+Z</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 04 FLUJO ============ -->
+  <section class="chapter" id="flujo" data-zone="El flujo" style="--z: var(--zD)">
+    <div class="wrap">
+      <div class="chapter__head">
+        <div class="bar"></div>
+        <div class="eyebrow"><span class="tope">Capítulo 04</span><span>Espacio Petrofísica</span></div>
+        <h2>Once pasos, una cadena de curvas.</h2>
+        <p class="lede">Cada paso produce curvas que el siguiente consume. Cuando cambiás un parámetro, el grafo de cálculo recalcula solo lo que depende de él, en un Web Worker, y el visor se actualiza en vivo.</p>
+      </div>
+
+      <div class="scroll-x" role="img" aria-label="Diagrama: de las curvas medidas al volumen in situ, pasando por arcilla, porosidad, agua, saturación, permeabilidad, cutoffs y sumario">
+        <svg viewBox="0 0 1100 330" id="chain"></svg>
+      </div>
+      <p class="small" style="margin-top:10px">Los colores de cada curva son los mismos del visor. Desplazá horizontalmente en pantallas chicas.</p>
+
+      <div class="block">
+        <nav class="flowbar" aria-label="Pasos del flujo">
+          <a href="#p1" style="--i:1"><span>01</span>Cargar</a><a href="#p2" style="--i:2"><span>02</span>Calidad</a><a href="#p3" style="--i:3"><span>03</span>Zonas</a><a href="#p4" style="--i:4"><span>04</span>Arcilla</a><a href="#p5" style="--i:5"><span>05</span>Porosidad</a><a href="#p6" style="--i:6"><span>06</span>Rw</a><a href="#p7" style="--i:7"><span>07</span>Saturación</a><a href="#p8" style="--i:8"><span>08</span>Perm.</a><a href="#p9" style="--i:9"><span>09</span>Cutoffs</a><a href="#p10" style="--i:10"><span>10</span>Sumario</a><a href="#p11" style="--i:11"><span>11</span>Volumen</a>
+        </nav>
+      </div>
+
+      <div class="block">
+        <h3>Anatomía del panel de un paso</h3>
+        <div class="split split--panel-l">
+          <figure class="panel-shot" tabindex="0" data-full="img/p-12-paso-arcilla.webp" data-cap="Panel del paso Arcilla.">
+            <div class="frame"><img src="img/p-12-paso-arcilla.webp" width="750" height="1576" alt="Panel del paso Arcilla con métodos y parámetros" loading="lazy"></div>
+          </figure>
+          <div class="prose">
+            <p><strong>Encabezado.</strong> «Paso 4 de 11», el estado (<span style="color:var(--ok)">Completo</span>) y qué curva queda disponible. Debajo, si el paso está <em>calculado con valores de fábrica</em> o <em>revisado</em>.</p>
+            <p><strong>Métodos.</strong> Una lista de opciones con la curva que produce cada una. La marcada alimenta los pasos siguientes; las <em>alternativas</em> se calculan para comparar y se pueden exportar.</p>
+            <p><strong>Comparar.</strong> El interruptor pone las alternativas lado a lado en el visor.</p>
+            <p><strong>Parámetros.</strong> Un selector <code>Global · A · B · C · D · E</code> define si el valor vale para todo el pozo o para una zona. La etiqueta <em>compartido</em> marca un parámetro que usan varios módulos (por ejemplo <em>a</em> y <em>m</em> entre Archie y R0).</p>
+            <p><strong>Ⓘ y Σ.</strong> Cada parámetro tiene una ayuda corta; Σ abre las ecuaciones del método. La interfaz no muestra fórmulas: están todas en <a href="#herramientas">Ecuaciones</a>.</p>
+            <p><strong>Herramientas.</strong> Tablas, mini-gráficos y estadísticas del paso.</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="stepcards" class="block"></div>
+    </div>
+  </section>
+
+  <!-- ============ 05 VISOR ============ -->
+  <section class="chapter" id="visor" data-zone="El visor" style="--z: var(--zE)">
+    <div class="wrap">
+      <div class="chapter__head">
+        <div class="bar"></div>
+        <div class="eyebrow"><span class="tope">Capítulo 05</span><span>Módulo obligatorio 1 · Visualizador</span></div>
+        <h2>El visor multipista.</h2>
+        <p class="lede">Dibujado en canvas para mover decenas de miles de muestras sin trabas. Respeta las convenciones de lectura de la industria —GR verde, resistividad profunda roja en escala log, densidad y neutrón cruzados— con un acabado más limpio.</p>
+      </div>
+
+      <figure tabindex="0" data-full="img/v-visor.webp" data-cap="El visor con la plantilla de fábrica sobre el pozo del TP completo.">
+        <div class="frame"><img src="img/v-visor.webp" width="1600" height="1313" alt="Visor multipista con nueve pistas y las zonas A–E" loading="lazy"></div>
+      </figure>
+
+      <div class="block">
+        <h3>Las pistas de la plantilla de fábrica</h3>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Pista</th><th>Curvas</th><th>Cómo se lee</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Correlación</strong></td><td><span class="chip chip--curve" style="--c:var(--c-gr)">GR</span> <span class="chip chip--curve" style="--c:var(--c-sp)">SP</span> CAL · BS</td><td>Arcilla a la derecha; el caliper separado del trépano marca derrumbe.</td></tr>
+            <tr><td><strong>Profundidad</strong></td><td>MD (m)</td><td>Topes de zona y notas ancladas.</td></tr>
+            <tr><td><strong>Resistividad</strong></td><td><span class="chip chip--curve" style="--c:var(--c-rt)">RT</span> AT90 · <span class="chip chip--curve" style="--c:var(--c-rw)">R0</span> +4</td><td>Escala logarítmica 0,2–2000 Ω·m. Rt por encima de R0 = hidrocarburo.</td></tr>
+            <tr><td><strong>Densidad · neutrón</strong></td><td><span class="chip chip--curve" style="--c:var(--c-rhob)">ZDEN</span> <span class="chip chip--curve" style="--c:var(--c-nphi)">NPHI</span> <span class="chip chip--curve" style="--c:var(--c-pef)">PE</span></td><td>Escalas compatibles con arenisca; el cruce marca gas.</td></tr>
+            <tr><td><strong>Sónico</strong></td><td><span class="chip chip--curve" style="--c:var(--c-dt)">DT</span></td><td>140–40 µs/ft.</td></tr>
+            <tr><td><strong>Interpretación</strong></td><td>IGR · <span class="chip chip--curve" style="--c:var(--c-vsh)">VSH</span></td><td>Relleno de arcillosidad; opcionalmente desde <code>CGR</code> sin uranio (pista comparativa <code>GR · CGR</code>).</td></tr>
+            <tr><td><strong>Porosidad · Sw</strong></td><td><span class="chip chip--curve" style="--c:var(--c-phie)">PHIE</span> SWI · <span class="chip chip--curve" style="--c:var(--c-sw)">SW</span> BVW</td><td>Relleno de hidrocarburo entre PHIE y BVW.</td></tr>
+            <tr><td><strong>Litología</strong></td><td>Columna volumétrica</td><td>Arcilla, matriz, agua e hidrocarburo apilados; si hay <code>RXO</code> divide hidrocarburo en <em>HC móvil</em> y <em>HC residual</em>.</td></tr>
+            <tr><td><strong>Permeabilidad · Pozo</strong></td><td><span class="chip chip--curve" style="--c:var(--c-perm)">PERM</span></td><td>Escala log en mD, y una mini-pista del pozo completo para ubicarte.</td></tr>
+          </tbody>
+        </table></div>
+        <p class="small">Además podés agregar la pista <strong>GR · CGR</strong> (exceso de uranio en amarillo) y la pista <strong>Banderas</strong> con tus banderas discretas de usuario desde <em>Pistas</em>.</p>
+      </div>
+
+      <div class="block">
+        <h3>Moverse por el pozo</h3>
+        <div class="cards">
+          <div class="card"><h4>Zoom y escala</h4><p>Botones + y −, rueda, o la escala de la barra (1:200 a 1:8.100). <kbd>0</kbd> muestra todo el pozo.</p></div>
+          <div class="card"><h4>Intervalo</h4><p>Escribí tope y base en m MD y <em>Mostrar tramo</em>. Los chips <em>Ver la zona A…E</em> encuadran una zona.</p></div>
+          <div class="card"><h4>Cursor</h4><p>Pasá el puntero: los encabezados muestran la lectura de cada curva. <kbd>↑</kbd> <kbd>↓</kbd> lo mueven muestra a muestra.</p></div>
+          <div class="card"><h4>Topes</h4><p>Arrastrá el límite de una zona sobre el perfil. Con el tope activo, <kbd>↑</kbd> <kbd>↓</kbd> lo afinan (Mayús ×10).</p></div>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="split">
+          <div class="prose">
+            <h3>La lupa</h3>
+            <p>Tocá <kbd>L</kbd> con el puntero sobre el perfil: se abre un detalle a <strong>1:200</strong> que sigue al cursor sin perder el contexto del pozo entero. La rueda cambia el aumento entre <strong>1:50 y 1:1.000</strong>; <kbd>Esc</kbd> la cierra.</p>
+            <p>Sirve para leer capas finas, picos del caliper o el punto exacto de un tope sin cambiar la escala de trabajo.</p>
+          </div>
+          <figure tabindex="0" data-full="img/v-lupa.webp" data-cap="Lupa a 1:200 sobre la zona D."><div class="frame"><img src="img/v-lupa.webp" width="1600" height="1313" alt="Lupa del visor abierta sobre el perfil" loading="lazy"></div></figure>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="split split--rev">
+          <figure tabindex="0" data-full="img/50-menu-visor.webp" data-cap="Menú contextual del visor."><div class="frame"><img src="img/50-menu-visor.webp" width="1800" height="1125" alt="Menú contextual del visor" loading="lazy"></div></figure>
+          <div class="prose">
+            <h3>El menú del perfil</h3>
+            <p>Clic derecho sobre el perfil (o <kbd>Mayús</kbd> <kbd>F10</kbd>) abre las acciones de esa profundidad:</p>
+            <ol class="steps" style="--z:var(--zE)">
+              <li><span><strong>Notas de profundidad</strong>: texto anclado a una MD o a un intervalo, que se ve en el perfil y se exporta.</span></li>
+              <li><span><strong>Copiar profundidad y lecturas</strong> al portapapeles.</span></li>
+              <li><span><strong>Crear un tope</strong> en esa profundidad.</span></li>
+              <li><span><strong>Editar la pista</strong>: escala, color y trazo de cada curva.</span></li>
+              <li><span><strong>Medir un intervalo</strong> arrastrando.</span></li>
+              <li><span><strong>Calcar un tramo</strong>: la curva fantasma (abajo).</span></li>
+              <li><span><strong>¿De dónde sale este número?</strong> sobre una curva calculada.</span></li>
+              <li><span><strong>Exportar lo visible como PNG</strong>.</span></li>
+            </ol>
+            <p class="small"><kbd>Mayús</kbd> + clic derecho abre el menú normal del navegador.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="block" id="regla-pay">
+        <div class="split">
+          <div class="prose">
+            <h3>Regla viva de Pay al medir un intervalo</h3>
+            <p>Al activar la herramienta de medición en la barra del visor y arrastrar sobre un tramo, además del intervalo y espesor (<kbd>Δh</kbd>), muestra en vivo sobre la tarjeta flotante los promedios petrofísicos reales del intervalo usando las curvas activas vigentes: <strong>NET_RES</strong>, <strong>NET_PAY</strong> y <strong>NTG</strong>, porosidad efectiva media en reservorio, <strong>Sw</strong> ponderada por volumen poral, <strong>k</strong> geométrica, <strong>k·h</strong> y <strong>h·φ·Sh</strong>.</p>
+            <p class="small">Con una medición fija en pantalla, el menú contextual incorpora <strong>«Copiar ficha del intervalo medido»</strong> (TSV para planilla) y <strong>«Crear nota en el intervalo medido»</strong>. <kbd>Esc</kbd> limpia la medida.</p>
+          </div>
+          <figure tabindex="0" data-full="img/g01-regla-pay.png" data-cap="Regla viva de Pay midiendo un banco en el visor: muestra espesor bruto, neto reservorio, neto pay, NTG, φe, Sw, k·h y h·φ·Sh en vivo.">
+            <div class="frame"><img src="img/g01-regla-pay.png" width="1366" height="768" alt="Tarjeta en vivo de la regla de Pay midiendo un tramo del visor"></div>
+          </figure>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>Más herramientas del visor</h3>
+        <div class="cards">
+          <div class="card"><h4><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 15c3-8 5 2 7-5s4 2 7-6" stroke-dasharray="2 2"/></svg>Curva fantasma</h4><p>Calcá un tramo de una curva (por ejemplo el GR de una arena) y arrastralo a otra profundidad para correlacionar. Muestra el desplazamiento en metros.</p><span class="how">Menú del perfil → Calcar un tramo</span></div>
+          <div class="card"><h4><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 10h14M10 3v14"/><rect x="5" y="5" width="10" height="10" rx="2" opacity=".5"/></svg>Bandas de incertidumbre</h4><p>Una franja P10–P90 alrededor de Sw y de la porosidad efectiva muestra cuánto pueden variar con la incertidumbre de los parámetros.</p><span class="how">Panel del paso → Mostrar banda de incertidumbre</span></div>
+          <div class="card"><h4><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 16 16 4M6 4h10v10"/></svg>Curva por fórmula</h4><p>Creá una curva nueva escribiendo una expresión con mnemónicos o <code>@ROL</code>, por ejemplo <code>AT90/AT10</code> o <code>PHIE*(1-SW)</code>. Detecta errores de sintaxis, referencias inexistentes y ciclos; se exporta con su fórmula en el LAS.</p><span class="how">Paso Cargar → Nueva curva por fórmula</span></div>
+          <div class="card"><h4><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 3v14M3 10h14"/></svg>Tramo a gráficos</h4><p>Mayús + arrastre en el visor marca un tramo que se resalta en el crossplot y el histograma. Funciona al revés: una clase del histograma marca sus tramos en el perfil.</p><span class="how">Mayús + arrastre · Esc limpia</span></div>
+          <div class="card"><h4><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 5h14M3 10h14M3 15h9"/></svg>Encabezado del pozo</h4><p>Metadatos del LAS sobre las pistas. Se puede compactar y activar la lectura amplia de encabezados.</p><span class="how">Barra del visor</span></div>
+          <div class="card"><h4><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="7"/><path d="M10 6v8M6 10h8" opacity=".5"/></svg>Perfil clásico</h4><p>Una paleta alternativa con colores oscuros y trazos finos, como un perfil impreso de compañía de servicios.</p><span class="how">Plantillas de pistas</span></div>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="split">
+          <div class="prose">
+            <h3>Armar pistas y plantillas</h3>
+            <p>El botón <strong>Pistas</strong> abre el armador: buscá una curva o herramienta y <strong>arrastrala</strong> a una pista existente o al hueco entre dos para crear una nueva. Las curvas se reordenan arrastrando y cada una se edita con su escala, color y trazo.</p>
+            <p>Hay <strong>pistas especiales</strong>: profundidad y zonas, columna volumétrica, presión MDT y tipo de roca. <em>Guardar como…</em> guarda la disposición como plantilla propia; <em>Restablecer</em> vuelve a la de fábrica.</p>
+            <p class="small">Teclado: <kbd>Alt</kbd>+flechas mueve una pista o curva, <kbd>Alt</kbd>+<kbd>Mayús</kbd>+← → cambia el ancho, <kbd>Supr</kbd> la quita.</p>
+          </div>
+          <figure tabindex="0" data-full="img/32-pistas.webp" data-cap="Armador de pistas."><div class="frame"><img src="img/32-pistas.webp" width="1800" height="1125" alt="Armador de pistas abierto a la izquierda del visor" loading="lazy"></div></figure>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 06 OBLIGATORIOS ============ -->
+  <section class="chapter" id="obligatorios" data-zone="Módulos obligatorios" style="--z: var(--zA)">
+    <div class="wrap">
+      <div class="chapter__head">
+        <div class="bar"></div>
+        <div class="eyebrow"><span class="tope">Capítulo 06</span><span>Los seis de la cátedra</span></div>
+        <h2>Los módulos obligatorios.</h2>
+        <p class="lede">Los seis módulos que pide el profesor están completos y conectados entre sí: lo que hacés en uno aparece en el visor y en los otros gráficos.</p>
+      </div>
+      <nav class="mand" aria-label="Módulos obligatorios">
+        <a href="#visor"><span>01</span><b>Visualizador</b><svg viewBox="0 0 160 46" aria-hidden="true"><path d="M8 4v38M40 4v38M72 4v38" stroke="var(--line)" fill="none"/><path d="M20 4c6 6-8 9 2 14s-6 8 4 12-4 8 2 12" stroke="var(--c-gr)" fill="none" stroke-width="1.6"/><path d="M52 4c10 4-4 8 8 12s-10 6 0 12 6 8-2 14" stroke="var(--c-rt)" fill="none" stroke-width="1.6"/><path d="M84 4c18 6 0 10 20 14s-14 8 6 12 10 8 0 12" stroke="var(--c-nphi)" fill="none" stroke-width="1.6" stroke-dasharray="3 2"/></svg></a>
+        <a href="#mdt"><span>02</span><b>Presiones MDT</b><svg viewBox="0 0 160 46" aria-hidden="true"><path d="M20 4 60 42" stroke="var(--c-rt)" stroke-width="1.6"/><path d="M60 4 110 42" stroke="var(--c-nphi)" stroke-width="1.6"/><g fill="var(--c-sw)"><circle cx="26" cy="10" r="2.4"/><circle cx="36" cy="19" r="2.4"/><circle cx="64" cy="8" r="2.4"/><circle cx="78" cy="19" r="2.4"/><circle cx="92" cy="28" r="2.4"/><circle cx="104" cy="37" r="2.4"/></g></svg></a>
+        <a href="#crossplot"><span>03</span><b>Crossplot libre</b><svg viewBox="0 0 160 46" aria-hidden="true" id="mini-xp"></svg></a>
+        <a href="#corona"><span>04</span><b>Datos de corona</b><svg viewBox="0 0 160 46" aria-hidden="true"><path d="M10 40C50 36 90 24 150 6" stroke="var(--c-perm)" fill="none" stroke-width="1.6"/><g fill="var(--zD)"><circle cx="30" cy="38" r="2.4"/><circle cx="52" cy="33" r="2.4"/><circle cx="70" cy="30" r="2.4"/><circle cx="86" cy="22" r="2.4"/><circle cx="104" cy="21" r="2.4"/><circle cx="124" cy="12" r="2.4"/><circle cx="140" cy="10" r="2.4"/></g></svg></a>
+        <a href="#histograma"><span>05</span><b>Histograma</b><svg viewBox="0 0 160 46" aria-hidden="true"><g fill="var(--zB)" opacity=".8"><rect x="12" y="34" width="12" height="10"/><rect x="26" y="24" width="12" height="20"/><rect x="40" y="12" width="12" height="32"/><rect x="54" y="6" width="12" height="38"/><rect x="68" y="18" width="12" height="26"/><rect x="82" y="30" width="12" height="14"/></g><g fill="var(--zD)" opacity=".7"><rect x="68" y="30" width="12" height="14"/><rect x="82" y="16" width="12" height="28"/><rect x="96" y="10" width="12" height="34"/><rect x="110" y="24" width="12" height="20"/><rect x="124" y="34" width="12" height="10"/></g><path d="M100 2v42" stroke="var(--fg)" stroke-dasharray="3 2"/></svg></a>
+        <a href="#tendencias"><span>06</span><b>Tendencias</b><svg viewBox="0 0 160 46" aria-hidden="true"><path d="M10 6c20 4 10 8 26 10s-6 8 20 10 0 6 30 8 10 4 40 8" stroke="var(--c-dt)" fill="none" stroke-width="1.4"/><path d="M10 8 150 42" stroke="var(--fg)" stroke-width="1.4" stroke-dasharray="5 3"/></svg></a>
+      </nav>
+
+      <!-- MDT -->
+      <div class="block" id="mdt">
+        <div class="eyebrow"><span class="tope">02</span><span>Presiones MDT</span></div>
+        <h3>Presión contra profundidad, gradientes, densidades y contactos.</h3>
+        <div class="split split--rev">
+          <figure tabindex="0" data-full="img/23-mdt.webp" data-cap="Presiones MDT del TP sobre el visor, con el gradiente de agua ajustado en la zona D.">
+            <div class="frame"><img src="img/23-mdt.webp" width="1800" height="1125" alt="Pista de presión con los puntos MDT y el gradiente de agua" loading="lazy"></div>
+            <figcaption><b>Zona D</b>Gradiente de agua 0,786 psi/ft · ρ 1,812 g/cm³ · R² 0,984 · 28 pruebas.</figcaption>
+          </figure>
+          <div class="prose">
+            <ol class="steps" style="--z:var(--zA)">
+              <li><span>Abrí <strong>MDT</strong> en el riel y <strong>Cargar presiones</strong> (CSV o Excel) o <strong>Cargar presiones del TP</strong>.</span></li>
+              <li><span>Elegí unidades: <code>psi</code> · <code>bar</code> · <code>kPa</code> · <code>kg/cm²</code>. Filtrá por <strong>movilidad mínima</strong> (mD/cP) para descartar pruebas apretadas.</span></li>
+              <li><span>En <em>Gradientes → Nuevo</em> elegí <strong>Gas</strong>, <strong>Petróleo</strong> o <strong>Agua</strong> y <strong>arrastrá sobre la pista de presión</strong> para tomar los puntos del tramo.</span></li>
+              <li><span>Cada gradiente muestra <strong>psi/ft, bar/m y la densidad del fluido</strong> en g/cm³, con R², n y el tramo. Si la densidad no es física, lo avisa.</span></li>
+              <li><span>Trazá los gradientes de dos fluidos contiguos: el <strong>contacto</strong> es la profundidad donde se cortan. Se puede usar como tope de zona.</span></li>
+            </ol>
+            <p class="small">Clic en una fila de la tabla ubica la prueba en el visor; clic en un punto del visor la incluye o la descarta. Los puntos se colorean por fluido o por <strong>drawdown</strong>.</p>
+          </div>
+        </div>
+        <div class="split" style="margin-top:24px">
+          <div class="prose">
+            <h4>Exceso de presión y densidad equivalente (EMW)</h4>
+            <p>El conmutador <strong>Presión | Exceso | EMW</strong> del panel MDT proyecta las pruebas y tus rectas ya ajustadas sin recalcular ni alterar contactos:</p>
+            <ul>
+              <li><strong>Exceso de presión</strong>: grafica respecto a una hidrostática de referencia elegida (agua dulce 1,00, salmuera 1,07 g/cm³ o densidad del agua activa) desde un tope de referencia. Un acuífero con esa misma densidad queda vertical y los saltos entre zonas revelan compartimentalización.</li>
+              <li><strong>EMW</strong>: muestra densidad equivalente referida a superficie en <code>lb/gal</code> o <code>g/cm³</code> e informa el promedio por zona, alertando pendientes no físicas (&gt; 1,25 g/cm³). Las figuras PNG/SVG/PDF conservan la vista activa.</li>
+            </ul>
+          </div>
+          <figure tabindex="0" data-full="img/g05-mdt-exceso.png" data-cap="Panel y pista MDT en modo Exceso de presión / EMW sobre el pozo del TP, conservando exactamente los contactos y mostrando sobrepresión y escalones entre zonas.">
+            <div class="frame"><img src="img/g05-mdt-exceso.png" width="1366" height="768" alt="Pista y panel MDT con modo Exceso de presión y EMW"></div>
+          </figure>
+        </div>
+      </div>
+
+      <!-- Crossplot -->
+      <div class="block" id="crossplot">
+        <div class="eyebrow"><span class="tope">03</span><span>Crossplot libre</span></div>
+        <h3>Cualquier curva contra cualquier otra, en dos clics.</h3>
+        <div class="split split--panel">
+          <div class="prose">
+            <p><strong>Ejes.</strong> Elegí la curva de X y de Y en sus listas. Cada eje tiene escala <code>Auto · Lin · Log</code>, rango mínimo y máximo editable a mano con <em>Restablecer</em>, y el botón ⇅ intercambia los ejes.</p>
+            <p><strong>Color.</strong> Por una tercera curva (rampa viridis) o por capa, con la leyenda de zonas debajo.</p>
+            <p><strong>Cutoffs arrastrables</strong> en X y en Y: agregalos y movelos sobre el gráfico. Si el cutoff es el del módulo de Cutoffs, moverlo recalcula el pay y el sumario.</p>
+            <p><strong>Filtros por capa, curva y bandera.</strong> Además de filtrar por zona, podés filtrar los puntos por cualquier curva (rangos) o por una bandera discreta creada por vos.</p>
+            <p><strong>Del Lazo a la Acción.</strong> Al encerrar puntos con lazo o rectángulo (o clases en Histograma), aparecen dos acciones rápidas deshacibles en un paso (<kbd>Ctrl</kbd> <kbd>Z</kbd>): <strong>Guardar como bandera…</strong> (crea una bandera <code>UFLAG_*</code> para filtrar otros gráficos y verla en el visor) y <strong>Excluir en Preparación…</strong> (envía los tramos a exclusión sin tocar las mediciones originales).</p>
+          </div>
+          <figure tabindex="0" data-full="img/g02-lazo-accion.png" data-cap="Selección con lazo en Crossplot conectada al visor, con accesos para guardar bandera de usuario o enviar tramos a exclusión en Preparación.">
+            <div class="frame"><img src="img/g02-lazo-accion.png" width="1366" height="768" alt="Selección por lazo en crossplot con barra Del Lazo a la Acción"></div>
+          </figure>
+        </div>
+        <h4 style="margin-top:20px">Plantillas de libro (incluye Carta MID sin PE y Movilidad Rt–Rxo)</h4>
+        <p class="small">Paleta de comandos → «plantilla». Cada plantilla fija ejes y escalas y dibuja sus líneas de referencia; algunas permiten editar parámetros sobre el gráfico (Pickett: Rw, m y n; Thomas–Stieber: extremos de arena y arcilla; Movilidad Rt–Rxo: recta de agua Rmf/Rw).</p>
+        <div class="gallery" id="xp-gallery">
+          <figure tabindex="0" data-full="img/xp-53-xp-pickett.webp" data-cap="Pickett: Rt contra PHIE en log-log, coloreado por VSH, con las rectas de Sw."><div class="frame"><img src="img/xp-53-xp-pickett.webp" width="750" height="896" alt="Plantilla Pickett" loading="lazy"></div><figcaption><b>Pickett</b>Rw, m y n arrastrables; rectas de Sw 20–100 %.</figcaption></figure>
+          <figure tabindex="0" data-full="img/xp-54-xp-thomas.webp" data-cap="Thomas–Stieber: PHIT contra VSH con laminar, dispersa y estructural."><div class="frame"><img src="img/xp-54-xp-thomas.webp" width="750" height="896" alt="Plantilla Thomas–Stieber" loading="lazy"></div><figcaption><b>Thomas–Stieber</b>Distribución de la arcilla.</figcaption></figure>
+          <figure tabindex="0" data-full="img/g04-carta-mid.png" data-cap="Carta MID sin PE (ρmaa–Δtmaa): identifica cuarzo, calcita, dolomía, anhidrita y yeso sin el sesgo de la baritina en PE."><div class="frame"><img src="img/g04-carta-mid.png" width="1366" height="768" alt="Carta MID sin PE en crossplot"></div><figcaption><b>Carta MID (sin PE)</b>ρmaa vs. Δtmaa inmune a la baritina del lodo.</figcaption></figure>
+          <figure tabindex="0" data-full="img/g07-movilidad-sxo.png" data-cap="Movilidad Rt–Rxo (Ratio Plot): recta de agua arrastrable (Rmf/Rw) y líneas guía Sw/Sxo = 0,7 y 0,5."><div class="frame"><img src="img/g07-movilidad-sxo.png" width="1366" height="768" alt="Plantilla Movilidad Rt–Rxo en crossplot"></div><figcaption><b>Movilidad Rt–Rxo</b>Recta de agua arrastrable y movilidad por filtrado.</figcaption></figure>
+          <figure tabindex="0" data-full="img/xp-57-xp-dn.webp" data-cap="Densidad–neutrón con líneas de arenisca, caliza y dolomía y la matriz del proyecto."><div class="frame"><img src="img/xp-57-xp-dn.webp" width="750" height="896" alt="Plantilla densidad–neutrón" loading="lazy"></div><figcaption><b>Densidad–neutrón</b>Litología y matriz aparente.</figcaption></figure>
+          <figure tabindex="0" data-full="img/xp-55-xp-mn.webp" data-cap="M–N para identificar minerales."><div class="frame"><img src="img/xp-55-xp-mn.webp" width="750" height="896" alt="Plantilla M–N" loading="lazy"></div><figcaption><b>M–N</b>Puntos de cuarzo, calcita, dolomía, yeso.</figcaption></figure>
+          <figure tabindex="0" data-full="img/xp-56-xp-thk.webp" data-cap="Torio–potasio con regiones de arcillas."><div class="frame"><img src="img/xp-56-xp-thk.webp" width="750" height="896" alt="Plantilla torio–potasio" loading="lazy"></div><figcaption><b>Torio–potasio</b>Caolinita, illita, capas mixtas, micas.</figcaption></figure>
+          <figure tabindex="0" data-full="img/xp-58-xp-buckles.webp" data-cap="φ–Sw con hipérbolas de Buckles."><div class="frame"><img src="img/xp-58-xp-buckles.webp" width="750" height="896" alt="Plantilla φ–Sw Buckles" loading="lazy"></div><figcaption><b>φ–Sw (Buckles)</b>BVW constante = Swi.</figcaption></figure>
+        </div>
+        <div class="chips" style="margin-top:6px"><span class="chip">Densidad–neutrón</span><span class="chip">Pickett</span><span class="chip">φ–Sw (Buckles)</span><span class="chip">GR–Rt</span><span class="chip">Movilidad Rt–Rxo</span><span class="chip">RMN vs. densidad–neutrón</span><span class="chip">Torio–potasio</span><span class="chip">PE–densidad</span><span class="chip">Sónico–neutrón</span><span class="chip">Densidad–sónico</span><span class="chip">M–N</span><span class="chip">Identificación de matriz (ρmaa–Umaa)</span><span class="chip">Carta MID sin PE (ρmaa–Δtmaa)</span><span class="chip">PEF–potasio</span><span class="chip">PEF–Th/K</span><span class="chip">Thomas–Stieber</span></div>
+      </div>
+
+      <!-- Corona -->
+      <div class="block" id="corona">
+        <div class="eyebrow"><span class="tope">04</span><span>Datos de corona</span></div>
+        <h3>Plugs en profundidad y modelo k–φ.</h3>
+        <div class="split split--panel-l">
+          <figure class="panel-shot" tabindex="0" data-full="img/24-corona.webp" data-cap="Corona del TP: 151 plugs con profundidad, φ, k y densidad de grano.">
+            <div class="frame"><img src="img/p-24-corona.webp" width="750" height="1576" alt="Panel de corona con la tabla de plugs" loading="lazy"></div>
+          </figure>
+          <div class="prose">
+            <ol class="steps" style="--z:var(--zA)">
+              <li><span><strong>Cargar plugs</strong> desde CSV/Excel: profundidad, porosidad, permeabilidad (mD) y densidad de grano (g/cm³). Las unidades se convierten. O <strong>Cargar corona del TP</strong>.</span></li>
+              <li><span><strong>Puesta en profundidad.</strong> En el visor, arrastrá los plugs arriba o abajo: se mueve toda la corona hasta que el φ de laboratorio coincide con el perfil. <kbd>↑</kbd> <kbd>↓</kbd> afinan.</span></li>
+              <li><span>Un clic sobre un plug en el visor lo <strong>descarta o lo incluye</strong>. La tabla dice cuántos quedan (151 incluidos · 0 descartados).</span></li>
+              <li><span>El <strong>modelo k–φ</strong> aparece en Tendencias (exponencial o potencial, con R²) y se aplica como fuente de PERM por zona.</span></li>
+            </ol>
+            <p>La corona también alimenta la <strong>calibración de ρmaa</strong>, los <strong>tipos de roca</strong> (FZI y Winland) y el <a href="#validar">torneo de modelos</a>.</p>
+          </div>
+        </div>
+        <div class="two" style="margin-top:24px">
+          <figure tabindex="0" data-full="img/micp-gargantas.png" data-cap="Análisis MICP y gargantas de poro: vista de laboratorio con presión en kg/cm², radios r35 y clases de garganta para las muestras del TP.">
+            <div class="frame"><img src="img/micp-gargantas.png" width="2880" height="1800" alt="Vista de laboratorio MICP y distribución de gargantas de poro"></div>
+            <figcaption><b>Análisis MICP y gargantas de poro</b>Curvas de inyección de mercurio del TP (37 escalones) e importador CSV propio, con radios de garganta, ajuste de Thomeer y clases de poro.</figcaption>
+          </figure>
+          <figure tabindex="0" data-full="img/micp-altura.png" data-cap="Usos petrofísicos del MICP: saturación por altura capilar sobre el contacto, permeabilidad relativa, relación con RMN y capacidad de sello.">
+            <div class="frame"><img src="img/micp-altura.png" width="2880" height="1800" alt="Panel de usos de las curvas MICP: altura capilar y capacidad de sello"></div>
+            <figcaption><b>Altura capilar, sello y CMR</b>Estimación de columna máxima retenida por el sello, función J / saturación por altura y cruce con agua ligada de RMN.</figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <!-- Histograma -->
+      <div class="block" id="histograma">
+        <div class="eyebrow"><span class="tope">05</span><span>Histograma</span></div>
+        <h3>Distribuciones por capa, con cutoff arrastrable.</h3>
+        <div class="split split--panel">
+          <div class="prose">
+            <p><strong>Cualquier curva</strong>, con escala <code>Auto · Lin · Log</code> y número de clases.</p>
+            <p><strong>Líneas de arcilla.</strong> Con GR, las líneas de GR limpio y GR arcilla se arrastran sobre el histograma y el Vsh se recalcula en vivo.</p>
+            <p><strong>Varias capas superpuestas.</strong> Elegí zonas con los chips, activá <em>Un histograma por zona</em> y <em>Normalizar a %</em> para comparar zonas de distinto espesor. <em>Curva acumulada</em> agrega la frecuencia acumulada.</p>
+            <p><strong>Cutoff libre</strong> para explorar sin tocar la petrofísica, o el cutoff del módulo, que sí la cambia.</p>
+            <p><strong>Estadísticos</strong> por serie: n, media, P10, P50 y P90.</p>
+            <p><strong>Clic en una clase</strong> marca sus tramos en el visor y sus puntos en el crossplot.</p>
+          </div>
+          <figure class="panel-shot" tabindex="0" data-full="img/p-26-histograma.webp" data-cap="Histograma de GR para las zonas B y D, normalizado.">
+            <div class="frame"><img src="img/p-26-histograma.webp" width="750" height="1576" alt="Panel de histograma con zonas B y D" loading="lazy"></div>
+          </figure>
+        </div>
+      </div>
+
+      <!-- Tendencias -->
+      <div class="block" id="tendencias">
+        <div class="eyebrow"><span class="tope">06</span><span>Gradientes y líneas de tendencia</span></div>
+        <h3>Ajustes sobre cualquier curva o gráfico.</h3>
+        <div class="split split--rev">
+          <figure tabindex="0" data-full="img/27-tendencias.webp" data-cap="Tendencia ajustada arrastrando sobre una curva del visor; la ecuación y el R² quedan sobre el perfil.">
+            <div class="frame"><img src="img/27-tendencias.webp" width="1800" height="1125" alt="Tendencia dibujada sobre el visor y panel de tendencias" loading="lazy"></div>
+          </figure>
+          <div class="prose">
+            <ol class="steps" style="--z:var(--zA)">
+              <li><span><strong>Nueva tendencia</strong> y arrastrá sobre una curva del visor para elegir el tramo. O <strong>A mano</strong>, dibujando la recta.</span></li>
+              <li><span>Elegí el ajuste: <strong>lineal, logarítmico, exponencial o potencial</strong>. La ecuación y el <strong>R²</strong> se ven sobre el perfil.</span></li>
+              <li><span>El <strong>gradiente</strong> sale en unidades de campo: presión (psi/ft), temperatura (°C/100 m), compactación (µs/ft por m).</span></li>
+            </ol>
+            <p>El panel junta todas las tendencias del proyecto, incluidas las que crean otros módulos: <em>Gradiente de agua</em> (MDT, R² 0,984) y <em>Modelo k–φ</em> (corona, R² 0,701). Cada una se oculta, duplica o borra.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 07 CATÁLOGO ============ -->
+  <section class="chapter" id="catalogo" data-zone="Catálogo petrofísico" style="--z: var(--zB)">
+    <div class="wrap">
+      <div class="chapter__head">
+        <div class="bar"></div>
+        <div class="eyebrow"><span class="tope">Capítulo 07</span><span>Motor de cálculo</span></div>
+        <h2>Catálogo de métodos.</h2>
+        <p class="lede">Cada método es una función pura con tests contra resultados de libro. Muchos parámetros se eligen por zona, porque la edad de la roca, la matriz o el agua cambian de capa a capa.</p>
+      </div>
+      <div class="cat" id="cat"></div>
+
+      <div class="block" id="cgr-espectral">
+        <div class="split">
+          <div class="prose">
+            <h3>Rayos gamma sin uranio (CGR) conectado a IGR / Vsh</h3>
+            <p>Cuando el pozo cuenta con registros espectrales (<code>THOR</code>, <code>POTA</code> y <code>URAN</code>), el módulo <strong>CGR</strong> ajusta una regresión lineal sin intercepto o coeficientes estándar para separar el aporte de uranio del <code>GR</code> total, produciendo <code>CGR</code> y la fracción de uranio <code>U_GR_FRAC</code>.</p>
+            <p>Podés elegir <strong>Índice de rayos gamma desde CGR</strong> como fuente alternativa del puerto <code>IGR</code> por zona y comparar el impacto en <code>VSH</code>, <code>PHIE</code> y pay sin alterar los valores por defecto del recorrido clásico, además de abrir la pista comparativa <strong>GR · CGR</strong> con relleno de exceso de uranio.</p>
+          </div>
+          <figure tabindex="0" data-full="img/g06-cgr-espectral.png" data-cap="Rayos gamma sin uranio (CGR): ajuste espectral en el paso Arcilla y pista comparativa GR · CGR destacando el exceso de uranio.">
+            <div class="frame"><img src="img/g06-cgr-espectral.png" width="1366" height="768" alt="Módulo CGR sin uranio y pista GR · CGR"></div>
+          </figure>
+        </div>
+      </div>
+
+      <div class="block" id="movilidad-sxo">
+        <div class="split split--rev">
+          <figure tabindex="0" data-full="img/g07-movilidad-sxo.png" data-cap="Hidrocarburo móvil vs. residual (Sxo, MOS, SHR, MHI), crossplot Movilidad Rt–Rxo y partición en la pista Litología.">
+            <div class="frame"><img src="img/g07-movilidad-sxo.png" width="1366" height="768" alt="Panel Sxo/MOS y partición HC móvil / residual en el visor"></div>
+          </figure>
+          <div class="prose">
+            <h3>Hidrocarburo móvil vs. residual (Sxo · MOS)</h3>
+            <p>Con <code>RXO</code> medido o modelado por invasión escalonada, el módulo <strong>Hidrocarburo móvil y residual</strong> calcula por zona la saturación de la zona lavada (<code>SXO</code>), hidrocarburo desplazable (<code>MOS</code>), hidrocarburo residual (<code>SHR</code>) y el índice de movilidad (<code>MHI = Sw/Sxo</code>), por cocientes o Archie en zona lavada.</p>
+            <p>Cuando <code>RXO</code> está disponible, la columna volumétrica de <strong>Litología</strong> divide el hidrocarburo en <em>HC móvil</em> y <em>HC residual</em>, y la plantilla <strong>Movilidad Rt–Rxo</strong> permite arrastrar la recta de agua sobre el crossplot.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="block" id="smlp-lorenz">
+        <div class="split">
+          <div class="prose">
+            <h3>Unidades hidráulicas interactivas (SMLP · Lorenz estratigráfico)</h3>
+            <p>En <strong>Sumario → Capacidad de flujo y Lorenz</strong>, podés hacer clic sobre la curva <code>Fkh(Fφh)</code> para marcar o quitar quiebres hidráulicos (o usar <strong>Sugerir quiebres</strong> según sensibilidad), generando de tope a base las sub-unidades <code>S1…Sk</code> con <code>% φ·h</code>, <code>% k·h</code>, pendiente relativa y carácter operativo (<em>Conducto</em>, <em>Homogéneo</em>, <em>Barrera</em> o <em>Subordinado</em>).</p>
+            <p>Permite proyectar las sub-unidades directamente sobre el visor y <strong>Partir zona en este quiebre</strong> en un paso reversible con <kbd>Ctrl</kbd> <kbd>Z</kbd>.</p>
+          </div>
+          <figure tabindex="0" data-full="img/g03-smlp-lorenz.png" data-cap="Gráfico interactivo SMLP de Lorenz con quiebres hidráulicos, tabla de sub-unidades S1..Sk y superposición en el visor.">
+            <div class="frame"><img src="img/g03-smlp-lorenz.png" width="1366" height="768" alt="Unidades hidráulicas interactivas SMLP y tabla de Lorenz"></div>
+          </figure>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 08 GEOLOGÍA ============ -->
+  <section class="chapter" id="geologia" data-zone="Geología" style="--z: var(--zC)">
+    <div class="wrap">
+      <div class="chapter__head">
+        <div class="bar"></div>
+        <div class="eyebrow"><span class="tope">Capítulo 08</span><span>Espacio Geología</span></div>
+        <h2>Leer la roca, no solo el fluido.</h2>
+        <p class="lede">El espacio Geología usa el mismo pozo y las mismas zonas, con cinco pasos: Cargar, Calidad, Zonas, <strong>Litología</strong> y <strong>Geología</strong>. Cambia la plantilla del visor: GR espectral, electrosecuencias, mineralogía, impedancia, sintético y columna.</p>
+      </div>
+      <figure tabindex="0" data-full="img/78-rf.webp" data-cap="Espacio Geología: litología y mineralogía, impedancia acústica, reflectividad, sintético, columna con grano estimado y litología por random forest con su probabilidad.">
+        <div class="frame"><img src="img/78-rf.webp" width="1800" height="1125" alt="Espacio Geología con columna sedimentológica y litología sugerida" loading="lazy"></div>
+      </figure>
+
+      <div class="block">
+        <div class="two">
+          <div class="card" style="--z:var(--zC)">
+            <div class="eyebrow"><span class="tope">Paso 4</span><span>Litología y mineralogía</span></div>
+            <ul class="cat" style="display:block"><li style="padding:10px 0"><strong>Litología sugerida (random forest)</strong><br><small class="small">Entrenado con FORCE 2020. Si el PE es sospechoso (baritina), usa el modelo sin PE. Muestra probabilidad mínima e importancia de cada curva.</small></li><li style="padding:10px 0"><strong>Electrofacies</strong><br><small class="small">Agrupa muestras por respuesta parecida, sin etiquetas: mezcla gaussiana o k-means. Son grupos de respuesta, no litologías.</small></li><li style="padding:10px 0"><strong>Electrofacies · elección de k</strong><br><small class="small">Curvas de BIC e inercia de 2 a 8 grupos, con el k sugerido.</small></li></ul>
+          </div>
+          <div class="card">
+            <div class="eyebrow"><span class="tope">Paso 5</span><span>Lectura geológica</span></div>
+            <ul class="cat" style="display:block"><li style="padding:10px 0"><strong>Zonas sugeridas</strong><br><small class="small">Propone topes donde cambia el GR (y opcionalmente densidad y resistividad). Se aceptan de a uno o todos.</small></li><li style="padding:10px 0"><strong>Electrosecuencias</strong><br><small class="small">Tendencias granocrecientes y granodecrecientes por tramo.</small></li><li style="padding:10px 0"><strong>Tipo de arcilla · GR espectral</strong><br><small class="small">Th–K, afinidad mineral y Th/U por zona; uranio alto como alerta.</small></li><li style="padding:10px 0"><strong>Mineralogía · PE–densidad</strong><br><small class="small">Cuarzo, calcita, dolomía, arcilla y porosidad con cierre y residuo.</small></li><li style="padding:10px 0"><strong>Índices de litología</strong><br><small class="small">M, N, Umaa, Δtmaa (DTMAA) y Th/K como curvas.</small></li><li style="padding:10px 0"><strong>Carbono orgánico · Passey</strong><br><small class="small">ΔlogR, TOC con madurez elegida y bandera de roca generadora.</small></li><li style="padding:10px 0"><strong>Sismograma sintético</strong><br><small class="small">Impedancia, reflectividad y convolución con Ricker; frecuencia, paso y polaridad.</small></li><li style="padding:10px 0"><strong>Columna sedimentológica</strong><br><small class="small">Litología y grano estimados, bloqueados en capas.</small></li></ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="gallery" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
+          <figure tabindex="0" data-full="img/p-73-sedcol.webp" data-cap="Columna sedimentológica: umbral de arcilla, inicio de limolita y espesor mínimo de capa."><div class="frame"><img src="img/p-73-sedcol.webp" width="750" height="1576" alt="Panel de columna sedimentológica" loading="lazy"></div><figcaption><b>Columna</b></figcaption></figure>
+          <figure tabindex="0" data-full="img/p-79-sismo.webp" data-cap="Sismograma sintético: paso temporal, frecuencia central y polaridad."><div class="frame"><img src="img/p-79-sismo.webp" width="750" height="1576" alt="Panel del sismograma sintético" loading="lazy"></div><figcaption><b>Sintético</b></figcaption></figure>
+          <figure tabindex="0" data-full="img/p-75-arcilla-tipo.webp" data-cap="Tipo de arcilla por GR espectral, con uranio alto y vista Th–K por zona."><div class="frame"><img src="img/p-75-arcilla-tipo.webp" width="750" height="1576" alt="Panel de tipo de arcilla" loading="lazy"></div><figcaption><b>Tipo de arcilla</b></figcaption></figure>
+          <figure tabindex="0" data-full="img/p-80-passey.webp" data-cap="Carbono orgánico por Passey: estimación orientativa, confirmar con geoquímica."><div class="frame"><img src="img/p-80-passey.webp" width="750" height="1576" alt="Panel de Passey" loading="lazy"></div><figcaption><b>Passey</b></figcaption></figure>
+          <figure tabindex="0" data-full="img/p-78-rf.webp" data-cap="Litología sugerida por random forest, con la importancia de cada curva."><div class="frame"><img src="img/p-78-rf.webp" width="750" height="1576" alt="Panel de litología random forest" loading="lazy"></div><figcaption><b>Random forest</b></figcaption></figure>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 09 PREPARAR ============ -->
+  <section class="chapter" id="preparar" data-zone="Preparar datos" style="--z: var(--zD)">
+    <div class="wrap">
+      <div class="chapter__head">
+        <div class="bar"></div>
+        <div class="eyebrow"><span class="tope">Capítulo 09</span><span>Control de calidad avanzado</span></div>
+        <h2>Preparar datos sin perder el original.</h2>
+        <p class="lede">Las correcciones son recetas: cada etapa es opcional, se previsualiza antes de aplicar y se puede deshacer. El dato medido nunca se pisa; una muestra estimada nunca pasa a ser medida.</p>
+      </div>
+      <div class="pipe" aria-label="Etapas de la receta en orden">
+        <div><span>ORIGEN</span><b>Original</b><small>5.810 muestras tal como se cargaron</small></div>
+        <div><span>1</span><b>Exclusión</b><small>Quita tramos o espurios; deja hueco</small></div>
+        <div><span>2</span><b>Interpolación</b><small>Rellena huecos cortos con soporte</small></div>
+        <div><span>3</span><b>Mediana</b><small>Suaviza ruido con ventana en metros</small></div>
+        <div><span>4</span><b>Alineación</b><small>Corrimiento constante en MD</small></div>
+        <div><span>5</span><b>Normalización</b><small>Lleva percentiles a valores de referencia</small></div>
+        <div><span>RESULTADO</span><b>Preparada</b><small>La fuente que usan los módulos</small></div>
+      </div>
+      <div class="block">
+        <figure tabindex="0" data-full="img/36-preparar.webp" data-cap="Preparar datos: curvas con su estado, etapas de la receta, gráfico antes/después y herramientas.">
+          <div class="frame"><img src="img/36-preparar.webp" width="1800" height="1125" alt="Pantalla Preparar datos con GR antes y después" loading="lazy"></div>
+        </figure>
+      </div>
+      <div class="block">
+        <div class="split">
+          <div class="prose">
+            <h3>Pestañas</h3>
+            <div class="tbl-wrap"><table><tbody>
+              <tr><td><strong>Limpieza</strong></td><td>Excluir tramo, buscar espurios, interpolar huecos, mediana móvil, alinear en profundidad, normalizar.</td></tr>
+              <tr><td><strong>DRX y GR</strong></td><td>Carga de laboratorio de difracción, comparación con el perfil y calibración de los extremos del GR.</td></tr>
+              <tr><td><strong>Ambiente</strong></td><td>Diagnóstico por zona: caliper, ensanchamiento, PE sospechoso, separación de inducción.</td></tr>
+              <tr><td><strong>Correcciones</strong></td><td>Corrección ambiental de GR (LDEO MGT) cuando se cumplen sus condiciones.</td></tr>
+              <tr><td><strong>Densidad</strong></td><td>Densidad estimada en los derrumbes con un bosque aleatorio entrenado en la densidad sana del mismo pozo.</td></tr>
+              <tr><td><strong>Corridas</strong></td><td>Agrupa curvas que comparten adquisición y alineación.</td></tr>
+              <tr><td><strong>Guardadas</strong></td><td>Recetas aplicadas, con su historia.</td></tr>
+            </tbody></table></div>
+          </div>
+          <div class="prose">
+            <h3>Cómo se usa</h3>
+            <ol class="steps" style="--z:var(--zD)">
+              <li><span>Elegí la curva original y el tramo en m MD (los extremos se incluyen). <em>Usar tramo visible</em> toma el del visor.</span></li>
+              <li><span>Revisá los sospechosos antes de excluir: un pico puede ser una capa fina real.</span></li>
+              <li><span>Generá la vista previa y compará original, preparada y faltantes. <em>Comparar en el visor</em> las superpone en el perfil.</span></li>
+              <li><span><strong>Aplicá</strong> explícitamente. Guardá un snapshot antes de calibrar.</span></li>
+            </ol>
+            <h4 style="margin-top:12px">Bits de la columna QC exportada</h4>
+            <div class="chips"><span class="chip"><b class="mono">1</b> faltante original</span><span class="chip"><b class="mono">2</b> excluida</span><span class="chip"><b class="mono">8</b> interpolada</span><span class="chip"><b class="mono">16</b> filtrada</span><span class="chip"><b class="mono">32</b> alineada</span><span class="chip"><b class="mono">64</b> corrección MGT</span><span class="chip"><b class="mono">128</b> fuera de dominio</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 10 VALIDAR ============ -->
+  <section class="chapter" id="validar" data-zone="Validar y defender" style="--z: var(--zE)">
+    <div class="wrap">
+      <div class="chapter__head">
+        <div class="bar"></div>
+        <div class="eyebrow"><span class="tope">Capítulo 10</span><span>Validación, comparación y defensa</span></div>
+        <h2>Probar, comparar, explicar.</h2>
+        <p class="lede">Herramientas para responder las preguntas de la defensa: de dónde sale cada número, qué cambia si muevo un cutoff, cuánto cambió desde la versión anterior y qué tan incierto es el volumen.</p>
+      </div>
+
+      <div class="block">
+        <div class="split">
+          <div class="prose">
+            <h3>Snapshots y cortina antes/después</h3>
+            <p>Un <strong>snapshot</strong> congela zonas, parámetros y métodos. Guardá uno antes de probar otros valores: después podés volver a él, comparar el sumario o abrir la <strong>cortina</strong>, que divide el visor en <em>antes</em> y <em>después</em> con un separador que se arrastra.</p>
+            <ol class="steps" style="--z:var(--zE)"><li><span><strong>Snapshots → Guardar snapshot</strong> (con nombre opcional).</span></li><li><span>Cambiá parámetros, métodos o topes.</span></li><li><span>Paleta → <strong>Cortina antes/después</strong> o <strong>Comparar con snapshot</strong>.</span></li></ol>
+          </div>
+          <figure tabindex="0" data-full="img/66-cortina.webp" data-cap="Cortina: a la izquierda el snapshot, a la derecha la interpretación actual con Vsh máxima cambiada."><div class="frame"><img src="img/v-cortina.webp" width="1600" height="1313" alt="Cortina antes y después en el visor" loading="lazy"></div></figure>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="split split--rev">
+          <figure tabindex="0" data-full="img/52-origen.webp" data-cap="Origen: la cadena de cálculo de PHIE a 7.819,95 m, con entradas, parámetros y método de cada eslabón."><div class="frame"><img src="img/52-origen.webp" width="1800" height="1125" alt="Panel Origen con la cadena de cálculo" loading="lazy"></div></figure>
+          <div class="prose">
+            <h3>¿De dónde sale este número?</h3>
+            <p>Clic derecho sobre una curva calculada → <strong>¿De dónde sale este número?</strong> El panel <em>Origen</em> muestra, para esa profundidad, el valor y toda la cadena que lo produce: método, entradas con su lectura, parámetros con la zona de la que vienen, y un enlace a sus ecuaciones.</p>
+            <p>Por ejemplo, PHIE = 0,1059 a 7.819,95 m en la zona B ← Vsh 0,2533 ← IGR 0,2533 ← GR 52,79 gAPI con GR limpio 30 y GR arcilla 120.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="split">
+          <div class="prose">
+            <h3>Vistas guardadas y modo defensa</h3>
+            <p><strong>Guardar la vista actual</strong> captura intervalo, plantilla de pistas y paneles. El <strong>modo defensa</strong> oculta la interfaz y recorre las vistas a pantalla completa con <kbd>←</kbd> <kbd>→</kbd>; <kbd>Esc</kbd> sale. Preparás la presentación dentro de la propia app.</p>
+          </div>
+          <figure tabindex="0" data-full="img/67-defensa.webp" data-cap="Modo defensa: el perfil a pantalla completa, sin controles."><div class="frame"><img src="img/67-defensa.webp" width="1800" height="1125" alt="Modo defensa a pantalla completa" loading="lazy"></div></figure>
+        </div>
+      </div>
+
+      <div class="block" id="superficie-2d">
+        <h3>Sensibilidad 1D, superficie 2D de cutoffs e incertidumbre</h3>
+        <div class="split">
+          <div class="prose">
+            <h4>Superficie 2D de estabilidad de Cutoffs</h4>
+            <p>En el paso <strong>Cutoffs → Sensibilidad a los cutoffs</strong>, el conmutador <strong>Curvas 1D | Superficie 2D</strong> abre el mapa bivariado de <code>φ × Sw</code>, <code>Vsh × φ</code> o <code>Vsh × Sw</code> para evaluar <em>Neto pay</em>, <em>h·φ·Sh</em>, <em>Petróleo</em> o <em>Gas</em> en una zona o en <em>Total</em>.</p>
+            <ul>
+              <li><strong>Semáforo de estabilidad local</strong>: evalúa variaciones simultáneas (±ΔVsh 0,05 · ±Δφ 0,01 · ±ΔSw 0,05) clasificadas como <em>Meseta estable</em> (≤ 10 %), <em>Zona sensible</em> (10–25 %) o <em>Barranco crítico</em> (&gt; 25 %).</li>
+              <li><strong>Mira interactiva</strong>: clic, arrastre o flechas del teclado (<kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd>, <kbd>Mayús</kbd> paso rápido) actualizan ambos cortes a la vez; un único <kbd>Ctrl</kbd> <kbd>Z</kbd> revierte los dos.</li>
+            </ul>
+          </div>
+          <figure tabindex="0" data-full="img/g09-superficie-2d.png" data-cap="Superficie 2D de cutoffs φ × Sw con mapa de calor, curvas de nivel, caja de tolerancia operativa y mira arrastrable.">
+            <div class="frame"><img src="img/g09-superficie-2d.png" width="1366" height="768" alt="Panel Superficie 2D de estabilidad de Cutoffs"></div>
+          </figure>
+        </div>
+        <div class="three" style="margin-top:20px">
+          <figure tabindex="0" data-full="img/p-64-sensibilidad.webp" data-cap="Sensibilidad 1D a los cutoffs: neto pay y volumen al mover cada cutoff con los otros fijos."><div class="frame"><img src="img/p-64-sensibilidad.webp" width="750" height="1576" alt="Sensibilidad 1D a los cutoffs" loading="lazy"></div><figcaption><b>Sensibilidad 1D</b>Cuánto cambian el pay y el volumen al mover un corte por vez.</figcaption></figure>
+          <figure tabindex="0" data-full="img/p-62-lorenz.webp" data-cap="Capacidad de flujo y Lorenz."><div class="frame"><img src="img/p-62-lorenz.webp" width="750" height="1576" alt="Capacidad de flujo y Lorenz" loading="lazy"></div><figcaption><b>Lorenz</b>φ·h, k·h y quiebres hidráulicos SMLP.</figcaption></figure>
+          <figure tabindex="0" data-full="img/p-60-capas-pay.webp" data-cap="Capas de pay y punzados sugeridos."><div class="frame"><img src="img/p-60-capas-pay.webp" width="750" height="1576" alt="Capas de pay y punzados" loading="lazy"></div><figcaption><b>Capas de pay</b>Tramos continuos ordenados por k·h para elegir punzados.</figcaption></figure>
+        </div>
+        <p class="small"><strong>Incertidumbre del volumen</strong> (paso Volumen): Monte Carlo sobre área, factor de volumen, porosidad, Sw y cutoffs → P90, P50 y P10 del volumen in situ por zona y qué parámetro lo mueve más.</p>
+      </div>
+
+      <div class="block" id="coherencia">
+        <div class="split split--rev">
+          <figure tabindex="0" data-full="img/g08-coherencia.png" data-cap="Panel Coherencia cruzada entre herramientas: auditoría de siete chequeos físicos por zona con semáforo y salto directo al tramo crítico.">
+            <div class="frame"><img src="img/g08-coherencia.png" width="1366" height="768" alt="Pestaña Coherencia cruzada entre herramientas en el dock"></div>
+          </figure>
+          <div class="prose">
+            <h3>Coherencia cruzada entre herramientas (defensa del TP)</h3>
+            <p>La pestaña <strong>Coherencia</strong> del dock (accesible también desde <em>Sumario</em> o <kbd>Ctrl</kbd> <kbd>K</kbd>) ejecuta una auditoría en vivo y de solo lectura con <strong>7 chequeos cruzados</strong> por zona: <em>Archie vs. Swi SCAL</em>, <em>agua ligada (Archie / RMN / SCAL)</em>, <em>porosidad (perfil / RMN / corona)</em>, <em>contactos MDT vs. Sw</em>, <em>capacidad de sello MICP</em>, <em>aporte de uranio al GR</em> y <em>movilidad del hidrocarburo</em>.</p>
+            <p>Clasifica cada celda como <strong>Acuerdo</strong>, <strong>Atención</strong>, <strong>Tensión</strong> o <strong>Sin soporte</strong> (nunca oculta mediciones ausentes), lleva con un clic al tramo crítico en el visor y al panel involucrado, y se integra en el <strong>Informe HTML</strong> y en <strong>Copiar contexto para chat</strong>.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>Más herramientas de validación</h3>
+        <div class="cards">
+          <div class="card"><h4><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 3 18 17H2z"/><path d="M10 8v4M10 14.5v.1"/></svg>Avisos agrupados</h4><p>Errores, advertencias e información por paso y por módulo. Un clic abre el paso y lleva el visor a la zona; «Marcar como visto» se guarda en el proyecto.</p></div>
+          <div class="card"><h4><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m4 10 4 4 8-8"/></svg>Revisado</h4><p>El contador separa los pasos calculados con valores de fábrica de los que tocaste: «11 · 2 rev.». Un paso se marca solo cuando cambiás un parámetro o una fuente.</p></div>
+          <div class="card"><h4><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="11" r="6"/><path d="M10 8v3M8 2h4"/></svg>Cronómetro</h4><p>Mide el recorrido completo desde la carga. Se reinicia desde la paleta.</p></div>
+          <div class="card"><h4><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 17V7l7-4 7 4v10"/><path d="M7 17v-5h6v5"/></svg>Entrenador</h4><p>Genera un pozo sintético con porosidad y Sw conocidas (semilla opcional, ruido de medición). Interpretás y al <em>Corregir ejercicio</em> compara tu resultado con la verdad sembrada.</p></div>
+          <div class="card"><h4><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3h8v4a4 4 0 0 1-8 0zM10 11v4M7 17h6"/></svg>Torneo contra corona</h4><p>Combina métodos de Vsh, porosidad y Sw y los ordena por ajuste a la corona. Aplicar una combinación guarda un snapshot y se deshace.</p></div>
+          <div class="card"><h4><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h12v9H8l-4 3z"/></svg>Asistente sin modelo</h4><p>Preguntas sobre el pozo («Mostrame Sw en la zona D», «¿Por qué la zona C tiene poco pay?», «¿Cómo funciona Archie?») respondidas con reglas y los datos del proyecto, citando la fuente. Funciona sin internet.</p></div>
+          <div class="card"><h4><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="6" y="6" width="11" height="11" rx="2"/><path d="M3 13V3h10"/></svg>Copiar contexto para un chat</h4><p>Copia un resumen del pozo, zonas, métodos y resultados listo para pegar en un chat con una IA.</p></div>
+          <div class="card"><h4><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5h12M4 10h12M4 15h7"/></svg>Lectura automática</h4><p>Resume en texto qué tramos son candidatos a gas, petróleo, agua o dudosos, por qué y con qué confianza.</p></div>
+          <div class="card"><h4><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 17h14M5 17V9M9 17V5M13 17v-6"/></svg>Distribuciones por zona</h4><p>Cajas o histogramas de una propiedad por zona, reservorio o pay, comparando la interpretación actual con la corona.</p></div>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="two">
+          <figure tabindex="0" data-full="img/38-asistente.webp" data-cap="Asistente: respuesta sobre la zona C con la fuente y accesos al sumario y los cutoffs."><div class="frame"><img src="img/p-38-asistente.webp" width="750" height="1576" alt="Asistente respondiendo sobre la zona C" loading="lazy" style="max-height:520px;object-fit:cover;object-position:top"></div><figcaption><b>Asistente</b>«¿Por qué la zona C tiene poco pay?»</figcaption></figure>
+          <figure tabindex="0" data-full="img/40-entrenador.webp" data-cap="Entrenador: semilla y ruido de medición."><div class="frame"><img src="img/40-entrenador.webp" width="1800" height="1125" alt="Diálogo del entrenador" loading="lazy"></div><figcaption><b>Entrenador</b>Un pozo con respuesta conocida para practicar.</figcaption></figure>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 11 HERRAMIENTAS ============ -->
+  <section class="chapter" id="herramientas" data-zone="Herramientas" style="--z: var(--zA)">
+    <div class="wrap">
+      <div class="chapter__head">
+        <div class="bar"></div>
+        <div class="eyebrow"><span class="tope">Capítulo 11</span><span>Sarta, digitalizador, ecuaciones, exportar</span></div>
+        <h2>Herramientas.</h2>
+      </div>
+
+      <div class="block">
+        <div class="split">
+          <div class="prose">
+            <h3>Sarta de perfilaje en 3D</h3>
+            <p>El botón <strong>Sarta</strong> arma la sarta a partir de las curvas del pozo: rayos gamma, gamma espectral, densidad, calibre, neutrón, sónico, resonancia magnética, inducción y SP. Cada herramienta muestra su profundidad de investigación.</p>
+            <p>La <strong>vista 3D</strong> dibuja el pozo con el <strong>calibre medido</strong> y el <strong>diámetro de invasión calculado</strong>, coloreado por litología sugerida. La pestaña <em>Planificación</em> permite prender y apagar herramientas para planificar una sarta nueva.</p>
+            <p><strong>Perfil radial de invasión</strong>: para la profundidad del cursor, Rxo, Rt y di ajustados a la inducción de arreglo (AT10–AT90), con su residuo.</p>
+          </div>
+          <figure tabindex="0" data-full="img/33-sarta.webp" data-cap="Sarta de perfilaje: herramientas a la izquierda y pozo 3D con calibre e invasión."><div class="frame"><img src="img/33-sarta.webp" width="1800" height="1125" alt="Sarta de perfilaje y vista 3D del pozo" loading="lazy"></div></figure>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="split split--rev">
+          <figure tabindex="0" data-full="img/37-digitizer.webp" data-cap="Mesa de digitalización: imagen, geometría, profundidad, curvas, revisión, importar y exportar."><div class="frame"><img src="img/37-digitizer.webp" width="1800" height="1125" alt="Mesa de digitalización de Log Digitizer" loading="lazy"></div></figure>
+          <div class="prose">
+            <h3>Log Digitizer</h3>
+            <p>Convierte un perfil escaneado en curvas digitales, sin salir de la app.</p>
+            <ol class="steps" style="--z:var(--zA)">
+              <li><span><strong>Imagen</strong>: soltá un JPG, PNG o WebP o pegalo con Ctrl+V.</span></li>
+              <li><span><strong>Geometría</strong>: enderezá la perspectiva.</span></li>
+              <li><span><strong>Profundidad</strong>: amarrá al menos dos profundidades conocidas.</span></li>
+              <li><span><strong>Curvas</strong>: marcá bordes y valores de la pista y trazá la curva por su color.</span></li>
+              <li><span><strong>Revisión</strong>: compará la traza con la imagen.</span></li>
+              <li><span><strong>Importar y exportar</strong> al pozo, o guardá la sesión.</span></li>
+            </ol>
+            <p class="small">Con escaneos de unos 20 px por metro, el error típico es de 1–2 % del rango de la escala. Revisá siempre las curvas digitalizadas.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="split">
+          <div class="prose">
+            <h3>Ecuaciones</h3>
+            <p>La única pantalla con fórmulas. Lista las <strong>62 fichas documentadas</strong> por categoría con su resumen, ecuaciones numeradas, tabla de parámetros (unidad, valor por defecto, rango, si es por zona) y referencias bibliográficas. Buscador integrado por nombre, parámetro y factor de formación (<code>a</code>, <code>m</code>, <code>F</code>).</p>
+            <p class="small">Se abre con Σ en la barra superior, desde cualquier panel de paso o con la paleta («ecuaciones»).</p>
+          </div>
+          <figure tabindex="0" data-full="img/31-ecuaciones.webp" data-cap="Ecuaciones del volumen in situ."><div class="frame"><img src="img/31-ecuaciones.webp" width="1800" height="1125" alt="Pantalla de ecuaciones" loading="lazy"></div></figure>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="split split--rev">
+          <figure tabindex="0" data-full="img/35-exportar.webp" data-cap="Exportar datos del pozo."><div class="frame"><img src="img/35-exportar.webp" width="1800" height="1125" alt="Diálogo Exportar" loading="lazy"></div></figure>
+          <div class="prose">
+            <h3>Exportar</h3>
+            <p><kbd>Ctrl</kbd> <kbd>E</kbd> abre tres pestañas:</p>
+            <div class="tbl-wrap"><table><tbody>
+              <tr><td><strong>Datos del pozo</strong></td><td>LAS 2.0, CSV o Excel. Tramo, metros o pies, valor sin dato (−999,25 en LAS), curvas medidas y calculadas, alternativas y sumario por zona.</td></tr>
+              <tr><td><strong>Figuras</strong></td><td>Visor, crossplots, histogramas y gráficos en imagen, con estilo independiente del tema.</td></tr>
+              <tr><td><strong>Informe</strong></td><td>Documento con referencias, relaciones adoptadas, parámetros y tabla opcional de <em>Coherencia cruzada</em>, separando registros históricos de la interpretación actual.</td></tr>
+            </tbody></table></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 12 ATAJOS ============ -->
+  <section class="chapter" id="atajos" data-zone="Atajos" style="--z: var(--zB)">
+    <div class="wrap">
+      <div class="chapter__head">
+        <div class="bar"></div>
+        <div class="eyebrow"><span class="tope">Capítulo 12</span><span>Teclado</span></div>
+        <h2>Atajos y paleta de comandos.</h2>
+        <p class="lede"><kbd>Ctrl</kbd> <kbd>K</kbd> abre la paleta: escribí lo que querés hacer («saturación», «tema oscuro», «exportar», «plantilla Pickett») y tocá Intro. <kbd>?</kbd> muestra esta hoja dentro de la app. En Mac, Cmd reemplaza a Ctrl.</p>
+      </div>
+      <div class="keys" id="keys"></div>
+      <div class="block">
+        <div class="two">
+          <figure tabindex="0" data-full="img/30-paleta.webp" data-cap="Paleta de comandos."><div class="frame"><img src="img/30-paleta.webp" width="1800" height="1125" alt="Paleta de comandos" loading="lazy"></div><figcaption><b>Ctrl+K</b>Búsqueda sin acentos sobre todas las acciones.</figcaption></figure>
+          <figure tabindex="0" data-full="img/29-atajos.webp" data-cap="Hoja de atajos."><div class="frame"><img src="img/29-atajos.webp" width="1800" height="1125" alt="Hoja de atajos" loading="lazy"></div><figcaption><b>?</b>La hoja de atajos en la app.</figcaption></figure>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 13 CURVAS ============ -->
+  <section class="chapter" id="curvas" data-zone="Curvas y colores" style="--z: var(--zC)">
+    <div class="wrap">
+      <div class="chapter__head">
+        <div class="bar"></div>
+        <div class="eyebrow"><span class="tope">Capítulo 13</span><span>Convenciones de lectura</span></div>
+        <h2>Curvas, colores y trazos.</h2>
+        <p class="lede">Cada rol tiene un color y un trazo fijos en todo el programa: en el visor, en los crossplots, en los histogramas y en las figuras exportadas. Este es el juego que vas a ver.</p>
+      </div>
+      <div class="curves" id="curves"></div>
+
+      <div class="block">
+        <h3>El pozo del TP en números</h3>
+        <p class="prose">Sumario por zona con los valores de fábrica del programa y un área de 1 km² por zona. Es un punto de partida para verificar que todo funciona, no la interpretación final.</p>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Zona</th><th>Intervalo (m MD)</th><th class="num">Bruto (m)</th><th class="num">Arena neta (m)</th><th class="num">Reservorio (m)</th><th class="num">Pay (m)</th><th class="num">φ pay</th><th class="num">Sw pay</th></tr></thead>
+          <tbody>
+            <tr><td><span class="zdot" style="--z:var(--zA)"></span>A</td><td class="mono">7.633,3 – 7.724,4</td><td class="num">91,3</td><td class="num">46,2</td><td class="num">44,8</td><td class="num">8,7</td><td class="num">15,7 %</td><td class="num">47,6 %</td></tr>
+            <tr><td><span class="zdot" style="--z:var(--zB)"></span>B</td><td class="mono">7.724,5 – 7.906,1</td><td class="num">181,7</td><td class="num">35,4</td><td class="num">32,2</td><td class="num">31,5</td><td class="num">13,8 %</td><td class="num">33,5 %</td></tr>
+            <tr><td><span class="zdot" style="--z:var(--zC)"></span>C</td><td class="mono">7.906,2 – 7.969,9</td><td class="num">63,9</td><td class="num">5,6</td><td class="num">5,3</td><td class="num">2,1</td><td class="num">15,4 %</td><td class="num">44,0 %</td></tr>
+            <tr><td><span class="zdot" style="--z:var(--zD)"></span>D</td><td class="mono">7.970,1 – 8.247,0</td><td class="num">277,1</td><td class="num">142,6</td><td class="num">138,5</td><td class="num">44,8</td><td class="num">14,2 %</td><td class="num">41,0 %</td></tr>
+            <tr><td><span class="zdot" style="--z:var(--zE)"></span>E</td><td class="mono">8.247,1 – 8.518,6</td><td class="num">271,6</td><td class="num">53,0</td><td class="num">52,0</td><td class="num">16,0</td><td class="num">13,4 %</td><td class="num">43,5 %</td></tr>
+            <tr class="total"><td>Total</td><td class="mono">885,4 m</td><td class="num">885,4</td><td class="num">282,9</td><td class="num">272,8</td><td class="num">103,2</td><td class="num">12,9 %</td><td class="num">40 %</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 14 FAQ ============ -->
+  <section class="chapter" id="problemas" data-zone="Problemas frecuentes" style="--z: var(--zD)">
+    <div class="wrap">
+      <div class="chapter__head">
+        <div class="bar"></div>
+        <div class="eyebrow"><span class="tope">Capítulo 14</span><span>Ayuda</span></div>
+        <h2>Problemas frecuentes.</h2>
+      </div>
+      <div>
+        <details><summary>El HTML no abre con doble clic en la computadora de la facultad</summary><p>Algunos navegadores administrados bloquean archivos <code>file://</code>. El archivo no está roto: probá con otro navegador o abrilo desde un servidor HTTP local. La app no necesita servicios externos para calcular.</p></details>
+        <details><summary>Recargué la pestaña y volvió al pozo de demostración</summary><p>Volvé a Inicio y elegí <strong>Seguir donde quedaste</strong>. Si el navegador no permite almacenamiento local, solo queda el último <code>.pozo.json</code> que guardaste: guardá con <kbd>Ctrl</kbd> <kbd>S</kbd> después de cada cambio importante.</p></details>
+        <details><summary>Una curva no aparece en el cálculo</summary><p>Revisá el rol en el paso Columnas: sin rol, una curva se ve en el visor pero ningún módulo la usa. Si hay varias fuentes para el mismo rol, el panel del paso permite elegir cuál.</p></details>
+        <details><summary>La barra dice «Completo» pero no toqué nada</summary><p>Todos los pasos se calculan con valores de fábrica apenas cargás el pozo. El contador «rev.» cuenta los que revisaste. La leyenda «Calculado con valores de fábrica: todavía no lo tocaste» lo dice en cada paso.</p></details>
+        <details><summary>El gradiente de MDT da una densidad imposible</summary><p>La app lo marca como <em>Densidad no física</em>. Suele haber pruebas apretadas o de otro fluido en el tramo: subí la movilidad mínima, descartá puntos con un clic o achicá el tramo.</p></details>
+        <details><summary>El Vsh se ve demasiado alto en toda una zona</summary><p>Ajustá GR limpio y GR arcilla por zona, o arrastrá sus líneas en el histograma de GR. Probá un método no lineal (Larionov, Clavier o Steiber): el lineal es el más pesimista.</p></details>
+        <details><summary>¿Dónde están las fórmulas?</summary><p>Solo en Ecuaciones (Σ). La interfaz muestra resultados y parámetros; cada panel tiene un acceso directo a las ecuaciones de su método.</p></details>
+      </div>
+    </div>
+  </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot__inner">
+      <div class="eyebrow"><span>Fondo del pozo · 8.518,6 m MD</span></div>
+      <h3>fiubaLog · TP de Interpretación de Perfiles · FIUBA · 2C 2026</h3>
+      <p class="small">Manual actualizado el 27 nov 2026 con funciones MICP, filtros de gráficos, buscador de parámetros y capacidades avanzadas G01–G09. Capturas tomadas sobre la app construida con el pozo del TP y valores de fábrica; no constituyen una interpretación aprobada por la cátedra.</p>
+    </div>
+  </footer>
+</div>
+
+<dialog class="lb" id="lb" aria-label="Captura ampliada">
+  <button type="button" id="lb-close" aria-label="Cerrar">✕</button>
+  <img id="lb-img" alt="">
+  <p id="lb-cap"></p>
+</dialog>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+  /* ---------- Tema ---------- */
+  const root = document.documentElement;
+  const setTheme = (t) => {
+    if (t === 'system') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', t);
+    $$('.rail__theme button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.t === t)));
+    try { localStorage.setItem('manual.theme', t); } catch (e) {}
+    requestAnimationFrame(drawRail);
+  };
+  $$('.rail__theme button').forEach((b) => b.addEventListener('click', () => setTheme(b.dataset.t)));
+  try { const t = localStorage.getItem('manual.theme'); if (t) setTheme(t); } catch (e) {}
+
+  /* ---------- Pasos del flujo ---------- */
+  const steps = [
+    ['Cargar', 'Cargar pozo', 'p-10-paso-calidad', 'Cargá un pozo desde Excel, LAS o CSV, o usá los datos del TP. El panel resume pozo, profundidad, muestras, curvas y zonas, y permite crear curvas por fórmula.', 'Pozo, curvas medidas, zonas', '—', 'Cargar otro pozo, usar datos del TP, nueva curva por fórmula.', null],
+    ['Calidad', 'Revisar calidad', 'p-10-paso-calidad', 'Revisá el semáforo de cada curva y los tramos con derrumbe antes de interpretar. Cada curva lista sus observaciones: picos, valores constantes, fuera de rango.', 'Indicadores de derrumbe y caliper inválido', '—', 'Reabrir el paso de calidad del asistente de carga.', 'Revisá ZDEN y PE en los derrumbes: en el TP hay 8 tramos (10,8 m).'],
+    ['Zonas', 'Zonas', 'p-11-paso-zonas', 'Definí topes y capas. Todas las herramientas filtran por zona y muchos parámetros se eligen por zona. Marcá topes arrastrando sobre el perfil, pegalos desde una planilla o usá un contacto MDT como tope.', 'Zonas A–E', 'Tabla de topes y espesores', 'Marcar zona, pegar topes, zonas sugeridas (Geología).', null],
+    ['Arcilla', 'Volumen de arcilla', 'p-12-paso-arcilla', 'Elegí las líneas de arena limpia y de arcilla y el método de Vsh por zona. Podés calcular CGR sin uranio y derivar IGR desde CGR sin alterar el cálculo clásico.', 'IGR · CGR · U_GR_FRAC → VSH', 'Lineal, Larionov terciario/antiguo, Clavier, Steiber · Thomas–Stieber · CGR espectral e IGR desde CGR', 'Histograma GR interactivo y pista comparativa GR · CGR.', 'El lineal es el más pesimista: da más arcilla que cualquier otro.'],
+    ['Porosidad', 'Porosidad', 'p-13-paso-porosidad', 'Calculá la porosidad efectiva a partir de densidad, neutrón o sónico, combinadas por zona, e índices de matriz aparente sin sesgo de PE.', 'PHID · PHIN · PHIS → PHIT → PHIE · DTMAA', 'Densidad, neutrónica, Wyllie, Raymer–Hunt–Gardner, total, φt·(1−Vsh), corrección por arcilla, ρmaa y Δtmaa', 'Densidad de matriz y de fluido por zona; Carta MID sin PE y calibración con corona.', null],
+    ['Rw', 'Temperatura y Rw', 'p-14-paso-rw', 'Fijá la temperatura de formación y obtené Rw: conocida, desde el SP o por Rwa mínima.', 'TEMP · RW · RWA', 'Gradiente geotérmico, Rw conocida, Rw desde SP, Rw por Rwa mínima · agua de formación por salinidad', 'Temperatura de superficie y gradiente (°C/100 m).', 'En el TP el SP tiene 12 muestras: no alcanza para Rw desde SP.'],
+    ['Saturación', 'Saturación de agua', 'p-15-paso-saturacion', 'Elegí el modelo de saturación y sus exponentes, evaluá agua ligada MICP/SCAL y movilidad en zona lavada (Sxo/MOS/MHI).', 'SW · BVW · SH · R0 · SXO · MOS', 'Archie, Simandoux, Indonesia, R0, BVW, Swi SCAL, saturación por altura, movilidad Sxo·MOS', 'Pickett, plantilla Movilidad Rt–Rxo y partición HC móvil/residual en Litología.', null],
+    ['Permeabilidad', 'Permeabilidad', 'p-16-paso-permeabilidad', 'Estimá la permeabilidad con Timur, Timur–Coates (RMN) o el modelo k–φ de la corona.', 'PERM · FZI · tipo de roca', 'Timur, Timur–Coates, k–φ de corona (exponencial o potencial), tipos de roca FZI y Winland', 'Origen de Swirr: valor fijo, curva o RMN.', null],
+    ['Cutoffs', 'Cutoffs', 'p-17-paso-cutoffs', 'Fijá los cortes de Vsh (arena neta), φ y, si querés, k (reservorio neto) y Sw (pay neto). Explorá curvas 1D y la superficie 2D de estabilidad con contornos.', 'NET_SAND → NET_RES → NET_PAY', 'Cutoffs de reservorio y pay · sensibilidad 1D · superficie 2D (φ×Sw, Vsh×φ, Vsh×Sw)', 'Vsh máx 0,40 · φ mín 0,08 · Sw máx 0,60 · mira 2D arrastrable con Ctrl+Z atómico.', 'Un cutoff es una decisión operativa: comprobá si vivís en meseta o barranco en Superficie 2D.'],
+    ['Sumario', 'Sumario por zona', 'p-18-paso-sumario', 'Revisá espesores, N/G, φ y Sw promedio por zona, sub-unidades SMLP de Lorenz, capas de pay y acceso directo a Coherencia cruzada.', 'ZONE_SUMMARY · SMLP', 'Sumario, Lorenz interactivo SMLP, capas de pay y punzados, lectura automática, coherencia cruzada', 'Quiebres SMLP sobre el gráfico, partición de zona y salto a Coherencia.', null],
+    ['Volumen', 'Volumen in situ', 'p-19-paso-volumen', 'Cargá área, factor de volumen y fluido por zona para estimar el petróleo y el gas in situ.', 'OOIP · OGIP', 'Volumétrico determinístico · incertidumbre Monte Carlo (P90/P50/P10)', 'Área (km²), fluido, Bo (m³/m³), Bg.', null],
+  ];
+  const host = $('#stepcards');
+  host.innerHTML = steps.map((s, i) => `
+    <article class="stepcard" id="p${i + 1}">
+      <div class="stepcard__body">
+        <div class="stepcard__head"><span class="stepcard__n" aria-hidden="true">${String(i + 1).padStart(2, '0')}</span><div><div class="eyebrow"><span class="tope" style="--z:var(--zD)">Paso ${i + 1} de 11</span><span>${s[0]}</span></div><h3 style="margin-top:6px">${s[1]}</h3></div></div>
+        <p class="prose" style="color:var(--fg-2)">${s[3]}</p>
+        <dl class="kv">
+          <dt>Produce</dt><dd><span class="mono">${s[4]}</span></dd>
+          ${s[5] !== '—' ? `<dt>Métodos</dt><dd>${s[5]}</dd>` : ''}
+          <dt>Herramientas</dt><dd>${s[6]}</dd>
+        </dl>
+        ${s[7] ? `<div class="note note--warn"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 3 18 17H2z"/><path d="M10 8v4M10 14.5v.1" stroke-linecap="round"/></svg><p>${s[7]}</p></div>` : ''}
+      </div>
+      <figure class="panel-shot" tabindex="0" data-full="img/${s[2]}.webp" data-cap="Panel del paso ${s[1]}.">
+        <div class="frame"><img src="img/${s[2]}.webp" width="750" height="1576" alt="Panel del paso ${s[1]}" loading="lazy" style="max-height:620px;object-fit:cover;object-position:top"></div>
+      </figure>
+    </article>`).join('');
+  // El paso 1 muestra el panel de calidad como referencia; el de carga se ve en el capítulo 3.
+  $('#p1 figure').remove(); $('#p1').style.gridTemplateColumns = '1fr';
+
+  /* ---------- Diagrama de la cadena ---------- */
+  const chain = $('#chain');
+  const cols = [
+    { t: 'Medidas', s: 'perfil', x: 20, items: [['GR', '--c-gr'], ['ZDEN', '--c-rhob'], ['NPHI', '--c-nphi'], ['DT', '--c-dt'], ['AT90', '--c-rt'], ['SP', '--c-sp']] },
+    { t: 'Arcilla', s: 'paso 4', x: 160, items: [['IGR', '--c-gr'], ['VSH', '--c-vsh']] },
+    { t: 'Porosidad', s: 'paso 5', x: 290, items: [['PHID', '--c-rhob'], ['PHIN', '--c-nphi'], ['PHIT', '--fg'], ['PHIE', '--c-phie']] },
+    { t: 'Agua', s: 'paso 6', x: 420, items: [['TEMP', '--c-temp'], ['RW', '--c-rw']] },
+    { t: 'Saturación', s: 'paso 7', x: 550, items: [['SW', '--c-sw'], ['BVW', '--c-rw'], ['R0', '--c-phie']] },
+    { t: 'Perm.', s: 'paso 8', x: 680, items: [['PERM', '--c-perm']] },
+    { t: 'Cutoffs', s: 'paso 9', x: 800, items: [['NET_SAND', '--c-vsh'], ['NET_RES', '--warn'], ['NET_PAY', '--c-pay']] },
+    { t: 'Resultado', s: 'pasos 10–11', x: 950, items: [['SUMARIO', '--fg'], ['OOIP', '--fg'], ['OGIP', '--fg']] },
+  ];
+  const W = 120, H = 28, top = 86, gap = 38;
+  let svg = '';
+  const pos = {};
+  cols.forEach((c) => {
+    const n = c.items.length; const colH = n * H + (n - 1) * (gap - H);
+    const y0 = top + (6 * H + 5 * (gap - H) - colH) / 2;
+    svg += `<rect class="dg-step" x="${c.x - 8}" y="22" width="${W + 16}" height="296" rx="14"/>`;
+    svg += `<text class="dg-sub" x="${c.x}" y="46">${c.s}</text><text class="dg-txt" x="${c.x}" y="66" style="font-family:var(--f-display);font-size:15px;font-weight:700">${c.t}</text>`;
+    c.items.forEach(([k, v], i) => {
+      const y = y0 + i * gap; pos[k] = { x: c.x, y: y + H / 2 };
+      svg += `<g><rect class="dg-box" x="${c.x}" y="${y}" width="${W}" height="${H}" rx="8"/><rect x="${c.x}" y="${y}" width="4" height="${H}" rx="2" fill="var(${v})"/><text class="dg-mono" x="${c.x + 14}" y="${y + 18}" fill="var(${v})">${k}</text></g>`;
+    });
+  });
+  const edges = [['GR','IGR'],['IGR','VSH'],['ZDEN','PHID'],['NPHI','PHIN'],['DT','PHIT'],['PHID','PHIT'],['PHIN','PHIT'],['PHIT','PHIE'],['VSH','PHIE'],['TEMP','RW'],['SP','RW'],['AT90','SW'],['PHIE','SW'],['RW','SW'],['SW','BVW'],['PHIE','R0'],['RW','R0'],['PHIE','PERM'],['SW','PERM'],['VSH','NET_SAND'],['PHIE','NET_RES'],['PERM','NET_RES'],['SW','NET_PAY'],['NET_SAND','NET_RES'],['NET_RES','NET_PAY'],['NET_PAY','SUMARIO'],['SUMARIO','OOIP'],['SUMARIO','OGIP']];
+  let e = '';
+  edges.forEach(([a, b]) => {
+    const p = pos[a], q = pos[b]; if (!p || !q) return;
+    const x1 = p.x + W, y1 = p.y, x2 = q.x, y2 = q.y;
+    if (x2 <= x1) { e += `<path class="dg-edge" d="M${p.x + W / 2} ${p.y + H / 2} V${q.y - H / 2}" marker-end="url(#ar)"/>`; return; }
+    const mx = (x1 + x2) / 2;
+    e += `<path class="dg-edge" d="M${x1} ${y1} C${mx} ${y1} ${mx} ${y2} ${x2 - 2} ${y2}" marker-end="url(#ar)"/>`;
+  });
+  chain.innerHTML = `<defs><marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 8 4 0 8z" fill="var(--muted)"/></marker></defs>${svg}${e}`;
+  // Las aristas por debajo de las cajas
+  const boxes = chain.querySelectorAll('g'); boxes.forEach((g) => chain.appendChild(g));
+
+  /* ---------- Mini crossplot del índice ---------- */
+  (() => { const m = $('#mini-xp'); let r = 7, pts = ''; const rnd = () => (r = (r * 9301 + 49297) % 233280) / 233280;
+    const z = ['--zA', '--zB', '--zC', '--zD', '--zE'];
+    for (let i = 0; i < 70; i++) { const t = rnd(); const x = 14 + t * 130 + (rnd() - .5) * 26; const y = 40 - t * 30 + (rnd() - .5) * 14; pts += `<circle cx="${x.toFixed(1)}" cy="${Math.max(3, Math.min(43, y)).toFixed(1)}" r="1.6" fill="var(${z[i % 5]})" opacity=".85"/>`; }
+    m.innerHTML = pts + '<path d="M96 2v42" stroke="var(--fg)" stroke-dasharray="3 2"/>'; })();
+
+  /* ---------- Catálogo ---------- */
+  const cat = [
+    ['Arcilla', 'VSH · CGR', '--c-vsh', [['Índice de rayos gamma', 'GR limpio y GR arcilla por zona'], ['Rayos gamma sin uranio (CGR) e IGR desde CGR', 'Separación Thorio–Potasio–Uranio (OLS o estándar) conectable a Vsh'], ['Vsh lineal, Larionov, Clavier y Steiber', 'Transformadas por edad y ambiente'], ['Thomas–Stieber', 'Arcilla laminar, dispersa o estructural']]],
+    ['Porosidad', 'PHIE · Δtmaa', '--c-phie', [['Densidad y Neutrónica', 'Con corrección de matriz y fluido por zona'], ['Sónica Wyllie · Raymer–Hunt–Gardner', 'Promedio en tiempo con compactación, o empírica'], ['Total y Efectiva', 'Combina curvas por zona y descuenta arcilla'], ['Índices ρmaa y Δtmaa (DTMAA)', 'Base de la Carta MID inmune a la baritina del lodo']]],
+    ['Agua de formación', 'RW', '--c-rw', [['Temperatura de formación', 'Superficie + gradiente geotérmico'], ['Rw conocida, SP o Rwa mínima', 'Corregida por temperatura en cada muestra'], ['Agua de formación', 'Rw desde salinidad y temperatura'], ['Presiones MDT (Exceso y EMW)', 'Gradientes, exceso respecto de hidrostática y densidad equivalente']]],
+    ['Saturación y movilidad', 'SW · SXO', '--c-sw', [['Archie, Simandoux e Indonesia', 'Arenas limpias o arcillosas; a, m y n por zona'], ['R0, BVW y Sh', 'Resistividad mojada y volumen de agua'], ['Swi SCAL, altura capilar y Análisis MICP', 'Inyección de mercurio, gargantas de poro y capacidad de sello'], ['Hidrocarburo móvil vs. residual (Sxo · MOS)', 'Cocientes o Archie en zona lavada + índice MHI = Sw/Sxo']]],
+    ['Permeabilidad', 'PERM', '--c-perm', [['Timur y Timur–Coates (RMN)', 'Swirr fijo, curva o FFI/BVI'], ['Modelo k–φ de corona', 'Exponencial o potencial por zona'], ['Tipos de roca FZI y Winland', 'Unidades de flujo hidráulico y r35']]],
+    ['Cutoffs, defensa y coherencia', 'NET_PAY', '--c-pay', [['Cutoffs y Sensibilidad 1D / Superficie 2D', 'Mapas de nivel φ×Sw, Vsh×φ, Vsh×Sw y semáforo meseta/barranco'], ['Sumario por zona y Coherencia cruzada', 'Auditoría de 7 chequeos entre herramientas con semáforo'], ['Capacidad de flujo y Lorenz (SMLP)', 'Quiebres manuales o sugeridos S1..Sk y partición de zona'], ['Capas de pay y Lectura automática', 'Tramos por k·h y candidatos a gas/petróleo/agua']]],
+    ['Volumen', 'OOIP', '--fg', [['Volumen in situ', 'OOIP/OGIP con área, Bo o Bg'], ['Incertidumbre Monte Carlo', 'P90 · P50 · P10 y tornado']]],
+    ['Resistividad e invasión', 'DI', '--c-rt', [['Invasión escalonada', 'Rxo, di y Rt corregida desde la inducción de arreglo'], ['Perfil radial', 'Lectura gráfica a la profundidad del cursor']]],
+    ['Indicadores', 'IND', '--warn', [['Arcilla', 'Más arcilla que el máximo del reservorio'], ['Derrumbe', 'Caliper mayor que trépano'], ['Crossover de gas', 'Neutrón menor que densidad, fuera de arcillas'], ['Carbón', 'Densidad muy baja con sónico o neutrón altos']]],
+    ['Resonancia magnética', 'FFI', '--c-nphi', [['Fluido libre y ligado', 'Comparación de porosidad RMN y densidad–neutrón']]],
+  ];
+  $('#cat').innerHTML = cat.map(([t, k, c, items]) => `<section style="--c:var(${c})"><header><h4>${t}</h4><span class="chip chip--curve" style="--c:var(${c})">${k}</span></header><ul>${items.map(([a, b]) => `<li>${a}<small>${b}</small></li>`).join('')}</ul></section>`).join('');
+
+  /* ---------- Atajos ---------- */
+  const K = (s) => s.split(' ').map((x) => x === '·' || x === 'o' || x === '+' ? `<span>${x}</span>` : `<kbd>${x}</kbd>`).join('');
+  const keys = [
+    ['General', [['Paleta, parámetros y factor de formación', 'Ctrl K'], ['Abrir Coherencia cruzada', 'Ctrl K → Coherencia'], ['Hoja de atajos', '?'], ['Cerrar o cancelar', 'Esc']]],
+    ['Edición y proyecto', [['Deshacer (incluye mira 2D y SMLP)', 'Ctrl Z'], ['Rehacer', 'Ctrl Mayús Z o Ctrl Y'], ['Guardar el proyecto', 'Ctrl S'], ['Abrir un proyecto', 'Ctrl O'], ['Exportar datos y figuras', 'Ctrl E']]],
+    ['Visor', [['Mover el cursor', '↑ ↓'], ['Desplazar una pantalla', 'RePág · AvPág'], ['Tope o base del pozo', 'Inicio · Fin'], ['Acercar o alejar', '+ · −'], ['Ver todo el pozo', '0'], ['Mover tope, plug o punto', '↑ ↓ · Mayús ×10'], ['Menú del perfil / ficha de intervalo', 'Mayús F10']]],
+    ['Lupa', [['Abrir la lupa (1:200)', 'L'], ['Cambiar el aumento', 'Rueda'], ['Cerrar la lupa', 'Esc']]],
+    ['Armar pistas', [['Mover pista o curva', 'Alt ← → ↑ ↓'], ['Cambiar el ancho', 'Alt Mayús ← →'], ['Quitar pista o curva', 'Supr']]],
+    ['Gráficos, lazo y superficie 2D', [['Marcar tramo / lazo para bandera o exclusión', 'Mayús + arrastre'], ['Sumar a la selección', 'Mayús + clic'], ['Mover mira en Superficie 2D de cutoffs', '← → ↑ ↓ · Mayús ×10'], ['Limpiar la selección', 'Esc'], ['Vista siguiente en defensa', '← →'], ['Salir del modo defensa', 'Esc']]],
+  ];
+  $('#keys').innerHTML = keys.map(([g, rows]) => `<section><h4>${g}</h4><dl>${rows.map(([a, b]) => `<div><dt>${a}</dt><dd>${K(b)}</dd></div>`).join('')}</dl></section>`).join('');
+
+  /* ---------- Curvas ---------- */
+  const curves = [
+    ['GR', '--c-gr', 'solid', 'Rayos gamma total · gAPI'], ['CGR', '--c-vsh', 'dash', 'GR sin uranio · gAPI'],
+    ['SP', '--c-sp', 'dash', 'Potencial espontáneo · mV'], ['RT / AT90', '--c-rt', 'solid', 'Resistividad profunda · Ω·m, log'],
+    ['ZDEN / RHOB', '--c-rhob', 'solid', 'Densidad · g/cm³'], ['NPHI', '--c-nphi', 'dash', 'Porosidad neutrónica · v/v'],
+    ['PE / PEF', '--c-pef', 'dash', 'Factor fotoeléctrico · b/e'], ['DT · DTMAA', '--c-dt', 'solid', 'Sónico y matriz aparente · µs/ft'],
+    ['TEMP', '--c-temp', 'solid', 'Temperatura · °C'], ['VSH', '--c-vsh', 'solid', 'Volumen de arcilla · v/v'],
+    ['PHIE', '--c-phie', 'solid', 'Porosidad efectiva · v/v'], ['SW', '--c-sw', 'solid', 'Saturación de agua · v/v'],
+    ['SXO · MOS', '--c-sw', 'dash', 'Saturación lavada e HC móvil · v/v'], ['RW', '--c-rw', 'solid', 'Resistividad del agua · Ω·m'],
+    ['R0', '--c-phie', 'dot', 'Resistividad mojada · Ω·m'], ['PERM', '--c-perm', 'solid', 'Permeabilidad · mD, log'],
+    ['NET_PAY', '--c-pay', 'solid', 'Pay neto · bandera'], ['UFLAG_*', '--warn', 'dot', 'Bandera de usuario (lazo) · 0/1'],
+  ];
+  const dash = { solid: '', dash: 'stroke-dasharray="6 4"', dot: 'stroke-dasharray="1.5 3.5" stroke-linecap="round"' };
+  $('#curves').innerHTML = curves.map(([k, c, d, s]) => `<div style="--c:var(${c})"><svg viewBox="0 0 74 14" aria-hidden="true"><path d="M2 7c8-6 10 6 18 0s10-6 18 0 10 6 18 0 10-5 16 0" fill="none" stroke="var(${c})" stroke-width="2" ${dash[d]}/></svg><span><b>${k}</b><small>${s}</small></span></div>`).join('');
+
+  /* ---------- Anotaciones ---------- */
+  const on = (k) => { $$('#annot .hs').forEach((b) => b.classList.toggle('is-on', b.dataset.k === k)); $$('#legend li').forEach((l) => l.classList.toggle('is-on', l.dataset.k === k)); };
+  $$('#annot .hs, #legend li').forEach((el) => { el.addEventListener('mouseenter', () => on(el.dataset.k)); el.addEventListener('focus', () => on(el.dataset.k)); el.addEventListener('click', () => on(el.dataset.k)); });
+  $('#annot').addEventListener('mouseleave', () => on(null)); $('#legend').addEventListener('mouseleave', () => on(null));
+
+  /* ---------- Lightbox ---------- */
+  const lb = $('#lb');
+  const open = (f) => { $('#lb-img').src = f.dataset.full; $('#lb-img').alt = f.querySelector('img')?.alt || ''; $('#lb-cap').textContent = f.dataset.cap || ''; try { lb.showModal(); } catch (e) {} };
+  $$('figure[tabindex]').forEach((f) => { f.addEventListener('click', () => open(f)); f.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(f); } }); });
+  $('#lb-close').addEventListener('click', () => lb.close());
+  lb.addEventListener('click', (ev) => { if (ev.target === lb) lb.close(); });
+
+  /* ---------- Pista de correlación: zonas = capítulos, scroll = MD ---------- */
+  const TOP = 7633.3, BASE = 8518.6;
+  const chapters = $$('[data-zone]');
+  const zoneVars = ['--t1', '--zA', '--zB', '--zC', '--zD', '--zE'];
+  const ol = $('#rail-zones');
+  const fmt = (v) => v.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' m';
+  let tops = [];
+  const layout = () => {
+    const H = document.documentElement.scrollHeight - innerHeight;
+    tops = chapters.map((c) => Math.max(0, c.getBoundingClientRect().top + scrollY - 80));
+    const spans = tops.map((t, i) => (i + 1 < tops.length ? tops[i + 1] : H + innerHeight) - t);
+    ol.innerHTML = chapters.map((c, i) => {
+      const md = TOP + (BASE - TOP) * Math.min(1, tops[i] / Math.max(1, H));
+      const z = c.style.getPropertyValue('--z') || `var(${zoneVars[i % zoneVars.length]})`;
+      return `<li style="--h:${Math.max(1, spans[i])}"><a href="#${c.id}" style="--z:${z}" title="Tope ${fmt(md)}"><i>${i ? String(i).padStart(2, '0') : '··'}</i><span>${c.dataset.zone}</span></a></li>`;
+    }).join('');
+    drawRail();
+    onScroll();
+  };
+  // Curva tipo GR, determinística, dibujada en canvas.
+  let grSeries = null;
+  function drawRail() {
+    const cv = $('#rail-gr'); if (!cv || !cv.offsetParent) return;
+    const r = cv.getBoundingClientRect(); const d = devicePixelRatio || 1;
+    cv.width = r.width * d; cv.height = r.height * d; const g = cv.getContext('2d'); g.scale(d, d);
+    if (!grSeries) { let s = 11, v = .5; grSeries = Array.from({ length: 600 }, (_, i) => { s = (s * 16807) % 2147483647; const n = s / 2147483647 - .5; v += n * .22 + (.5 - v) * .06; if (i % 37 < 6) v += .05; return Math.max(.05, Math.min(.95, v)); }); }
+    g.strokeStyle = css('--c-gr'); g.lineWidth = 1.1; g.globalAlpha = .9; g.beginPath();
+    grSeries.forEach((v, i) => { const y = i / (grSeries.length - 1) * r.height, x = 3 + v * (r.width - 6); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke();
+    g.globalAlpha = .35; g.strokeStyle = css('--muted'); g.lineWidth = 1;
+    for (let y = 0; y < r.height; y += 24) { g.beginPath(); g.moveTo(r.width - (y % 120 === 0 ? 10 : 5), y + .5); g.lineTo(r.width, y + .5); g.stroke(); }
+  }
+  const onScroll = () => {
+    const H = document.documentElement.scrollHeight - innerHeight; const f = H > 0 ? Math.min(1, Math.max(0, scrollY / H)) : 0;
+    const md = fmt(TOP + (BASE - TOP) * f);
+    $('#md-out').textContent = md; $('#mbar-md').textContent = md; $('#mbar-bar').style.width = (f * 100) + '%';
+    const track = $('.rail__curve'); if (track) $('#rail-cursor').style.top = (f * track.clientHeight) + 'px';
+    let cur = 0; tops.forEach((t, i) => { if (scrollY + 120 >= t) cur = i; });
+    $$('#rail-zones a').forEach((a, i) => a.classList.toggle('is-on', i === cur));
+    $('#mbar-title').textContent = chapters[cur]?.dataset.zone || '';
+  };
+  addEventListener('scroll', onScroll, { passive: true });
+  addEventListener('resize', () => { clearTimeout(layout.t); layout.t = setTimeout(layout, 150); });
+  addEventListener('load', layout);
+  matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', drawRail);
+  layout();
+})();
+</script>
