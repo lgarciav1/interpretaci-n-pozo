@@ -10,6 +10,7 @@ import type { TableCell, TableColumn } from '../../core/module';
 import { unitLabel } from '../../core/units';
 import { PRODUCT_NAME } from '../../ui/brandSvg';
 import type { ReportModel, ReportTable } from '../report/report';
+import { crossCheckChatLines } from '../../modules/cross-check/model';
 
 /** Tope de caracteres del texto: entra con holgura en un mensaje de un chat. */
 export const CHAT_CONTEXT_MAX_CHARS = 12000;
@@ -19,6 +20,8 @@ const WARNING_MAX_CHARS = 260;
 export interface ChatContextOptions {
   /** Tope de caracteres (por defecto `CHAT_CONTEXT_MAX_CHARS`). */
   maxChars?: number;
+  /** Incluir resumen de coherencia cruzada entre herramientas (G08). Por defecto `true`. */
+  includeCrossCheck?: boolean;
 }
 export interface ChatContextResult { text: string; truncated: boolean; length: number }
 
@@ -203,8 +206,20 @@ export function chatContextText(model: ReportModel, opts: ChatContextOptions = {
   const summary = tableLines('Sumario por zona', model.summary, 'Sin resultados disponibles.', zoneNames);
   const volumes = model.volumes && model.volumes.rows.length ? tableLines('Volumen in situ por zona', model.volumes, '', zoneNames) : [];
 
-  const build = (mode: ParamMode, nWarn: number, cutLines = 0): { text: string; note: string } => {
-    const lines = [...essentials, ...summary, ...(volumes.length ? ['', ...volumes] : []), ...(hasResult ? ['', ...parameterLines(model, mode)] : [])];
+  const wantCrossCheck = opts.includeCrossCheck !== false && !!model.crossCheck;
+
+  const build = (mode: ParamMode, nWarn: number, cutLines = 0, ccMode: 'full' | 'compact' | 'none' = wantCrossCheck ? 'full' : 'none'): { text: string; note: string } => {
+    const crossCheck =
+      wantCrossCheck && ccMode !== 'none' && model.crossCheck
+        ? crossCheckChatLines(model.crossCheck, ccMode)
+        : [];
+    const lines = [
+      ...essentials,
+      ...summary,
+      ...(volumes.length ? ['', ...volumes] : []),
+      ...(crossCheck.length ? ['', ...crossCheck] : []),
+      ...(hasResult ? ['', ...parameterLines(model, mode)] : []),
+    ];
     const kept = warnings.slice(0, nWarn);
     if (kept.length) lines.push('', '## Avisos', ...kept.map((w) => `- ${w}`));
     const notes: string[] = [];
@@ -213,6 +228,7 @@ export function chatContextText(model: ReportModel, opts: ChatContextOptions = {
     if (mode === 'primary') notes.push('el detalle de parámetros por zona, parte de los parámetros y los de módulos auxiliares');
     // Sin resultado no hay parámetros que omitir: decirlo sería falso (y marcaría el texto como recortado).
     if (mode === 'none' && hasResult) notes.push('los parámetros');
+    if (wantCrossCheck && ccMode === 'none') notes.push('la coherencia cruzada');
     if (nWarn < warnings.length) notes.push(nWarn === 0 ? `los ${warnings.length} avisos` : `${warnings.length - nWarn} avisos (los menos graves)`);
     const body = lines.slice(0, Math.max(0, lines.length - cutLines));
     if (cutLines > 0) notes.push(`${cutLines} líneas finales`);
@@ -221,29 +237,39 @@ export function chatContextText(model: ReportModel, opts: ChatContextOptions = {
   };
   const fits = (r: { text: string }) => r.text.length <= max;
 
-  // Los parámetros se reducen por etapas con todos los avisos; recién agotadas, se recortan avisos.
-  const modes: ParamMode[] = hasResult ? ['full', 'global', 'brief', 'primary'] : ['none'];
+  // Los parámetros se reducen por etapas con todos los avisos; recién agotadas, se compacta/omite coherencia y luego avisos.
+  const stages: { mode: ParamMode; cc: 'full' | 'compact' | 'none' }[] = hasResult
+    ? [
+        { mode: 'full', cc: wantCrossCheck ? 'full' : 'none' },
+        ...(wantCrossCheck ? [{ mode: 'full' as const, cc: 'compact' as const }] : []),
+        { mode: 'global', cc: wantCrossCheck ? 'compact' : 'none' },
+        { mode: 'brief', cc: wantCrossCheck ? 'compact' : 'none' },
+        { mode: 'primary', cc: wantCrossCheck ? 'compact' : 'none' },
+        ...(wantCrossCheck ? [{ mode: 'primary' as const, cc: 'none' as const }] : []),
+      ]
+    : [{ mode: 'none', cc: 'none' }];
   let result: { text: string; note: string } | null = null;
-  for (const mode of modes) {
-    const r = build(mode, warnings.length);
+  for (const st of stages) {
+    const r = build(st.mode, warnings.length, 0, st.cc);
     if (fits(r)) { result = r; break; }
   }
   if (!result) {
-    const mode = modes[modes.length - 1]!;
-    if (fits(build(mode, 0))) {
+    const last = stages[stages.length - 1]!;
+    const ccFallback = wantCrossCheck && fits(build(last.mode, Math.min(1, warnings.length), 0, 'compact')) ? 'compact' : 'none';
+    if (fits(build(last.mode, 0, 0, ccFallback))) {
       let lo = 0, hi = warnings.length;
       while (lo < hi) {
         const mid = Math.ceil((lo + hi) / 2);
-        if (fits(build(mode, mid))) lo = mid; else hi = mid - 1;
+        if (fits(build(last.mode, mid, 0, ccFallback))) lo = mid; else hi = mid - 1;
       }
-      result = build(mode, lo);
+      result = build(last.mode, lo, 0, ccFallback);
     } else {
       // Ni sin avisos entra: se omiten los parámetros y, si hace falta, líneas enteras del final.
       // `cut` se acota al total de líneas: un valor mayor haría que `slice` volviera a incluir líneas.
-      const total = build('none', 0).text.split('\n').length;
+      const total = build('none', 0, 0, 'none').text.split('\n').length;
       let cut = 0;
-      while (cut < total && !fits(build('none', 0, cut))) cut++;
-      result = build('none', 0, cut);
+      while (cut < total && !fits(build('none', 0, cut, 'none'))) cut++;
+      result = build('none', 0, cut, 'none');
       // Tope absurdo (menor que la propia nota): se devuelve solo lo que entra de la nota, cortada en una palabra.
       if (!fits(result)) result = { text: shorten(result.note, max), note: result.note };
     }
