@@ -35,11 +35,11 @@ Tamaño: **C** chico, **M** mediano, **G** grande. El orden maximiza valor tempr
 | 6 | G06 | Rayos Gamma sin Uranio (`CGR`) conectado a `IGR` / `Vsh` | 3 · Petrofísica y cierre | M | analista-numerico | [0090](decisiones/0090-rayos-gamma-sin-uranio-cgr.md) | hecha |
 | 7 | G07 | Hidrocarburo Móvil vs. Residual (`Sxo`, `MOS`, `Rt–Rxo` y pila) | 3 · Petrofísica y cierre | G | analista-numerico | [0091](decisiones/0091-hidrocarburo-movil-residual-sxo.md) | hecha |
 | 8 | G08 | Panel de «Coherencia Cruzada entre Herramientas» (defensa TP) | 3 · Petrofísica y cierre | M | analista-numerico | [0092](decisiones/0092-coherencia-cruzada-entre-herramientas.md) | hecha |
+| 9 | G09 | Superficie 2D de estabilidad de Cutoffs (`φ_min × Sw_max`, `Vsh × φ`, `Vsh × Sw`) | 3 · Petrofísica y cierre | M | petrofisico | [0093](decisiones/0093-superficie-2d-cutoffs.md) | hecha |
 
 ### Reserva (solo si se habilita expresamente tras G08)
 | ID | Función | Tam. | Resumen |
 |---|---|---|---|
-| G09 | Superficie 2D de estabilidad de Cutoffs (`φ_min × Sw_max`) | M | Grilla 2D en `cutoff-sensitivity` con curvas de nivel de Pay/Volumen y mira arrastrable para distinguir mesetas de barrancos. |
 | G10 | Cascada (*Waterfall*) de atribución entre Snapshots | M | Descomposición por etapa (`Preparación → Vsh → φ → Archie → Cutoffs`) del `Δ Pay` / `Δ Volumen` en `SummaryCompare`. |
 
 ---

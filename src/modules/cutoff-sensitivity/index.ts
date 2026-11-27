@@ -224,17 +224,22 @@ export default defineModule({
   },
   docs: {
     summary:
-      'Barrido de cada cutoff (Vsh máxima, porosidad mínima, Sw máxima) con los otros dos fijos en sus valores de cada zona: espesor neto de reservorio y de pay, espesor equivalente de hidrocarburo y volumen in situ en cada umbral. Muestra qué tan robusto es el resultado frente a la elección de los cortes.',
+      'Barrido de cada cutoff (Vsh máxima, porosidad mínima, Sw máxima) con los otros dos fijos en sus valores de cada zona, más la superficie 2D bivariada (φ × Sw, Vsh × φ, Vsh × Sw) con curvas de nivel y estabilidad operativa local para distinguir mesetas de barrancos.',
     equations: [
       { latex: 'h_{pay}(t) = \\sum_i h_i\\,[\\,NET_{pay,i}(t) = 1\\,]', description: 'Con el cutoff barrido igual a t y los otros dos fijos.' },
+      { latex: 'h_{pay}(t_x, t_y) = \\sum_i h_i\\,[\\,NET_{pay,i}(t_x, t_y) = 1\\,]', description: 'Superficie 2D al variar dos cutoffs simultáneamente con el tercero fijo.' },
       { latex: 'h\\phi S_h(t) = \\sum_i h_i\\,\\phi_i\\,(1 - S_{w,i})\\,[\\,NET_{pay,i}(t) = 1\\,]' },
       { latex: 'V(t) = \\frac{A\\,h\\phi S_h(t)}{B}', description: 'Bo para petróleo, Bg para gas; las zonas de tipo sello no aportan volumen.' },
+      {
+        latex: '\\delta_{\\max} = \\frac{\\max_{k \\in \\{\\text{esquinas}\\}} |M_k - M_0|}{M_0}',
+        description: 'Variación relativa máxima en la caja ±ΔVsh=0,05, ±Δφ=0,01, ±ΔSw=0,05 respecto del punto vigente M₀: ≤ 10 % meseta estable, 10–25 % transición sensible, > 25 % barranco crítico.',
+      },
     ],
     references: [
       'Worthington, P. F. y Cosentino, L. (2005). The role of cut-offs in integrated reservoir studies. SPE Reservoir Evaluation & Engineering 8(4).',
       'Asquith, G. y Krygowski, D. (2004). Basic Well Log Analysis, 2.ª ed. AAPG Methods in Exploration 16.',
     ],
     notes:
-      'Grillas fijas: Vsh de 0 a 1, porosidad de 0 a 0,4 y Sw de 0 a 1. El total suma las zonas en cada umbral (cada zona con sus otros dos cortes). Además de la grilla se evalúa el cutoff vigente exacto de cada zona, que coincide con el sumario y el volumétrico. Si el corte de permeabilidad está activo se aplica fijo en todos los umbrales (no se barre).',
+      'Grillas fijas: Vsh de 0 a 1, porosidad de 0 a 0,4 y Sw de 0 a 1. El total suma las zonas en cada umbral (cada zona con sus otros cortes vigentes). En la vista Superficie 2D la grilla y las curvas de nivel se calculan bajo demanda con las mismas reglas que el sumario y el volumétrico. Si el corte de permeabilidad está activo se aplica fijo en todos los umbrales (no se barre).',
   },
 });
