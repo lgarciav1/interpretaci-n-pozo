@@ -16,7 +16,7 @@ import { formatNumber } from '../ui/format';
 import type { DepthRun } from './data';
 import { maskCount, maskRuns, type SelectionShape } from './selection';
 
-export type SelectionSource = 'crossplot' | 'histogram' | 'viewer' | 'distribution';
+export type SelectionSource = 'crossplot' | 'histogram' | 'viewer' | 'distribution' | 'assistant';
 
 /** Lo que hace falta para volver a dibujar la selección donde se creó (y para sumar a ella). */
 export type SelectionDetail =
@@ -27,7 +27,9 @@ export type SelectionDetail =
   /** Visor: tramo de profundidad (m). */
   | { kind: 'interval'; top: number; base: number }
   /** Distribuciones por zona (0066, V2): rango [min, max] de la propiedad `curve` en las zonas visibles y el filtro. */
-  | { kind: 'range'; curve: string; curveLabel: string; min: number; max: number };
+  | { kind: 'range'; curve: string; curveLabel: string; min: number; max: number }
+  /** Asistente v2 (0094): filtro booleano sobre curvas del pozo. */
+  | { kind: 'filter'; label: string };
 
 export interface PlotSelection {
   source: SelectionSource;
@@ -96,6 +98,7 @@ export function selectionTitle(s: PlotSelection, fmtDepth: (d: number) => string
   if (d.kind === 'interval') return `Tramo ${fmtDepth(d.top)}–${fmtDepth(d.base)} m`;
   if (d.kind === 'range') return `${d.curveLabel} ${formatNumber(d.min, { significant: 3 })}–${formatNumber(d.max, { significant: 3 })} en las distribuciones`;
   if (d.kind === 'bins') return d.bins.length === 1 ? `Clase del histograma de ${d.curveLabel}` : `${d.bins.length} clases del histograma de ${d.curveLabel}`;
+  if (d.kind === 'filter') return d.label;
   const lasso = d.shapes.some((q) => q.kind === 'lasso');
   const rect = d.shapes.some((q) => q.kind === 'rect');
   return lasso && rect ? 'Selección en el crossplot' : lasso ? 'Lazo en el crossplot' : 'Rectángulo en el crossplot';
