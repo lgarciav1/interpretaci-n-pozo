@@ -36,10 +36,24 @@ function parseLasLine(line: string, firstColon: boolean): LasLine | null {
 }
 
 const NUMERIC_KEYS = new Set(['STRT', 'STOP', 'STEP', 'NULL']);
+const STD_NUMBER_RE = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+const COMMA_DECIMAL_RE = /^[+-]?\d+,\d+([eE][+-]?\d+)?$/;
+
+function parseLasNumber(text: string): number | null {
+  if (STD_NUMBER_RE.test(text)) {
+    const v = Number(text);
+    return Number.isNaN(v) ? null : v;
+  }
+  if (COMMA_DECIMAL_RE.test(text)) {
+    const v = Number(text.replace(',', '.'));
+    return Number.isNaN(v) ? null : v;
+  }
+  return null;
+}
 
 function headerEntry(l: LasLine): HeaderEntry {
   const unit = l.unit ? parseUnit(l.unit) : null;
-  const asNumber = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(l.data) ? Number(l.data) : null;
+  const asNumber = parseLasNumber(l.data);
   const useNumber = asNumber !== null && (unit !== null || NUMERIC_KEYS.has(l.mnemonic.toUpperCase()));
   return {
     value: useNumber ? asNumber! : l.data,
@@ -128,7 +142,16 @@ export function parseLas(text: string, sourceName: string): RawTable {
     const line = lines[i]!.trim();
     if (line === '' || line.startsWith('#')) continue;
     if (line.startsWith('~')) break; // otra sección tras los datos
-    const tokens = line.split(/[\s,]+/).filter((t) => t !== '');
+    const wsTokens = line.split(/\s+/).filter((t) => t !== '');
+    let tokens = wsTokens;
+    if (line.includes(',')) {
+      const commaTokens = wsTokens.filter((t) => t.includes(','));
+      const allCommaDecimals = commaTokens.length > 0 && commaTokens.every((t) => COMMA_DECIMAL_RE.test(t));
+      if (!allCommaDecimals || (!wrap && wsTokens.length < nCurves)) {
+        const splitComma = line.split(/[\s,]+/).filter((t) => t !== '');
+        if (!allCommaDecimals || splitComma.length === nCurves) tokens = splitComma;
+      }
+    }
     if (!wrap && tokens.length !== nCurves) {
       throw new Error(
         `Fila de datos en la línea ${i + 1}: se esperaban ${nCurves} valores (uno por curva de ~C) y hay ${tokens.length}.`,
@@ -137,8 +160,8 @@ export function parseLas(text: string, sourceName: string): RawTable {
     if (wrap && pending === 0) rowStartLine.push(i + 1);
     if (!wrap) rowStartLine.push(i + 1);
     for (const t of tokens) {
-      let v = Number(t);
-      if (!/^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(t)) {
+      let v = parseLasNumber(t);
+      if (v === null) {
         v = NaN;
         badTokens++;
       } else if (v === nullValue) v = NaN;

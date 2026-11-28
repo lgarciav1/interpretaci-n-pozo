@@ -114,3 +114,49 @@ describe('LAS: errores en español', () => {
     expect(() => readWellFile(lasM.replace('VERS. 2.0', 'VERS. 3.0'), 'x.las')).toThrow(/solo se admite LAS 2.0/);
   });
 });
+
+describe('LAS: coma decimal y unidades entre corchetes', () => {
+  it('lee comas decimales en ~P y ~A sin confundirlas con separadores de columna', () => {
+    const commaLas = `~V
+VERS. 2.0 :
+WRAP. NO :
+~W
+STRT.[M] 1000.0 :
+NULL. -999.25 :
+~C
+DEPT.[M] :
+RHOB.[K/M3] :
+DT.[US/M] :
+~P
+BHT.DEGC 35,5000 :
+MDEN. 2710,1000 :
+~A
+1000,0   2550,0   200,0
+1000,5   2600,5   190,5
+`;
+    const r = readWellFile(commaLas, 'coma.las');
+    expect(r.well.header['BHT']?.value).toBeCloseTo(35.5, 6);
+    expect(r.well.header['MDEN']?.value).toBe('2710,1000');
+    expect([...r.well.depth.values]).toEqual([1000, 1000.5]);
+    expect(r.well.curves.find((c) => c.id === 'RHOB')?.unit).toBe('kg/m3');
+    expect(r.well.curves.find((c) => c.id === 'DT')?.unit).toBe('us/m');
+  });
+
+  it('mantiene soporte de archivos LAS delimitados por comas en ~A', () => {
+    const csvDelimitedLas = `~V
+VERS. 2.0 :
+WRAP. NO :
+~W
+NULL. -999.25 :
+~C
+DEPT.M :
+GR.GAPI :
+~A
+1000.0, 45.5
+1000.5, 50.0
+`;
+    const r = readWellFile(csvDelimitedLas, 'delim.las');
+    expect([...r.well.depth.values]).toEqual([1000, 1000.5]);
+    expect([...r.well.curves.find((c) => c.id === 'GR')!.data]).toEqual([45.5, 50]);
+  });
+});
