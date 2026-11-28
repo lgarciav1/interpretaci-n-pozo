@@ -69,7 +69,8 @@ export function suggestCommands(question: string, commands: readonly NavigationC
       (c.id.startsWith('step:') ||
         c.id.startsWith('dock:') ||
         (c.id.startsWith('zone:') && c.id !== 'zone:mark') ||
-        c.id === 'help:equations') &&
+        c.id === 'help:equations' ||
+        c.id === 'help:manual') &&
       (NAVIGATION_GROUPS.has(c.group) || c.group === 'Zonas'),
   );
   return searchCommands(allowed, query)

@@ -20,6 +20,7 @@ import { QcReportDialog, SnapshotsDialog } from './shell/Dialogs';
 import { Dock } from './shell/Dock';
 import { FlowBar } from './shell/FlowBar';
 import { EquationsDialog } from './ecuaciones/EquationsDialog';
+import { ManualDialog } from './manual/ManualDialog';
 import { ExportDialog } from './export/ExportDialog';
 import { Inspector } from './shell/Inspector';
 import { TopBar } from './shell/TopBar';
@@ -229,6 +230,7 @@ export function App() {
     </div>
     <SmallScreenNotice shellRef={ref} />
     <HomeRoot />
+    <ManualDialog />
     </>
   );
 }

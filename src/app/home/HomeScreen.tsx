@@ -27,6 +27,7 @@ import { wellColumn } from '../toolString/wellColumn';
 import { autosave, formatAgo, sessionTitle, useAutosave } from '../autosave';
 import type { SessionMeta } from '../autosave/storage';
 import { closeHome, exploreToolString } from './actions';
+import { openManual } from '../manual/open';
 import { demoToolString } from './demoString';
 import { ShowcaseRenderer } from './showcase3d';
 import { Silhouette, SILHOUETTE_RADIAL_EXAGGERATION } from './Silhouette';
@@ -521,6 +522,9 @@ function HomeScreen() {
                   Ver demostración
                 </Button>
               )}
+              <Button variant="ghost" icon="book" onClick={() => openManual()} disabled={busy} data-testid="home-manual">
+                Manual de uso
+              </Button>
             </div>
             {!entry && others.length > 0 && (
               <div className="home__sessions" data-testid="home-sessions">

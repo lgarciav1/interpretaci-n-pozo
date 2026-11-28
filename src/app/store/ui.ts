@@ -211,6 +211,8 @@ export interface UiStore {
   qcReportOpen: boolean;
   /** Pantalla «Ecuaciones» abierta, con el módulo elegido al abrir (null = el primero). Ver app/ecuaciones/open.ts. */
   equations: null | { moduleId: string | null };
+  /** Visor del manual de uso embebido (null = cerrado). Ver app/manual/open.ts. */
+  manual: null | { anchor?: string };
   /** Vista amplia temporal: no modifica ni persiste la disposición elegida por el usuario. */
   readingMode: boolean;
   /**
@@ -246,6 +248,7 @@ export const useUi = create<UiStore>()((set) => ({
   exportOpen: false,
   qcReportOpen: false,
   equations: null,
+  manual: null,
   readingMode: false,
   presenting: false,
   layout: loadLayout(),
