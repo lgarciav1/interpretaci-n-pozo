@@ -364,6 +364,28 @@ const ICONS = {
       <path d="M8.2 6.6c3.6 1 5.4 2.7 7.6 4.6M8.2 17.4c3.6-1 5.4-2.7 7.6-4.6" />
     </>
   ),
+  /** Manual de uso. */
+  book: (
+    <>
+      <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
+    </>
+  ),
+  /** Abrir en una pestaña nueva. */
+  'external-link': (
+    <>
+      <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" />
+      <path d="M15 3h6v6M10 14L21 3" />
+    </>
+  ),
+  /** Imprimir o exportar a PDF. */
+  printer: (
+    <>
+      <path d="M6 9V3h12v6" />
+      <path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" />
+      <rect x="6" y="14" width="12" height="7" />
+    </>
+  ),
 } satisfies Record<string, ReactElement>;
 
 export type IconName = keyof typeof ICONS;

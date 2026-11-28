@@ -527,7 +527,7 @@ dialog.lb button { position: absolute; top: 8px; right: 8px; width: 36px; height
         <li data-k="1"><span>1</span><span><b>Ruta y pozo activo</b>Inicio › proyecto › pozo. Con varios pozos, el menú cambia de pozo.</span></li>
         <li data-k="2"><span>2</span><span><b>Espacios de trabajo</b>Petrofísica (11 pasos) y Geología (5 pasos). Comparten pozo y zonas.</span></li>
         <li data-k="3"><span>3</span><span><b>Motor, deshacer y rehacer</b>El punto verde indica el Web Worker listo; el ícono de guardado muestra el autoguardado.</span></li>
-        <li data-k="4"><span>4</span><span><b>Proyecto</b>Cargar pozo, guardar vista, exportar, menú Proyecto, pantalla completa, modo defensa, ecuaciones, buscar y preferencias.</span></li>
+        <li data-k="4"><span>4</span><span><b>Proyecto</b>Cargar pozo, guardar vista, exportar, menú Proyecto, pantalla completa, modo defensa, ecuaciones, manual de uso, buscar y preferencias.</span></li>
         <li data-k="5"><span>5</span><span><b>Barra del flujo</b>Cada paso con su estado. Un clic abre sus parámetros en el panel.</span></li>
         <li data-k="6"><span>6</span><span><b>Calculados · revisados y cronómetro</b>«11 · 2 rev.» distingue lo que tocaste de los valores de fábrica.</span></li>
         <li data-k="7"><span>7</span><span><b>Barra del visor</b>Plantilla de pistas, armar pistas, intervalo, escala (1:8.100…), zoom y ver todo.</span></li>
@@ -751,8 +751,8 @@ dialog.lb button { position: absolute; top: 8px; right: 8px; width: 36px; height
             <p>Al activar la herramienta de medición en la barra del visor y arrastrar sobre un tramo, además del intervalo y espesor (<kbd>Δh</kbd>), muestra en vivo sobre la tarjeta flotante los promedios petrofísicos reales del intervalo usando las curvas activas vigentes: <strong>NET_RES</strong>, <strong>NET_PAY</strong> y <strong>NTG</strong>, porosidad efectiva media en reservorio, <strong>Sw</strong> ponderada por volumen poral, <strong>k</strong> geométrica, <strong>k·h</strong> y <strong>h·φ·Sh</strong>.</p>
             <p class="small">Con una medición fija en pantalla, el menú contextual incorpora <strong>«Copiar ficha del intervalo medido»</strong> (TSV para planilla) y <strong>«Crear nota en el intervalo medido»</strong>. <kbd>Esc</kbd> limpia la medida.</p>
           </div>
-          <figure tabindex="0" data-full="img/g01-regla-pay.png" data-cap="Regla viva de Pay midiendo un banco en el visor: muestra espesor bruto, neto reservorio, neto pay, NTG, φe, Sw, k·h y h·φ·Sh en vivo.">
-            <div class="frame"><img src="img/g01-regla-pay.png" width="1366" height="768" alt="Tarjeta en vivo de la regla de Pay midiendo un tramo del visor"></div>
+          <figure tabindex="0" data-full="img/g01-regla-pay.webp" data-cap="Regla viva de Pay midiendo un banco en el visor: muestra espesor bruto, neto reservorio, neto pay, NTG, φe, Sw, k·h y h·φ·Sh en vivo.">
+            <div class="frame"><img src="img/g01-regla-pay.webp" width="1366" height="768" alt="Tarjeta en vivo de la regla de Pay midiendo un tramo del visor" loading="lazy"></div>
           </figure>
         </div>
       </div>
@@ -830,8 +830,8 @@ dialog.lb button { position: absolute; top: 8px; right: 8px; width: 36px; height
               <li><strong>EMW</strong>: muestra densidad equivalente referida a superficie en <code>lb/gal</code> o <code>g/cm³</code> e informa el promedio por zona, alertando pendientes no físicas (&gt; 1,25 g/cm³). Las figuras PNG/SVG/PDF conservan la vista activa.</li>
             </ul>
           </div>
-          <figure tabindex="0" data-full="img/g05-mdt-exceso.png" data-cap="Panel y pista MDT en modo Exceso de presión / EMW sobre el pozo del TP, conservando exactamente los contactos y mostrando sobrepresión y escalones entre zonas.">
-            <div class="frame"><img src="img/g05-mdt-exceso.png" width="1366" height="768" alt="Pista y panel MDT con modo Exceso de presión y EMW"></div>
+          <figure tabindex="0" data-full="img/g05-mdt-exceso.webp" data-cap="Panel y pista MDT en modo Exceso de presión / EMW sobre el pozo del TP, conservando exactamente los contactos y mostrando sobrepresión y escalones entre zonas.">
+            <div class="frame"><img src="img/g05-mdt-exceso.webp" width="1366" height="768" alt="Pista y panel MDT con modo Exceso de presión y EMW" loading="lazy"></div>
           </figure>
         </div>
       </div>
@@ -848,8 +848,8 @@ dialog.lb button { position: absolute; top: 8px; right: 8px; width: 36px; height
             <p><strong>Filtros por capa, curva y bandera.</strong> Además de filtrar por zona, podés filtrar los puntos por cualquier curva (rangos) o por una bandera discreta creada por vos.</p>
             <p><strong>Del Lazo a la Acción.</strong> Al encerrar puntos con lazo o rectángulo (o clases en Histograma), aparecen dos acciones rápidas deshacibles en un paso (<kbd>Ctrl</kbd> <kbd>Z</kbd>): <strong>Guardar como bandera…</strong> (crea una bandera <code>UFLAG_*</code> para filtrar otros gráficos y verla en el visor) y <strong>Excluir en Preparación…</strong> (envía los tramos a exclusión sin tocar las mediciones originales).</p>
           </div>
-          <figure tabindex="0" data-full="img/g02-lazo-accion.png" data-cap="Selección con lazo en Crossplot conectada al visor, con accesos para guardar bandera de usuario o enviar tramos a exclusión en Preparación.">
-            <div class="frame"><img src="img/g02-lazo-accion.png" width="1366" height="768" alt="Selección por lazo en crossplot con barra Del Lazo a la Acción"></div>
+          <figure tabindex="0" data-full="img/g02-lazo-accion.webp" data-cap="Selección con lazo en Crossplot conectada al visor, con accesos para guardar bandera de usuario o enviar tramos a exclusión en Preparación.">
+            <div class="frame"><img src="img/g02-lazo-accion.webp" width="1366" height="768" alt="Selección por lazo en crossplot con barra Del Lazo a la Acción" loading="lazy"></div>
           </figure>
         </div>
         <h4 style="margin-top:20px">Plantillas de libro (incluye Carta MID sin PE y Movilidad Rt–Rxo)</h4>
@@ -857,8 +857,8 @@ dialog.lb button { position: absolute; top: 8px; right: 8px; width: 36px; height
         <div class="gallery" id="xp-gallery">
           <figure tabindex="0" data-full="img/xp-53-xp-pickett.webp" data-cap="Pickett: Rt contra PHIE en log-log, coloreado por VSH, con las rectas de Sw."><div class="frame"><img src="img/xp-53-xp-pickett.webp" width="750" height="896" alt="Plantilla Pickett" loading="lazy"></div><figcaption><b>Pickett</b>Rw, m y n arrastrables; rectas de Sw 20–100 %.</figcaption></figure>
           <figure tabindex="0" data-full="img/xp-54-xp-thomas.webp" data-cap="Thomas–Stieber: PHIT contra VSH con laminar, dispersa y estructural."><div class="frame"><img src="img/xp-54-xp-thomas.webp" width="750" height="896" alt="Plantilla Thomas–Stieber" loading="lazy"></div><figcaption><b>Thomas–Stieber</b>Distribución de la arcilla.</figcaption></figure>
-          <figure tabindex="0" data-full="img/g04-carta-mid.png" data-cap="Carta MID sin PE (ρmaa–Δtmaa): identifica cuarzo, calcita, dolomía, anhidrita y yeso sin el sesgo de la baritina en PE."><div class="frame"><img src="img/g04-carta-mid.png" width="1366" height="768" alt="Carta MID sin PE en crossplot"></div><figcaption><b>Carta MID (sin PE)</b>ρmaa vs. Δtmaa inmune a la baritina del lodo.</figcaption></figure>
-          <figure tabindex="0" data-full="img/g07-movilidad-sxo.png" data-cap="Movilidad Rt–Rxo (Ratio Plot): recta de agua arrastrable (Rmf/Rw) y líneas guía Sw/Sxo = 0,7 y 0,5."><div class="frame"><img src="img/g07-movilidad-sxo.png" width="1366" height="768" alt="Plantilla Movilidad Rt–Rxo en crossplot"></div><figcaption><b>Movilidad Rt–Rxo</b>Recta de agua arrastrable y movilidad por filtrado.</figcaption></figure>
+          <figure tabindex="0" data-full="img/g04-carta-mid.webp" data-cap="Carta MID sin PE (ρmaa–Δtmaa): identifica cuarzo, calcita, dolomía, anhidrita y yeso sin el sesgo de la baritina en PE."><div class="frame"><img src="img/g04-carta-mid.webp" width="1366" height="768" alt="Carta MID sin PE en crossplot" loading="lazy"></div><figcaption><b>Carta MID (sin PE)</b>ρmaa vs. Δtmaa inmune a la baritina del lodo.</figcaption></figure>
+          <figure tabindex="0" data-full="img/g07-movilidad-sxo.webp" data-cap="Movilidad Rt–Rxo (Ratio Plot): recta de agua arrastrable (Rmf/Rw) y líneas guía Sw/Sxo = 0,7 y 0,5."><div class="frame"><img src="img/g07-movilidad-sxo.webp" width="1366" height="768" alt="Plantilla Movilidad Rt–Rxo en crossplot" loading="lazy"></div><figcaption><b>Movilidad Rt–Rxo</b>Recta de agua arrastrable y movilidad por filtrado.</figcaption></figure>
           <figure tabindex="0" data-full="img/xp-57-xp-dn.webp" data-cap="Densidad–neutrón con líneas de arenisca, caliza y dolomía y la matriz del proyecto."><div class="frame"><img src="img/xp-57-xp-dn.webp" width="750" height="896" alt="Plantilla densidad–neutrón" loading="lazy"></div><figcaption><b>Densidad–neutrón</b>Litología y matriz aparente.</figcaption></figure>
           <figure tabindex="0" data-full="img/xp-55-xp-mn.webp" data-cap="M–N para identificar minerales."><div class="frame"><img src="img/xp-55-xp-mn.webp" width="750" height="896" alt="Plantilla M–N" loading="lazy"></div><figcaption><b>M–N</b>Puntos de cuarzo, calcita, dolomía, yeso.</figcaption></figure>
           <figure tabindex="0" data-full="img/xp-56-xp-thk.webp" data-cap="Torio–potasio con regiones de arcillas."><div class="frame"><img src="img/xp-56-xp-thk.webp" width="750" height="896" alt="Plantilla torio–potasio" loading="lazy"></div><figcaption><b>Torio–potasio</b>Caolinita, illita, capas mixtas, micas.</figcaption></figure>
@@ -886,12 +886,12 @@ dialog.lb button { position: absolute; top: 8px; right: 8px; width: 36px; height
           </div>
         </div>
         <div class="two" style="margin-top:24px">
-          <figure tabindex="0" data-full="img/micp-gargantas.png" data-cap="Análisis MICP y gargantas de poro: vista de laboratorio con presión en kg/cm², radios r35 y clases de garganta para las muestras del TP.">
-            <div class="frame"><img src="img/micp-gargantas.png" width="2880" height="1800" alt="Vista de laboratorio MICP y distribución de gargantas de poro"></div>
+          <figure tabindex="0" data-full="img/micp-gargantas.webp" data-cap="Análisis MICP y gargantas de poro: vista de laboratorio con presión en kg/cm², radios r35 y clases de garganta para las muestras del TP.">
+            <div class="frame"><img src="img/micp-gargantas.webp" width="2880" height="1800" alt="Vista de laboratorio MICP y distribución de gargantas de poro" loading="lazy"></div>
             <figcaption><b>Análisis MICP y gargantas de poro</b>Curvas de inyección de mercurio del TP (37 escalones) e importador CSV propio, con radios de garganta, ajuste de Thomeer y clases de poro.</figcaption>
           </figure>
-          <figure tabindex="0" data-full="img/micp-altura.png" data-cap="Usos petrofísicos del MICP: saturación por altura capilar sobre el contacto, permeabilidad relativa, relación con RMN y capacidad de sello.">
-            <div class="frame"><img src="img/micp-altura.png" width="2880" height="1800" alt="Panel de usos de las curvas MICP: altura capilar y capacidad de sello"></div>
+          <figure tabindex="0" data-full="img/micp-altura.webp" data-cap="Usos petrofísicos del MICP: saturación por altura capilar sobre el contacto, permeabilidad relativa, relación con RMN y capacidad de sello.">
+            <div class="frame"><img src="img/micp-altura.webp" width="2880" height="1800" alt="Panel de usos de las curvas MICP: altura capilar y capacidad de sello" loading="lazy"></div>
             <figcaption><b>Altura capilar, sello y CMR</b>Estimación de columna máxima retenida por el sello, función J / saturación por altura y cruce con agua ligada de RMN.</figcaption>
           </figure>
         </div>
@@ -955,16 +955,16 @@ dialog.lb button { position: absolute; top: 8px; right: 8px; width: 36px; height
             <p>Cuando el pozo cuenta con registros espectrales (<code>THOR</code>, <code>POTA</code> y <code>URAN</code>), el módulo <strong>CGR</strong> ajusta una regresión lineal sin intercepto o coeficientes estándar para separar el aporte de uranio del <code>GR</code> total, produciendo <code>CGR</code> y la fracción de uranio <code>U_GR_FRAC</code>.</p>
             <p>Podés elegir <strong>Índice de rayos gamma desde CGR</strong> como fuente alternativa del puerto <code>IGR</code> por zona y comparar el impacto en <code>VSH</code>, <code>PHIE</code> y pay sin alterar los valores por defecto del recorrido clásico, además de abrir la pista comparativa <strong>GR · CGR</strong> con relleno de exceso de uranio.</p>
           </div>
-          <figure tabindex="0" data-full="img/g06-cgr-espectral.png" data-cap="Rayos gamma sin uranio (CGR): ajuste espectral en el paso Arcilla y pista comparativa GR · CGR destacando el exceso de uranio.">
-            <div class="frame"><img src="img/g06-cgr-espectral.png" width="1366" height="768" alt="Módulo CGR sin uranio y pista GR · CGR"></div>
+          <figure tabindex="0" data-full="img/g06-cgr-espectral.webp" data-cap="Rayos gamma sin uranio (CGR): ajuste espectral en el paso Arcilla y pista comparativa GR · CGR destacando el exceso de uranio.">
+            <div class="frame"><img src="img/g06-cgr-espectral.webp" width="1366" height="768" alt="Módulo CGR sin uranio y pista GR · CGR" loading="lazy"></div>
           </figure>
         </div>
       </div>
 
       <div class="block" id="movilidad-sxo">
         <div class="split split--rev">
-          <figure tabindex="0" data-full="img/g07-movilidad-sxo.png" data-cap="Hidrocarburo móvil vs. residual (Sxo, MOS, SHR, MHI), crossplot Movilidad Rt–Rxo y partición en la pista Litología.">
-            <div class="frame"><img src="img/g07-movilidad-sxo.png" width="1366" height="768" alt="Panel Sxo/MOS y partición HC móvil / residual en el visor"></div>
+          <figure tabindex="0" data-full="img/g07-movilidad-sxo.webp" data-cap="Hidrocarburo móvil vs. residual (Sxo, MOS, SHR, MHI), crossplot Movilidad Rt–Rxo y partición en la pista Litología.">
+            <div class="frame"><img src="img/g07-movilidad-sxo.webp" width="1366" height="768" alt="Panel Sxo/MOS y partición HC móvil / residual en el visor" loading="lazy"></div>
           </figure>
           <div class="prose">
             <h3>Hidrocarburo móvil vs. residual (Sxo · MOS)</h3>
@@ -981,8 +981,8 @@ dialog.lb button { position: absolute; top: 8px; right: 8px; width: 36px; height
             <p>En <strong>Sumario → Capacidad de flujo y Lorenz</strong>, podés hacer clic sobre la curva <code>Fkh(Fφh)</code> para marcar o quitar quiebres hidráulicos (o usar <strong>Sugerir quiebres</strong> según sensibilidad), generando de tope a base las sub-unidades <code>S1…Sk</code> con <code>% φ·h</code>, <code>% k·h</code>, pendiente relativa y carácter operativo (<em>Conducto</em>, <em>Homogéneo</em>, <em>Barrera</em> o <em>Subordinado</em>).</p>
             <p>Permite proyectar las sub-unidades directamente sobre el visor y <strong>Partir zona en este quiebre</strong> en un paso reversible con <kbd>Ctrl</kbd> <kbd>Z</kbd>.</p>
           </div>
-          <figure tabindex="0" data-full="img/g03-smlp-lorenz.png" data-cap="Gráfico interactivo SMLP de Lorenz con quiebres hidráulicos, tabla de sub-unidades S1..Sk y superposición en el visor.">
-            <div class="frame"><img src="img/g03-smlp-lorenz.png" width="1366" height="768" alt="Unidades hidráulicas interactivas SMLP y tabla de Lorenz"></div>
+          <figure tabindex="0" data-full="img/g03-smlp-lorenz.webp" data-cap="Gráfico interactivo SMLP de Lorenz con quiebres hidráulicos, tabla de sub-unidades S1..Sk y superposición en el visor.">
+            <div class="frame"><img src="img/g03-smlp-lorenz.webp" width="1366" height="768" alt="Unidades hidráulicas interactivas SMLP y tabla de Lorenz" loading="lazy"></div>
           </figure>
         </div>
       </div>
@@ -1133,8 +1133,8 @@ dialog.lb button { position: absolute; top: 8px; right: 8px; width: 36px; height
               <li><strong>Mira interactiva</strong>: clic, arrastre o flechas del teclado (<kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd>, <kbd>Mayús</kbd> paso rápido) actualizan ambos cortes a la vez; un único <kbd>Ctrl</kbd> <kbd>Z</kbd> revierte los dos.</li>
             </ul>
           </div>
-          <figure tabindex="0" data-full="img/g09-superficie-2d.png" data-cap="Superficie 2D de cutoffs φ × Sw con mapa de calor, curvas de nivel, caja de tolerancia operativa y mira arrastrable.">
-            <div class="frame"><img src="img/g09-superficie-2d.png" width="1366" height="768" alt="Panel Superficie 2D de estabilidad de Cutoffs"></div>
+          <figure tabindex="0" data-full="img/g09-superficie-2d.webp" data-cap="Superficie 2D de cutoffs φ × Sw con mapa de calor, curvas de nivel, caja de tolerancia operativa y mira arrastrable.">
+            <div class="frame"><img src="img/g09-superficie-2d.webp" width="1366" height="768" alt="Panel Superficie 2D de estabilidad de Cutoffs" loading="lazy"></div>
           </figure>
         </div>
         <div class="three" style="margin-top:20px">
@@ -1147,14 +1147,37 @@ dialog.lb button { position: absolute; top: 8px; right: 8px; width: 36px; height
 
       <div class="block" id="coherencia">
         <div class="split split--rev">
-          <figure tabindex="0" data-full="img/g08-coherencia.png" data-cap="Panel Coherencia cruzada entre herramientas: auditoría de siete chequeos físicos por zona con semáforo y salto directo al tramo crítico.">
-            <div class="frame"><img src="img/g08-coherencia.png" width="1366" height="768" alt="Pestaña Coherencia cruzada entre herramientas en el dock"></div>
+          <figure tabindex="0" data-full="img/g08-coherencia.webp" data-cap="Panel Coherencia cruzada entre herramientas: auditoría de siete chequeos físicos por zona con semáforo y salto directo al tramo crítico.">
+            <div class="frame"><img src="img/g08-coherencia.webp" width="1366" height="768" alt="Pestaña Coherencia cruzada entre herramientas en el dock" loading="lazy"></div>
           </figure>
           <div class="prose">
             <h3>Coherencia cruzada entre herramientas (defensa del TP)</h3>
             <p>La pestaña <strong>Coherencia</strong> del dock (accesible también desde <em>Sumario</em> o <kbd>Ctrl</kbd> <kbd>K</kbd>) ejecuta una auditoría en vivo y de solo lectura con <strong>7 chequeos cruzados</strong> por zona: <em>Archie vs. Swi SCAL</em>, <em>agua ligada (Archie / RMN / SCAL)</em>, <em>porosidad (perfil / RMN / corona)</em>, <em>contactos MDT vs. Sw</em>, <em>capacidad de sello MICP</em>, <em>aporte de uranio al GR</em> y <em>movilidad del hidrocarburo</em>.</p>
             <p>Clasifica cada celda como <strong>Acuerdo</strong>, <strong>Atención</strong>, <strong>Tensión</strong> o <strong>Sin soporte</strong> (nunca oculta mediciones ausentes), lleva con un clic al tramo crítico en el visor y al panel involucrado, y se integra en el <strong>Informe HTML</strong> y en <strong>Copiar contexto para chat</strong>.</p>
           </div>
+        </div>
+      </div>
+
+      <div class="block" id="asistente">
+        <h3>Asistente sin modelo (v2) y modo «Preparar defensa»</h3>
+        <div class="prose">
+          <p>El panel <strong>Asistente</strong> funciona 100 % sin conexión ni modelos externos (sin LLM): combina un parser determinista con tolerancia tipográfica conservadora, memoria corta para repreguntas (<em>«¿y en la zona E?»</em>, <em>«¿y para gas?»</em>, <em>«¿y con Sw a 0,55?»</em>), autocompletado navegable con teclado y tablas interactivas con el botón <strong>Copiar con fuentes</strong>.</p>
+          <ul>
+            <li><strong>Consultas por dominio y volumetría</strong>: OOIP/OGIP, comparativas <em>A vs B</em>, rankings por métrica, coherencia cruzada, presiones MDT/EMW, SMLP/Lorenz, CGR/uranio, movilidad <code>Sxo/MOS/MHI</code>, MICP, capas punzables, Monte Carlo P90–P50–P10 y calibración con corona.</li>
+            <li><strong>Simulación exacta 1D/2D y aplicación atómica</strong>: simulaciones como <em>«Simular φ 0,12 y Sw 0,55 en zona D»</em> o <em>«Estabilidad 2D»</em> respetan overrides por zona y permiten aplicar ambos cortes en un clic reversible con un único <kbd>Ctrl</kbd> <kbd>Z</kbd>.</li>
+            <li><strong>Profundidad <code>@ MD</code>, trazabilidad y filtros al visor</strong>: responde <em>«¿Por qué a 7950 m no es pay?»</em>, traza entradas hasta <em>Origen</em>, evalúa filtros booleanos (<code>y</code>/<code>o</code>, <code>entre … y …</code>, conversión <code>% → v/v</code>) para resaltarlos directo en el visor o guardarlos como bandera discreta, y diagnostica sarta, grafo, Preparación y cambios respecto a snapshots.</li>
+            <li><strong>Modo «Preparar defensa»</strong>: audita automáticamente el pozo vigente y arma hasta 8 preguntas difíciles de examen oral ordenadas por severidad, con evidencia numérica, fuentes y exportación Markdown.</li>
+          </ul>
+        </div>
+        <div class="two" style="margin-top:20px">
+          <figure tabindex="0" data-full="img/asistente-v2-consultas.webp" data-cap="Asistente v2 en modo Preguntar: comparativa multi-zona inline con fuente citada, acciones rápidas de zona e historial contextual.">
+            <div class="frame"><img src="img/asistente-v2-consultas.webp" width="1366" height="768" alt="Asistente v2 comparando zonas con tabla inline" loading="lazy"></div>
+            <figcaption><b>Consultas y simulación</b>Tablas interactivas, filtros al visor y simulación 1D/2D.</figcaption>
+          </figure>
+          <figure tabindex="0" data-full="img/asistente-v2-defensa.webp" data-cap="Modo Preparar defensa del Asistente v2: auditoría automática de preguntas críticas para examen oral con evidencia real y acceso directo al visor y cutoffs.">
+            <div class="frame"><img src="img/asistente-v2-defensa.webp" width="1366" height="768" alt="Asistente v2 en modo Preparar defensa con tarjetas de examen oral" loading="lazy"></div>
+            <figcaption><b>Preparar defensa</b>Tarjetas priorizadas con evidencia real para defender la interpretación.</figcaption>
+          </figure>
         </div>
       </div>
 
@@ -1166,7 +1189,7 @@ dialog.lb button { position: absolute; top: 8px; right: 8px; width: 36px; height
           <div class="card"><h4><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="11" r="6"/><path d="M10 8v3M8 2h4"/></svg>Cronómetro</h4><p>Mide el recorrido completo desde la carga. Se reinicia desde la paleta.</p></div>
           <div class="card"><h4><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 17V7l7-4 7 4v10"/><path d="M7 17v-5h6v5"/></svg>Entrenador</h4><p>Genera un pozo sintético con porosidad y Sw conocidas (semilla opcional, ruido de medición). Interpretás y al <em>Corregir ejercicio</em> compara tu resultado con la verdad sembrada.</p></div>
           <div class="card"><h4><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3h8v4a4 4 0 0 1-8 0zM10 11v4M7 17h6"/></svg>Torneo contra corona</h4><p>Combina métodos de Vsh, porosidad y Sw y los ordena por ajuste a la corona. Aplicar una combinación guarda un snapshot y se deshace.</p></div>
-          <div class="card"><h4><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h12v9H8l-4 3z"/></svg>Asistente sin modelo</h4><p>Preguntas sobre el pozo («Mostrame Sw en la zona D», «¿Por qué la zona C tiene poco pay?», «¿Cómo funciona Archie?») respondidas con reglas y los datos del proyecto, citando la fuente. Funciona sin internet.</p></div>
+          <div class="card"><h4><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h12v9H8l-4 3z"/></svg>Asistente sin modelo (v2)</h4><p>Preguntas deterministas multi-dominio, simulación exacta 1D/2D con Ctrl+Z, filtros booleanos al visor, consultas @ MD y modo «Preparar defensa», todo offline sin LLM.</p></div>
           <div class="card"><h4><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="6" y="6" width="11" height="11" rx="2"/><path d="M3 13V3h10"/></svg>Copiar contexto para un chat</h4><p>Copia un resumen del pozo, zonas, métodos y resultados listo para pegar en un chat con una IA.</p></div>
           <div class="card"><h4><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5h12M4 10h12M4 15h7"/></svg>Lectura automática</h4><p>Resume en texto qué tramos son candidatos a gas, petróleo, agua o dudosos, por qué y con qué confianza.</p></div>
           <div class="card"><h4><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 17h14M5 17V9M9 17V5M13 17v-6"/></svg>Distribuciones por zona</h4><p>Cajas o histogramas de una propiedad por zona, reservorio o pay, comparando la interpretación actual con la corona.</p></div>
@@ -1174,8 +1197,11 @@ dialog.lb button { position: absolute; top: 8px; right: 8px; width: 36px; height
       </div>
 
       <div class="block">
-        <div class="two">
-          <figure tabindex="0" data-full="img/38-asistente.webp" data-cap="Asistente: respuesta sobre la zona C con la fuente y accesos al sumario y los cutoffs."><div class="frame"><img src="img/p-38-asistente.webp" width="750" height="1576" alt="Asistente respondiendo sobre la zona C" loading="lazy" style="max-height:520px;object-fit:cover;object-position:top"></div><figcaption><b>Asistente</b>«¿Por qué la zona C tiene poco pay?»</figcaption></figure>
+        <div class="split">
+          <div class="prose">
+            <h3>Entrenador con verdad sembrada</h3>
+            <p>Genera un pozo sintético con porosidad y Sw reales conocidas a partir de una semilla opcional y ruido controlado, para practicar el recorrido completo y validar tus criterios frente a la solución exacta.</p>
+          </div>
           <figure tabindex="0" data-full="img/40-entrenador.webp" data-cap="Entrenador: semilla y ruido de medición."><div class="frame"><img src="img/40-entrenador.webp" width="1800" height="1125" alt="Diálogo del entrenador" loading="lazy"></div><figcaption><b>Entrenador</b>Un pozo con respuesta conocida para practicar.</figcaption></figure>
         </div>
       </div>
@@ -1225,9 +1251,9 @@ dialog.lb button { position: absolute; top: 8px; right: 8px; width: 36px; height
       <div class="block">
         <div class="split">
           <div class="prose">
-            <h3>Ecuaciones</h3>
-            <p>La única pantalla con fórmulas. Lista las <strong>62 fichas documentadas</strong> por categoría con su resumen, ecuaciones numeradas, tabla de parámetros (unidad, valor por defecto, rango, si es por zona) y referencias bibliográficas. Buscador integrado por nombre, parámetro y factor de formación (<code>a</code>, <code>m</code>, <code>F</code>).</p>
-            <p class="small">Se abre con Σ en la barra superior, desde cualquier panel de paso o con la paleta («ecuaciones»).</p>
+            <h3>Ecuaciones y manual de uso</h3>
+            <p>La pantalla <strong>Ecuaciones</strong> (ícono Σ en la barra superior) es el único lugar con fórmulas: lista las <strong>62 fichas documentadas</strong> por categoría con su resumen, ecuaciones numeradas, tabla de parámetros (unidad, valor por defecto, rango, si es por zona) y referencias bibliográficas. Buscador integrado por nombre, parámetro y factor de formación (<code>a</code>, <code>m</code>, <code>F</code>).</p>
+            <p class="small">El <strong>Manual de uso</strong> completo se abre integrado dentro de la app (ícono de libro en la barra superior, <kbd>Ctrl</kbd> <kbd>K</kbd> → <em>Abrir el manual de uso</em> o desde la pantalla de Inicio), con tema sincronizado, impresión a PDF y apertura en pestaña nueva sin conexión.</p>
           </div>
           <figure tabindex="0" data-full="img/31-ecuaciones.webp" data-cap="Ecuaciones del volumen in situ."><div class="frame"><img src="img/31-ecuaciones.webp" width="1800" height="1125" alt="Pantalla de ecuaciones" loading="lazy"></div></figure>
         </div>
@@ -1342,14 +1368,19 @@ dialog.lb button { position: absolute; top: 8px; right: 8px; width: 36px; height
 
   /* ---------- Tema ---------- */
   const root = document.documentElement;
-  const setTheme = (t) => {
+  const setTheme = (t, persist = true) => {
     if (t === 'system') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', t);
     $$('.rail__theme button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.t === t)));
-    try { localStorage.setItem('manual.theme', t); } catch (e) {}
+    if (persist) { try { localStorage.setItem('manual.theme', t); } catch (e) {} }
     requestAnimationFrame(drawRail);
   };
-  $$('.rail__theme button').forEach((b) => b.addEventListener('click', () => setTheme(b.dataset.t)));
-  try { const t = localStorage.getItem('manual.theme'); if (t) setTheme(t); } catch (e) {}
+  $$('.rail__theme button').forEach((b) => b.addEventListener('click', () => setTheme(b.dataset.t, true)));
+  const presetTheme = root.getAttribute('data-theme');
+  if (presetTheme === 'light' || presetTheme === 'dark') {
+    setTheme(presetTheme, false);
+  } else {
+    try { const t = localStorage.getItem('manual.theme'); if (t) setTheme(t, false); } catch (e) {}
+  }
 
   /* ---------- Pasos del flujo ---------- */
   const steps = [
@@ -1447,7 +1478,7 @@ dialog.lb button { position: absolute; top: 8px; right: 8px; width: 36px; height
   /* ---------- Atajos ---------- */
   const K = (s) => s.split(' ').map((x) => x === '·' || x === 'o' || x === '+' ? `<span>${x}</span>` : `<kbd>${x}</kbd>`).join('');
   const keys = [
-    ['General', [['Paleta, parámetros y factor de formación', 'Ctrl K'], ['Abrir Coherencia cruzada', 'Ctrl K → Coherencia'], ['Hoja de atajos', '?'], ['Cerrar o cancelar', 'Esc']]],
+    ['General', [['Paleta, parámetros y factor de formación', 'Ctrl K'], ['Abrir el manual de uso en la app', 'Ctrl K → Manual'], ['Abrir Coherencia cruzada', 'Ctrl K → Coherencia'], ['Hoja de atajos', '?'], ['Cerrar o cancelar', 'Esc']]],
     ['Edición y proyecto', [['Deshacer (incluye mira 2D y SMLP)', 'Ctrl Z'], ['Rehacer', 'Ctrl Mayús Z o Ctrl Y'], ['Guardar el proyecto', 'Ctrl S'], ['Abrir un proyecto', 'Ctrl O'], ['Exportar datos y figuras', 'Ctrl E']]],
     ['Visor', [['Mover el cursor', '↑ ↓'], ['Desplazar una pantalla', 'RePág · AvPág'], ['Tope o base del pozo', 'Inicio · Fin'], ['Acercar o alejar', '+ · −'], ['Ver todo el pozo', '0'], ['Mover tope, plug o punto', '↑ ↓ · Mayús ×10'], ['Menú del perfil / ficha de intervalo', 'Mayús F10']]],
     ['Lupa', [['Abrir la lupa (1:200)', 'L'], ['Cambiar el aumento', 'Rueda'], ['Cerrar la lupa', 'Esc']]],

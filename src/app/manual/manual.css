@@ -1,0 +1,25 @@
+/* Visor del manual de uso embebido (0095). Solo tokens del sistema de diseño. */
+
+.manual-dialog .ui-dialog__body {
+  overflow: hidden;
+}
+
+.manual-dialog__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.manual-dialog__frame {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 0;
+  display: block;
+  background: var(--color-bg);
+  border-bottom-left-radius: var(--radius-lg);
+  border-bottom-right-radius: var(--radius-lg);
+}

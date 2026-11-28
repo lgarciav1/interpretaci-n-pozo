@@ -14,6 +14,7 @@ import { useViewer } from '../store/viewer';
 import { IS_MAC, REDO_SHORTCUT, UNDO_SHORTCUT, redoChange, undoChange } from './historyActions';
 import { openProjectFile, saveProject } from './projectActions';
 import { openEquations } from '../ecuaciones/open';
+import { openManual } from '../manual/open';
 import { openHome } from '../home/actions';
 import { formatAgo, formatClock, useAutosave } from '../autosave';
 import { toggleDefense } from '../views/actions';
@@ -265,6 +266,7 @@ export function TopBar() {
           onClick={toggleDefense}
           data-testid="defense-toggle"
         />
+        <IconButton icon="book" label="Manual de uso" onClick={() => openManual()} data-testid="manual-open" />
         <IconButton icon="sigma" label="Ecuaciones de los métodos" onClick={() => openEquations()} data-testid="equations-open" />
         <IconButton icon="search" label="Paleta de comandos" hint={IS_MAC_PLATFORM ? '⌘K' : 'Ctrl+K'} aria-keyshortcuts={IS_MAC_PLATFORM ? 'Meta+K' : 'Control+K'} onClick={openCommandPalette} data-testid="command-open" />
         <Preferences />
