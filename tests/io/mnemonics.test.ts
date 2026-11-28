@@ -80,7 +80,8 @@ describe('suggestRole', () => {
   it('todo rol sugerido existe y su unidad es compatible con la canónica', () => {
     const roles = new Map(BUILTIN_ROLES.map((r) => [r.id, r.unit]));
     for (const m of ['GR', 'CGR', 'SGR', 'RHOB', 'DRHO', 'NPHI', 'DT', 'DTS', 'PEF', 'PE', 'CAL', 'BS', 'SP', 'RT', 'RM', 'RS', 'RXO',
-      'URAN', 'THOR', 'POTA', 'PHIT_CMR', 'PHIE_CMR', 'PHI_BVI', 'TEMP']) {
+      'URAN', 'THOR', 'POTA', 'PHIT_CMR', 'PHIE_CMR', 'PHI_BVI', 'TEMP',
+      'GRAFM', 'BDCFM', 'DRHFM', 'NPCKLFM', 'DPEFM', 'RACELM', 'RPCELM', 'RACEHM', 'RPCEHM', 'TCDM']) {
       const s = suggestRole(m);
       expect(roles.has(s.role!), m).toBe(true);
       expect(sameDimension(s.unit!, roles.get(s.role!)!), m).toBe(true);

@@ -77,4 +77,12 @@ describe('alias con micro', () => {
     expect(parseUnit('μs/ft')).toBe('us/ft');
     expect(parseUnit('us/m')).toBe('us/m');
   });
+
+  it('reconoce v/v_decimal y unidades encerradas entre corchetes', () => {
+    expect(parseUnit('v/v_decimal')).toBe('v/v');
+    expect(parseUnit('[M]')).toBe('m');
+    expect(parseUnit('[K/M3]')).toBe('kg/m3');
+    expect(parseUnit('[US/M]')).toBe('us/m');
+    expect(parseUnit('[OHMM]')).toBe('ohm.m');
+  });
 });

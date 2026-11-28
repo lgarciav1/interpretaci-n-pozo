@@ -250,4 +250,15 @@ describe('io/core: unidad pegada al nombre (sin paréntesis)', () => {
   it('«MD» sola sigue siendo profundidad medida', () => {
     expect(colsOf('MD,PHI,K\n2500,0.1,5\n')['MD']).toMatchObject({ field: 'depth', unit: 'm' });
   });
+
+  it('reconoce nomenclatura de corona Equinor Volve (CKHL > CKHG, CGD e ignora CKVG/CKVL)', () => {
+    const c = colsOf('DEPTH,CKHG,CKHL,CKVG,CKVL,CPOR,CGD,CGDV\n3839,25.2,21.4,3.94,3.16,10.8,2.69,\n');
+    expect(c['CKHL']).toMatchObject({ field: 'k', confidence: 'high' });
+    expect(c['CKHG']).toMatchObject({ field: 'ignore' });
+    expect(c['CKVG']).toMatchObject({ field: 'ignore' });
+    expect(c['CKVL']).toMatchObject({ field: 'ignore' });
+    expect(c['CGD']).toMatchObject({ field: 'rhog', confidence: 'high' });
+    expect(c['CGDV']).toMatchObject({ field: 'ignore' });
+    expect(c['CPOR']).toMatchObject({ field: 'phi', confidence: 'high' });
+  });
 });

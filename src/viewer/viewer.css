@@ -370,10 +370,11 @@
 /* Encabezado de pozo (franja bajo la barra) */
 .wv-header { flex: none; border-bottom: 1px solid var(--color-border-subtle); background: var(--color-surface-subtle); }
 .wv-header__row { display: flex; align-items: center; gap: var(--space-4); min-height: calc(30px * var(--ui-scale)); padding: 0 var(--space-2) 0 var(--space-3); }
-.wv-header__facts { display: flex; align-items: center; gap: var(--space-4); min-width: 0; margin: 0; overflow: hidden; }
+.wv-header__facts { display: flex; align-items: center; gap: var(--space-4); flex: 1 1 0; min-width: 0; margin: 0; overflow: hidden; }
 .wv-header__facts--end { flex: none; margin-left: auto; }
-.wv-header__fact { display: flex; align-items: baseline; gap: var(--space-1-5); min-width: 0; font-size: var(--text-xs); white-space: nowrap; }
-.wv-header__fact dt { color: var(--color-text-subtle); font-weight: var(--weight-medium); letter-spacing: var(--tracking-wide); text-transform: uppercase; font-size: calc(10px * var(--ui-scale)); }
+.wv-header__fact { display: flex; align-items: baseline; gap: var(--space-1-5); flex: 0 0 auto; min-width: 0; overflow: hidden; font-size: var(--text-xs); white-space: nowrap; }
+.wv-header__facts:not(.wv-header__facts--end) .wv-header__fact { max-width: calc(220px * var(--ui-scale)); }
+.wv-header__fact dt { flex: none; color: var(--color-text-subtle); font-weight: var(--weight-medium); letter-spacing: var(--tracking-wide); text-transform: uppercase; font-size: calc(10px * var(--ui-scale)); }
 .wv-header__fact dd { margin: 0; overflow: hidden; color: var(--color-text); font-weight: var(--weight-medium); text-overflow: ellipsis; }
 .wv-header__fact--empty dd { color: var(--color-text-muted); font-weight: var(--weight-regular); }
 .wv-header__sub { color: var(--color-text-subtle); font-weight: var(--weight-regular); }

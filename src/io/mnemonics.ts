@@ -35,27 +35,31 @@ function add(role: RoleId | null, unit: UnitId, confidence: Entry['confidence'],
 // Pozo
 add('CALI', 'in', 'high', ['CALI', 'CAL', 'HCAL', 'CALIPER', 'CAL1', 'CALS', 'CALX', 'CALA']);
 add('BS', 'in', 'high', ['BS', 'BIT', 'BITSIZE', 'BIT_SIZE', 'BSZ']);
-add('TEMP', 'degC', 'medium', ['TEMP', 'TEMPERATURE', 'TEMPR', 'TEMP_BH']);
+add('TEMP', 'degC', 'medium', ['TEMP', 'TEMPERATURE', 'TEMPR', 'TEMP_BH', 'TCDM']);
 // Litología
 add('GR', 'gAPI', 'high', ['GR', 'GRC', 'GAMMA', 'GAM', 'GR_EDTC']);
-add('GR', 'gAPI', 'medium', ['SGR']); // gamma ray espectral total: aproxima al GR
+add('GR', 'gAPI', 'medium', ['SGR', 'GRAFM']); // gamma ray espectral total / LWD: aproxima al GR
 add('CGR', 'gAPI', 'high', ['CGR', 'HCGR', 'ECGR']); // sin uranio
 add('SP', 'mV', 'high', ['SP', 'SPONT']);
 add('PEF', 'b/e', 'high', ['PEF', 'PE', 'PEFZ', 'PEFL', 'PEFS', 'PEFA']);
+add('PEF', 'b/e', 'medium', ['DPEFM']);
 // Porosidad medida
 add('RHOB', 'g/cm3', 'high', ['RHOB', 'RHOZ', 'ZDEN', 'RHOB_1', 'DENB']);
-add('RHOB', 'g/cm3', 'medium', ['DEN', 'DENS', 'DENSITY', 'RHO']);
+add('RHOB', 'g/cm3', 'medium', ['DEN', 'DENS', 'DENSITY', 'RHO', 'BDCFM']);
 add('DRHO', 'g/cm3', 'high', ['DRHO', 'ZCOR', 'DRH', 'HDRA', 'DRHB']);
+add('DRHO', 'g/cm3', 'medium', ['DRHFM']);
 add('NPHI', 'v/v', 'high', ['NPHI', 'NPOR', 'TNPH', 'NPHI_LS', 'NPHI_SS', 'NPHI_DOL', 'SNP']);
-add('NPHI', 'v/v', 'medium', ['CNL', 'NEU', 'NEUT', 'NEUTRON']);
+add('NPHI', 'v/v', 'medium', ['CNL', 'NEU', 'NEUT', 'NEUTRON', 'NPCKLFM']);
 add('DT', 'us/ft', 'high', ['DT', 'DTC', 'DTCO', 'DTP', 'DT4P', 'DTCOMP']);
 add('DT', 'us/ft', 'medium', ['AC', 'SONIC', 'DELTAT']);
 add('DTS', 'us/ft', 'high', ['DTS', 'DTSM', 'DTSH', 'DT4S', 'DTSHEAR']);
 // Resistividad. AT90 = Rt, AT60 = Rm (datos/README.md). La inducción de arreglo más somera tiene roles propios (RA10/20/30, fase 8b).
 add('RT', 'ohm.m', 'high', ['RT', 'AT90', 'ILD', 'LLD', 'RDEP', 'RILD', 'LLDC', 'RLLD', 'AHT90', 'AF90', 'M2R9', 'RLA5', 'HDRS', 'RT90']);
-add('RT', 'ohm.m', 'medium', ['RD', 'RESD', 'RESDEEP', 'RES_DEEP']);
+add('RT', 'ohm.m', 'medium', ['RD', 'RESD', 'RESDEEP', 'RES_DEEP', 'RACELM']);
 add('RM', 'ohm.m', 'high', ['RM', 'AT60', 'ILM', 'RILM', 'AHT60', 'AF60', 'M2R6', 'RLA3', 'RMED', 'LLM']);
+add('RM', 'ohm.m', 'medium', ['RPCELM', 'RACEHM']);
 add('RS', 'ohm.m', 'high', ['RS', 'SFL', 'SFLU', 'RSFL', 'RESS', 'LLS']);
+add('RS', 'ohm.m', 'medium', ['RPCEHM']);
 add('RXO', 'ohm.m', 'high', ['RXO', 'MSFL', 'RMSFL', 'MCFL', 'RXOZ', 'RXO8', 'MLL', 'PROX']);
 add('RA10', 'ohm.m', 'high', ['AT10', 'AHT10', 'AF10', 'M2R1']);
 add('RA20', 'ohm.m', 'high', ['AT20', 'AHT20', 'AF20', 'M2R2']);

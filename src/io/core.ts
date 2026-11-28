@@ -82,16 +82,16 @@ function fieldByName(name: string): { field: CoreField; confidence: Confidence }
   if (has('FF', 'FRF', 'FORMATIONFACTOR', 'FACTORFORMACION') || starts('FORMATION_FACTOR', 'FACTOR_DE_FORMACION', 'FACTOR_FORMACION', 'FORM_FACTOR')) return { field: 'ff', confidence: 'high' };
   if (has('F') && t.size === 1) return { field: 'ff', confidence: 'medium' };
   // Densidad de grano antes que profundidad o porosidad («GRAIN DENSITY», «Densidad de grano»).
-  if (has('RHOG', 'GD', 'GDEN', 'RHOMA', 'DGRANO', 'GRAIN', 'GRANO', 'RHO_G', 'MATRIX') || starts('RHOG', 'RHO_G', 'GRAIN_DEN', 'DENSIDAD_DE_GRANO', 'DENS_GRANO')) return { field: 'rhog', confidence: 'high' };
+  if (has('RHOG', 'GD', 'GDEN', 'RHOMA', 'DGRANO', 'GRAIN', 'GRANO', 'RHO_G', 'MATRIX', 'CGD') || starts('RHOG', 'RHO_G', 'GRAIN_DEN', 'DENSIDAD_DE_GRANO', 'DENS_GRANO')) return { field: 'rhog', confidence: 'high' };
   if (has('DEPTH', 'DEPT', 'MD', 'PROF', 'PROFUNDIDAD', 'COTA', 'MDKB') || starts('PROFUND', 'MEASURED')) return { field: 'depth', confidence: 'high' };
   // Vertical: no es la k del modelo (horizontal); se ignora salvo que el usuario la elija.
-  if (has('KV', 'KVERT', 'KVERTICAL', 'VERTICAL') || starts('KV_', 'K_V')) return null;
+  if (has('KV', 'KVERT', 'KVERTICAL', 'VERTICAL', 'CKVG', 'CKVL') || starts('KV_', 'K_V')) return null;
   if (has('PHI', 'POR', 'PORO', 'POROSIDAD', 'POROSITY', 'CPOR', 'CPHI', 'PHIC', 'PHIHE', 'PHI_HE', 'HEPOR', 'PHICORE') || starts('PHI', 'PORO', 'CPOR')) {
     return { field: 'phi', confidence: 'high' };
   }
-  if (has('KLINK', 'KL', 'KLINKENBERG', 'KKLINK')) return { field: 'k', confidence: 'high' };
+  if (has('KLINK', 'KL', 'KLINKENBERG', 'KKLINK', 'CKHL')) return { field: 'k', confidence: 'high' };
   // Al aire: sirve, pero si también está la corregida por Klinkenberg, gana esa.
-  if (has('KAIR', 'KA', 'AIR', 'AIRE', 'KAIRE') || starts('KAIR')) return { field: 'k', confidence: 'medium' };
+  if (has('KAIR', 'KA', 'AIR', 'AIRE', 'KAIRE', 'CKHG') || starts('KAIR')) return { field: 'k', confidence: 'medium' };
   if (has('K', 'PERM', 'PERMEABILIDAD', 'PERMEABILITY', 'KH', 'KHOR', 'KMAX', 'KCORE', 'CPERM', 'KPLUG') || starts('PERM', 'KH_')) return { field: 'k', confidence: 'high' };
   if (has('CORE', 'CORONA', 'RUN', 'CORRIDA', 'CORENO', 'CORE#') || starts('CORE', 'CORON')) return { field: 'run', confidence: 'high' };
   if (has('DESC', 'DESCRIPCION', 'DESCRIPTION', 'LITO', 'LITOLOGIA', 'LITHOLOGY', 'LITH', 'OBS', 'OBSERVACIONES', 'COMENTARIO', 'COMENTARIOS', 'COMMENT', 'COMMENTS', 'REMARKS', 'NOTAS')) {

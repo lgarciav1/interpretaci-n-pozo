@@ -183,7 +183,7 @@ const BUILTIN_ALIASES: Record<string, UnitId> = {
   'LB/GAL': 'lb/gal', PPG: 'lb/gal', 'LBM/GAL': 'lb/gal',
   'US/FT': 'us/ft', 'US/F': 'us/ft', 'USEC/FT': 'us/ft', 'µS/FT': 'us/ft', 'MICROS/FT': 'us/ft',
   'US/M': 'us/m', 'USEC/M': 'us/m', 'µS/M': 'us/m',
-  'V/V': 'v/v', DEC: 'v/v', FRAC: 'v/v', FRACTION: 'v/v', 'M3/M3': 'v/v', CFCF: 'v/v',
+  'V/V': 'v/v', 'V/V_DECIMAL': 'v/v', DEC: 'v/v', FRAC: 'v/v', FRACTION: 'v/v', 'M3/M3': 'v/v', CFCF: 'v/v',
   '%': '%', PU: '%', PCT: '%', PERCENT: '%',
   DEGC: 'degC', '°C': 'degC', C: 'degC',
   DEGF: 'degF', '°F': 'degF',
@@ -239,8 +239,11 @@ export function unitLabel(id: UnitId): string {
 }
 
 function normalizeAlias(text: string): string {
+  // Algunos LAS viejos encierran la unidad entre corchetes (`[M]`, `[K/M3]`).
+  let s = text.trim();
+  if (s.startsWith('[') && s.endsWith(']') && s.length > 2) s = s.slice(1, -1).trim();
   // µ (U+00B5) y μ (U+03BC) se unifican: ambos se usan para "micro" en los archivos.
-  return text.trim().replace(/\u00b5/g, '\u03bc').toUpperCase().replace(/\s+/g, ' ');
+  return s.replace(/\u00b5/g, '\u03bc').toUpperCase().replace(/\s+/g, ' ');
 }
 
 /** Interpreta un texto de unidad tal como aparece en un archivo. Devuelve null si no se reconoce. */
